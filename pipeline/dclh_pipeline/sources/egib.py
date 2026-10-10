@@ -20,8 +20,6 @@ from typing import Any, ClassVar
 
 import geopandas as gpd
 import pandas as pd
-import shapely
-from shapely.geometry.base import BaseGeometry
 
 from dclh_pipeline.config import SourceSpec
 from dclh_pipeline.http import PoliteClient
@@ -58,7 +56,12 @@ def tile_bbox(bbox: BBox, size_m: float = TILE_M) -> list[BBox]:
 
 
 def getfeature_params(bbox: BBox, *, start: int, count: int) -> dict[str, str | int]:
-    """WFS 2.0 GetFeature query for one page of parcels inside `bbox` (shared with `dclh capture-sample`)."""
+    """WFS 2.0 GetFeature query for one page of parcels inside `bbox` (shared with `dclh capture-sample`).
+
+    `bbox` is (easting, northing, easting, northing). The EPSG:2180 URN means northing-first in WFS 2.0, so
+    the request sends northing first. Sending easting first searches the wrong area (checked: the CGE Konin
+    sample came back as Poddębice parcels).
+    """
     x0, y0, x1, y1 = bbox
     return {
         "service": "WFS",
@@ -66,7 +69,7 @@ def getfeature_params(bbox: BBox, *, start: int, count: int) -> dict[str, str | 
         "request": "GetFeature",
         "typeNames": LAYER,
         "srsName": SRS,
-        "bbox": f"{x0},{y0},{x1},{y1},urn:ogc:def:crs:EPSG::2180",
+        "bbox": f"{y0},{x0},{y1},{x1},urn:ogc:def:crs:EPSG::2180",  # northing, easting
         "count": count,
         "startIndex": start,
     }
@@ -169,19 +172,14 @@ def _empty() -> gpd.GeoDataFrame:
     )
 
 
-def _swap_axes(geom: BaseGeometry) -> BaseGeometry:
-    return shapely.transform(geom, lambda coords: coords[:, ::-1])
-
-
 def read_page(path: Path) -> gpd.GeoDataFrame:
-    """One stored WFS page as a GeoDataFrame in EPSG:2180 with (easting, northing) coordinates.
+    """One stored WFS page as a GeoDataFrame in EPSG:2180, coordinates (easting, northing).
 
-    GDAL reads EPSG:2180 GML in northing-first order (the EPSG axis order), but the service writes
-    easting first. Checked on the CGE Konin live sample: the raw posList starts with 448649 484758, which is
-    52.229 N 18.248 E, and GDAL's bounds come out as (484548, 448436, ...). So the axes are swapped back here.
+    GDAL applies the EPSG axis order (northing first) when it reads the GML, and gives easting-northing
+    geometries. Checked on the CGE Konin sample against ULDK: the parcel 101103_5.0011.1 comes out at
+    easting 485065, northing 448637, which is the same place as ULDK's geometry for that id.
     """
     frame = gpd.read_file(path)
-    frame = frame.set_geometry(frame.geometry.map(_swap_axes))
     return frame.set_crs(SRS, allow_override=True) if frame.crs is None else frame.to_crs(SRS)
 
 

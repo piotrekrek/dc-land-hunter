@@ -1,4 +1,4 @@
-"""Tests on the real CGE Konin sample (tests/fixtures/live/cge-konin), captured from the live services."""
+"""Tests on the real live responses in tests/fixtures/live/poddebice-axis-order-check (captured from the services)."""
 
 from __future__ import annotations
 
@@ -17,10 +17,10 @@ from dclh_pipeline.sources.egib import EgibConnector, read_page
 from dclh_pipeline.sources.uldk import parse_point
 from tests.conftest import FIXTURES
 
-LIVE = FIXTURES / "live" / "cge-konin"
+LIVE = FIXTURES / "live" / "poddebice-axis-order-check"
 EGIB_SAMPLE = LIVE / "egib_getfeature.gml"
 ULDK_SAMPLE = LIVE / "uldk_getparcelbyxy.txt"
-KONIN_BOX = (18.20, 52.20, 18.30, 52.26)  # lon/lat around the city, north part included
+PODDEBICE_BOX = (18.70, 51.85, 18.90, 51.95)  # lon/lat around parcel 101103_5.0011.1 (confirmed by ULDK)
 ID_PATTERN = re.compile(r"^\d{6}_\d+\.\d{4}\.\S+$")
 _to_wgs = Transformer.from_crs(2180, 4326, always_xy=True)
 
@@ -43,11 +43,19 @@ def test_parcel_ids_have_the_teryt_form_and_are_unique(parcels) -> None:  # type
     assert len(set(ids)) == len(ids)
 
 
-def test_axes_are_restored_so_parcels_are_in_konin(parcels) -> None:  # type: ignore[no-untyped-def]
-    lon_min, lat_min, lon_max, lat_max = KONIN_BOX
+def test_parcels_are_where_uldk_puts_them(parcels) -> None:  # type: ignore[no-untyped-def]
+    # Parcel 101103_5.0011.1: ULDK puts it in Poddębice, and GDAL's easting-northing geometry agrees.
+    lon_min, lat_min, lon_max, lat_max = PODDEBICE_BOX
     for geom in parcels.geometry:
         lon, lat = _to_wgs.transform(geom.centroid.x, geom.centroid.y)
         assert lon_min < lon < lon_max and lat_min < lat < lat_max, (lon, lat)
+
+
+def test_request_bbox_is_northing_first() -> None:
+    from dclh_pipeline.sources.egib import getfeature_params
+
+    params = getfeature_params((448_594.0, 485_514.0, 449_194.0, 486_114.0), start=0, count=20)
+    assert params["bbox"] == "485514.0,448594.0,486114.0,449194.0,urn:ogc:def:crs:EPSG::2180"
 
 
 def test_registered_area_is_empty_so_the_geometry_area_is_used(parcels) -> None:  # type: ignore[no-untyped-def]
