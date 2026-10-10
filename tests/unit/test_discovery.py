@@ -7,18 +7,21 @@ import httpx
 import pytest
 from defusedxml import EntitiesForbidden
 
-from dclh_pipeline.config import OgcProbe, PageProbe, SourceSpec, load_sources
+from dclh_pipeline.config import HttpProbe, OgcProbe, PageProbe, SourceSpec, load_sources
 from dclh_pipeline.discovery import (
     BEGIN_MARK,
     END_MARK,
+    DiscoveryReport,
     ProbeOutcome,
     ProbeResult,
+    SourceDiscovery,
     SourceStatus,
     classify,
     discover,
     extract_endpoints,
     keyword_links,
     parse_capabilities,
+    probe_http,
     probe_ogc,
     probe_page,
     render_markdown,
@@ -122,6 +125,31 @@ def test_probe_page_scans_same_origin_scripts(make_client: ClientFactory) -> Non
     assert "https://operator.example.pl/api/gpz/moce.json" in result.details["endpoint_candidates"]
     assert len(result.details["keyword_links"]) == 1
     assert not any("cdn.example.org" in u for u in requested)  # third-party scripts are not fetched
+
+
+def test_redirect_is_recorded_and_listed_for_review(make_client: ClientFactory) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        if request.url.host == "old.example.pl":
+            return httpx.Response(301, headers={"location": "https://parked.example.net/sprzedaz"})
+        return httpx.Response(200, text="ok", headers={"content-type": "text/plain"})
+
+    probe = HttpProbe(kind="http", method="GET", url="https://old.example.pl/mapa")  # type: ignore[arg-type]
+    result = probe_http(make_client(handler), probe)
+    assert result.redirect_status == 301
+    assert result.final_url == "https://parked.example.net/sprzedaz"
+
+    report = DiscoveryReport(
+        started_at="2026-10-10T22:00:00",
+        finished_at="2026-10-10T22:01:00",
+        user_agent="test",
+        ran_from="test",
+        sources=[SourceDiscovery("x", "X", "mvp", SourceStatus.PARTIAL, [result])],
+    )
+    md = render_markdown(report)
+    assert "Przekierowania do przeglądu" in md
+    assert "inna domena" in md  # cross-domain redirects are the parked-domain risk
 
 
 def _r(kind: str, outcome: ProbeOutcome) -> ProbeResult:

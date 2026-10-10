@@ -86,6 +86,7 @@ class ProbeResult:
     status_code: int | None = None
     content_type: str | None = None
     final_url: str | None = None
+    redirect_status: int | None = None  # status of the first hop, when the request was redirected
     elapsed_ms: int | None = None
     size_bytes: int | None = None
     details: dict[str, Any] = field(default_factory=dict)
@@ -269,6 +270,7 @@ def _base_result(probe: Probe, resp: httpx.Response, started: float) -> ProbeRes
         status_code=resp.status_code,
         content_type=resp.headers.get("content-type"),
         final_url=str(resp.url),
+        redirect_status=resp.history[0].status_code if resp.history else None,
         elapsed_ms=int((time.monotonic() - started) * 1000),
         size_bytes=int(resp.headers["content-length"])
         if resp.headers.get("content-length", "").isdigit()
@@ -515,6 +517,15 @@ def _probe_summary(r: ProbeResult) -> str:
     return " · ".join(bits)
 
 
+def _redirects(report: DiscoveryReport) -> list[tuple[str, ProbeResult]]:
+    return [
+        (s.source_id, r)
+        for s in report.sources
+        for r in s.probes
+        if r.redirect_status and r.final_url != r.url
+    ]
+
+
 def render_markdown(report: DiscoveryReport) -> str:
     lines = [
         f"Run: {report.started_at[:16].replace('T', ' ')} UTC · from: {report.ran_from}",
@@ -525,6 +536,15 @@ def render_markdown(report: DiscoveryReport) -> str:
     for s in report.sources:
         probes = "<br>".join(_probe_summary(r) for r in s.probes) or "–"
         lines.append(f"| {STATUS_ICON[s.status]} | `{s.source_id}` {s.name} | {s.plan} | {probes} |")
+    redirects = _redirects(report)
+    if redirects:
+        # Not applied automatically: a redirect can end on a parked or challenge page (see Enea, 2026-10-10).
+        lines += ["", "### Przekierowania do przeglądu (nie zastosowane automatycznie)", ""]
+        lines += ["| Source | Status | Z | Na | Uwaga |", "|---|---|---|---|---|"]
+        for source_id, r in redirects:
+            cross = urlsplit(r.url).netloc != urlsplit(r.final_url or "").netloc
+            note = "**inna domena**: sprawdzić, czy to nie strona parkingowa" if cross else "ta sama domena"
+            lines.append(f"| `{source_id}` | {r.redirect_status} | {r.url} | {r.final_url} | {note} |")
     return "\n".join(lines) + "\n"
 
 
