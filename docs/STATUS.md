@@ -94,5 +94,18 @@ Not done yet (needs real data from a machine in Poland):
 - Site clustering (`model/sites.py`): parcels touching or within 5 m in the same zone form one site; area in ha,
   Polsby-Popper compactness, estimated MW (6 MW/ha), stable `site_id`, >80 ha split suggestion (flag only).
   9 tests on synthetic parcels. `expansion_ha` is not implemented: the brief does not define how to compute it.
-- Blocked on live data (needs a Polish machine, see Phase 0 / Phase 1): `ru` zoning, `egib` parcels, constraint
-  layers, the grid pre-filter run on real substations, and the golden-set run.
+- Feature layer (`model/features.py`, `model/zoning.py`): grid distances (110 kV line, GPZ, 220/400 kV node), N-1
+  count of distinct 110 kV lines within 3 km, the grid pre-filter (3 / 5 / 25 km, any one keeps a zone), powered
+  brownfields (industrial area ≤ 200 m from the site with a 110 kV substation ≤ 100 m from that area), zoning
+  (RU zone with most overlap → verified; industrial area without a plan → `unknown`, estimated; loaded register
+  without any plan → `unknown`, missing), constraint overlap in % of site area, boolean touch checks, residential
+  distance in metres, and `build_site_features()` which assembles `SiteFeatures` from a `Site` and the loaded layers.
+  Every fact carries source_id, as_of and confidence; a layer that is not loaded gives a missing fact, never zero.
+  Zone-code mapping (`P`, `PU`, `P/U`, `U/P`, `E`, `IT` → production; `SG` → plan ogólny; procedures outrank codes)
+  is an assumption until the APP schema is checked on real data. 43 new tests on synthetic geometry with exact
+  distances.
+- Still missing for Phase 2: the live connectors (`ru`, `egib` + `uldk`, `gdos`, `isok`, `midas`, `nid`, `kiug`,
+  residential buildings) that fill the layers, the golden-set run, and the first manual top-30 review. They all
+  need a Polish machine (Phase 0). Not yet: DB persistence of scored sites (`sites` table), the sites API and the
+  sites list / site card in the web app, the map choropleth, expansion land, and the PSE/telecom/city/heat-network
+  distances.
