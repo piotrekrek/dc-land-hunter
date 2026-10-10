@@ -1,32 +1,8 @@
-Run: 2026-10-10 22:30 UTC · from: ui
+Run: 2026-10-10 22:48 UTC · from: unknown
 
 | Status | Source | Plan | Probes |
 |---|---|---|---|
-| ✓ | `prg` GUGiK PRG – granice administracyjne | mvp | ogc: ok · 200 · 2.0.0 · 52 layers<br>http: ok · 200 |
-| ✓ | `osm_power` OpenStreetMap – sieć elektroenergetyczna (Geofabrik) | mvp | http: ok · 200<br>http: ok · 200 |
-| ✓ | `osm_land` OpenStreetMap – użytkowanie terenu i budynki (Geofabrik) | mvp | http: ok · 200 |
-| ⚠ | `bdot10k` GUGiK BDOT10k | mvp | ogc: ok · 200 · 2.0.0 · 1 layers<br>page: failed · 404 |
-| ⚠ | `ru` Rejestr Urbanistyczny | mvp | page: ok · 200 · 1 endpoint candidates<br>browser: skipped · use --capture-network |
-| ✓ | `kimpzp` KIMPZP – Krajowa Integracja MPZP | mvp | ogc: ok · 200 · 1.3.0 · 9 layers |
-| ✓ | `egib` EGiB – zbiorcza usługa WFS działek | mvp | ogc: ok · 200 · 2.0.0 · 2 layers · CountDefault 1000 |
-| ✓ | `uldk` ULDK – Usługa Lokalizacji Działek Katastralnych | mvp | http: ok · 200 |
-| ✓ | `kiug` KIUG – użytki gruntowe i klasy bonitacyjne | mvp | ogc: ok · 200 · 1.3.0 · 4 layers |
-| ✓ | `gdos` GDOŚ Geoserwis – formy ochrony przyrody | mvp | ogc: ok · 200 · 2.0.0 · 23 layers · CountDefault 1000000 |
-| ⚠ | `isok` ISOK – mapy zagrożenia powodziowego | mvp | page: ok · 200 · 1 endpoint candidates |
-| ✓ | `midas` PIG-PIB MIDAS – obszary i tereny górnicze | mvp | arcgis: ok · 200<br>page: ok · 200 · 0 endpoint candidates |
-| ✓ | `nid` NID – rejestr zabytków i stanowiska archeologiczne | mvp | http: ok · 200<br>page: ok · 200 · 4 endpoint candidates |
-| ⚠ | `pse_closed` PSE – zamknięte rozdzielnie (brak warunków przyłączenia) | mvp | page: ok · 200 · 3 endpoint candidates |
-| ⚠ | `pse_odb` PSE – wykaz wydanych warunków przyłączenia (odbiorcy) | mvp | page: ok · 200 · 3 endpoint candidates |
-| ⚠ | `pse_avail` PSE – raport o dostępnych mocach przyłączeniowych | mvp | page: ok · 200 · 3 endpoint candidates |
-| ⚠ | `enea` Enea Operator – mapa dostępnych mocy dla odbiorców | mvp | page: ok · 200 · 1 endpoint candidates<br>browser: skipped · use --capture-network |
-| ⚠ | `energa` Energa-Operator – dostępne moce odbiorcze | mvp | page: ok · 200 · 0 endpoint candidates<br>browser: skipped · use --capture-network |
-| ⚠ | `tauron` Tauron Dystrybucja – dostepnemoce.pl | mvp | page: ok · 200 · 12 endpoint candidates<br>browser: skipped · use --capture-network |
-| – | `dso_portals` Nowe portale mocy OSD (nowelizacja 2026) | v2 | – |
-| ⚠ | `uke` UKE – infrastruktura telekomunikacyjna | mvp | page: ok · 200 · 5 endpoint candidates |
-| ⚠ | `psi` Polska Strefa Inwestycji – mapa pomocy regionalnej | mvp | page: ok · 200 · 38 endpoint candidates |
-| ⚠ | `kowr` KOWR – oferty nieruchomości rolnych | mvp | page: ok · 200 · 0 endpoint candidates |
-| – | `invest_offers` Oferty inwestycyjne gmin / SSE / COI | mvp | – |
-| ⚠ | `heat` Sieci ciepłownicze (proxy – koncesje URE) | mvp | page: ok · 200 · 1 endpoint candidates |
-| – | `bazaoos` GDOŚ – Baza OOŚ (decyzje środowiskowe) | manual | – |
-| – | `ekw` Księgi wieczyste (EKW) | manual | – |
-| – | `bip` BIP gmin | v2 | – |
+| ⚠ | `ru` Rejestr Urbanistyczny | mvp | page: ok · 200 · 1 endpoint candidates<br>browser: skipped · playwright not installed (uv sync --extra discovery) |
+| ⚠ | `enea` Enea Operator – mapa dostępnych mocy dla odbiorców | mvp | page: ok · 200 · 1 endpoint candidates<br>browser: skipped · playwright not installed (uv sync --extra discovery) |
+| ⚠ | `energa` Energa-Operator – dostępne moce odbiorcze | mvp | page: ok · 200 · 0 endpoint candidates<br>browser: skipped · playwright not installed (uv sync --extra discovery) |
+| ⚠ | `tauron` Tauron Dystrybucja – dostepnemoce.pl | mvp | page: ok · 200 · 12 endpoint candidates<br>browser: skipped · playwright not installed (uv sync --extra discovery) |
