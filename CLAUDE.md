@@ -20,6 +20,12 @@ The phase plan is in `docs/PLAN.md` and the current state is in `docs/STATUS.md`
 - Source endpoints are unverified until `docs/SOURCES.md` marks them ✓. Many Polish public services block
   non-Polish IPs, so the discovery command (`uv run dclh discover`) must run from a machine in Poland.
 
+## Deployment
+
+- Production runs on the owner's VPS, repo checkout at `/home/piotr/dc-land-hunter` (user `piotr`).
+- Deploy: `cd ~/dc-land-hunter && git pull && docker compose -f infra/docker-compose.yml up --build -d`, then hard-refresh the browser.
+- The `.env` file lives only on the VPS (not in git). Never overwrite it.
+
 ## 0. How to work on this project
 
 - Read the whole brief first. Start in plan mode, write `docs/PLAN.md` (phases, tasks, risks), then build phase by phase (section 11).
