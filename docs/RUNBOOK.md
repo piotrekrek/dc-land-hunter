@@ -127,3 +127,20 @@ uv run alembic -c api/alembic.ini revision -m "add substations"   # then edit th
 | `/tiles/catalog` is empty | Expected until Phase 1 creates views in the `tiles` schema |
 | Discovery shows ✗ everywhere | Running outside Poland, or outbound traffic is filtered |
 | Scheduler restarts in a loop | It must be started with the absolute path `/usr/local/bin/supercronic` |
+
+## Source discovery on the VPS (automatic publish)
+
+`scripts/publish_discovery.sh` runs `dclh discover` with the browser capture, commits the new report and
+`docs/SOURCES.md` only when they changed, then pulls and pushes to `main`. It never force-pushes; if the
+rebase or push fails it stops and leaves the commit local.
+
+Prerequisites on the VPS: the repo clone with push access, `uv sync --extra discovery`, Chromium and its
+system libraries (`playwright install chromium` and `install-deps`), and a clean tracked tree.
+
+Weekly cron (Mondays 05:30 Warsaw time, the VPS's local time zone):
+
+```
+30 5 * * 1 cd /home/piotr/dc-land-hunter && RAN_FROM="VPS" scripts/publish_discovery.sh >> /home/piotr/discovery.log 2>&1
+```
+
+Check the log after each run. A failed run prints the reason and exits non-zero.
