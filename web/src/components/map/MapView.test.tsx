@@ -69,6 +69,14 @@ describe("MapView basemap fallback", () => {
     expect(screen.queryByText(/Podkład mapowy niedostępny/)).not.toBeInTheDocument();
   });
 
+  it("reports basemap tile errors after the style loaded", () => {
+    render(<MapView />);
+    act(() => emit("style.load"));
+    act(() => emit("error", { error: new Error("Failed to fetch"), sourceId: "openmaptiles" }));
+    expect(screen.getByText(/ładuje się z błędami: Failed to fetch/)).toBeInTheDocument();
+    expect(h.setStyle).not.toHaveBeenCalled();
+  });
+
   it("falls back when the basemap style fails to load", () => {
     render(<MapView />);
     act(() => emit("error", { error: new Error("style 403") }));
