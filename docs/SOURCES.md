@@ -4,32 +4,68 @@ Status of every source in `config/sources.yaml` (brief section 4). Each MVP sour
 status in Phase 0: ✓ verified, ⚠ reachable but the data endpoint still needs confirming (or some probes
 failed), ✗ unreachable, ⏳ not yet checked.
 
-## Current state (10.10.2026): not yet verified
+## Current state (run of 10.10.2026, 22:55 UTC)
 
-**No source has been verified yet.** The Claude Code cloud environment used to build Phase 0 cannot
-reach any Polish public service: its network policy answers 403 for every one of these hosts (and also
-for geofabrik.de). That says nothing about the sources themselves. Several of them also block non-Polish
-IP addresses, so verification has to run from a machine in Poland anyway.
+Phase 0 verification is done for all 24 MVP sources: each has a status from a run on a Polish server
+(`data/discovery/discovery-2026-10-10T2255.json`, the detailed report).
 
-To verify, on a machine in Poland (laptop or the future VPS):
+| Status | Count | Meaning |
+|---|---|---|
+| ✓ | 10 | Verified: a data endpoint answered with real capabilities (WFS/WMS/ArcGIS) or a downloadable file |
+| ⚠ | 11 | Reachable, but the data endpoint is not confirmed yet (candidate links only, or a 404) |
+| ✗ | 2 | Unusable at the time of the run: `enea` (domain-for-sale page, since fixed); `kowr` (bot-protection challenge) |
+| – | 1 | `invest_offers`: manual CSV import by design, no probe |
 
-```bash
-uv sync --extra discovery                       # Playwright, for interactive maps
-uv run playwright install chromium              # once
-export DCLH_CONTACT_EMAIL=you@example.com       # goes into the User-Agent
-uv run dclh discover --capture-network --write-docs --ran-from "laptop, Warszawa"
-git add data/discovery docs/SOURCES.md && git commit -m "Phase 0: source discovery results"
-```
+**Verified (✓):** `prg`, `osm_power`, `osm_land`, `kimpzp`, `egib`, `uldk`, `kiug`, `gdos`, `midas`, `nid`.
 
-This writes `data/discovery/discovery-<date>.json` (full detail: capabilities, layer names, WFS
-`CountDefault`, endpoint candidates found in pages and scripts, XHR calls captured from interactive maps)
-and replaces the generated table below. Then fill in the "Verified endpoint" notes by hand for the
-⚠ sources, using the JSON report.
+**Open before Phase 1 can rely on them:**
+- `bdot10k`: the OPENDATA page returns 404; the WFS offers only one layer. Find the current download URL.
+- `ru`, `enea`, `energa`, `tauron`: the browser capture did not run (Playwright was not installed on the server).
+  Run `uv sync --extra discovery` on the server, then rerun discovery with `--capture-network`.
+- `enea`: the old domain is parked. The probe now points at `www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce`
+  (commit c67e187), but the ✗ above is from the run before that change. Rerun discovery to confirm. The page is
+  renewables-oriented and county-level, so check it against the GPZ-level signal the brief assumes.
+- `uke` and `isok`, `pse_*`, `psi`, `heat`: candidate links were found in pages; each still needs its real
+  data file or service confirmed.
+- `kowr`: bot protection; plan is manual CSV import unless its terms allow automated access.
+
+Unverified endpoints are not used by any connector until they are confirmed in this file.
 
 ## Generated discovery table
 
 <!-- discovery:begin -->
-Not run yet.
+Run: 2026-10-10 23:19 UTC · from: VPS
+
+| Status | Source | Plan | Probes |
+|---|---|---|---|
+| ✓ | `prg` GUGiK PRG – granice administracyjne | mvp | ogc: ok · 200 · 2.0.0 · 52 layers<br>http: ok · 200 |
+| ✓ | `osm_power` OpenStreetMap – sieć elektroenergetyczna (Geofabrik) | mvp | http: ok · 200<br>http: ok · 200 |
+| ✓ | `osm_land` OpenStreetMap – użytkowanie terenu i budynki (Geofabrik) | mvp | http: ok · 200 |
+| ⚠ | `bdot10k` GUGiK BDOT10k | mvp | ogc: ok · 200 · 2.0.0 · 1 layers<br>page: failed · 404 |
+| ⚠ | `ru` Rejestr Urbanistyczny | mvp | page: ok · 200 · 1 endpoint candidates<br>browser: ok · 60 data requests |
+| ✓ | `kimpzp` KIMPZP – Krajowa Integracja MPZP | mvp | ogc: ok · 200 · 1.3.0 · 9 layers |
+| ✓ | `egib` EGiB – zbiorcza usługa WFS działek | mvp | ogc: ok · 200 · 2.0.0 · 2 layers · CountDefault 1000 |
+| ✓ | `uldk` ULDK – Usługa Lokalizacji Działek Katastralnych | mvp | http: ok · 200 |
+| ✓ | `kiug` KIUG – użytki gruntowe i klasy bonitacyjne | mvp | ogc: ok · 200 · 1.3.0 · 4 layers |
+| ✓ | `gdos` GDOŚ Geoserwis – formy ochrony przyrody | mvp | ogc: ok · 200 · 2.0.0 · 23 layers · CountDefault 1000000 |
+| ⚠ | `isok` ISOK – mapy zagrożenia powodziowego | mvp | page: ok · 200 · 1 endpoint candidates |
+| ✓ | `midas` PIG-PIB MIDAS – obszary i tereny górnicze | mvp | arcgis: ok · 200 |
+| ⚠ | `nid` NID – rejestr zabytków i stanowiska archeologiczne | mvp | http: ok · 200<br>page: failed · ReadTimeout: The read operation timed out |
+| ⚠ | `pse_closed` PSE – zamknięte rozdzielnie (brak warunków przyłączenia) | mvp | page: ok · 200 · 3 endpoint candidates |
+| ⚠ | `pse_odb` PSE – wykaz wydanych warunków przyłączenia (odbiorcy) | mvp | page: ok · 200 · 3 endpoint candidates |
+| ⚠ | `pse_avail` PSE – raport o dostępnych mocach przyłączeniowych | mvp | page: ok · 200 · 3 endpoint candidates |
+| ⚠ | `enea` Enea Operator – mapa dostępnych mocy dla odbiorców | mvp | page: ok · 200 · 1 endpoint candidates<br>browser: ok · 18 data requests |
+| ⚠ | `energa` Energa-Operator – dostępne moce odbiorcze | mvp | page: ok · 200 · 0 endpoint candidates<br>browser: ok · 1 data requests |
+| ⚠ | `tauron` Tauron Dystrybucja – dostepnemoce.pl | mvp | page: ok · 200 · 12 endpoint candidates<br>browser: ok · 15 data requests |
+| – | `dso_portals` Nowe portale mocy OSD (nowelizacja 2026) | v2 | – |
+| ⚠ | `uke` UKE – infrastruktura telekomunikacyjna | mvp | page: ok · 200 · 5 endpoint candidates |
+| ⚠ | `psi` Polska Strefa Inwestycji – mapa pomocy regionalnej | mvp | page: ok · 200 · 38 endpoint candidates |
+| ✗ | `kowr` KOWR – oferty nieruchomości rolnych | mvp | page: failed · 200 · strona ochrony antybotowej (challenge), nie treść |
+| – | `invest_offers` Oferty inwestycyjne gmin / SSE / COI | mvp | – |
+| ⚠ | `heat` Sieci ciepłownicze (proxy – koncesje URE) | mvp | page: ok · 200 · 1 endpoint candidates |
+| – | `bazaoos` GDOŚ – Baza OOŚ (decyzje środowiskowe) | manual | – |
+| – | `ekw` Księgi wieczyste (EKW) | manual | – |
+| – | `bip` BIP gmin | v2 | – |
 <!-- discovery:end -->
 
 ## MVP sources: candidate endpoints, format, licence, fallback

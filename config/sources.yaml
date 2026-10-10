@@ -194,8 +194,8 @@ sources:
     core: false
     licence_expected: "Informacja publiczna OSD (sprawdzić regulamin)"
     probes:
-      - {kind: page, url: "https://www.enea-operator.pl/", keywords: ["dostępnych mocy", "mapa", "moc przyłączeniow", "odbiorc"]}
-      - {kind: browser, url: "https://www.enea-operator.pl/"}
+      - {kind: page, url: "https://www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce", keywords: ["dostępnych mocy", "mapa", "moc przyłączeniow", "odbiorc"]}
+      - {kind: browser, url: "https://www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce"}
 
   - id: energa
     name: Energa-Operator – dostępne moce odbiorcze
