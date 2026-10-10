@@ -100,3 +100,33 @@ def test_unknown_total_keeps_paging_until_a_short_page(
         table = connector.parse(connector.fetch(client, SnapshotStore(tmp_path)))
     assert requests == [0, 20]
     assert len(table) == 20
+
+
+KONIN_LIVE = FIXTURES / "live" / "cge-konin"
+KONIN_NORTH_BOX = (18.20, 52.22, 18.30, 52.26)  # lon/lat: Konin, north of the centre (captured 11.10.2026)
+
+
+@pytest.fixture(scope="module")
+def konin_parcels():  # type: ignore[no-untyped-def]
+    return read_page(KONIN_LIVE / "egib_getfeature.gml")
+
+
+def test_konin_sample_is_in_the_city_and_has_teryt_ids(konin_parcels) -> None:  # type: ignore[no-untyped-def]
+    assert len(konin_parcels) == 20
+    assert konin_parcels.crs.to_epsg() == 2180
+    assert set(konin_parcels["NAZWA_GMINY"]) == {"Miasto Konin"}
+    assert all(ID_PATTERN.match(i) for i in konin_parcels["ID_DZIALKI"]), konin_parcels["ID_DZIALKI"].tolist()
+    assert len(set(konin_parcels["ID_DZIALKI"])) == 20
+
+
+def test_konin_sample_parcels_are_north_of_the_centre(konin_parcels) -> None:  # type: ignore[no-untyped-def]
+    lon_min, lat_min, lon_max, lat_max = KONIN_NORTH_BOX
+    for geom in konin_parcels.geometry:
+        lon, lat = _to_wgs.transform(geom.centroid.x, geom.centroid.y)
+        assert lon_min < lon < lon_max and lat_min < lat < lat_max, (lon, lat)
+
+
+def test_konin_uldk_point_is_the_same_city(konin_parcels) -> None:  # type: ignore[no-untyped-def]
+    parcel = parse_point((KONIN_LIVE / "uldk_getparcelbyxy.txt").read_text(encoding="utf-8"))
+    assert parcel.commune == "Konin (miasto)"
+    assert parcel.parcel_id.startswith("306201_1.")
