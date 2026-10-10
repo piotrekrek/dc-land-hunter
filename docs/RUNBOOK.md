@@ -144,3 +144,16 @@ Weekly cron (Mondays 05:30 Warsaw time, the VPS's local time zone):
 ```
 
 Check the log after each run. A failed run prints the reason and exits non-zero.
+
+## Deploying to the VPS
+
+The repo is checked out at `/home/piotr/dc-land-hunter`. To deploy the latest `main`:
+
+```
+cd ~/dc-land-hunter
+git pull
+docker compose -f infra/docker-compose.yml up --build -d
+docker compose -f infra/docker-compose.yml ps
+```
+
+Hard-refresh the browser afterwards (Ctrl+Shift+R). `.env` exists only on the VPS and is not in git.
