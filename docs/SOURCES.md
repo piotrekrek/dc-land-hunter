@@ -34,7 +34,7 @@ Unverified endpoints are not used by any connector until they are confirmed in t
 ## Generated discovery table
 
 <!-- discovery:begin -->
-Run: 2026-10-10 23:10 UTC · from: unknown
+Run: 2026-10-10 23:19 UTC · from: VPS
 
 | Status | Source | Plan | Probes |
 |---|---|---|---|
@@ -42,7 +42,7 @@ Run: 2026-10-10 23:10 UTC · from: unknown
 | ✓ | `osm_power` OpenStreetMap – sieć elektroenergetyczna (Geofabrik) | mvp | http: ok · 200<br>http: ok · 200 |
 | ✓ | `osm_land` OpenStreetMap – użytkowanie terenu i budynki (Geofabrik) | mvp | http: ok · 200 |
 | ⚠ | `bdot10k` GUGiK BDOT10k | mvp | ogc: ok · 200 · 2.0.0 · 1 layers<br>page: failed · 404 |
-| ⚠ | `ru` Rejestr Urbanistyczny | mvp | page: ok · 200 · 1 endpoint candidates<br>browser: failed · TargetClosedError: BrowserType.launch: Target page, context or browser has been  |
+| ⚠ | `ru` Rejestr Urbanistyczny | mvp | page: ok · 200 · 1 endpoint candidates<br>browser: ok · 60 data requests |
 | ✓ | `kimpzp` KIMPZP – Krajowa Integracja MPZP | mvp | ogc: ok · 200 · 1.3.0 · 9 layers |
 | ✓ | `egib` EGiB – zbiorcza usługa WFS działek | mvp | ogc: ok · 200 · 2.0.0 · 2 layers · CountDefault 1000 |
 | ✓ | `uldk` ULDK – Usługa Lokalizacji Działek Katastralnych | mvp | http: ok · 200 |
@@ -54,9 +54,9 @@ Run: 2026-10-10 23:10 UTC · from: unknown
 | ⚠ | `pse_closed` PSE – zamknięte rozdzielnie (brak warunków przyłączenia) | mvp | page: ok · 200 · 3 endpoint candidates |
 | ⚠ | `pse_odb` PSE – wykaz wydanych warunków przyłączenia (odbiorcy) | mvp | page: ok · 200 · 3 endpoint candidates |
 | ⚠ | `pse_avail` PSE – raport o dostępnych mocach przyłączeniowych | mvp | page: ok · 200 · 3 endpoint candidates |
-| ⚠ | `enea` Enea Operator – mapa dostępnych mocy dla odbiorców | mvp | page: ok · 200 · 1 endpoint candidates<br>browser: failed · TargetClosedError: BrowserType.launch: Target page, context or browser has been  |
-| ⚠ | `energa` Energa-Operator – dostępne moce odbiorcze | mvp | page: ok · 200 · 0 endpoint candidates<br>browser: failed · TargetClosedError: BrowserType.launch: Target page, context or browser has been  |
-| ⚠ | `tauron` Tauron Dystrybucja – dostepnemoce.pl | mvp | page: ok · 200 · 12 endpoint candidates<br>browser: failed · TargetClosedError: BrowserType.launch: Target page, context or browser has been  |
+| ⚠ | `enea` Enea Operator – mapa dostępnych mocy dla odbiorców | mvp | page: ok · 200 · 1 endpoint candidates<br>browser: ok · 18 data requests |
+| ⚠ | `energa` Energa-Operator – dostępne moce odbiorcze | mvp | page: ok · 200 · 0 endpoint candidates<br>browser: ok · 1 data requests |
+| ⚠ | `tauron` Tauron Dystrybucja – dostepnemoce.pl | mvp | page: ok · 200 · 12 endpoint candidates<br>browser: ok · 15 data requests |
 | – | `dso_portals` Nowe portale mocy OSD (nowelizacja 2026) | v2 | – |
 | ⚠ | `uke` UKE – infrastruktura telekomunikacyjna | mvp | page: ok · 200 · 5 endpoint candidates |
 | ⚠ | `psi` Polska Strefa Inwestycji – mapa pomocy regionalnej | mvp | page: ok · 200 · 38 endpoint candidates |
