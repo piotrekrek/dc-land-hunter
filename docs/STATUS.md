@@ -127,6 +127,17 @@ Not done yet (needs real data from a machine in Poland):
 - Live sample capture (`dclh capture-sample`, see `docs/RUNBOOK.md`): one EGiB WFS page (20 parcels) and one
   ULDK lookup for a point, with metadata, for committing as fixtures. Built and tested with mocked responses. To
   be run on the VPS for CGE Konin (estimated point, to be checked on Geoportal).
+- **Real EGiB and ULDK sample (CGE Konin, captured 11.10.2026 on the VPS, `tests/fixtures/live/cge-konin/`)**
+  checked against the parser. Findings: the parcel id is `ID_DZIALKI` (ULDK uses the same form, e.g.
+  `306201_1.0002.1573`); the service writes coordinates easting-first, and GDAL reads EPSG:2180 northing-first, so
+  `read_page()` swaps the axes back (test: all parcels fall inside Konin); `numberMatched="unknown"`, so paging
+  continues while pages are full (the old code would have stopped after the first 20 parcels); the registered
+  area (`POLE_EWIDENYJNE`) and land-use class (`KLASOUZYTKI_EGIB`) are empty, so the land score must use the
+  geometry area.
+  **Open data-quality question:** the 20 sample parcels are geometrically in Konin (the ULDK point agrees), but
+  their attributes say `PODDĘBICE GMINA` with id prefix `101103_5` (Poddębice, about 50 km away). Check with
+  `GetParcelById` for `101103_5.0011.1`. Until it is settled, commune and county must come from the admin boundaries
+  (PRG) using the geometry, not from `NAZWA_GMINY`.
 - Still missing for Phase 2: the live connectors (`ru`, `egib` + `uldk`, `gdos`, `isok`, `midas`, `nid`, `kiug`,
   residential buildings) that fill the layers, the golden-set run, and the first manual top-30 review. They all
   need a Polish machine (Phase 0). Not yet: the map choropleth, the `dclh score` command, expansion land, and the

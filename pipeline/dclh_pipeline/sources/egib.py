@@ -15,10 +15,13 @@ import json
 import math
 import re
 from collections.abc import Iterable, Sequence
+from pathlib import Path
 from typing import Any, ClassVar
 
 import geopandas as gpd
 import pandas as pd
+import shapely
+from shapely.geometry.base import BaseGeometry
 
 from dclh_pipeline.config import SourceSpec
 from dclh_pipeline.http import PoliteClient
@@ -30,7 +33,8 @@ SRS = "EPSG:2180"
 TILE_M = 1000.0  # tile edge in metres; small enough that one page rarely hits the server's 1000-feature cap
 MAX_TILES = 5000  # guard against an accidentally huge candidate area
 MAX_PAGES_PER_TILE = 200
-ID_COLUMNS = ("identyfikator", "gml_id")  # first one present is the parcel id
+# First column present is the parcel id. ID_DZIALKI is confirmed by the CGE Konin live sample.
+ID_COLUMNS = ("ID_DZIALKI", "identyfikator", "gml_id")
 
 BBox = tuple[float, float, float, float]  # xmin, ymin, xmax, ymax in EPSG:2180
 
@@ -115,7 +119,12 @@ class EgibConnector(Source):
             matched = _count(_MATCHED, body)
             sha = store.put_object(self.id, body, suffix=".gml")
             pages.append({"sha256": sha, "suffix": ".gml", "returned": returned or 0})
-            if not returned or matched is None or start + returned >= matched:
+            if not returned:
+                break
+            if matched is not None and start + returned >= matched:
+                break
+            # The live service reports numberMatched="unknown": a short page is the last one.
+            if matched is None and returned < self.page_size:
                 break
             start += returned
         else:
@@ -146,7 +155,7 @@ class EgibConnector(Source):
                 if page["returned"] == 0:
                     continue
                 path = object_path(objects_dir, page["sha256"], page["suffix"])
-                frames.append(gpd.read_file(path))
+                frames.append(read_page(path))
         if not frames:
             return gpd.GeoDataFrame(
                 {"parcel_id": pd.Series(dtype=str)}, geometry=gpd.GeoSeries(dtype="geometry"), crs=SRS
@@ -160,11 +169,26 @@ def _empty() -> gpd.GeoDataFrame:
     )
 
 
+def _swap_axes(geom: BaseGeometry) -> BaseGeometry:
+    return shapely.transform(geom, lambda coords: coords[:, ::-1])
+
+
+def read_page(path: Path) -> gpd.GeoDataFrame:
+    """One stored WFS page as a GeoDataFrame in EPSG:2180 with (easting, northing) coordinates.
+
+    GDAL reads EPSG:2180 GML in northing-first order (the EPSG axis order), but the service writes
+    easting first. Checked on the CGE Konin live sample: the raw posList starts with 448649 484758, which is
+    52.229 N 18.248 E, and GDAL's bounds come out as (484548, 448436, ...). So the axes are swapped back here.
+    """
+    frame = gpd.read_file(path)
+    frame = frame.set_geometry(frame.geometry.map(_swap_axes))
+    return frame.set_crs(SRS, allow_override=True) if frame.crs is None else frame.to_crs(SRS)
+
+
 def _combine(frames: Iterable[gpd.GeoDataFrame]) -> gpd.GeoDataFrame:
     """One row per parcel: the same parcel can come back from two neighbouring tiles."""
     parts = []
     for frame in frames:
-        frame = frame.set_crs(SRS, allow_override=True) if frame.crs is None else frame.to_crs(SRS)
         id_column = next((c for c in ID_COLUMNS if c in frame.columns), None)
         if id_column is None:
             raise ValueError(f"EGiB: w odpowiedzi nie ma żadnej z kolumn {ID_COLUMNS}; sprawdź schemat WFS")
