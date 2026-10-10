@@ -1,0 +1,860 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "DC Land Hunter API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Health",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sources": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "List Sources",
+        "operationId": "list_sources_api_sources_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourcesList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config/scoring": {
+      "get": {
+        "tags": [
+          "config"
+        ],
+        "summary": "Scoring Config",
+        "description": "Current scoring weights and thresholds (read-only until Settings ships in Phase 4).",
+        "operationId": "scoring_config_api_config_scoring_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoringConfig"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BonusParams": {
+        "properties": {
+          "heat_network_km": {
+            "type": "number",
+            "title": "Heat Network Km"
+          },
+          "psi_aid_max_pts": {
+            "type": "number",
+            "title": "Psi Aid Max Pts"
+          },
+          "res_cluster_km": {
+            "type": "number",
+            "title": "Res Cluster Km"
+          },
+          "env_decision_found": {
+            "type": "number",
+            "title": "Env Decision Found"
+          },
+          "public_seller": {
+            "type": "number",
+            "title": "Public Seller"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "heat_network_km",
+          "psi_aid_max_pts",
+          "res_cluster_km",
+          "env_decision_found",
+          "public_seller"
+        ],
+        "title": "BonusParams"
+      },
+      "ConnectionCost": {
+        "properties": {
+          "legal_basis": {
+            "type": "string",
+            "title": "Legal Basis"
+          },
+          "verified": {
+            "type": "boolean",
+            "title": "Verified"
+          },
+          "application_fee_pln_per_kw": {
+            "type": "number",
+            "title": "Application Fee Pln Per Kw"
+          },
+          "application_fee_max_pln": {
+            "type": "number",
+            "title": "Application Fee Max Pln"
+          },
+          "advance_pln_per_kw": {
+            "type": "number",
+            "title": "Advance Pln Per Kw"
+          },
+          "advance_max_pln": {
+            "type": "number",
+            "title": "Advance Max Pln"
+          },
+          "security_pln_per_kw": {
+            "type": "number",
+            "title": "Security Pln Per Kw"
+          },
+          "security_applies_up_to_mw": {
+            "type": "number",
+            "title": "Security Applies Up To Mw"
+          },
+          "conditions_valid_months": {
+            "type": "integer",
+            "title": "Conditions Valid Months"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "legal_basis",
+          "verified",
+          "application_fee_pln_per_kw",
+          "application_fee_max_pln",
+          "advance_pln_per_kw",
+          "advance_max_pln",
+          "security_pln_per_kw",
+          "security_applies_up_to_mw",
+          "conditions_valid_months"
+        ],
+        "title": "ConnectionCost"
+      },
+      "ConnectivityParams": {
+        "properties": {
+          "telecom_node_km_full": {
+            "type": "number",
+            "title": "Telecom Node Km Full"
+          },
+          "telecom_node_km_zero": {
+            "type": "number",
+            "title": "Telecom Node Km Zero"
+          },
+          "city_km_full": {
+            "type": "number",
+            "title": "City Km Full"
+          },
+          "city_km_zero": {
+            "type": "number",
+            "title": "City Km Zero"
+          },
+          "cities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Cities"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "telecom_node_km_full",
+          "telecom_node_km_zero",
+          "city_km_full",
+          "city_km_zero",
+          "cities"
+        ],
+        "title": "ConnectivityParams"
+      },
+      "GridParams": {
+        "properties": {
+          "line110_km_full": {
+            "type": "number",
+            "title": "Line110 Km Full"
+          },
+          "line110_km_zero": {
+            "type": "number",
+            "title": "Line110 Km Zero"
+          },
+          "gpz110_km_full": {
+            "type": "number",
+            "title": "Gpz110 Km Full"
+          },
+          "gpz110_km_zero": {
+            "type": "number",
+            "title": "Gpz110 Km Zero"
+          },
+          "two_independent_110_lines_within_km": {
+            "type": "number",
+            "title": "Two Independent 110 Lines Within Km"
+          },
+          "node_220_400_km_bonus": {
+            "type": "number",
+            "title": "Node 220 400 Km Bonus"
+          },
+          "planned_pse_load_station_km_bonus": {
+            "type": "number",
+            "title": "Planned Pse Load Station Km Bonus"
+          },
+          "closed_switchyard_penalty": {
+            "type": "number",
+            "title": "Closed Switchyard Penalty"
+          },
+          "published_gpz_headroom_bonus": {
+            "type": "number",
+            "title": "Published Gpz Headroom Bonus"
+          },
+          "pse_odb_nearby_km": {
+            "type": "number",
+            "title": "Pse Odb Nearby Km"
+          },
+          "powered_brownfield_bonus": {
+            "type": "number",
+            "title": "Powered Brownfield Bonus"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line110_km_full",
+          "line110_km_zero",
+          "gpz110_km_full",
+          "gpz110_km_zero",
+          "two_independent_110_lines_within_km",
+          "node_220_400_km_bonus",
+          "planned_pse_load_station_km_bonus",
+          "closed_switchyard_penalty",
+          "published_gpz_headroom_bonus",
+          "pse_odb_nearby_km",
+          "powered_brownfield_bonus"
+        ],
+        "title": "GridParams"
+      },
+      "HardFilter": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "exclude",
+              "penalty"
+            ],
+            "title": "Mode"
+          },
+          "penalty_points": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Penalty Points"
+          },
+          "threshold_pct": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Threshold Pct"
+          },
+          "threshold_m": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Threshold M"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "mode",
+          "penalty_points"
+        ],
+        "title": "HardFilter"
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "degraded"
+            ],
+            "title": "Status"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "database": {
+            "type": "boolean",
+            "title": "Database"
+          },
+          "postgis_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Postgis Version"
+          },
+          "time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "version",
+          "database",
+          "postgis_version",
+          "time"
+        ],
+        "title": "Health"
+      },
+      "LandParams": {
+        "properties": {
+          "compactness_min": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Compactness Min"
+          },
+          "parcels_full": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Parcels Full"
+          },
+          "parcels_zero": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Parcels Zero"
+          },
+          "expansion_ha_bonus_per_10ha": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Expansion Ha Bonus Per 10Ha"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "compactness_min",
+          "parcels_full",
+          "parcels_zero",
+          "expansion_ha_bonus_per_10ha"
+        ],
+        "title": "LandParams"
+      },
+      "Penalties": {
+        "properties": {
+          "flood_0_2pct": {
+            "type": "number",
+            "title": "Flood 0 2Pct"
+          },
+          "landscape_park_or_ochk": {
+            "type": "number",
+            "title": "Landscape Park Or Ochk"
+          },
+          "mining_terrain": {
+            "type": "number",
+            "title": "Mining Terrain"
+          },
+          "soil_class_III_pct_over_30": {
+            "type": "number",
+            "title": "Soil Class Iii Pct Over 30"
+          },
+          "residential_100_300m": {
+            "type": "number",
+            "title": "Residential 100 300M"
+          },
+          "gas_pipeline_zone": {
+            "type": "number",
+            "title": "Gas Pipeline Zone"
+          },
+          "airport_ols": {
+            "type": "number",
+            "title": "Airport Ols"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "flood_0_2pct",
+          "landscape_park_or_ochk",
+          "mining_terrain",
+          "soil_class_III_pct_over_30",
+          "residential_100_300m",
+          "gas_pipeline_zone",
+          "airport_ols"
+        ],
+        "title": "Penalties"
+      },
+      "Prefilter": {
+        "properties": {
+          "line110_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Line110 Km"
+          },
+          "gpz110_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Gpz110 Km"
+          },
+          "node_220_400_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Node 220 400 Km"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line110_km",
+          "gpz110_km",
+          "node_220_400_km"
+        ],
+        "title": "Prefilter"
+      },
+      "ScoringConfig": {
+        "properties": {
+          "target": {
+            "$ref": "#/components/schemas/Target"
+          },
+          "hard_filters": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/HardFilter"
+            },
+            "type": "object",
+            "title": "Hard Filters"
+          },
+          "weights": {
+            "$ref": "#/components/schemas/Weights"
+          },
+          "grid": {
+            "$ref": "#/components/schemas/GridParams"
+          },
+          "zoning": {
+            "$ref": "#/components/schemas/ZoningPoints"
+          },
+          "land": {
+            "$ref": "#/components/schemas/LandParams"
+          },
+          "connectivity": {
+            "$ref": "#/components/schemas/ConnectivityParams"
+          },
+          "bonus": {
+            "$ref": "#/components/schemas/BonusParams"
+          },
+          "penalties": {
+            "$ref": "#/components/schemas/Penalties"
+          },
+          "prefilter": {
+            "$ref": "#/components/schemas/Prefilter"
+          },
+          "connection_cost": {
+            "$ref": "#/components/schemas/ConnectionCost"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "target",
+          "hard_filters",
+          "weights",
+          "grid",
+          "zoning",
+          "land",
+          "connectivity",
+          "bonus",
+          "penalties",
+          "prefilter",
+          "connection_cost"
+        ],
+        "title": "ScoringConfig"
+      },
+      "SourceOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "used_for": {
+            "type": "string",
+            "title": "Used For"
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "mvp",
+              "v2",
+              "manual"
+            ],
+            "title": "Plan"
+          },
+          "cadence": {
+            "type": "string",
+            "title": "Cadence"
+          },
+          "core": {
+            "type": "boolean",
+            "title": "Core"
+          },
+          "licence_expected": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Licence Expected"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "manual_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual Url"
+          },
+          "probe_count": {
+            "type": "integer",
+            "title": "Probe Count"
+          },
+          "discovery_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "verified",
+                  "partial",
+                  "failed",
+                  "not_checked"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discovery Status"
+          },
+          "discovery_checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discovery Checked At"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "used_for",
+          "plan",
+          "cadence",
+          "core",
+          "licence_expected",
+          "notes",
+          "manual_url",
+          "probe_count",
+          "discovery_status",
+          "discovery_checked_at",
+          "state"
+        ],
+        "title": "SourceOut"
+      },
+      "SourceState": {
+        "properties": {
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt At"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "row_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Row Count"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "SourceState"
+      },
+      "SourcesList": {
+        "properties": {
+          "database": {
+            "type": "boolean",
+            "title": "Database"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceOut"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "database",
+          "sources"
+        ],
+        "title": "SourcesList"
+      },
+      "Target": {
+        "properties": {
+          "mw_min": {
+            "type": "number",
+            "title": "Mw Min"
+          },
+          "mw_per_ha": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Mw Per Ha"
+          },
+          "ha_min": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Ha Min"
+          },
+          "ha_ideal": {
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Ha Ideal"
+          },
+          "large_campus_mw": {
+            "type": "number",
+            "title": "Large Campus Mw"
+          },
+          "large_site_split_ha": {
+            "type": "number",
+            "title": "Large Site Split Ha"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "mw_min",
+          "mw_per_ha",
+          "ha_min",
+          "ha_ideal",
+          "large_campus_mw",
+          "large_site_split_ha"
+        ],
+        "title": "Target"
+      },
+      "Weights": {
+        "properties": {
+          "grid": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Grid"
+          },
+          "zoning": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Zoning"
+          },
+          "land": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Land"
+          },
+          "connectivity": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Connectivity"
+          },
+          "bonus": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Bonus"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "grid",
+          "zoning",
+          "land",
+          "connectivity",
+          "bonus"
+        ],
+        "title": "Weights"
+      },
+      "ZoningPoints": {
+        "properties": {
+          "mpzp_production": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Mpzp Production"
+          },
+          "plan_ogolny_SG": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Plan Ogolny Sg"
+          },
+          "procedure_in_progress": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Procedure In Progress"
+          },
+          "unknown": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Unknown"
+          },
+          "other": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Other"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "mpzp_production",
+          "plan_ogolny_SG",
+          "procedure_in_progress",
+          "unknown",
+          "other"
+        ],
+        "title": "ZoningPoints"
+      }
+    }
+  }
+}

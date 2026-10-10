@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python (ruff, mypy, pytest)
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgis/postgis:16-3.5
+        env:
+          POSTGRES_USER: dclh
+          POSTGRES_PASSWORD: dclh
+          POSTGRES_DB: dclh
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U dclh -d dclh"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql+psycopg://dclh:dclh@localhost:5432/dclh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.32"
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+      - run: uv run dclh config-check
+      - run: uv run pytest
+
+  web:
+    name: Web (eslint, tsc, vitest, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Generated API types are up to date
+        run: pnpm gen:api && git diff --exit-code src/api/schema.d.ts
+
+  stack:
+    name: Docker images + Playwright smoke
+    needs: [python, web]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images
+        run: docker compose -f infra/docker-compose.yml build
+      - name: Start stack
+        run: |
+          docker compose -f infra/docker-compose.yml up -d
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/api/health | grep -q '"status":"ok"'; then echo "stack is up"; exit 0; fi
+            sleep 3
+          done
+          echo "stack did not become healthy" && exit 1
+      - name: Check tiles endpoint
+        run: curl -fsS http://localhost:8080/tiles/health
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: tests/e2e/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: tests/e2e/pnpm-lock.yaml
+      - name: Install Playwright
+        working-directory: tests/e2e
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+          pnpm exec playwright install --with-deps chromium
+      - name: Playwright smoke test
+        working-directory: tests/e2e
+        run: pnpm test
+      - name: Compose logs
+        if: failure()
+        run: docker compose -f infra/docker-compose.yml logs --no-color --tail 200
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: tests/e2e/playwright-report
+          retention-days: 7
+      - name: Stop stack
+        if: always()
+        run: docker compose -f infra/docker-compose.yml down -v

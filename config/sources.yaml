@@ -1,0 +1,308 @@
+# Source registry (PROJECT_BRIEF.md section 4).
+#
+# Every URL here is a CANDIDATE from desk research (October 2026) until `dclh discover`, run from a
+# machine in Poland, confirms it. Verified results go into docs/SOURCES.md.
+#
+# plan:     mvp | v2 | manual   (manual = link only, never automated)
+# cadence:  how often the pipeline refreshes the source (daily | weekly | monthly | static | none)
+# core:     a failure blocks publishing new scores (QA gate, brief section 10)
+# probes:   what `dclh discover` checks. kinds:
+#             ogc       OGC GetCapabilities (service: WFS | WMS | WMTS | CSW)
+#             http      plain GET/HEAD; reports status, content type, size
+#             page      GET an HTML page and extract candidate data endpoints (JSON, ArcGIS REST, WMS/WFS,
+#                       XLSX/PDF/CSV links) from its source
+#             arcgis    ArcGIS REST catalogue (?f=json), lists services
+#             browser   open the page in headless Chromium and record XHR/fetch calls returning
+#                       JSON/GeoJSON/protobuf (needs `uv sync --extra discovery`, use --capture-network)
+
+defaults:
+  rate_limit_per_s: 1.0
+  timeout_s: 30
+
+sources:
+  - id: prg
+    name: GUGiK PRG – granice administracyjne
+    used_for: AOI, nazwy gmin i powiatów, TERYT
+    plan: mvp
+    cadence: monthly
+    core: false
+    licence_expected: "Otwarte dane GUGiK (bez opłat, art. 40a Pgik)"
+    probes:
+      - {kind: ogc, service: WFS, url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WFS/AdministrativeBoundaries"}
+      - {kind: http, method: HEAD, url: "https://opendata.geoportal.gov.pl/prg/granice/00_jednostki_administracyjne.zip"}
+
+  - id: osm_power
+    name: OpenStreetMap – sieć elektroenergetyczna (Geofabrik)
+    used_for: Stacje (napięcie, operator), linie 110–400 kV, generatory (klastry OZE)
+    plan: mvp
+    cadence: weekly
+    core: true
+    licence_expected: "ODbL 1.0 (© OpenStreetMap contributors)"
+    probes:
+      - {kind: http, method: HEAD, url: "https://download.geofabrik.de/europe/poland-latest.osm.pbf"}
+      - {kind: http, method: GET, url: "https://download.geofabrik.de/europe/poland-latest.osm.pbf.md5"}
+
+  - id: osm_land
+    name: OpenStreetMap – użytkowanie terenu i budynki (Geofabrik)
+    used_for: Strefy przemysłowe/poprzemysłowe (fallback), bliskość zabudowy mieszkaniowej
+    plan: mvp
+    cadence: weekly
+    core: false
+    licence_expected: "ODbL 1.0 (© OpenStreetMap contributors)"
+    probes:
+      - {kind: http, method: HEAD, url: "https://download.geofabrik.de/europe/poland-latest.osm.pbf"}
+
+  - id: bdot10k
+    name: GUGiK BDOT10k
+    used_for: Budynki (odległość od zabudowy mieszkaniowej), drogi, tereny przemysłowe
+    plan: mvp
+    cadence: monthly
+    core: false
+    licence_expected: "Otwarte dane GUGiK"
+    probes:
+      - {kind: ogc, service: WFS, url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/BDOT/WFS/PobieranieBDOT10k"}
+      - {kind: page, url: "https://opendata.geoportal.gov.pl/bdot10k/", keywords: ["shp", "gml", "pobier"]}
+
+  - id: ru
+    name: Rejestr Urbanistyczny
+    used_for: Strefy planu ogólnego (SG), przeznaczenia MPZP, procedury w toku
+    plan: mvp
+    cadence: weekly
+    core: true
+    licence_expected: "Do ustalenia (dane publiczne, APP)"
+    notes: "Rejestr niekompletny do 30.11.2026 – brak planu oznacza 'nieznane', nie 'złe'."
+    probes:
+      - {kind: page, url: "https://rejestr-urbanistyczny.gov.pl/", keywords: ["wfs", "wms", "csw", "usług", "api", "pobier"]}
+      - {kind: browser, url: "https://rejestr-urbanistyczny.gov.pl/"}
+
+  - id: kimpzp
+    name: KIMPZP – Krajowa Integracja MPZP
+    used_for: Przeznaczenie terenu (fallback, często raster)
+    plan: mvp
+    cadence: weekly
+    core: false
+    licence_expected: "Otwarte dane GUGiK"
+    probes:
+      - {kind: ogc, service: WMS, url: "https://mapy.geoportal.gov.pl/wss/ext/KrajowaIntegracjaMiejscowychPlanowZagospodarowaniaPrzestrzennego"}
+
+  - id: egib
+    name: EGiB – zbiorcza usługa WFS działek
+    used_for: Identyfikatory i geometrie działek (tylko w strefach kandydujących)
+    plan: mvp
+    cadence: monthly
+    core: true
+    licence_expected: "Otwarte dane GUGiK (geometria działek)"
+    probes:
+      - {kind: ogc, service: WFS, url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/EGIB/WFS/UslugaZbiorcza"}
+
+  - id: uldk
+    name: ULDK – Usługa Lokalizacji Działek Katastralnych
+    used_for: Wyszukiwanie pojedynczej działki („Sprawdź działkę”)
+    plan: mvp
+    cadence: none
+    core: false
+    licence_expected: "Otwarte dane GUGiK"
+    probes:
+      - {kind: http, method: GET, url: "https://uldk.gugik.gov.pl/?request=GetParcelByXY&xy=637500,486500,2180&result=teryt,voivodeship,county,commune"}
+
+  - id: kiug
+    name: KIUG – użytki gruntowe i klasy bonitacyjne
+    used_for: Las (Ls), klasy gleby I–III
+    plan: mvp
+    cadence: monthly
+    core: false
+    licence_expected: "Otwarte dane GUGiK"
+    probes:
+      - {kind: ogc, service: WMS, url: "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaUzytkowGruntowych"}
+
+  - id: gdos
+    name: GDOŚ Geoserwis – formy ochrony przyrody
+    used_for: Natura 2000, parki narodowe, rezerwaty, parki krajobrazowe, OChK
+    plan: mvp
+    cadence: monthly
+    core: true
+    licence_expected: "Dane publiczne GDOŚ"
+    probes:
+      - {kind: ogc, service: WFS, url: "https://sdi.gdos.gov.pl/wfs"}
+
+  - id: isok
+    name: ISOK – mapy zagrożenia powodziowego
+    used_for: Strefy zagrożenia powodziowego 10%, 1%, 0,2%
+    plan: mvp
+    cadence: monthly
+    core: true
+    licence_expected: "Dane publiczne PGW Wody Polskie"
+    probes:
+      - {kind: page, url: "https://wody.isok.gov.pl/", keywords: ["wfs", "wms", "atom", "usług", "pobier"]}
+
+  - id: midas
+    name: PIG-PIB MIDAS – obszary i tereny górnicze
+    used_for: Obszary górnicze (wykluczenie), tereny górnicze (kara)
+    plan: mvp
+    cadence: monthly
+    core: false
+    licence_expected: "Dane publiczne PIG-PIB"
+    probes:
+      - {kind: arcgis, url: "https://cbdgmapa.pgi.gov.pl/arcgis/rest/services"}
+      - {kind: page, url: "https://cbdgmapa.pgi.gov.pl/", keywords: ["wms", "wfs", "usług", "górnicz"]}
+
+  - id: nid
+    name: NID – rejestr zabytków i stanowiska archeologiczne
+    used_for: Rejestr zabytków (wykluczenie), stanowiska archeologiczne
+    plan: mvp
+    cadence: monthly
+    core: false
+    licence_expected: "Dane publiczne NID / dane.gov.pl"
+    probes:
+      - {kind: http, method: GET, url: "https://api.dane.gov.pl/1.4/datasets?q=rejestr%20zabytk%C3%B3w%20nieruchomych&per_page=5"}
+      - {kind: page, url: "https://mapy.zabytek.gov.pl/", keywords: ["wms", "wfs", "usług", "pobier"]}
+
+  - id: pse_closed
+    name: PSE – zamknięte rozdzielnie (brak warunków przyłączenia)
+    used_for: Kara za zamknięte węzły
+    plan: mvp
+    cadence: monthly
+    core: false
+    licence_expected: "Informacja publiczna PSE"
+    probes:
+      - {kind: page, url: "https://www.pse.pl/", keywords: ["rozdzielni", "zamknięt", "brak możliwości", "warunk"]}
+
+  - id: pse_odb
+    name: PSE – wykaz wydanych warunków przyłączenia (odbiorcy)
+    used_for: Wpisy ODB jako sygnał popytu; diff miesięczny
+    plan: mvp
+    cadence: monthly
+    core: false
+    licence_expected: "Informacja publiczna PSE"
+    probes:
+      - {kind: page, url: "https://www.pse.pl/", keywords: ["wydanych warunk", "warunki przyłączenia", "wykaz", "odbior"]}
+
+  - id: pse_avail
+    name: PSE – raport o dostępnych mocach przyłączeniowych
+    used_for: Planowane stacje odbiorcze (bonus)
+    plan: mvp
+    cadence: monthly
+    core: false
+    licence_expected: "Informacja publiczna PSE"
+    probes:
+      - {kind: page, url: "https://www.pse.pl/", keywords: ["dostępn", "moc przyłączeniow", "informacja o wartości"]}
+
+  - id: enea
+    name: Enea Operator – mapa dostępnych mocy dla odbiorców
+    used_for: Dostępna moc odbiorcza SN per GPZ (sygnał, nie odpowiedź dla 60 MW)
+    plan: mvp
+    cadence: weekly
+    core: false
+    licence_expected: "Informacja publiczna OSD (sprawdzić regulamin)"
+    probes:
+      - {kind: page, url: "https://www.enea-operator.pl/", keywords: ["dostępnych mocy", "mapa", "moc przyłączeniow", "odbiorc"]}
+      - {kind: browser, url: "https://www.enea-operator.pl/"}
+
+  - id: energa
+    name: Energa-Operator – dostępne moce odbiorcze
+    used_for: Dostępna moc odbiorcza SN per GPZ
+    plan: mvp
+    cadence: weekly
+    core: false
+    licence_expected: "Informacja publiczna OSD (sprawdzić regulamin)"
+    notes: "Istnienie i format do potwierdzenia."
+    probes:
+      - {kind: page, url: "https://energa-operator.pl/", keywords: ["dostępn", "moc przyłączeniow", "mapa", "odbiorc"]}
+      - {kind: browser, url: "https://energa-operator.pl/"}
+
+  - id: tauron
+    name: Tauron Dystrybucja – dostepnemoce.pl
+    used_for: Planowane moce 2027–2028 („kierunkowe”), wydane warunki
+    plan: mvp
+    cadence: weekly
+    core: false
+    licence_expected: "Informacja publiczna OSD (sprawdzić regulamin)"
+    probes:
+      - {kind: page, url: "https://dostepnemoce.pl/", keywords: ["moc", "mapa", "warunk"]}
+      - {kind: browser, url: "https://dostepnemoce.pl/"}
+
+  - id: dso_portals
+    name: Nowe portale mocy OSD (nowelizacja 2026)
+    used_for: Przyszły zamiennik map OSD
+    plan: v2
+    cadence: none
+    core: false
+    probes: []
+
+  - id: uke
+    name: UKE – infrastruktura telekomunikacyjna
+    used_for: Bliskość węzłów światłowodowych (proxy)
+    plan: mvp
+    cadence: monthly
+    core: false
+    licence_expected: "Do ustalenia"
+    notes: "Właściwa usługa (WMS/eksport) do ustalenia w discovery."
+    probes:
+      - {kind: page, url: "https://www.uke.gov.pl/", keywords: ["inwentaryzacja", "infrastruktur", "mapa", "węzł"]}
+
+  - id: psi
+    name: Polska Strefa Inwestycji – mapa pomocy regionalnej
+    used_for: Intensywność pomocy (ulga podatkowa) per gmina
+    plan: mvp
+    cadence: static
+    core: false
+    licence_expected: "Akt prawny (rozporządzenie) – domena publiczna"
+    notes: "Tabela statyczna przygotowana ręcznie z rozporządzenia: data/manual/psi_aid.csv."
+    probes:
+      - {kind: page, url: "https://www.gov.pl/web/fundusze-regiony/polska-strefa-inwestycji", keywords: ["mapa pomocy", "intensywno", "rozporządzeni"]}
+
+  - id: kowr
+    name: KOWR – oferty nieruchomości rolnych
+    used_for: Nowe oferty gruntów ≥1 ha w AOI
+    plan: mvp
+    cadence: daily
+    core: false
+    licence_expected: "Sprawdzić regulamin i robots.txt przed automatyzacją"
+    notes: "Grzeczny scraping tylko jeśli regulamin pozwala; inaczej ręczny import CSV."
+    probes:
+      - {kind: page, url: "https://nieruchomoscikowr.gov.pl/", keywords: ["oferty", "sprzedaż", "przetarg", "regulamin"]}
+
+  - id: invest_offers
+    name: Oferty inwestycyjne gmin / SSE / COI
+    used_for: Leady – tereny inwestycyjne
+    plan: mvp
+    cadence: none
+    core: false
+    notes: "Ręczny import CSV wg szablonu data/manual/invest_offers_template.csv."
+    probes: []
+
+  - id: heat
+    name: Sieci ciepłownicze (proxy – koncesje URE)
+    used_for: Bonus za możliwość odzysku ciepła (EED art. 26)
+    plan: mvp
+    cadence: static
+    core: false
+    licence_expected: "Informacja publiczna URE"
+    probes:
+      - {kind: page, url: "https://bip.ure.gov.pl/", keywords: ["koncesj", "ciepł", "wykaz", "rejestr"]}
+
+  - id: bazaoos
+    name: GDOŚ – Baza OOŚ (decyzje środowiskowe)
+    used_for: Decyzje środowiskowe – tylko link
+    plan: manual
+    cadence: none
+    core: false
+    manual_url: "https://bazaoos.gdos.gov.pl/"
+    probes: []
+
+  - id: ekw
+    name: Księgi wieczyste (EKW)
+    used_for: Własność – tylko link (CAPTCHA, regulamin, dane osobowe)
+    plan: manual
+    cadence: none
+    core: false
+    manual_url: "https://przegladarka-ekw.ms.gov.pl/"
+    probes: []
+
+  - id: bip
+    name: BIP gmin
+    used_for: WZ, decyzje środowiskowe, przetargi
+    plan: v2
+    cadence: none
+    core: false
+    probes: []

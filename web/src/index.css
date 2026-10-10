@@ -1,0 +1,118 @@
+@import "tailwindcss";
+@import "maplibre-gl/dist/maplibre-gl.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Design tokens. Neutral cool-grey base with one accent (deep steel blue).
+ * Contrast pairs are chosen for WCAG AA in both themes.
+ */
+:root {
+  --background: oklch(0.985 0.002 250);
+  --foreground: oklch(0.22 0.015 250);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.965 0.004 250);
+  --muted-foreground: oklch(0.47 0.015 250);
+  --border: oklch(0.9 0.006 250);
+  --ring: oklch(0.55 0.1 230);
+
+  --accent: oklch(0.47 0.095 230);
+  --accent-foreground: oklch(0.99 0 0);
+  --accent-soft: oklch(0.94 0.03 230);
+  --accent-soft-foreground: oklch(0.36 0.08 230);
+
+  --ok: oklch(0.52 0.12 155);
+  --ok-soft: oklch(0.95 0.04 155);
+  --warn: oklch(0.55 0.12 70);
+  --warn-soft: oklch(0.96 0.05 85);
+  --bad: oklch(0.53 0.17 27);
+  --bad-soft: oklch(0.95 0.03 27);
+
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: oklch(0.17 0.01 250);
+  --foreground: oklch(0.93 0.006 250);
+  --surface: oklch(0.21 0.012 250);
+  --surface-2: oklch(0.25 0.013 250);
+  --muted-foreground: oklch(0.7 0.012 250);
+  --border: oklch(0.32 0.014 250);
+  --ring: oklch(0.72 0.1 230);
+
+  --accent: oklch(0.74 0.1 225);
+  --accent-foreground: oklch(0.18 0.02 250);
+  --accent-soft: oklch(0.3 0.05 230);
+  --accent-soft-foreground: oklch(0.86 0.05 225);
+
+  --ok: oklch(0.76 0.13 155);
+  --ok-soft: oklch(0.3 0.05 155);
+  --warn: oklch(0.8 0.12 80);
+  --warn-soft: oklch(0.32 0.05 80);
+  --bad: oklch(0.74 0.14 27);
+  --bad-soft: oklch(0.32 0.06 27);
+}
+
+@theme inline {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-foreground: var(--accent-soft-foreground);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "tnum" 1; /* tabular numbers for data columns */
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* MapLibre controls follow the theme. */
+.dark .maplibregl-ctrl-group {
+  background: var(--surface-2);
+}
+.dark .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+.dark .maplibregl-ctrl-attrib {
+  background: color-mix(in oklch, var(--surface) 80%, transparent);
+  color: var(--muted-foreground);
+}
+.dark .maplibregl-ctrl-attrib a {
+  color: var(--foreground);
+}

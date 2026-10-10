@@ -1,0 +1,66 @@
+# Golden set (brief section 10). A sanity check, not ground truth: a miss means investigate the filter,
+# never tune the scoring to pass.
+#
+# Coordinates are deliberately empty: they must be researched (press releases, planning documents) and
+# verified on Geoportal in Phase 0 before they are used. Do not fill them with guesses.
+#
+# expect: not_excluded_top20pct  -> must not be hard-excluded and should rank in the top 20% of its powiat
+#         excluded_too_small     -> must be excluded with the reason "za mała powierzchnia"
+
+sites:
+  - name: Hillwood Reguły
+    expect: not_excluded_top20pct
+    capacity_mw: 130
+    area_ha: [22, 40]
+    lon: null
+    lat: null
+    verified_on_geoportal: false
+    sources: []
+
+  - name: Tauron Jaworzno / Wysoki Brzeg
+    expect: not_excluded_top20pct
+    capacity_mw: 150
+    area_ha: 54
+    lon: null
+    lat: null
+    verified_on_geoportal: false
+    sources: []
+
+  - name: Bełchatów / Domiechowice
+    expect: not_excluded_top20pct
+    capacity_mw: 500
+    area_ha: 50
+    lon: null
+    lat: null
+    verified_on_geoportal: false
+    sources: []
+
+  - name: CGE Konin
+    expect: not_excluded_top20pct
+    capacity_mw: 260
+    area_ha: null
+    lon: null
+    lat: null
+    verified_on_geoportal: false
+    sources: []
+
+  - name: Data4 Jawczyce
+    expect: excluded_too_small
+    lon: null
+    lat: null
+    verified_on_geoportal: false
+    sources: []
+
+  - name: Atman Duchnice
+    expect: excluded_too_small
+    lon: null
+    lat: null
+    verified_on_geoportal: false
+    sources: []
+
+  - name: Switch Mory
+    expect: excluded_too_small
+    lon: null
+    lat: null
+    verified_on_geoportal: false
+    sources: []

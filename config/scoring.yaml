@@ -1,0 +1,80 @@
+# Scoring configuration (PROJECT_BRIEF.md section 6).
+# Edited through Settings in the app; this file is the default.
+# All distances are in km, areas in ha, power in MW, percentages 0-100.
+
+target:
+  mw_min: 60
+  mw_per_ha: 6            # 60 MW ≈ 10 ha
+  ha_min: 10
+  ha_ideal: [10, 30]
+  large_campus_mw: 150    # above: flag "duży kampus", needs 220/400 kV
+  large_site_split_ha: 80 # above: flag "duży teren, do podziału" and suggest a 10–30 ha sub-site
+
+# Hard filters (6.1). mode: exclude | penalty. In "penalty" mode the filter subtracts
+# penalty_points instead of excluding the site.
+hard_filters:
+  area_below_min:            {mode: exclude, penalty_points: 30}  # uses target.ha_min
+  protected_nature_pct_over: {mode: exclude, threshold_pct: 20, penalty_points: 30}  # Natura 2000, national park, reserve
+  flood_10_or_1_pct:         {mode: exclude, penalty_points: 30}  # any overlap
+  mining_area_active:        {mode: exclude, penalty_points: 20}  # obszar górniczy
+  forest_pct_over:           {mode: exclude, threshold_pct: 30, penalty_points: 20}
+  soil_class_I_II_pct_over:  {mode: exclude, threshold_pct: 30, penalty_points: 20}
+  heritage_register:         {mode: exclude, penalty_points: 20}
+  residential_within_m:      {mode: exclude, threshold_m: 100, penalty_points: 20}
+
+# Weighted criteria (6.2). Weights must sum to 100.
+weights: {grid: 45, zoning: 25, land: 15, connectivity: 5, bonus: 10}
+
+grid:
+  line110_km_full: 1.0
+  line110_km_zero: 3.0
+  gpz110_km_full: 2.0
+  gpz110_km_zero: 8.0
+  two_independent_110_lines_within_km: 3     # N-1 bonus
+  node_220_400_km_bonus: 25                  # required-ish when estimated MW > large_campus_mw
+  planned_pse_load_station_km_bonus: 25
+  closed_switchyard_penalty: 15
+  published_gpz_headroom_bonus: 5            # Enea/Energa MV data, signal only
+  pse_odb_nearby_km: 15                      # demand signal, shown, small bonus
+  powered_brownfield_bonus: 15
+
+zoning: {mpzp_production: 100, plan_ogolny_SG: 80, procedure_in_progress: 50, unknown: 30, other: 0}
+
+land: {compactness_min: 0.35, parcels_full: 3, parcels_zero: 30, expansion_ha_bonus_per_10ha: 3}
+
+connectivity:
+  telecom_node_km_full: 2
+  telecom_node_km_zero: 15
+  city_km_full: 30
+  city_km_zero: 120
+  cities: [Poznań, Wrocław, Szczecin, Gdańsk, Katowice, Łódź, Kraków, Warszawa, Bydgoszcz, Opole, Zielona Góra]
+
+bonus: {heat_network_km: 5, psi_aid_max_pts: 3, res_cluster_km: 10, env_decision_found: 3, public_seller: 2}
+
+penalties:
+  flood_0_2pct: 10
+  landscape_park_or_ochk: 8
+  mining_terrain: 8
+  soil_class_III_pct_over_30: 8
+  residential_100_300m: 10
+  gas_pipeline_zone: 5
+  airport_ols: 5
+
+# Grid pre-filter (pipeline step 4). A zone is kept if ANY condition holds.
+prefilter:
+  line110_km: 3
+  gpz110_km: 5
+  node_220_400_km: 25
+
+# Connection-cost calculator (brief section 3, Prawo energetyczne amendment of 30.04.2026).
+# NEEDS LEGAL VERIFICATION. Shown in the UI with the label "wymaga weryfikacji prawnej".
+connection_cost:
+  legal_basis: "Prawo energetyczne, nowelizacja obowiązująca od 30.04.2026"
+  verified: false
+  application_fee_pln_per_kw: 1
+  application_fee_max_pln: 100000
+  advance_pln_per_kw: 60
+  advance_max_pln: 6000000
+  security_pln_per_kw: 30
+  security_applies_up_to_mw: 100
+  conditions_valid_months: 12

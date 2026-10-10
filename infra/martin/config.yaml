@@ -1,0 +1,11 @@
+# Martin vector tile server. Only the `tiles` schema is published: the pipeline creates views and
+# functions there for exactly what the map shows (the PostGIS image also ships TIGER geocoder tables,
+# which must not be exposed).
+listen_addresses: "0.0.0.0:3000"
+postgres:
+  connection_string: ${MARTIN_DATABASE_URL}  # must stay unquoted for substitution
+  auto_publish:
+    tables:
+      from_schemas: tiles
+    functions:
+      from_schemas: tiles

@@ -1,0 +1,21 @@
+[project]
+name = "dclh-api"
+version = "0.1.0"
+description = "DC Land Hunter REST API"
+requires-python = "==3.12.*"
+dependencies = [
+    "dclh-pipeline",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "alembic>=1.13",
+]
+
+[tool.uv.sources]
+dclh-pipeline = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["dclh_api"]

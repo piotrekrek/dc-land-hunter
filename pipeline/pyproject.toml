@@ -1,0 +1,34 @@
+[project]
+name = "dclh-pipeline"
+version = "0.1.0"
+description = "DC Land Hunter data pipeline: source connectors, grid model, sites, scoring and events"
+requires-python = "==3.12.*"
+dependencies = [
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+    "pyyaml>=6.0",
+    "httpx>=0.27",
+    "typer>=0.12",
+    "rich>=13.7",
+    "sqlalchemy>=2.0.32",
+    "psycopg[binary]>=3.2",
+    "geoalchemy2>=0.15",
+    "pandas>=2.2",
+    "geopandas>=1.0",
+    "shapely>=2.0",
+    "pyproj>=3.6",
+    "defusedxml>=0.7",
+]
+
+[project.optional-dependencies]
+discovery = ["playwright>=1.47"]
+
+[project.scripts]
+dclh = "dclh_pipeline.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["dclh_pipeline"]

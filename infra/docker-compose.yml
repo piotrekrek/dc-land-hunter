@@ -1,0 +1,104 @@
+# Local and production stack. Start everything with:
+#   docker compose -f infra/docker-compose.yml up --build
+# Settings come from infra/.env (copy infra/.env.example); every value has a safe local default.
+name: dclh
+
+x-db-env: &db-env
+  POSTGRES_USER: ${POSTGRES_USER:-dclh}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dclh}
+  POSTGRES_DB: ${POSTGRES_DB:-dclh}
+
+x-python-env: &python-env
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-dclh}:${POSTGRES_PASSWORD:-dclh}@db:5432/${POSTGRES_DB:-dclh}
+  DCLH_CONTACT_EMAIL: ${DCLH_CONTACT_EMAIL:-unset@example.invalid}
+
+x-python: &python
+  image: dclh-python:local
+  build:
+    context: ..
+    dockerfile: infra/docker/python.Dockerfile
+  environment: *python-env
+  volumes:
+    - dclh-data:/data
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgis/postgis:16-3.5
+    environment: *db-env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${DB_HOST_PORT:-55432}:5432" # for local development only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    <<: *python
+    command: ["alembic", "-c", "api/alembic.ini", "upgrade", "head"]
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    <<: *python
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    <<: *python
+    command: ["dclh", "worker"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  scheduler:
+    <<: *python
+    command: ["/usr/local/bin/supercronic", "/app/infra/crontab"] # absolute path: supercronic re-execs itself as PID 1
+    environment:
+      <<: *python-env
+      TZ: Europe/Warsaw
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  martin:
+    image: ghcr.io/maplibre/martin:${MARTIN_TAG:-1.16.1}
+    command: ["--config", "/config/config.yaml", "--route-prefix", "/tiles"]
+    environment:
+      MARTIN_DATABASE_URL: postgres://${POSTGRES_USER:-dclh}:${POSTGRES_PASSWORD:-dclh}@db:5432/${POSTGRES_DB:-dclh}
+    volumes:
+      - ./martin/config.yaml:/config/config.yaml:ro
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  web:
+    image: dclh-web:local
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api: { condition: service_healthy }
+      martin: { condition: service_started }
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  dclh-data:
+  caddy-data:
+  caddy-config:

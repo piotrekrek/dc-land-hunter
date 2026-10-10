@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+web/dist/
+tests/e2e/test-results/
+tests/e2e/playwright-report/
+*.tsbuildinfo
+
+# Data: raw snapshots are large and re-fetchable
+data/raw/
+data/cache/
+!data/raw/.gitkeep
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/

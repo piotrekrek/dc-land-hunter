@@ -1,0 +1,60 @@
+[project]
+name = "dc-land-hunter"
+version = "0.1.0"
+description = "DC Land Hunter: find land west of the Vistula for small AI data centres"
+requires-python = "==3.12.*"
+dependencies = ["dclh-pipeline", "dclh-api"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pytest>=8.3",
+    "pytest-cov>=5.0",
+    "hypothesis>=6.112",
+    "types-PyYAML",
+    "types-defusedxml",
+    "pandas-stubs",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["pipeline", "api"]
+
+[tool.uv.sources]
+dclh-pipeline = { workspace = true }
+dclh-api = { workspace = true }
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+extend-exclude = ["web", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "PTH", "DTZ"]
+ignore = ["RUF001", "RUF002", "RUF003"]  # Polish text contains non-ASCII letters by design
+
+[tool.ruff.lint.isort]
+known-first-party = ["dclh_pipeline", "dclh_api", "tests"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["pipeline/dclh_pipeline", "api/dclh_api"]
+mypy_path = ["pipeline", "api"]
+explicit_package_bases = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["geopandas.*", "shapely.*", "pyproj.*", "playwright.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit", "tests/contract"]
+addopts = "-ra --strict-markers"
+markers = [
+    "db: needs a PostGIS database at DATABASE_URL (skipped when unreachable)",
+    "live: hits real external services (never in CI; run from Poland)",
+]

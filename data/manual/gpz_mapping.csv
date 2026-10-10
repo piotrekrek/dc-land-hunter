@@ -1,0 +1,2 @@
+# Manual mapping between OSM substations and DSO capacity lists (filled in Phase 3).
+osm_id,dso,dso_gpz_name,note
