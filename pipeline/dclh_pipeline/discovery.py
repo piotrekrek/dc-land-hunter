@@ -241,11 +241,31 @@ def keyword_links(links: list[tuple[str, str]], keywords: list[str], base_url: s
 # --------------------------------------------------------------------------- probes
 
 
+# Bot-protection and domain-parking pages answer 200 but carry no data.
+CHALLENGE_MARKERS = ("_Incapsula_Resource", "Incapsula incident", "Request unsuccessful", "cf-challenge")
+PARKED_DOMAIN_HOSTS = ("aftermarket.pl", "sedo.com", "afternic.com", "dan.com")
+
+
+def _challenge_error(resp: httpx.Response) -> str | None:
+    """Explain why a 200 response is not real content, or return None."""
+    body = resp.text[:20_000] if "text" in (resp.headers.get("content-type") or "") else ""
+    if any(marker in body for marker in CHALLENGE_MARKERS):
+        return "strona ochrony antybotowej (challenge), nie treść"
+    host = urlsplit(str(resp.url)).netloc
+    if any(host.endswith(p) for p in PARKED_DOMAIN_HOSTS):
+        return f"przekierowanie na stronę sprzedaży domeny ({host})"
+    return None
+
+
 def _base_result(probe: Probe, resp: httpx.Response, started: float) -> ProbeResult:
+    blocked = _challenge_error(resp) if resp.is_success else None
     return ProbeResult(
         kind=probe.kind,
         url=str(probe.url),
-        outcome=ProbeOutcome.OK if resp.is_success else ProbeOutcome.FAILED,
+        outcome=ProbeOutcome.FAILED
+        if blocked
+        else (ProbeOutcome.OK if resp.is_success else ProbeOutcome.FAILED),
+        error=blocked,
         status_code=resp.status_code,
         content_type=resp.headers.get("content-type"),
         final_url=str(resp.url),
@@ -300,8 +320,8 @@ def probe_page(client: PoliteClient, probe: PageProbe) -> ProbeResult:
     resp = client.get(str(probe.url))
     result = _base_result(probe, resp, started)
     result.size_bytes = len(resp.content)
-    if not resp.is_success:
-        return result
+    if result.outcome is ProbeOutcome.FAILED:
+        return result  # challenge or parked page: nothing to parse
     base = str(resp.url)
     parser = _LinkParser()
     parser.feed(resp.text)
@@ -335,7 +355,7 @@ def probe_arcgis(client: PoliteClient, probe: ArcgisProbe) -> ProbeResult:
     url = str(probe.url).rstrip("/")
     resp = client.get(url, params={"f": "json"})
     result = _base_result(probe, resp, started)
-    if not resp.is_success:
+    if result.outcome is ProbeOutcome.FAILED:
         return result
     try:
         catalog = resp.json()
@@ -525,7 +545,8 @@ def update_sources_doc(doc: Path, table: str) -> None:
 def save_report(report: DiscoveryReport, out_dir: Path) -> tuple[Path, Path]:
     """Write `discovery-<date>.json` and `.md` into `out_dir`; returns both paths."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    stem = f"discovery-{report.started_at[:10]}"
+    # Timestamped so that repeated runs on the same day don't overwrite each other.
+    stem = f"discovery-{report.started_at[:16].replace(':', '')}"
     json_path = out_dir / f"{stem}.json"
     md_path = out_dir / f"{stem}.md"
     json_path.write_text(report.to_json(), encoding="utf-8")

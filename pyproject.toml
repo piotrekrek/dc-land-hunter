@@ -5,6 +5,9 @@ description = "DC Land Hunter: find land west of the Vistula for small AI data c
 requires-python = "==3.12.*"
 dependencies = ["dclh-pipeline", "dclh-api"]
 
+[project.optional-dependencies]
+discovery = ["playwright>=1.47"]
+
 [dependency-groups]
 dev = [
     "ruff>=0.6",

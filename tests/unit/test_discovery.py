@@ -163,3 +163,47 @@ def test_update_sources_doc(tmp_path: Path) -> None:
     update_sources_doc(doc, "| new |\n")
     text = doc.read_text(encoding="utf-8")
     assert "old" not in text and "| new |" in text and "Manual notes stay." in text
+
+
+def test_incapsula_challenge_page_is_not_reported_as_ok(make_client: ClientFactory) -> None:
+    challenge = b"<html><script src='/_Incapsula_Resource?SWJIYLWA=1'></script></html>"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        return httpx.Response(200, content=challenge, headers={"content-type": "text/html"})
+
+    probe = PageProbe(kind="page", url="https://www.uke.gov.pl/", keywords=[])  # type: ignore[arg-type]
+    result = probe_page(make_client(handler), probe)
+    assert result.outcome is ProbeOutcome.FAILED
+    assert "challenge" in (result.error or "")
+    assert result.details == {}  # no endpoint candidates taken from the challenge page
+
+
+def test_parked_domain_redirect_is_flagged(make_client: ClientFactory) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        if request.url.host == "www.enea-operator.pl":
+            return httpx.Response(
+                302, headers={"location": "https://www.aftermarket.pl/domena/enea-operator.pl/"}
+            )
+        return httpx.Response(
+            200, text="<html>Domena na sprzedaż</html>", headers={"content-type": "text/html"}
+        )
+
+    probe = PageProbe(kind="page", url="https://www.enea-operator.pl/", keywords=[])  # type: ignore[arg-type]
+    result = probe_page(make_client(handler), probe)
+    assert result.outcome is ProbeOutcome.FAILED
+    assert "aftermarket.pl" in (result.error or "")
+
+
+def test_report_names_do_not_overwrite_same_day_runs(tmp_path: Path) -> None:
+    from dclh_pipeline.discovery import DiscoveryReport, save_report
+
+    first = DiscoveryReport("2026-10-10T22:30:00+00:00", "x", "ua", "vps", [])
+    second = DiscoveryReport("2026-10-10T23:05:00+00:00", "x", "ua", "vps", [])
+    a, _ = save_report(first, tmp_path)
+    b, _ = save_report(second, tmp_path)
+    assert a != b and a.exists() and b.exists()
+    assert sorted(p.name for p in tmp_path.glob("discovery-*.json"))[-1] == b.name

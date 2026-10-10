@@ -219,6 +219,11 @@ dependencies = [
     { name = "dclh-pipeline" },
 ]
 
+[package.optional-dependencies]
+discovery = [
+    { name = "playwright" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "hypothesis" },
@@ -235,7 +240,9 @@ dev = [
 requires-dist = [
     { name = "dclh-api", editable = "api" },
     { name = "dclh-pipeline", editable = "pipeline" },
+    { name = "playwright", marker = "extra == 'discovery'", specifier = ">=1.47" },
 ]
+provides-extras = ["discovery"]
 
 [package.metadata.requires-dev]
 dev = [
