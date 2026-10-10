@@ -91,3 +91,8 @@ Not done yet (needs real data from a machine in Poland):
   `docs/SCORING.md` (**please review the table of sub-criterion weights**).
 - 54 tests, including hypothesis properties (monotonicity, bounds, well-formed output for random sites).
 - Not yet: computing the features from real data, the sites list/card in the web app, the golden-set run.
+- Site clustering (`model/sites.py`): parcels touching or within 5 m in the same zone form one site; area in ha,
+  Polsby-Popper compactness, estimated MW (6 MW/ha), stable `site_id`, >80 ha split suggestion (flag only).
+  9 tests on synthetic parcels. `expansion_ha` is not implemented: the brief does not define how to compute it.
+- Blocked on live data (needs a Polish machine, see Phase 0 / Phase 1): `ru` zoning, `egib` parcels, constraint
+  layers, the grid pre-filter run on real substations, and the golden-set run.
