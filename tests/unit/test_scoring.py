@@ -77,6 +77,19 @@ def test_item_points_add_up_to_category_points_when_not_capped() -> None:
     assert sum(i.points for i in grid_items) == pytest.approx(grid.points)
 
 
+def test_overflowing_category_shrinks_only_positive_items() -> None:
+    s = score_site(
+        full_features(closed_switchyard_nearby=F(True), powered_brownfield=F(True), dist_line110_km=F(0.0)),
+        CFG,
+    )
+    grid_items = [i for i in s.items if i.category == "grid"]
+    grid = next(c for c in s.categories if c.category == "grid")
+    positives = sum(i.points for i in grid_items if i.points > 0)
+    assert positives + (-CFG.grid.closed_switchyard_penalty * 45 / 100) == pytest.approx(grid.points)
+    assert sum(i.points for i in grid_items) == pytest.approx(grid.points)
+    assert item(s, "grid_closed").points == pytest.approx(-CFG.grid.closed_switchyard_penalty * 45 / 100)
+
+
 # --------------------------------------------------------------------------- grid proximity (the 45-point category)
 
 

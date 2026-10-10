@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from collections import defaultdict, deque
+from collections import deque
 from collections.abc import Callable
 from typing import Annotated
 
@@ -49,20 +49,30 @@ class LoginThrottle:
         self.max_failures = max_failures
         self.window_s = window_s
         self._clock = clock
-        self._failures: dict[str, deque[float]] = defaultdict(deque)
+        self._failures: dict[str, deque[float]] = {}
 
-    def _recent(self, key: str) -> deque[float]:
-        q = self._failures[key]
+    def _recent(self, key: str) -> deque[float] | None:
+        """Failures inside the window, or None. Expired entries are dropped so the dict stays bounded."""
+        q = self._failures.get(key)
+        if q is None:
+            return None
         cutoff = self._clock() - self.window_s
         while q and q[0] < cutoff:
             q.popleft()
+        if not q:
+            del self._failures[key]
+            return None
         return q
 
     def blocked(self, key: str) -> bool:
-        return len(self._recent(key)) >= self.max_failures
+        q = self._recent(key)
+        return q is not None and len(q) >= self.max_failures
 
     def record_failure(self, key: str) -> None:
-        self._recent(key).append(self._clock())
+        q = self._recent(key)
+        if q is None:
+            q = self._failures[key] = deque()
+        q.append(self._clock())
 
     def reset(self, key: str) -> None:
         self._failures.pop(key, None)

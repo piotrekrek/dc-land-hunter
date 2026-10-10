@@ -5,13 +5,15 @@ import zipfile
 from collections.abc import Callable
 from pathlib import Path
 
+import geopandas as gpd
 import httpx
 import pytest
+from shapely.geometry import box
 
 from dclh_pipeline.config import SourceSpec
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.snapshots import SnapshotStore
-from dclh_pipeline.sources.prg import LAYERS, PrgConnector
+from dclh_pipeline.sources.prg import LAYERS, PrgConnector, _check_axis_order
 
 ClientFactory = Callable[..., PoliteClient]
 
@@ -49,7 +51,7 @@ def bundle(parts: dict[str, bytes]) -> bytes:
 
 def good_parts() -> dict[str, bytes]:
     return {
-        "country": feature_collection("A00_Granice_panstwa", "00", "Polska", 500_000, 500_000, 400_000),
+        "country": feature_collection("A00_Granice_panstwa", "00", "Polska", 400_000, 400_000, 300_000),
         "voivodeship": feature_collection("A01_Granice_wojewodztw", "14", "mazowieckie", 600_000, 600_000),
         "powiat": feature_collection("A02_Granice_powiatow", "1465", "warszawski zachodni", 610_000, 610_000),
         "gmina": feature_collection("A03_Granice_gmin", "146504", "Ożarów Mazowiecki", 620_000, 620_000),
@@ -100,4 +102,71 @@ def test_fetch_bundles_each_layer(tmp_path: Path, make_client: ClientFactory) ->
     store = SnapshotStore(tmp_path)
     snapshot = PrgConnector(SPEC).fetch(make_client(handler), store)
     with zipfile.ZipFile(snapshot.path) as archive:
-        assert sorted(archive.namelist()) == sorted(f"{level}.gml" for level in LAYERS)
+        assert sorted(archive.namelist()) == sorted(f"{level}-0000.gml" for level in LAYERS)
+    table = PrgConnector(SPEC).parse(snapshot)
+    assert set(table["level"]) == set(LAYERS)
+
+
+def paged_response(request: httpx.Request, total: int) -> httpx.Response:
+    start, count = int(request.url.params["startIndex"]), int(request.url.params["count"])
+    n = max(0, min(count, total - start))
+    members = "".join(
+        feature_collection("A03_Granice_gmin", f"{start + i:06d}", "x", 500_000, 500_000)
+        .decode()
+        .split("<wfs:member>")[1]
+        .split("</wfs:member>")[0]
+        .join(["<wfs:member>", "</wfs:member>"])
+        for i in range(n)
+    )
+    body = (
+        f'<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:gml="http://www.opengis.net/gml/3.2" '
+        f'xmlns:ms="http://mapserver.gis.umn.edu/mapserver" numberMatched="{total}" numberReturned="{n}">{members}'
+        "</wfs:FeatureCollection>"
+    )
+    return httpx.Response(200, content=body.encode())
+
+
+def test_fetch_pages_until_number_matched(tmp_path: Path, make_client: ClientFactory) -> None:
+    calls: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        calls.append(int(request.url.params["startIndex"]))
+        return paged_response(request, 2500)
+
+    snapshot = PrgConnector(SPEC).fetch(make_client(handler), SnapshotStore(tmp_path))
+    assert calls[:3] == [0, 1000, 2000]
+    with zipfile.ZipFile(snapshot.path) as archive:
+        assert "gmina-0002.gml" in archive.namelist()
+
+
+def test_fetch_rejects_truncated_layer(tmp_path: Path, make_client: ClientFactory) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        if int(request.url.params["startIndex"]) > 0:
+            empty = b'<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" numberMatched="2500" numberReturned="0"/>'
+            return httpx.Response(200, content=empty)
+        return paged_response(request, 2500)
+
+    with pytest.raises(ValueError, match="empty page"):
+        PrgConnector(SPEC).fetch(make_client(handler), SnapshotStore(tmp_path))
+
+
+def poznan_table(x: float, y: float) -> gpd.GeoDataFrame:
+    return gpd.GeoDataFrame(
+        {"level": ["gmina"], "teryt": ["306401"], "name": ["Poznań"]},
+        geometry=[box(x - 500, y - 500, x + 500, y + 500)],
+        crs="EPSG:2180",
+    )
+
+
+def test_mirrored_poznan_is_rejected() -> None:
+    # (505 km, 360 km) is inside the bounding box, but it is Poznań mirrored across the diagonal.
+    with pytest.raises(ValueError, match="Poznań"):
+        _check_axis_order(poznan_table(505_000, 360_000))
+
+
+def test_poznan_in_place_is_accepted() -> None:
+    _check_axis_order(poznan_table(360_000, 505_000))

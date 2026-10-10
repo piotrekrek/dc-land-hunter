@@ -89,6 +89,27 @@ def claim_next(session: Session) -> JobRow | None:
     return job
 
 
+def fail_interrupted(session: Session) -> int:
+    """Mark jobs left 'running' by a dead worker as failed, and close their runs. Returns how many.
+
+    Only call this when no other worker is executing jobs (at worker start-up): the queue has one worker.
+    """
+    now = datetime.now(UTC)
+    error = "interrupted: worker stopped before the job finished"
+    stale = session.scalars(select(JobRow).where(JobRow.status == "running")).all()
+    for job in stale:
+        job.status, job.error, job.finished_at = "failed", error, now
+        run_row = session.get(RunRow, job.run_id) if job.run_id is not None else None
+        if run_row is not None and run_row.status == "running":
+            run_row.status, run_row.finished_at = "failed", now
+            run_row.summary = {"error": error}
+    # A run can also be left open when the worker died before the job row pointed at it.
+    for run_row in session.scalars(select(RunRow).where(RunRow.status == "running")):
+        run_row.status, run_row.finished_at = "failed", now
+        run_row.summary = {"error": error}
+    return len(stale)
+
+
 def execute(job_id: int) -> None:
     with session_scope() as session:
         job = session.get(JobRow, job_id)
@@ -121,6 +142,10 @@ def execute(job_id: int) -> None:
 def work(*, once: bool = False, interval_s: float = 10.0) -> int:
     """Poll for jobs. Returns the number of jobs executed (useful with once=True)."""
     executed = 0
+    with session_scope() as session:
+        interrupted = fail_interrupted(session)
+    if interrupted:
+        log.warning("marked %d interrupted job(s) as failed", interrupted)
     while True:
         with session_scope() as session:
             job = claim_next(session)

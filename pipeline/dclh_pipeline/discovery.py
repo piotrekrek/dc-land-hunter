@@ -252,8 +252,8 @@ def _challenge_error(resp: httpx.Response) -> str | None:
     body = resp.text[:20_000] if "text" in (resp.headers.get("content-type") or "") else ""
     if any(marker in body for marker in CHALLENGE_MARKERS):
         return "strona ochrony antybotowej (challenge), nie treść"
-    host = urlsplit(str(resp.url)).netloc
-    if any(host.endswith(p) for p in PARKED_DOMAIN_HOSTS):
+    host = (urlsplit(str(resp.url)).hostname or "").lower()
+    if any(host == p or host.endswith("." + p) for p in PARKED_DOMAIN_HOSTS):
         return f"przekierowanie na stronę sprzedaży domeny ({host})"
     return None
 
@@ -591,8 +591,8 @@ def update_sources_doc(doc: Path, table: str) -> None:
 def save_report(report: DiscoveryReport, out_dir: Path) -> tuple[Path, Path]:
     """Write `discovery-<date>.json` and `.md` into `out_dir`; returns both paths."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    # Timestamped so that repeated runs on the same day don't overwrite each other.
-    stem = f"discovery-{report.started_at[:16].replace(':', '')}"
+    # Timestamped to the second so that repeated runs on the same day don't overwrite each other.
+    stem = f"discovery-{report.started_at[:19].replace(':', '')}"
     json_path = out_dir / f"{stem}.json"
     md_path = out_dir / f"{stem}.md"
     json_path.write_text(report.to_json(), encoding="utf-8")

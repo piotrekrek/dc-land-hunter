@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { CircleCheck, CircleX, Database, LoaderCircle, Minus, Play, ServerCrash, TriangleAlert } from "lucide-react";
 
 import { api, unwrap, type SourceOut } from "@/api/client";
@@ -45,26 +46,41 @@ function LastRun({ source }: { source: SourceOut }) {
   return <>{formatDate(source.state?.last_success_at)}</>;
 }
 
+const REFRESH_DELAYS_MS = [15_000, 45_000, 90_000];
+
 function RunNow() {
   const { user } = useAuth();
   const client = useQueryClient();
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const run = useMutation({
     mutationFn: async () => {
       const { data, response } = await api.POST("/api/sources/discover", { body: { sources: [] } });
       if (!data) throw new Error(`API ${response.status}`);
       return data;
     },
-    onSuccess: () => {
-      // The worker needs a moment; refresh the table in the background.
-      for (const delay of [15_000, 45_000, 90_000]) {
-        setTimeout(() => void client.invalidateQueries({ queryKey: ["sources"] }), delay);
-      }
-    },
   });
+  const { mutate, reset } = run;
+
+  // Clear pending refresh timers when the page is left.
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+
+  const start = () =>
+    mutate(undefined, {
+      onSuccess: () => {
+        // The worker needs a moment; refresh the table in the background, then allow another run.
+        timers.current.forEach(clearTimeout);
+        timers.current = REFRESH_DELAYS_MS.map((delay, i) =>
+          setTimeout(() => {
+            void client.invalidateQueries({ queryKey: ["sources"] });
+            if (i === REFRESH_DELAYS_MS.length - 1) reset();
+          }, delay),
+        );
+      },
+    });
   if (user?.role !== "admin") return null;
   return (
     <div className="mt-4 flex flex-wrap items-center gap-3">
-      <Button variant="outline" size="sm" onClick={() => run.mutate()} disabled={run.isPending || run.isSuccess}>
+      <Button variant="outline" size="sm" onClick={start} disabled={run.isPending || run.isSuccess}>
         {run.isPending ? <LoaderCircle className="animate-spin" aria-hidden /> : <Play aria-hidden />}
         Uruchom teraz
       </Button>
