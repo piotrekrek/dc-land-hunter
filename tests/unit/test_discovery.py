@@ -226,11 +226,28 @@ def test_parked_domain_redirect_is_flagged(make_client: ClientFactory) -> None:
     assert "aftermarket.pl" in (result.error or "")
 
 
+def test_lookalike_host_is_not_a_parked_domain(make_client: ClientFactory) -> None:
+    from dclh_pipeline.discovery import _challenge_error
+
+    def ok(url: str) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text="<html>ok</html>",
+            headers={"content-type": "text/html"},
+            request=httpx.Request("GET", url),
+        )
+
+    assert _challenge_error(ok("https://mapa-dan.com/")) is None
+    assert _challenge_error(ok("https://xsedo.com/")) is None
+    assert _challenge_error(ok("https://dan.com/x")) is not None
+    assert _challenge_error(ok("https://www.sedo.com:443/x")) is not None
+
+
 def test_report_names_do_not_overwrite_same_day_runs(tmp_path: Path) -> None:
     from dclh_pipeline.discovery import DiscoveryReport, save_report
 
     first = DiscoveryReport("2026-10-10T22:30:00+00:00", "x", "ua", "vps", [])
-    second = DiscoveryReport("2026-10-10T23:05:00+00:00", "x", "ua", "vps", [])
+    second = DiscoveryReport("2026-10-10T22:30:41+00:00", "x", "ua", "vps", [])
     a, _ = save_report(first, tmp_path)
     b, _ = save_report(second, tmp_path)
     assert a != b and a.exists() and b.exists()

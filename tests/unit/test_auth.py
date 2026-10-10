@@ -64,6 +64,18 @@ def test_login_throttle_blocks_then_expires() -> None:
     assert not t.blocked("k")
 
 
+def test_login_throttle_does_not_keep_unused_or_expired_keys() -> None:
+    now = [0.0]
+    t = LoginThrottle(max_failures=3, window_s=100, clock=lambda: now[0])
+    for i in range(1000):
+        assert not t.blocked(f"probe-{i}")
+    assert t._failures == {}
+    t.record_failure("k")
+    now[0] = 101
+    assert not t.blocked("k")
+    assert t._failures == {}
+
+
 # --------------------------------------------------------------------------- with database
 
 

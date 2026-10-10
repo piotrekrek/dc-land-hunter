@@ -57,6 +57,21 @@ def test_distance_ranges_are_ordered() -> None:
         ScoringConfig.model_validate(raw)
 
 
+@pytest.mark.parametrize(
+    ("section", "field", "value", "match"),
+    [
+        ("connectivity", "telecom_node_km_full", 20, "telecom_node_km_full"),
+        ("connectivity", "city_km_full", 200, "city_km_full"),
+        ("land", "parcels_full", 40, "parcels_full"),
+    ],
+)
+def test_other_ranges_are_ordered(section: str, field: str, value: float, match: str) -> None:
+    raw = yaml.safe_load((Path(__file__).parents[2] / "config" / "scoring.yaml").read_text(encoding="utf-8"))
+    raw[section][field] = value
+    with pytest.raises(ValidationError, match=match):
+        ScoringConfig.model_validate(raw)
+
+
 def test_sources_cover_the_brief() -> None:
     cfg = load_sources()
     assert {s.id for s in cfg.by_plan("mvp")} == BRIEF_MVP

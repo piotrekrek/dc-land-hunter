@@ -69,6 +69,9 @@ def test_any_valid_voltage_classifies_and_220_plus_is_a_node(volts: list[int]) -
         ("ENERGA Operator SA", Dso.ENERGA),
         ("Tauron Dystrybucja", Dso.TAURON),
         ("PGE Dystrybucja", Dso.PGE),
+        ("Enea Wytwarzanie", None),
+        ("Tauron Wytwarzanie", None),
+        ("PGE Górnictwo i Energetyka Konwencjonalna", None),
         ("PSE", Dso.PSE),
         ("Polskie Sieci Elektroenergetyczne", Dso.PSE),
         ("ArcelorMittal Poland", None),
@@ -84,3 +87,8 @@ def test_foreign_operator_flags_powered_brownfield_candidates() -> None:
     assert not is_foreign_operator("Tauron Dystrybucja")
     assert not is_foreign_operator(None)
     assert not is_foreign_operator("  ")
+
+
+def test_generation_subsidiaries_are_foreign_operators() -> None:
+    assert is_foreign_operator("Enea Wytwarzanie")
+    assert is_foreign_operator("PGE Górnictwo i Energetyka Konwencjonalna")
