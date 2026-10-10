@@ -611,15 +611,20 @@ def score_site(f: SiteFeatures, cfg: ScoringConfig) -> SiteScore:
         base_scale = 1.0 if cat == "bonus" else weights[cat] / 100.0
 
         def scale(raws: list[float], *, cap: float = cap, base_scale: float = base_scale) -> float:
+            """Scale factor for the positive items; penalties always use `base_scale` unchanged."""
             positive = sum(r for r in raws if r > 0)
             negative = sum(r for r in raws if r < 0)
             net = _clip(positive + negative, 0.0, cap)
-            # When the positives overflow the cap, shrink them proportionally so displayed items add up.
+            # When the positives overflow the cap, shrink only them so displayed items add up to the total.
             shrink = (cap - negative) / positive if positive > 0 and positive + negative > cap else 1.0
             return base_scale * min(1.0, shrink) if net > 0 else base_scale
 
         s_act = scale([d.raw for d in cat_items])
         s_up = scale([d.upside_raw for d in cat_items])
+
+        def shown(raw: float, pos_scale: float, *, base_scale: float = base_scale) -> float:
+            return raw * (pos_scale if raw > 0 else base_scale)
+
         cat_pts = _clip(sum(d.raw for d in cat_items), 0.0, cap) * base_scale
         cat_up = _clip(sum(d.upside_raw for d in cat_items), 0.0, cap) * base_scale
         cat_max = cap * base_scale
@@ -632,9 +637,9 @@ def score_site(f: SiteFeatures, cfg: ScoringConfig) -> SiteScore:
                     d.key,
                     d.category,
                     d.label_pl,
-                    d.raw * s_act,
+                    shown(d.raw, s_act),
                     d.max_raw * base_scale,
-                    d.upside_raw * s_up,
+                    shown(d.upside_raw, s_up),
                     d.confidence,
                     d.source_id,
                     d.as_of,

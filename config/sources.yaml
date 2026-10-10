@@ -73,7 +73,7 @@ sources:
     notes: "Rejestr niekompletny do 30.11.2026 – brak planu oznacza 'nieznane', nie 'złe'."
     probes:
       - {kind: page, url: "https://rejestr-urbanistyczny.gov.pl/", keywords: ["wfs", "wms", "csw", "usług", "api", "pobier"]}
-      - {kind: browser, url: "https://rejestr-urbanistyczny.gov.pl/"}
+      - {kind: browser, url: "https://rejestr-urbanistyczny.gov.pl/", actions: [{action: fill, selector: "input[type=search], input[type=text]", value: "Warszawa"}, {action: press, selector: "input[type=search], input[type=text]", value: "Enter"}]}
 
   - id: kimpzp
     name: KIMPZP – Krajowa Integracja MPZP
@@ -195,7 +195,7 @@ sources:
     licence_expected: "Informacja publiczna OSD (sprawdzić regulamin)"
     probes:
       - {kind: page, url: "https://www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce", keywords: ["dostępnych mocy", "mapa", "moc przyłączeniow", "odbiorc"]}
-      - {kind: browser, url: "https://www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce"}
+      - {kind: browser, url: "https://www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce", actions: [{action: fill, selector: "input[type=search], input[type=text]", value: "Warszawa"}, {action: press, selector: "input[type=search], input[type=text]", value: "Enter"}]}
 
   - id: energa
     name: Energa-Operator – dostępne moce odbiorcze
@@ -219,6 +219,7 @@ sources:
     probes:
       - {kind: page, url: "https://dostepnemoce.pl/", keywords: ["moc", "mapa", "warunk"]}
       - {kind: browser, url: "https://dostepnemoce.pl/"}
+      - {kind: http, method: GET, url: "https://dostepnemoce.tauron-dystrybucja.pl/wp-json/tauron-connector/v1/map/sources"}
 
   - id: dso_portals
     name: Nowe portale mocy OSD (nowelizacja 2026)

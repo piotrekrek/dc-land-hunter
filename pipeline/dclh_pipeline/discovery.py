@@ -252,8 +252,8 @@ def _challenge_error(resp: httpx.Response) -> str | None:
     body = resp.text[:20_000] if "text" in (resp.headers.get("content-type") or "") else ""
     if any(marker in body for marker in CHALLENGE_MARKERS):
         return "strona ochrony antybotowej (challenge), nie treść"
-    host = urlsplit(str(resp.url)).netloc
-    if any(host.endswith(p) for p in PARKED_DOMAIN_HOSTS):
+    host = (urlsplit(str(resp.url)).hostname or "").lower()
+    if any(host == p or host.endswith("." + p) for p in PARKED_DOMAIN_HOSTS):
         return f"przekierowanie na stronę sprzedaży domeny ({host})"
     return None
 
@@ -382,6 +382,13 @@ def probe_arcgis(client: PoliteClient, probe: ArcgisProbe) -> ProbeResult:
     return result
 
 
+# Lists inputs, selects and buttons so the next run can pick selectors for `actions`.
+_CONTROLS_JS = """() => Array.from(document.querySelectorAll('input, select, textarea, button'))
+    .slice(0, 80).map(e => ({
+        tag: e.tagName.toLowerCase(), type: e.type || null, name: e.name || null, id: e.id || null,
+        placeholder: e.placeholder || null, text: (e.innerText || '').trim().slice(0, 40) || null}))"""
+
+
 def probe_browser(probe: BrowserProbe, user_agent: str, wait_s: float = 15.0) -> ProbeResult:
     """Open the page in headless Chromium and record data-looking network responses."""
     try:
@@ -394,6 +401,7 @@ def probe_browser(probe: BrowserProbe, user_agent: str, wait_s: float = 15.0) ->
             error="playwright not installed (uv sync --extra discovery)",
         )
     captured: list[dict[str, Any]] = []
+    action_errors: list[str] = []
 
     def on_response(response: Any) -> None:
         ctype = response.headers.get("content-type", "")
@@ -420,6 +428,19 @@ def probe_browser(probe: BrowserProbe, user_agent: str, wait_s: float = 15.0) ->
             page.goto(str(probe.url), wait_until="domcontentloaded", timeout=60_000)
             page.wait_for_timeout(wait_s * 1000)
             title = page.title()
+            controls = page.evaluate(_CONTROLS_JS)
+            for step in probe.actions:
+                try:
+                    locator = page.locator(step.selector).first
+                    if step.action == "fill":
+                        locator.fill(step.value or "", timeout=5_000)
+                    elif step.action == "press":
+                        locator.press(step.value or "Enter", timeout=5_000)
+                    else:
+                        locator.click(timeout=5_000)
+                    page.wait_for_timeout(3000)
+                except Exception as exc:  # an action that misses must not stop the capture
+                    action_errors.append(f"{step.action} {step.selector}: {type(exc).__name__}"[:200])
             browser.close()
     except Exception as exc:
         return ProbeResult(
@@ -430,7 +451,12 @@ def probe_browser(probe: BrowserProbe, user_agent: str, wait_s: float = 15.0) ->
         str(probe.url),
         ProbeOutcome.OK,
         elapsed_ms=int((time.monotonic() - started) * 1000),
-        details={"title": title, "data_requests": captured[:MAX_LIST]},
+        details={
+            "title": title,
+            "data_requests": captured[:MAX_LIST],
+            "controls": controls[:MAX_LIST],  # visible inputs and buttons, to pick selectors for actions
+            "action_errors": action_errors,
+        },
     )
 
 
@@ -565,8 +591,8 @@ def update_sources_doc(doc: Path, table: str) -> None:
 def save_report(report: DiscoveryReport, out_dir: Path) -> tuple[Path, Path]:
     """Write `discovery-<date>.json` and `.md` into `out_dir`; returns both paths."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    # Timestamped so that repeated runs on the same day don't overwrite each other.
-    stem = f"discovery-{report.started_at[:16].replace(':', '')}"
+    # Timestamped to the second so that repeated runs on the same day don't overwrite each other.
+    stem = f"discovery-{report.started_at[:19].replace(':', '')}"
     json_path = out_dir / f"{stem}.json"
     md_path = out_dir / f"{stem}.md"
     json_path.write_text(report.to_json(), encoding="utf-8")

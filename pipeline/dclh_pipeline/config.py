@@ -26,6 +26,13 @@ class Target(_Model):
     large_campus_mw: float
     large_site_split_ha: float
 
+    @model_validator(mode="after")
+    def _ranges(self) -> Target:
+        lo, hi = self.ha_ideal
+        if not lo < hi <= self.large_site_split_ha:
+            raise ValueError("target.ha_ideal must be (low, high) with low < high <= large_site_split_ha")
+        return self
+
 
 class HardFilter(_Model):
     mode: Literal["exclude", "penalty"]
@@ -85,6 +92,12 @@ class LandParams(_Model):
     parcels_zero: int = Field(ge=1)
     expansion_ha_bonus_per_10ha: float = Field(ge=0)
 
+    @model_validator(mode="after")
+    def _ranges(self) -> LandParams:
+        if not self.parcels_full < self.parcels_zero:
+            raise ValueError("land.parcels_full must be below parcels_zero")
+        return self
+
 
 class ConnectivityParams(_Model):
     telecom_node_km_full: float
@@ -92,6 +105,14 @@ class ConnectivityParams(_Model):
     city_km_full: float
     city_km_zero: float
     cities: list[str]
+
+    @model_validator(mode="after")
+    def _ranges(self) -> ConnectivityParams:
+        if not self.telecom_node_km_full < self.telecom_node_km_zero:
+            raise ValueError("connectivity.telecom_node_km_full must be below telecom_node_km_zero")
+        if not self.city_km_full < self.city_km_zero:
+            raise ValueError("connectivity.city_km_full must be below city_km_zero")
+        return self
 
 
 class BonusParams(_Model):
@@ -173,9 +194,18 @@ class ArcgisProbe(_Model):
     url: HttpUrl
 
 
+class BrowserAction(_Model):
+    """One step to run in the page after it loads: type into a field, press a key, or click."""
+
+    action: Literal["fill", "press", "click"]
+    selector: str
+    value: str | None = None  # text for fill, key name for press
+
+
 class BrowserProbe(_Model):
     kind: Literal["browser"]
     url: HttpUrl
+    actions: list[BrowserAction] = Field(default_factory=list)
 
 
 Probe = Annotated[

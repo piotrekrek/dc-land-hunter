@@ -75,6 +75,28 @@ def test_job_queue_roundtrip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     assert list((tmp_path / "discovery").glob("discovery-*.json"))
 
 
+def test_interrupted_running_job_is_failed_on_worker_start() -> None:
+    from dclh_pipeline.jobs import fail_interrupted
+
+    with session_scope() as session:
+        job_id = enqueue(session, "discover", {"sources": ["ekw"]}).id
+    with session_scope() as session:
+        claimed = claim_next(session)
+        assert claimed is not None and claimed.id == job_id
+        run = RunRow(kind="discover", status="running")
+        session.add(run)
+        session.flush()
+        claimed.run_id = run.id
+        run_id = run.id
+    with session_scope() as session:
+        assert fail_interrupted(session) >= 1
+    with session_scope() as session:
+        job = session.get(JobRow, job_id)
+        run_row = session.get(RunRow, run_id)
+        assert job is not None and job.status == "failed" and job.finished_at is not None
+        assert run_row is not None and run_row.status == "failed" and run_row.finished_at is not None
+
+
 def test_unknown_job_kind_rejected() -> None:
     with session_scope() as session, pytest.raises(ValueError, match="unknown job kind"):
         enqueue(session, "launch_rockets")

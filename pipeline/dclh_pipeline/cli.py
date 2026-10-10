@@ -17,9 +17,15 @@ from dclh_pipeline.config import load_scoring, load_sources
 from dclh_pipeline.discovery import STATUS_ICON, discover, render_markdown, save_report, update_sources_doc
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.settings import REPO_ROOT, get_settings
+from dclh_pipeline.snapshots import SnapshotStore
+from dclh_pipeline.sources.base import Source
+from dclh_pipeline.sources.prg import PrgConnector
 
 app = typer.Typer(help="DC Land Hunter pipeline", no_args_is_help=True)
 console = Console()
+
+# Connectors that `dclh fetch` can run without the database.
+CONNECTORS: dict[str, type[Source]] = {"prg": PrgConnector}
 
 
 @app.callback()
@@ -90,6 +96,29 @@ def discover_cmd(
     if write_docs:
         update_sources_doc(REPO_ROOT / "docs" / "SOURCES.md", render_markdown(report))
         console.print("docs/SOURCES.md updated")
+
+
+@app.command("fetch")
+def fetch_cmd(source: Annotated[str, typer.Argument(help="Source id, e.g. prg")]) -> None:
+    """Fetch and parse one source now, without the database. Saves the snapshot under data/raw."""
+    if source not in CONNECTORS:
+        raise typer.BadParameter(f"no connector for {source!r}; available: {sorted(CONNECTORS)}")
+    settings = get_settings()
+    config = load_sources()
+    spec = next(s for s in config.sources if s.id == source)
+    connector = CONNECTORS[source](spec)
+    store = SnapshotStore(settings.raw_dir)
+    with PoliteClient(
+        user_agent=settings.user_agent,
+        rate_limit_per_s=config.defaults.rate_limit_per_s,
+        timeout_s=config.defaults.timeout_s,
+        retries=2,
+    ) as client:
+        snapshot = connector.fetch(client, store)
+    console.print(f"snapshot {snapshot.sha256[:12]} · {snapshot.size_bytes} bytes · {snapshot.path}")
+    table = connector.parse(snapshot)
+    console.print(f"parsed {len(table)} rows · columns {list(table.columns)}")
+    console.print(table.drop(columns="geometry").groupby("level").size().to_string())
 
 
 @app.command("capture-sample")

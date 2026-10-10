@@ -141,3 +141,15 @@ Not done yet (needs real data from a machine in Poland):
   residential buildings) that fill the layers, the golden-set run, and the first manual top-30 review. They all
   need a Polish machine (Phase 0). Not yet: the map choropleth, the `dclh score` command, expansion land, and the
   PSE/telecom/city/heat-network distances.
+
+## Ready for real data (PRG first)
+
+- `sources/prg.py`: PRG connector. Fetches the WFS layers A00 (country), A01 (voivodeships), A02 (powiats)
+  and A03 (gminas) and bundles them in one zip snapshot. Parses to one table in EPSG:2180 with
+  `level`, `teryt`, `name`. Fails loudly on missing fields or coordinates outside Poland.
+- `dclh fetch prg` runs fetch and parse without the database and prints row counts per level.
+- 4 tests on synthetic GML. **Not yet checked against a real PRG payload**: the field names
+  (`jpt_kod_je`, `jpt_nazwa_`) and the axis order are assumptions until the first VPS run.
+
+Next on the VPS: `uv run dclh fetch prg`. If it fails on fields or bounds, paste the error; the report lists the
+available columns, which settles the names.

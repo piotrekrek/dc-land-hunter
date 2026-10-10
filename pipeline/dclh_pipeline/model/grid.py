@@ -29,11 +29,13 @@ class Dso(StrEnum):
     PSE = "pse"  # transmission operator, not a DSO, but handy as an operator class
 
 
+# DSOs are matched by their legal names, not the group names: generation, mining and heating subsidiaries
+# (Enea Wytwarzanie, Tauron Wytwarzanie, PGE GiEK) own powered brownfields and must stay "foreign".
 _OPERATOR_PATTERNS: tuple[tuple[re.Pattern[str], Dso], ...] = (
-    (re.compile(r"\benea\b", re.I), Dso.ENEA),
-    (re.compile(r"\benerga\b", re.I), Dso.ENERGA),
-    (re.compile(r"\btauron\b", re.I), Dso.TAURON),
-    (re.compile(r"\bpge\b|polska grupa energetyczna", re.I), Dso.PGE),
+    (re.compile(r"\benea[\s-]+operator\b", re.I), Dso.ENEA),
+    (re.compile(r"\benerga[\s-]+operator\b", re.I), Dso.ENERGA),
+    (re.compile(r"\btauron[\s-]+dystrybucja\b", re.I), Dso.TAURON),
+    (re.compile(r"\bpge[\s-]+dystrybucja\b", re.I), Dso.PGE),
     (re.compile(r"\bpse\b|polskie sieci elektroenergetyczne", re.I), Dso.PSE),
 )
 
