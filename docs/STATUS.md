@@ -31,7 +31,6 @@ Last updated: 10.10.2026 · Phase 0 done except source verification; Phase 1 sta
 ## Stubbed / placeholders
 
 - Home list is an empty state; Nowości, Sprawdź działkę, Moje projekty, Eksport are placeholder pages.
-- No auth yet (planned with the user tables in Phase 1/4). The stack must not be exposed publicly as is.
 - `tiles` schema is empty, so the map shows only the basemap.
 
 ## Known issues / caveats
@@ -72,3 +71,15 @@ Not done yet (needs real data from a machine in Poland):
   per-voivodeship counts and the plausibility check (Phase 1 acceptance).
 - "Uruchom teraz" on the Sources page: deliberately not added until login exists (Phase 4), because an
   unauthenticated button would let anyone trigger crawls.
+
+## Login (pulled forward from Phase 4)
+
+- Email + password (argon2id, min 12 chars), server-side sessions in an http-only `SameSite=Lax` cookie
+  (token hashed in the DB), `Secure` over HTTPS, 14-day expiry, logout, password change signs out everywhere.
+- Roles `admin` / `member`; users are created with `dclh user create|set-password|list`; no self-signup.
+- Every API route except `/api/health` requires login; the web app redirects to `/logowanie`.
+- "Uruchom teraz" on the Sources page (admin only) queues a discovery check for the worker.
+- Login throttle is in memory (one API process): 5 failures per email+IP / 15 min.
+- Not done: CSRF tokens (mitigated by `SameSite=Lax` + JSON-only bodies, no CORS), password reset by email,
+  per-user audit log. Fine for 2–5 invited users; revisit before wider use.
+- Tests: 101 Python (with PostGIS), 16 web unit, 16 Playwright (desktop + mobile, incl. axe on the login page).

@@ -85,6 +85,12 @@ jobs:
           echo "stack did not become healthy" && exit 1
       - name: Check tiles endpoint
         run: curl -fsS http://localhost:8080/tiles/health
+      - name: Seed an admin user for the smoke test
+        env:
+          E2E_PASSWORD: e2e-password-123
+        run: |
+          docker compose -f infra/docker-compose.yml exec -T -e E2E_PASSWORD api \
+            dclh user create e2e-admin@example.org --role admin --password-env E2E_PASSWORD
       - uses: pnpm/action-setup@v4
         with:
           package_json_file: tests/e2e/package.json

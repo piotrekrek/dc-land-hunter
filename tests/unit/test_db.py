@@ -81,7 +81,15 @@ def test_unknown_job_kind_rejected() -> None:
 
 
 def test_sources_endpoint_reads_db_state() -> None:
+    from dclh_pipeline.auth import create_user
+
+    with session_scope() as session:
+        create_user(session, "reader@example.org", "a long enough password")
     with TestClient(create_app()) as client:
+        r = client.post(
+            "/api/auth/login", json={"email": "reader@example.org", "password": "a long enough password"}
+        )
+        assert r.status_code == 200
         body = client.get("/api/sources").json()
     assert body["database"] is True
     ekw = next(s for s in body["sources"] if s["id"] == "ekw")

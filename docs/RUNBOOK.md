@@ -34,6 +34,22 @@ docker compose -f infra/docker-compose.yml down        # stop (data volumes are 
 docker compose -f infra/docker-compose.yml down -v     # stop and DELETE all data
 ```
 
+## Users and login
+
+There is no self-signup. Create users from the command line (passwords: at least 12 characters, stored as argon2id;
+sessions last 14 days, 5 failed logins per email+IP block further attempts for 15 minutes):
+
+```bash
+docker compose -f infra/docker-compose.yml exec api dclh user create you@example.org --role admin   # prompts for the password
+docker compose -f infra/docker-compose.yml exec api dclh user create partner@example.org
+docker compose -f infra/docker-compose.yml exec api dclh user list
+docker compose -f infra/docker-compose.yml exec api dclh user set-password you@example.org          # signs the user out everywhere
+```
+
+Non-interactive (scripts, CI): `--password-env VAR` reads the password from an environment variable.
+Admins see "Uruchom teraz" on the Sources page; everything except `/api/health` requires login.
+The session cookie is `Secure` automatically when the request arrives over HTTPS (Caddy forwards the scheme).
+
 ## Local development (without Docker for the app)
 
 ```bash

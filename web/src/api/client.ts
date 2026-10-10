@@ -10,12 +10,21 @@ export type Health = components["schemas"]["Health"];
 export type SourceOut = components["schemas"]["SourceOut"];
 export type SourcesList = components["schemas"]["SourcesList"];
 
-export class ApiError extends Error {}
+export type User = components["schemas"]["UserOut"];
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
 
 export async function unwrap<T>(promise: Promise<{ data?: T; error?: unknown; response: Response }>): Promise<T> {
   const { data, error, response } = await promise;
   if (error !== undefined || data === undefined) {
-    throw new ApiError(`API ${response.status}`);
+    throw new ApiError(`API ${response.status}`, response.status);
   }
   return data;
 }

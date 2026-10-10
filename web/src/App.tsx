@@ -2,6 +2,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router";
 
 import { AppShell } from "@/components/layout/AppShell";
+import { RequireAuth } from "@/components/RequireAuth";
+import { AuthProvider } from "@/lib/auth";
+import { LoginPage } from "@/pages/LoginPage";
 import { HomePage } from "@/pages/HomePage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { SettingsPage } from "@/pages/SettingsPage";
@@ -10,6 +13,8 @@ import { SourcesPage } from "@/pages/SourcesPage";
 export function AppRoutes() {
   return (
     <Routes>
+      <Route path="logowanie" element={<LoginPage />} />
+      <Route element={<RequireAuth />}>
       <Route element={<AppShell />}>
         <Route index element={<HomePage />} />
         <Route
@@ -77,6 +82,7 @@ export function AppRoutes() {
           element={<PlaceholderPage title="Nie znaleziono strony" phase={0} description="Ten adres nie istnieje." bullets={["Wróć do mapy z menu."]} />}
         />
       </Route>
+      </Route>
     </Routes>
   );
 }
@@ -89,7 +95,9 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <AppRoutes />
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
   );

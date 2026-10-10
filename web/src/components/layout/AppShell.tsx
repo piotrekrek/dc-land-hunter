@@ -1,8 +1,9 @@
-import { Menu, Moon, Sun, X } from "lucide-react";
+import { LogOut, Menu, Moon, Sun, X } from "lucide-react";
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router";
 
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 
 export function AppShell() {
   const { theme, toggle } = useTheme();
+  const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -42,6 +44,12 @@ export function AppShell() {
         </nav>
         <div className="ml-auto flex items-center gap-2">
           <ApiStatus />
+          {user && (
+            <span className="hidden text-xs text-muted-foreground xl:inline" data-testid="current-user">
+              {user.email}
+              {user.role === "admin" && " · admin"}
+            </span>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -49,6 +57,9 @@ export function AppShell() {
             aria-label={theme === "dark" ? "Włącz jasny motyw" : "Włącz ciemny motyw"}
           >
             {theme === "dark" ? <Sun /> : <Moon />}
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => void logout()} aria-label="Wyloguj się">
+            <LogOut />
           </Button>
           <Button
             variant="ghost"

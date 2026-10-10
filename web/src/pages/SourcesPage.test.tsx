@@ -29,7 +29,7 @@ afterEach(() => vi.restoreAllMocks());
 
 describe("SourcesPage", () => {
   it("shows each source with its Polish status label", async () => {
-    mockFetch({ "/api/sources": { database: true, sources } });
+    mockFetch({ "/api/sources": { database: true, sources }, "/api/auth/me": { email: "ala@example.org", role: "member" } });
     renderWithProviders(<SourcesPage />);
     const rows = await screen.findAllByTestId("source-row");
     expect(rows).toHaveLength(4);
@@ -40,19 +40,31 @@ describe("SourcesPage", () => {
   });
 
   it("warns when the database is down", async () => {
-    mockFetch({ "/api/sources": { database: false, sources } });
+    mockFetch({ "/api/sources": { database: false, sources }, "/api/auth/me": { email: "ala@example.org", role: "member" } });
     renderWithProviders(<SourcesPage />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Baza danych jest niedostępna");
   });
 
   it("tells the user to run discovery when nothing was checked", async () => {
-    mockFetch({ "/api/sources": { database: true, sources: sources.map((s) => ({ ...s, discovery_status: null })) } });
+    mockFetch({ "/api/sources": { database: true, sources: sources.map((s) => ({ ...s, discovery_status: null })) }, "/api/auth/me": { email: "ala@example.org", role: "member" } });
     renderWithProviders(<SourcesPage />);
     expect(await screen.findByText(/dclh discover/)).toBeInTheDocument();
   });
 
+  it("shows 'Uruchom teraz' to admins only", async () => {
+    mockFetch({ "/api/sources": { database: true, sources }, "/api/auth/me": { email: "ala@example.org", role: "member" } });
+    const { unmount } = renderWithProviders(<SourcesPage />);
+    await screen.findAllByTestId("source-row");
+    expect(screen.queryByRole("button", { name: /Uruchom teraz/ })).not.toBeInTheDocument();
+    unmount();
+    vi.restoreAllMocks();
+    mockFetch({ "/api/sources": { database: true, sources }, "/api/auth/me": { email: "root@example.org", role: "admin" } });
+    renderWithProviders(<SourcesPage />);
+    expect(await screen.findByRole("button", { name: /Uruchom teraz/ })).toBeInTheDocument();
+  });
+
   it("shows an error state when the API fails", async () => {
-    mockFetch({});
+    mockFetch({ "/api/auth/me": { email: "ala@example.org", role: "member" } });
     renderWithProviders(<SourcesPage />);
     expect(await screen.findByText("Nie udało się pobrać listy źródeł")).toBeInTheDocument();
   });

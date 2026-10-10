@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Annotated
 
@@ -115,6 +116,82 @@ def worker_cmd(
 
     executed = work(once=once, interval_s=interval)
     console.print(f"executed {executed} job(s)")
+
+
+user_app = typer.Typer(help="Manage users (there is no self-signup)", no_args_is_help=True)
+app.add_typer(user_app, name="user")
+
+
+def _read_password(password_env: str | None) -> str:
+    if password_env:
+        value = os.environ.get(password_env)
+        if not value:
+            raise typer.BadParameter(f"environment variable {password_env} is empty or not set")
+        return value
+    first = typer.prompt("Password", hide_input=True)
+    if first != typer.prompt("Repeat password", hide_input=True):
+        raise typer.BadParameter("passwords do not match")
+    return str(first)
+
+
+@user_app.command("create")
+def user_create(
+    email: str,
+    role: Annotated[str, typer.Option(help="admin or member")] = "member",
+    password_env: Annotated[
+        str | None, typer.Option(help="Read the password from this environment variable (non-interactive)")
+    ] = None,
+) -> None:
+    """Create a user."""
+    from dclh_pipeline.auth import PasswordTooShortError, UserExistsError, create_user
+    from dclh_pipeline.db import session_scope
+
+    if role not in ("admin", "member"):
+        raise typer.BadParameter("role must be admin or member")
+    password = _read_password(password_env)
+    try:
+        with session_scope() as session:
+            user = create_user(session, email, password, role=role)  # type: ignore[arg-type]
+            console.print(f"created {user.role} {user.email}")
+    except (PasswordTooShortError, UserExistsError, ValueError) as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(1) from exc
+
+
+@user_app.command("set-password")
+def user_set_password(
+    email: str,
+    password_env: Annotated[
+        str | None, typer.Option(help="Read the password from this environment variable")
+    ] = None,
+) -> None:
+    """Change a password (signs the user out everywhere)."""
+    from dclh_pipeline.auth import PasswordTooShortError, set_password
+    from dclh_pipeline.db import session_scope
+
+    password = _read_password(password_env)
+    try:
+        with session_scope() as session:
+            set_password(session, email, password)
+    except (PasswordTooShortError, LookupError) as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(1) from exc
+    console.print("password changed")
+
+
+@user_app.command("list")
+def user_list() -> None:
+    """List users."""
+    from sqlalchemy import select
+
+    from dclh_pipeline.db import session_scope
+    from dclh_pipeline.db.models import UserRow
+
+    table = Table("email", "role", "created")
+    with session_scope() as session:
+        for u in session.scalars(select(UserRow).order_by(UserRow.email)):
+            table.add_row(u.email, u.role, u.created_at.strftime("%d.%m.%Y"))
+    console.print(table)
 
 
 if __name__ == "__main__":

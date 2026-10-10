@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from dclh_api.deps import db_session
 from dclh_api.main import create_app
+from dclh_api.security import current_user
+from dclh_pipeline.db.models import UserRow
 
 UNREACHABLE = "postgresql+psycopg://nobody:nothing@127.0.0.1:1/none?connect_timeout=1"
 
@@ -28,6 +30,7 @@ def client() -> Iterator[TestClient]:
             session.close()
 
     app.dependency_overrides[db_session] = no_db
+    app.dependency_overrides[current_user] = lambda: UserRow(email="t@example.org", role="admin")
     with TestClient(app) as c:
         yield c
 

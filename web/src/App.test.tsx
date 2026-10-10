@@ -11,8 +11,12 @@ vi.mock("@/components/map/MapView", () => ({ MapView: () => <div data-testid="ma
 
 describe("App shell", () => {
   it("renders the Polish navigation and the home view", async () => {
-    mockFetch({ "/api/health": { status: "ok", version: "0.1.0", database: true, postgis_version: "3.4", time: "" } });
+    mockFetch({
+      "/api/health": { status: "ok", version: "0.1.0", database: true, postgis_version: "3.4", time: "" },
+      "/api/auth/me": { email: "ala@example.org", role: "member" },
+    });
     renderWithProviders(<AppRoutes />);
+    await screen.findByText("Brak lokalizacji do wyświetlenia");
     const nav = screen.getAllByRole("navigation", { name: "Główna nawigacja" })[0]!;
     for (const item of NAV_ITEMS) {
       expect(nav).toHaveTextContent(item.label);
@@ -22,10 +26,19 @@ describe("App shell", () => {
     expect(await screen.findByText("Połączono z API")).toBeInTheDocument();
   });
 
-  it("routes to a placeholder screen", () => {
-    mockFetch({});
+  it("routes to a placeholder screen", async () => {
+    mockFetch({ "/api/auth/me": { email: "ala@example.org", role: "member" } });
     renderWithProviders(<AppRoutes />, { route: "/projekty" });
-    expect(screen.getByRole("heading", { name: "Moje projekty" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Moje projekty" })).toBeInTheDocument();
     expect(screen.getByText("Faza 4")).toBeInTheDocument();
+  });
+
+  it("redirects anonymous visitors to the login page", async () => {
+    mockFetch({}); // /api/auth/me answers 404 -> treated as an error, so use 401 below
+    vi.restoreAllMocks();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response("{}", { status: 401, headers: { "Content-Type": "application/json" } }));
+    renderWithProviders(<AppRoutes />, { route: "/ustawienia" });
+    expect(await screen.findByRole("heading", { name: "Logowanie" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Główna nawigacja" })).not.toBeInTheDocument();
   });
 });

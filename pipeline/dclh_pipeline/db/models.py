@@ -94,3 +94,25 @@ class SubstationRow(Base):
     confidence: Mapped[str] = mapped_column(String(16))
     source_id: Mapped[str] = mapped_column(String(64), default="osm_power")
     as_of: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class UserRow(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(Text, unique=True)
+    password_hash: Mapped[str] = mapped_column(Text)
+    role: Mapped[str] = mapped_column(String(16), default="member", server_default="member")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SessionRow(Base):
+    """Login sessions. Only the SHA-256 of the cookie token is stored."""
+
+    __tablename__ = "sessions"
+    __table_args__ = (Index("ix_sessions_user", "user_id"), Index("ix_sessions_expires", "expires_at"))
+
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

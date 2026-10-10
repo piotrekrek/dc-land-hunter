@@ -5,18 +5,21 @@ from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from dclh_api.deps import db_session
 from dclh_api.schemas import SourceOut, SourcesList, SourceState
+from dclh_api.security import admin_user, current_user
 from dclh_pipeline.config import load_sources
-from dclh_pipeline.db.models import SourceRow
+from dclh_pipeline.db.models import SourceRow, UserRow
+from dclh_pipeline.jobs import enqueue
 from dclh_pipeline.settings import REPO_ROOT, get_settings
 
-router = APIRouter(tags=["sources"])
+router = APIRouter(tags=["sources"], dependencies=[Depends(current_user)])
 
 
 def latest_discovery(directories: list[Path]) -> tuple[datetime | None, dict[str, str]]:
@@ -83,3 +86,29 @@ def list_sources(session: Annotated[Session, Depends(db_session)]) -> SourcesLis
             )
         )
     return SourcesList(database=database, sources=out)
+
+
+class DiscoverIn(BaseModel):
+    sources: list[str] = Field(default_factory=list, max_length=50)
+
+
+class JobOut(BaseModel):
+    id: int
+    kind: str
+    status: str
+
+
+@router.post("/sources/discover", response_model=JobOut, status_code=202)
+def run_discovery(
+    body: DiscoverIn,
+    session: Annotated[Session, Depends(db_session)],
+    admin: Annotated[UserRow, Depends(admin_user)],
+) -> JobOut:
+    """Queue a discovery check ("Uruchom teraz"). Admin only; the worker runs it."""
+    known = {s.id for s in load_sources().sources}
+    unknown = sorted(set(body.sources) - known)
+    if unknown:
+        raise HTTPException(422, f"Nieznane źródła: {', '.join(unknown)}")
+    job = enqueue(session, "discover", {"sources": body.sources, "ran_from": "ui"}, requested_by=admin.email)
+    session.commit()
+    return JobOut(id=job.id, kind=job.kind, status=job.status)

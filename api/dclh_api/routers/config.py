@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from dclh_api.security import current_user
 from dclh_pipeline.config import ScoringConfig, load_scoring
 
-router = APIRouter(tags=["config"])
+router = APIRouter(tags=["config"], dependencies=[Depends(current_user)])
 
 
 @router.get("/config/scoring", response_model=ScoringConfig)

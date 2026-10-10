@@ -1,11 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
-import { CircleCheck, CircleX, Database, LoaderCircle, Minus, ServerCrash, TriangleAlert } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CircleCheck, CircleX, Database, LoaderCircle, Minus, Play, ServerCrash, TriangleAlert } from "lucide-react";
 
 import { api, unwrap, type SourceOut } from "@/api/client";
 import { EmptyState } from "@/components/EmptyState";
 import { PageScroll } from "@/components/PageScroll";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useAuth } from "@/lib/auth";
 import { formatDate, formatDateTime } from "@/lib/format";
 
 type DiscoveryStatus = NonNullable<SourceOut["discovery_status"]>;
@@ -43,6 +45,43 @@ function LastRun({ source }: { source: SourceOut }) {
   return <>{formatDate(source.state?.last_success_at)}</>;
 }
 
+function RunNow() {
+  const { user } = useAuth();
+  const client = useQueryClient();
+  const run = useMutation({
+    mutationFn: async () => {
+      const { data, response } = await api.POST("/api/sources/discover", { body: { sources: [] } });
+      if (!data) throw new Error(`API ${response.status}`);
+      return data;
+    },
+    onSuccess: () => {
+      // The worker needs a moment; refresh the table in the background.
+      for (const delay of [15_000, 45_000, 90_000]) {
+        setTimeout(() => void client.invalidateQueries({ queryKey: ["sources"] }), delay);
+      }
+    },
+  });
+  if (user?.role !== "admin") return null;
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-3">
+      <Button variant="outline" size="sm" onClick={() => run.mutate()} disabled={run.isPending || run.isSuccess}>
+        {run.isPending ? <LoaderCircle className="animate-spin" aria-hidden /> : <Play aria-hidden />}
+        Uruchom teraz
+      </Button>
+      {run.isSuccess && (
+        <span role="status" className="text-sm text-muted-foreground">
+          Zadanie #{run.data.id} dodane do kolejki. Wynik pojawi się w tabeli za kilkadziesiąt sekund.
+        </span>
+      )}
+      {run.isError && (
+        <span role="alert" className="text-sm text-bad">
+          Nie udało się dodać zadania.
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function SourcesPage() {
   const { data, isPending, isError } = useQuery({
     queryKey: ["sources"],
@@ -57,6 +96,8 @@ export function SourcesPage() {
           Stan każdego źródła: wynik weryfikacji (discovery), ostatnie udane pobranie i częstotliwość odświeżania.
           Usługi publiczne często blokują adresy spoza Polski, więc weryfikacja musi być uruchamiana z serwera w Polsce.
         </p>
+
+        <RunNow />
 
         {isPending && (
           <EmptyState icon={LoaderCircle} title="Wczytuję listę źródeł…" className="[&_svg]:animate-spin" />

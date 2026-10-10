@@ -36,6 +36,10 @@ extend-exclude = ["web", "data"]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "PTH", "DTZ"]
 ignore = ["RUF001", "RUF002", "RUF003"]  # Polish text contains non-ASCII letters by design
 
+[tool.ruff.lint.per-file-ignores]
+"api/alembic/versions/*" = ["E501"]  # embedded SQL
+"tests/**" = ["E501"]  # long SQL / fixture strings
+
 [tool.ruff.lint.isort]
 known-first-party = ["dclh_pipeline", "dclh_api", "tests"]
 
