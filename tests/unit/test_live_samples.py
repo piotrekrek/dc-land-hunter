@@ -59,8 +59,10 @@ def test_request_bbox_is_northing_first() -> None:
 
 
 def test_registered_area_is_empty_so_the_geometry_area_is_used(parcels) -> None:  # type: ignore[no-untyped-def]
-    # POLE_EWIDENYJNE comes back empty in this sample, so the land score must use the geometry area.
-    assert "POLE_EWIDENYJNE" not in parcels.columns
+    # POLE_EWIDENYJNE is empty in this sample. Depending on the GDAL version, the column is either dropped
+    # (local) or kept with empty values (CI), so only the values are checked. The land score uses geometry area.
+    if "POLE_EWIDENYJNE" in parcels.columns:
+        assert (parcels["POLE_EWIDENYJNE"].fillna("") == "").all()
 
 
 def test_uldk_point_matches_the_parcel_id_form() -> None:
