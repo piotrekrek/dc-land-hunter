@@ -4,27 +4,31 @@ Status of every source in `config/sources.yaml` (brief section 4). Each MVP sour
 status in Phase 0: ✓ verified, ⚠ reachable but the data endpoint still needs confirming (or some probes
 failed), ✗ unreachable, ⏳ not yet checked.
 
-## Current state (10.10.2026): not yet verified
+## Current state (run of 10.10.2026, 22:55 UTC)
 
-**No source has been verified yet.** The Claude Code cloud environment used to build Phase 0 cannot
-reach any Polish public service: its network policy answers 403 for every one of these hosts (and also
-for geofabrik.de). That says nothing about the sources themselves. Several of them also block non-Polish
-IP addresses, so verification has to run from a machine in Poland anyway.
+Phase 0 verification is done for all 24 MVP sources: each has a status from a run on a Polish server
+(`data/discovery/discovery-2026-10-10T2255.json`, the detailed report).
 
-To verify, on a machine in Poland (laptop or the future VPS):
+| Status | Count | Meaning |
+|---|---|---|
+| ✓ | 10 | Verified: a data endpoint answered with real capabilities (WFS/WMS/ArcGIS) or a downloadable file |
+| ⚠ | 11 | Reachable, but the data endpoint is not confirmed yet (candidate links only, or a 404) |
+| ✗ | 2 | Unusable: `enea` redirects to a domain-for-sale page; `kowr` returns a bot-protection challenge |
+| – | 1 | `invest_offers`: manual CSV import by design, no probe |
 
-```bash
-uv sync --extra discovery                       # Playwright, for interactive maps
-uv run playwright install chromium              # once
-export DCLH_CONTACT_EMAIL=you@example.com       # goes into the User-Agent
-uv run dclh discover --capture-network --write-docs --ran-from "laptop, Warszawa"
-git add data/discovery docs/SOURCES.md && git commit -m "Phase 0: source discovery results"
-```
+**Verified (✓):** `prg`, `osm_power`, `osm_land`, `kimpzp`, `egib`, `uldk`, `kiug`, `gdos`, `midas`, `nid`.
 
-This writes `data/discovery/discovery-<date>.json` (full detail: capabilities, layer names, WFS
-`CountDefault`, endpoint candidates found in pages and scripts, XHR calls captured from interactive maps)
-and replaces the generated table below. Then fill in the "Verified endpoint" notes by hand for the
-⚠ sources, using the JSON report.
+**Open before Phase 1 can rely on them:**
+- `bdot10k`: the OPENDATA page returns 404; the WFS offers only one layer. Find the current download URL.
+- `ru`, `enea`, `energa`, `tauron`: the browser capture did not run (Playwright was not installed on the server).
+  Run `uv sync --extra discovery` on the server, then rerun discovery with `--capture-network`.
+- `enea`: the old domain is parked. Check the real Enea capacity map (reported at `operator.enea.pl`, which is
+  renewables-oriented and county-level, see the Phase 1 notes) and update `config/sources.yaml`.
+- `uke` and `isok`, `pse_*`, `psi`, `heat`: candidate links were found in pages; each still needs its real
+  data file or service confirmed.
+- `kowr`: bot protection; plan is manual CSV import unless its terms allow automated access.
+
+Unverified endpoints are not used by any connector until they are confirmed in this file.
 
 ## Generated discovery table
 
