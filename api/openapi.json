@@ -196,6 +196,14 @@
             "type": "number",
             "title": "Heat Network Km"
           },
+          "heat_network_pts": {
+            "type": "number",
+            "title": "Heat Network Pts"
+          },
+          "res_cluster_pts": {
+            "type": "number",
+            "title": "Res Cluster Pts"
+          },
           "psi_aid_max_pts": {
             "type": "number",
             "title": "Psi Aid Max Pts"
@@ -217,6 +225,8 @@
         "type": "object",
         "required": [
           "heat_network_km",
+          "heat_network_pts",
+          "res_cluster_pts",
           "psi_aid_max_pts",
           "res_cluster_km",
           "env_decision_found",

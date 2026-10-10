@@ -15,8 +15,8 @@ target:
 hard_filters:
   area_below_min:            {mode: exclude, penalty_points: 30}  # uses target.ha_min
   protected_nature_pct_over: {mode: exclude, threshold_pct: 20, penalty_points: 30}  # Natura 2000, national park, reserve
-  flood_10_or_1_pct:         {mode: exclude, penalty_points: 30}  # any overlap
-  mining_area_active:        {mode: exclude, penalty_points: 20}  # obszar górniczy
+  flood_10_or_1_pct:         {mode: exclude, threshold_pct: 0, penalty_points: 30}  # exclude when more than this % overlaps (0 = any part)
+  mining_area_active:        {mode: exclude, threshold_pct: 0, penalty_points: 20}  # obszar górniczy; 0 = any part
   forest_pct_over:           {mode: exclude, threshold_pct: 30, penalty_points: 20}
   soil_class_I_II_pct_over:  {mode: exclude, threshold_pct: 30, penalty_points: 20}
   heritage_register:         {mode: exclude, penalty_points: 20}
@@ -49,7 +49,9 @@ connectivity:
   city_km_zero: 120
   cities: [Poznań, Wrocław, Szczecin, Gdańsk, Katowice, Łódź, Kraków, Warszawa, Bydgoszcz, Opole, Zielona Góra]
 
-bonus: {heat_network_km: 5, psi_aid_max_pts: 3, res_cluster_km: 10, env_decision_found: 3, public_seller: 2}
+# Bonus category: points are final-score points (the category is capped at weights.bonus).
+bonus: {heat_network_km: 5, heat_network_pts: 3, psi_aid_max_pts: 3, res_cluster_km: 10, res_cluster_pts: 2,
+        env_decision_found: 3, public_seller: 2}
 
 penalties:
   flood_0_2pct: 10

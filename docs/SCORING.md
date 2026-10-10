@@ -1,25 +1,68 @@
 # Scoring
 
-The scoring model follows brief section 6. Defaults live in `config/scoring.yaml` (validated by
-`dclh_pipeline.config.ScoringConfig`: weights must sum to 100, distance ranges must be ordered).
-The engine is implemented in Phase 2; this page will describe each criterion as it lands.
+Implemented in `pipeline/dclh_pipeline/scoring/` (`score_site(features, config)`, a pure function), following
+brief section 6. Defaults live in `config/scoring.yaml` (validated by `ScoringConfig`: weights must sum to 100,
+distance ranges must be ordered). 54 tests, including property-based ones.
 
-## Shape of a score
+## How a score is built
 
-- **Hard filters** (6.1) exclude a site with a reason in Polish, or subtract points when the owner
-  switches the filter to `penalty` mode.
-- **Weighted criteria** (6.2): grid 45, zoning 25, land 15, connectivity 5, bonus 10, then penalties.
-- Every criterion returns `{value, points, max_points, confidence, source_id, as_of, explanation_pl}`.
-- Missing data scores 0, shows as "?" and lowers a separate **data completeness %**. The list can sort by
-  score, completeness, or the upside view ("score if unknowns were good").
-- Grid confidence badge: "Opublikowana moc" (verified DSO data), "Bliskość sieci" (distance proxy),
-  "Brak danych" (missing).
+1. **Hard filters** (6.1) run first. A site that trips an `exclude` filter is marked `excluded` with the reason in
+   Polish, but it is **still scored** so the list can show how good it would have been. A filter in `penalty` mode
+   subtracts its `penalty_points` instead. Missing input data never excludes a site (it lowers completeness).
+2. **Five categories** each score 0–100 internally, then are multiplied by their weight (grid 45, zoning 25,
+   land 15, connectivity 5, bonus 10), so the total is on 0–100 and the weights alone decide importance.
+3. **Penalties** are subtracted afterwards (floor 0).
+4. Every line of the breakdown is a `ScoreItem {points, max_points, confidence, source_id, as_of, explanation_pl}`.
 
-## Estimated capacity
+## Interpretations (the brief does not fix these, so please confirm or change)
 
-`szacowana_moc_MW = area_ha × mw_per_ha` (default 6 MW/ha, so 60 MW ≈ 10 ha). Above
-`large_campus_mw` (150 MW) a site is flagged "duży kampus" and a 220/400 kV node nearby becomes
-important.
+The brief gives distances and bonus sizes but not how sub-criteria share a category. These are my choices:
+
+| Category | Sub-criterion | Max (of 100) |
+|---|---|---|
+| **Grid** | Proximity: the better of "110 kV line ≤ 1 km → 3 km" and "GPZ ≤ 2 km → 8 km", linear in between | 60 |
+| | Two independent 110 kV lines within 3 km (N-1) | 10 |
+| | 220/400 kV node within 25 km (20 instead of 10 when est. power > 150 MW) | 10 / 20 |
+| | Planned PSE load station within 25 km | 5 |
+| | DSO-published headroom at the nearest GPZ (signal only) | 5 |
+| | PSE ODB entry within 15 km (demand signal) | 3 |
+| | Powered brownfield | 15 |
+| | Closed PSE switchyard nearby | −15 |
+| **Land** | Size: 35 in the ideal 10–30 ha, 25–35 sliding down to 80 ha, 20 above (flagged "do podziału") | 35 |
+| | Compactness: 0 at the configured minimum (0.35), linear to 1.0 | 25 |
+| | Parcels: full at ≤ 3, zero at ≥ 30 (fewer owners) | 30 |
+| | Expansion land: 3 points per 10 ha (config), capped | 10 |
+| **Connectivity** | Telecom node: full ≤ 2 km, zero ≥ 15 km | 50 |
+| | Large city: full ≤ 30 km, zero ≥ 120 km | 50 |
+| **Zoning** | Lookup from `zoning:` in the config (MPZP 100, SG 80, procedure 50, unknown 30, other 0) | 100 |
+| **Bonus** | In final-score points, capped at 10: heat network ≤ 5 km (3), PSI aid (up to 3), RES cluster ≤ 10 km (2), environmental decision (3), public seller (2) | 13 → 10 |
+
+- The grid sub-criteria add up to 118 and are capped at 100: a site can reach the full grid score without every bonus.
+- "Closer is never worse" is enforced with property tests (line, GPZ, telecom, city, parcels, compactness, flood).
+- Hard filters: "any part in a 10%/1% flood zone" and "inside an active mining area" use `threshold_pct: 0`
+  (any overlap); raise it in the config if overlap of a few percent should be tolerated.
+- A 110 kV-only station is not a GPZ (brief: GPZ = 110 kV plus a medium-voltage level).
+
+## Missing data
+
+- Missing data scores **0**, is shown as "?" (confidence `missing`) and lowers **completeness** (the share of
+  scored criteria and hard-filter inputs that are backed by data).
+- `upside_score` is what the site would score if every missing criterion turned out best-case; the list can sort by
+  score, completeness or upside.
+- **Zoning is the one exception**, because the config gives "unknown" its own value: no plan found scores
+  30% of the zoning points (still counted as missing for completeness; upside assumes MPZP). The register is
+  incomplete until 30.11.2026, so "no plan" means unknown, not bad, and must not rank below a known non-industrial plan.
+- Missing penalty inputs count as no penalty (their upside is also 0).
+
+## Grid badge
+
+"Opublikowana moc" when DSO capacity data exists for the nearest GPZ, "Bliskość sieci" when only distances are
+known, "Brak danych" when neither. The score is a proxy: it never promises connection capacity.
+
+## Estimated power and flags
+
+`szacowana_moc_MW = area_ha × mw_per_ha` (6). Flags: above 150 MW "duży kampus" (needs a 220/400 kV node),
+above 80 ha "duży teren, do podziału", under 60 MW a note that the estimate is below the minimum.
 
 ## Connection-cost calculator
 
@@ -27,9 +70,10 @@ Figures from the Prawo energetyczne amendment in force since 30.04.2026 are in `
 (`verified: false`). They **need legal verification** and the UI labels them that way.
 Example for 60 MW: 60 000 PLN application fee, 3.6 mln PLN advance, 1.8 mln PLN security.
 Open question: whether "30 PLN/kW up to 100 MW" caps the secured capacity at 100 MW or limits the
-obligation to connections up to 100 MW (to confirm with a lawyer before Phase 4).
+obligation to connections up to 100 MW (to confirm with a lawyer before the calculator ships).
 
-## Tests
+## What is not built yet
 
-Property-based tests (hypothesis) will check monotonicity, e.g. a closer GPZ never lowers the score.
-The golden set (`tests/golden/sites.yaml`) is a sanity check, not a tuning target.
+The engine scores whatever features it is given. Computing those features (distances from the grid tables,
+constraint overlaps, zoning) needs the real data layers from Phases 1–3, and the site list and card in the web app
+come after that. The golden-set check (`tests/golden/sites.yaml`) needs real parcel data too.

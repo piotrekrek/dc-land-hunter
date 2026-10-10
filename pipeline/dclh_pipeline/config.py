@@ -96,6 +96,8 @@ class ConnectivityParams(_Model):
 
 class BonusParams(_Model):
     heat_network_km: float
+    heat_network_pts: float
+    res_cluster_pts: float
     psi_aid_max_pts: float
     res_cluster_km: float
     env_decision_found: float

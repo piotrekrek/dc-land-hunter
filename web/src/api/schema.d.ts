@@ -137,6 +137,10 @@ export interface components {
         BonusParams: {
             /** Heat Network Km */
             heat_network_km: number;
+            /** Heat Network Pts */
+            heat_network_pts: number;
+            /** Res Cluster Pts */
+            res_cluster_pts: number;
             /** Psi Aid Max Pts */
             psi_aid_max_pts: number;
             /** Res Cluster Km */

@@ -83,3 +83,11 @@ Not done yet (needs real data from a machine in Poland):
 - Not done: CSRF tokens (mitigated by `SameSite=Lax` + JSON-only bodies, no CORS), password reset by email,
   per-user audit log. Fine for 2–5 invited users; revisit before wider use.
 - Tests: 101 Python (with PostGIS), 16 web unit, 16 Playwright (desktop + mobile, incl. axe on the login page).
+
+## Phase 2: scoring engine (done, on test data)
+
+- `score_site()` with hard filters, five weighted categories, penalties, completeness and the upside score;
+  Polish explanation per line; grid badge; estimated MW and flags. Details and my interpretation choices:
+  `docs/SCORING.md` (**please review the table of sub-criterion weights**).
+- 54 tests, including hypothesis properties (monotonicity, bounds, well-formed output for random sites).
+- Not yet: computing the features from real data, the sites list/card in the web app, the golden-set run.
