@@ -90,7 +90,7 @@ Not done yet (needs real data from a machine in Poland):
   Polish explanation per line; grid badge; estimated MW and flags. Details and my interpretation choices:
   `docs/SCORING.md` (**please review the table of sub-criterion weights**).
 - 54 tests, including hypothesis properties (monotonicity, bounds, well-formed output for random sites).
-- Not yet: live data for the features (connectors), the golden-set run. Sites list and card are built (see below).
+- Not yet: live data for the features (EGiB connector written, not yet run live), the golden-set run. Sites list and card are built (see below).
 - Site clustering (`model/sites.py`): parcels touching or within 5 m in the same zone form one site; area in ha,
   Polsby-Popper compactness, estimated MW (6 MW/ha), stable `site_id`, >80 ha split suggestion (flag only).
   9 tests on synthetic parcels. `expansion_ha` is not implemented: the brief does not define how to compute it.
@@ -118,6 +118,12 @@ Not done yet (needs real data from a machine in Poland):
   card and login requirement against real PostGIS.
 - Not done in this step: the map choropleth over the sites, and a `dclh score` command. The command has no
   parcel input until the `egib` connector loads parcels, so it would produce an empty table today.
+- EGiB connector (`sources/egib.py`): parcels by WFS in 1 km tiles aligned to the grid, inside candidate zones
+  only. Paged with `numberReturned`/`numberMatched`, WFS exceptions raised (HTTP 200 included), each page kept as
+  a raw object, the snapshot is a JSON bundle, and parcels on tile edges are de-duplicated. Layer `ms:dzialki` and
+  EPSG:2180 come from the 10.10.2026 discovery report. **Attribute names (`identyfikator`, `gml_id`) are not yet
+  checked against a real response**: the first live run from Poland must confirm them. Tests use synthetic pages
+  (`tests/fixtures/egib/`). Not yet wired into the scheduled runner (it needs the candidate zones from the DB).
 - Still missing for Phase 2: the live connectors (`ru`, `egib` + `uldk`, `gdos`, `isok`, `midas`, `nid`, `kiug`,
   residential buildings) that fill the layers, the golden-set run, and the first manual top-30 review. They all
   need a Polish machine (Phase 0). Not yet: the map choropleth, the `dclh score` command, expansion land, and the
