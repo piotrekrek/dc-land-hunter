@@ -13,7 +13,7 @@ Phase 0 verification is done for all 24 MVP sources: each has a status from a ru
 |---|---|---|
 | ✓ | 10 | Verified: a data endpoint answered with real capabilities (WFS/WMS/ArcGIS) or a downloadable file |
 | ⚠ | 11 | Reachable, but the data endpoint is not confirmed yet (candidate links only, or a 404) |
-| ✗ | 2 | Unusable: `enea` redirects to a domain-for-sale page; `kowr` returns a bot-protection challenge |
+| ✗ | 2 | Unusable at the time of the run: `enea` (domain-for-sale page, since fixed); `kowr` (bot-protection challenge) |
 | – | 1 | `invest_offers`: manual CSV import by design, no probe |
 
 **Verified (✓):** `prg`, `osm_power`, `osm_land`, `kimpzp`, `egib`, `uldk`, `kiug`, `gdos`, `midas`, `nid`.
@@ -22,8 +22,9 @@ Phase 0 verification is done for all 24 MVP sources: each has a status from a ru
 - `bdot10k`: the OPENDATA page returns 404; the WFS offers only one layer. Find the current download URL.
 - `ru`, `enea`, `energa`, `tauron`: the browser capture did not run (Playwright was not installed on the server).
   Run `uv sync --extra discovery` on the server, then rerun discovery with `--capture-network`.
-- `enea`: the old domain is parked. Check the real Enea capacity map (reported at `operator.enea.pl`, which is
-  renewables-oriented and county-level, see the Phase 1 notes) and update `config/sources.yaml`.
+- `enea`: the old domain is parked. The probe now points at `www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce`
+  (commit c67e187), but the ✗ above is from the run before that change. Rerun discovery to confirm. The page is
+  renewables-oriented and county-level, so check it against the GPZ-level signal the brief assumes.
 - `uke` and `isok`, `pse_*`, `psi`, `heat`: candidate links were found in pages; each still needs its real
   data file or service confirmed.
 - `kowr`: bot protection; plan is manual CSV import unless its terms allow automated access.
