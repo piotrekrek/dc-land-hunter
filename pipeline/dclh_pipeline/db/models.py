@@ -77,3 +77,20 @@ class JobRow(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error: Mapped[str | None] = mapped_column(Text)
     run_id: Mapped[int | None] = mapped_column(ForeignKey("runs.id"))
+
+
+class SubstationRow(Base):
+    """Geometry lives in PostGIS (`geom`, EPSG:2180) and is written by SQL, so it is not mapped here."""
+
+    __tablename__ = "substations"
+
+    osm_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    name: Mapped[str | None] = mapped_column(Text)
+    operator: Mapped[str | None] = mapped_column(Text)
+    dso: Mapped[str | None] = mapped_column(String(16))
+    foreign_operator: Mapped[bool] = mapped_column(Boolean, default=False)
+    voltage_tag: Mapped[str | None] = mapped_column(Text)
+    cls: Mapped[str] = mapped_column(String(32))
+    confidence: Mapped[str] = mapped_column(String(16))
+    source_id: Mapped[str] = mapped_column(String(64), default="osm_power")
+    as_of: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

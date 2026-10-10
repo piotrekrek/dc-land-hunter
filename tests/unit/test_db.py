@@ -86,3 +86,34 @@ def test_sources_endpoint_reads_db_state() -> None:
     assert body["database"] is True
     ekw = next(s for s in body["sources"] if s["id"] == "ekw")
     assert ekw["discovery_status"] == "not_checked"
+
+
+def test_phase1_tables_and_map_views() -> None:
+    from sqlalchemy import text
+
+    from dclh_pipeline.db import get_engine
+
+    with get_engine().begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO substations (osm_id, name, dso, cls, confidence, voltages, geom) VALUES "
+                "(1, 'GPZ Test', 'enea', 'GPZ_110_SN', 'estimated', '{110000,15000}', ST_SetSRID(ST_MakePoint(360000, 500000), 2180))"
+            )
+        )
+        conn.execute(
+            text(
+                "INSERT INTO lines (osm_id, voltage, confidence, geom) VALUES "
+                "(10, 110000, 'estimated', ST_SetSRID(ST_MakeLine(ST_MakePoint(0,0), ST_MakePoint(1000,0)), 2180)),"
+                "(11, 15000, 'estimated', ST_SetSRID(ST_MakeLine(ST_MakePoint(0,0), ST_MakePoint(1000,0)), 2180))"
+            )
+        )
+        assert conn.execute(text("SELECT count(*) FROM tiles.substations")).scalar_one() == 1
+        # The map only shows 110 kV and above.
+        assert conn.execute(text("SELECT count(*) FROM tiles.lines")).scalar_one() == 1
+        with pytest.raises(Exception, match="cls"):
+            conn.execute(
+                text(
+                    "INSERT INTO substations (osm_id, cls, confidence, geom) VALUES "
+                    "(2, 'BOGUS', 'estimated', ST_SetSRID(ST_MakePoint(1, 1), 2180))"
+                )
+            )

@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 10.10.2026 · Phase 0 (setup and source discovery)
+Last updated: 10.10.2026 · Phase 0 done except source verification; Phase 1 started (code only, no real data yet)
 
 ## Phase 0: what works
 
@@ -17,7 +17,7 @@ Last updated: 10.10.2026 · Phase 0 (setup and source discovery)
   Źródła danych and Ustawienia (read-only) pages, light/dark themes, mobile layout, Polish formatters.
   12 unit tests; Playwright smoke + axe tests pass on desktop and mobile.
 - CI workflow (`.github/workflows/ci.yml`): ruff, mypy, pytest with PostGIS, eslint, tsc, vitest, build,
-  generated-types check, image build, compose + Playwright smoke. **Not yet run on GitHub** (nothing pushed before).
+  generated-types check, image build, compose + Playwright smoke. **Green on GitHub** (run 1 on `dc-land-hunter` main, with the real Martin image).
 
 ## Phase 0: NOT done
 
@@ -26,7 +26,7 @@ Last updated: 10.10.2026 · Phase 0 (setup and source discovery)
   IPs anyway. All 24 MVP sources are "not yet checked" in `docs/SOURCES.md`.
   **Next step for the owner:** run `uv run dclh discover --capture-network --write-docs` from a machine in
   Poland and commit `data/discovery/` + `docs/SOURCES.md` (instructions in `docs/SOURCES.md`).
-- Golden-set coordinates are not researched (left empty on purpose, `tests/golden/sites.yaml`).
+- Golden-set coordinates: a first web search found descriptions but no verifiable coordinates (left empty on purpose). Hillwood Reguły, Bełchatów/Domiechowice and CGE Konin are located textually in `tests/golden/sites.yaml`; the Tauron Jaworzno / Wysoki Brzeg data centre could not be confirmed by any source found.
 
 ## Stubbed / placeholders
 
@@ -55,3 +55,20 @@ Last updated: 10.10.2026 · Phase 0 (setup and source discovery)
 ## Manual review loop (top 30 sites)
 
 Starts in Phase 2.
+
+## Phase 1 progress (code, fixtures only)
+
+Done:
+- Substation classifier (`GPZ_110_SN`, `NODE_220_400`, `OTHER`, `UNKNOWN_VOLTAGE`) and operator → DSO mapping, with
+  tests (incl. hypothesis). Decision: a 110 kV-only station is `OTHER` (the brief defines a GPZ as 110 kV + SN).
+- AOI builder (extend the river line, split the country, keep the side with a reference point) with synthetic tests.
+- Migration 0002: `aoi`, `admin_units`, `substations`, `lines`, `buildings`, `users`, `settings`, and Martin views in `tiles`.
+  Checked with the real Martin 1.16.1 binary: the three layers are published and a tile containing a test
+  substation is served.
+- Map: AOI, lines by voltage (110/220/400 kV) and substations layers with a toggle panel and legend.
+
+Not done yet (needs real data from a machine in Poland):
+- PRG, OSM and BDOT10k connectors, the real AOI (`data/aoi/aoi.geojson`), loading substations and lines,
+  per-voivodeship counts and the plausibility check (Phase 1 acceptance).
+- "Uruchom teraz" on the Sources page: deliberately not added until login exists (Phase 4), because an
+  unauthenticated button would let anyone trigger crawls.

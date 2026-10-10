@@ -15,7 +15,8 @@ sites:
     lon: null
     lat: null
     verified_on_geoportal: false
-    sources: []
+    location_note: "Reguły, gmina Michałowice (SW of Warsaw), between Aleje Jerozolimskie and the WKD line; 4 buildings, 130 MW total. Sources disagree on area: >22 ha (developer) vs 40 ha (directory). Residents dispute zoning compliance."
+    sources: ["https://eurobuildcee.com/en/news/37149-hillwood-moves-planned-data-centre-further-from-homes"]
 
   - name: Tauron Jaworzno / Wysoki Brzeg
     expect: not_excluded_top20pct
@@ -24,6 +25,7 @@ sites:
     lon: null
     lat: null
     verified_on_geoportal: false
+    location_note: "NOT FOUND in a first web search: no source confirmed a data centre at Wysoki Brzeg, Jaworzno (150 MW / 54 ha come from the brief). Search Polish terms and Tauron releases."
     sources: []
 
   - name: Bełchatów / Domiechowice
@@ -33,7 +35,8 @@ sites:
     lon: null
     lat: null
     verified_on_geoportal: false
-    sources: []
+    location_note: "Domiechowice, gmina Bełchatów (woj. łódzkie), near the Rogowiec substation, ~50 ha, up to 500 MW; connection conditions reportedly secured; operation planned 2030; investor not named."
+    sources: ["https://www.datacenterdynamics.com/en/news/500mw-data-center-campus-planned-for-be%C5%82chat%C3%B3w-poland/", "https://wbj.pl/data-center-near-belchatow-being-built-with-500-mw-capacity/post/148866", "https://itwiz.pl/belchatow-z-szansa-na-jedno-z-najwiekszych-centrow-danych-w-europie/"]
 
   - name: CGE Konin
     expect: not_excluded_top20pct
@@ -42,7 +45,8 @@ sites:
     lon: null
     lat: null
     verified_on_geoportal: false
-    sources: []
+    location_note: "North of the city of Konin near a retail park, 260 MW, ~3 bn EUR, connection and environmental permits reportedly obtained, construction planned 2027. Exact plot not public."
+    sources: ["https://www.datacenterdynamics.com/en/news/plans-announced-for-260mw-data-center-in-konin-poland/"]
 
   - name: Data4 Jawczyce
     expect: excluded_too_small

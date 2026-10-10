@@ -1,5 +1,8 @@
 import maplibregl, { type StyleSpecification } from "maplibre-gl";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { LayerControl } from "./LayerControl";
+import { LAYER_GROUPS, addGridLayers, setGroupVisibility } from "./layers";
 
 /** Free OSM-based vector basemap (no API key). Override with VITE_BASEMAP_STYLE. */
 const BASEMAP_STYLE: string = import.meta.env.VITE_BASEMAP_STYLE ?? "https://tiles.openfreemap.org/styles/positron";
@@ -22,6 +25,18 @@ const FALLBACK_STYLE: StyleSpecification = {
 export function MapView() {
   const container = useRef<HTMLDivElement>(null);
   const [basemapFailed, setBasemapFailed] = useState(false);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const [visible, setVisible] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(LAYER_GROUPS.map((g) => [g.id, g.defaultOn])),
+  );
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+
+  const toggle = useCallback((groupId: string, on: boolean) => {
+    setVisible((v) => ({ ...v, [groupId]: on }));
+    const group = LAYER_GROUPS.find((g) => g.id === groupId);
+    if (mapRef.current && group) setGroupVisibility(mapRef.current, group, on);
+  }, []);
 
   useEffect(() => {
     if (!container.current) return;
@@ -37,6 +52,7 @@ export function MapView() {
         [27.5, 56.5],
       ],
     });
+    mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), "top-right");
     map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
 
@@ -49,6 +65,10 @@ export function MapView() {
       map.setStyle(FALLBACK_STYLE);
     };
     const timer = window.setTimeout(useFallback, BASEMAP_TIMEOUT_MS);
+    map.on("style.load", () => {
+      // Runs for the basemap and again for the fallback style: setStyle() drops our layers.
+      addGridLayers(map, visibleRef.current);
+    });
     map.once("style.load", () => {
       settled = true;
       window.clearTimeout(timer);
@@ -56,6 +76,7 @@ export function MapView() {
     map.on("error", useFallback);
     return () => {
       window.clearTimeout(timer);
+      mapRef.current = null;
       map.remove();
     };
   }, []);
@@ -63,8 +84,9 @@ export function MapView() {
   return (
     <div className="relative h-full w-full">
       <div ref={container} className="h-full w-full" data-testid="map" aria-label="Mapa" role="region" />
+      <LayerControl visible={visible} onToggle={toggle} />
       {basemapFailed && (
-        <div className="absolute top-3 left-3 rounded-md border bg-surface px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
+        <div className="absolute bottom-8 left-3 rounded-md border bg-surface px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
           Podkład mapowy niedostępny – mapa działa bez tła.
         </div>
       )}
