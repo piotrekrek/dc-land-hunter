@@ -58,13 +58,13 @@ export function MapView() {
 
     // Fall back when the basemap style fails to load, or hangs (blocked networks often drop silently).
     let settled = false;
-    const useFallback = () => {
+    const switchToFallback = () => {
       if (settled) return;
       settled = true;
       setBasemapFailed(true);
       map.setStyle(FALLBACK_STYLE);
     };
-    const timer = window.setTimeout(useFallback, BASEMAP_TIMEOUT_MS);
+    const timer = window.setTimeout(switchToFallback, BASEMAP_TIMEOUT_MS);
     map.on("style.load", () => {
       // Runs for the basemap and again for the fallback style: setStyle() drops our layers.
       addGridLayers(map, visibleRef.current);
@@ -73,8 +73,16 @@ export function MapView() {
       settled = true;
       window.clearTimeout(timer);
     });
-    map.on("error", useFallback);
+    // Only a basemap style failure justifies the fallback. Errors after the style loaded (e.g. 404 tiles for
+    // our own, still empty, Martin layers) must not replace the basemap.
+    map.on("error", () => {
+      if (!settled) switchToFallback();
+    });
+    // The container is `hidden` (0x0) on phones until "Mapa" is selected: resize when it gets a real size.
+    const resizer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => map.resize());
+    resizer?.observe(container.current);
     return () => {
+      resizer?.disconnect();
       window.clearTimeout(timer);
       mapRef.current = null;
       map.remove();
