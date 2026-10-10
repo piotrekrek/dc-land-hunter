@@ -235,3 +235,17 @@ def test_report_names_do_not_overwrite_same_day_runs(tmp_path: Path) -> None:
     b, _ = save_report(second, tmp_path)
     assert a != b and a.exists() and b.exists()
     assert sorted(p.name for p in tmp_path.glob("discovery-*.json"))[-1] == b.name
+
+
+def test_browser_actions_are_parsed_from_config() -> None:
+    from dclh_pipeline.config import BrowserProbe
+
+    probe = BrowserProbe.model_validate(
+        {
+            "kind": "browser",
+            "url": "https://example.pl/",
+            "actions": [{"action": "fill", "selector": "input[type=search]", "value": "Warszawa"}],
+        }
+    )
+    assert probe.actions[0].action == "fill"
+    assert probe.actions[0].value == "Warszawa"

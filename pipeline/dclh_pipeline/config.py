@@ -173,9 +173,18 @@ class ArcgisProbe(_Model):
     url: HttpUrl
 
 
+class BrowserAction(_Model):
+    """One step to run in the page after it loads: type into a field, press a key, or click."""
+
+    action: Literal["fill", "press", "click"]
+    selector: str
+    value: str | None = None  # text for fill, key name for press
+
+
 class BrowserProbe(_Model):
     kind: Literal["browser"]
     url: HttpUrl
+    actions: list[BrowserAction] = Field(default_factory=list)
 
 
 Probe = Annotated[
