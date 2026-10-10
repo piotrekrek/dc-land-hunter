@@ -124,6 +124,9 @@ Not done yet (needs real data from a machine in Poland):
   EPSG:2180 come from the 10.10.2026 discovery report. **Attribute names (`identyfikator`, `gml_id`) are not yet
   checked against a real response**: the first live run from Poland must confirm them. Tests use synthetic pages
   (`tests/fixtures/egib/`). Not yet wired into the scheduled runner (it needs the candidate zones from the DB).
+- Live sample capture (`dclh capture-sample`, see `docs/RUNBOOK.md`): one EGiB WFS page (20 parcels) and one
+  ULDK lookup for a point, with metadata, for committing as fixtures. Built and tested with mocked responses. To
+  be run on the VPS for CGE Konin (estimated point, to be checked on Geoportal).
 - Still missing for Phase 2: the live connectors (`ru`, `egib` + `uldk`, `gdos`, `isok`, `midas`, `nid`, `kiug`,
   residential buildings) that fill the layers, the golden-set run, and the first manual top-30 review. They all
   need a Polish machine (Phase 0). Not yet: the map choropleth, the `dclh score` command, expansion land, and the

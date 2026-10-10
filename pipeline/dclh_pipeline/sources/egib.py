@@ -53,6 +53,21 @@ def tile_bbox(bbox: BBox, size_m: float = TILE_M) -> list[BBox]:
     return tiles
 
 
+def getfeature_params(bbox: BBox, *, start: int, count: int) -> dict[str, str | int]:
+    """WFS 2.0 GetFeature query for one page of parcels inside `bbox` (shared with `dclh capture-sample`)."""
+    x0, y0, x1, y1 = bbox
+    return {
+        "service": "WFS",
+        "version": "2.0.0",
+        "request": "GetFeature",
+        "typeNames": LAYER,
+        "srsName": SRS,
+        "bbox": f"{x0},{y0},{x1},{y1},urn:ogc:def:crs:EPSG::2180",
+        "count": count,
+        "startIndex": start,
+    }
+
+
 def _count(pattern: re.Pattern[bytes], body: bytes) -> int | None:
     match = pattern.search(body[:4096])  # the counts sit in the root element
     return int(match.group(1)) if match else None
@@ -91,17 +106,7 @@ class EgibConnector(Source):
         pages: list[dict[str, Any]] = []
         start = 0
         for _ in range(MAX_PAGES_PER_TILE):
-            x0, y0, x1, y1 = tile
-            params = {
-                "service": "WFS",
-                "version": "2.0.0",
-                "request": "GetFeature",
-                "typeNames": LAYER,
-                "srsName": SRS,
-                "bbox": f"{x0},{y0},{x1},{y1},urn:ogc:def:crs:EPSG::2180",
-                "count": self.page_size,
-                "startIndex": start,
-            }
+            params = getfeature_params(tile, start=start, count=self.page_size)
             response = client.get(self.url, params=params)
             response.raise_for_status()
             body = response.content
