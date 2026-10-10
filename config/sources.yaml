@@ -144,7 +144,6 @@ sources:
     licence_expected: "Dane publiczne PIG-PIB"
     probes:
       - {kind: arcgis, url: "https://cbdgmapa.pgi.gov.pl/arcgis/rest/services"}
-      - {kind: page, url: "https://cbdgmapa.pgi.gov.pl/", keywords: ["wms", "wfs", "usług", "górnicz"]}
 
   - id: nid
     name: NID – rejestr zabytków i stanowiska archeologiczne
