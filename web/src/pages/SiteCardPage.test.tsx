@@ -32,6 +32,7 @@ const detail: SiteDetail = {
   flags: ["Duży kampus"],
   lon: 19.9,
   lat: 52.1,
+  mw_fact: { value: 192, source_id: "egib", as_of: "2026-10-10T06:00:00+00:00", confidence: "estimated" },
   parcel_ids: ["1", "2"],
   scored_at: "2026-10-10T06:00:00+00:00",
   exclusions: [],

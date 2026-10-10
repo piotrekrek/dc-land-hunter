@@ -66,6 +66,8 @@ class SiteSummary(BaseModel):
     flags: list[str]
     lon: float  # a point inside the site, WGS84, for the map
     lat: float
+    # estimated_mw is area × density from config: a derived value, so it carries its provenance too.
+    mw_fact: FactOut
 
 
 class SitesPage(BaseModel):

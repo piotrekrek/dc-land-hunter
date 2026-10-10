@@ -1162,6 +1162,9 @@
             "type": "number",
             "title": "Lat"
           },
+          "mw_fact": {
+            "$ref": "#/components/schemas/FactOut"
+          },
           "parcel_ids": {
             "items": {
               "type": "string"
@@ -1224,6 +1227,7 @@
           "flags",
           "lon",
           "lat",
+          "mw_fact",
           "parcel_ids",
           "scored_at",
           "exclusions",
@@ -1308,6 +1312,9 @@
           "lat": {
             "type": "number",
             "title": "Lat"
+          },
+          "mw_fact": {
+            "$ref": "#/components/schemas/FactOut"
           }
         },
         "type": "object",
@@ -1325,7 +1332,8 @@
           "split_suggested",
           "flags",
           "lon",
-          "lat"
+          "lat",
+          "mw_fact"
         ],
         "title": "SiteSummary",
         "description": "One row of the ranked list. Scores are 0–100; `score` is what the list sorts on by default."

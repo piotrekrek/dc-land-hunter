@@ -70,8 +70,12 @@ function SiteCard({ site }: { site: SiteDetail }) {
         <ScoreBadge score={site.score} excluded={site.excluded} className="size-16 text-lg" />
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold">Lokalizacja: {formatHa(site.area_ha)}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Szacowana moc {formatMW(site.estimated_mw)} (6 MW na hektar, wartość orientacyjna)
+          <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            Szacowana moc {formatMW(site.estimated_mw)}
+            <Badge variant="accent">{CONFIDENCE_LABEL[site.mw_fact.confidence]}</Badge>
+            <span className="text-xs">
+              powierzchnia × gęstość z ustawień ({formatDate(site.mw_fact.as_of)})
+            </span>
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             <Badge variant={site.grid_badge === "Opublikowana moc" ? "ok" : site.grid_badge === "Bliskość sieci" ? "accent" : "neutral"}>
@@ -79,7 +83,7 @@ function SiteCard({ site }: { site: SiteDetail }) {
             </Badge>
             {site.excluded && <Badge variant="bad">Wykluczona</Badge>}
             {site.large_campus && <Badge variant="accent">Duży kampus: wymaga węzła 220/400 kV</Badge>}
-            {site.split_suggested && <Badge variant="warn">Powyżej 80 ha: rozważ podział</Badge>}
+            {site.split_suggested && <Badge variant="warn">Duży teren: rozważ podział</Badge>}
             {site.flags.map((f) => (
               <Badge key={f}>{f}</Badge>
             ))}

@@ -1,4 +1,5 @@
 import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { components } from "@/api/schema";
@@ -7,6 +8,8 @@ import { mockFetch, renderWithProviders } from "@/test/render";
 import { SiteList } from "./SiteList";
 
 type SiteSummary = components["schemas"]["SiteSummary"];
+
+const estimated_mw_default = 192;
 
 const site = (over: Partial<SiteSummary>): SiteSummary => ({
   site_id: "site-a",
@@ -23,6 +26,7 @@ const site = (over: Partial<SiteSummary>): SiteSummary => ({
   flags: [],
   lon: 19.9,
   lat: 52.1,
+  mw_fact: { value: estimated_mw_default, source_id: "egib", as_of: null, confidence: "estimated" },
   ...over,
 });
 
@@ -54,10 +58,20 @@ describe("SiteList", () => {
     expect(await screen.findByText("Brak lokalizacji dla tych filtrów")).toBeInTheDocument();
   });
 
-  it("offers more results when the page is not complete", async () => {
-    mockFetch({ "/api/sites": { total: 80, offset: 0, limit: 50, items: [site({})] } });
+  it("offers more results when the page is not complete, and asks for the next offset", async () => {
+    const fetchSpy = mockFetch({ "/api/sites": { total: 80, offset: 0, limit: 50, items: [site({})] } });
     renderWithProviders(<SiteList />);
-    expect(await screen.findByRole("button", { name: /Pokaż więcej \(1 z 80\)/ })).toBeInTheDocument();
+    const more = await screen.findByRole("button", { name: /Pokaż więcej \(1 z 80\)/ });
+    await userEvent.click(more);
+    const urls = fetchSpy.mock.calls.map(([input]) => (typeof input === "string" ? input : (input as Request).url));
+    expect(urls.some((u) => u.includes("offset=1"))).toBe(true);
+  });
+
+  it("keeps the ranked list in a scrollable region", async () => {
+    mockFetch({ "/api/sites": { total: 1, offset: 0, limit: 50, items: [site({})] } });
+    renderWithProviders(<SiteList />);
+    await screen.findAllByTestId("site-row");
+    expect(screen.getByRole("region", { name: "Wyniki" })).toContainElement(screen.getByRole("list", { name: "Ranking lokalizacji" }));
   });
 
   it("marks excluded sites and shows their upside", async () => {

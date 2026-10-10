@@ -1,10 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { MapPinned, LoaderCircle } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router";
 
 import { api, unwrap } from "@/api/client";
 import { EmptyState } from "@/components/EmptyState";
+import { PageScroll } from "@/components/PageScroll";
 import { ScoreBadge } from "@/components/sites/ScoreBadge";
 import { SiteFilterBar } from "@/components/sites/SiteFilterBar";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
@@ -12,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { formatHa, formatMW, formatPercent } from "@/lib/format";
 import { parseFilters, toParams, type SiteFilters, type SiteSummary } from "@/lib/sites";
 
-const PAGE = 50;
+const PAGE = 50; // the API accepts up to 200 per request; pages are fetched with an offset
 const GRID_BADGE: Record<SiteSummary["grid_badge"], BadgeProps["variant"]> = {
   "Opublikowana moc": "ok",
   "Bliskość sieci": "accent",
@@ -32,6 +33,7 @@ function SiteRow({ site }: { site: SiteSummary }) {
           <p className="font-medium">
             {formatHa(site.area_ha)} · ok. {formatMW(site.estimated_mw)}
           </p>
+          <p className="text-xs text-muted-foreground">szacunek na podstawie powierzchni</p>
           <div className="mt-1 flex flex-wrap gap-1.5">
             <Badge variant={GRID_BADGE[site.grid_badge]}>{site.grid_badge}</Badge>
             {site.excluded && <Badge variant="bad">Wykluczona</Badge>}
@@ -52,11 +54,12 @@ function SiteRow({ site }: { site: SiteSummary }) {
 export function SiteList() {
   const [params, setParams] = useSearchParams();
   const filters = useMemo(() => parseFilters(params), [params]);
-  const [limit, setLimit] = useState(PAGE);
 
-  const sites = useQuery({
-    queryKey: ["sites", filters, limit],
-    queryFn: () =>
+  // Filters change the key, which starts again from the first page.
+  const sites = useInfiniteQuery({
+    queryKey: ["sites", filters],
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) =>
       unwrap(
         api.GET("/api/sites", {
           params: {
@@ -65,15 +68,19 @@ export function SiteList() {
               min_mw: filters.minMw,
               min_ha: filters.minHa,
               include_excluded: filters.includeExcluded,
-              limit,
+              limit: PAGE,
+              offset: pageParam,
             },
           },
         }),
       ),
+    getNextPageParam: (last) => (last.offset + last.items.length < last.total ? last.offset + last.items.length : undefined),
   });
 
+  const items = sites.data?.pages.flatMap((p) => p.items) ?? [];
+  const total = sites.data?.pages[0]?.total ?? 0;
+
   const update = (next: SiteFilters) => {
-    setLimit(PAGE);
     setParams(toParams(next), { replace: true });
   };
 
@@ -92,31 +99,37 @@ export function SiteList() {
           Nie udało się wczytać lokalizacji.
         </p>
       )}
-      {sites.data && sites.data.total === 0 && (
+      {sites.data && total === 0 && (
         <EmptyState icon={MapPinned} title="Brak lokalizacji dla tych filtrów">
           Poluźnij filtry albo poczekaj na pierwszy przebieg oceny. Dane działek pojawią się po podłączeniu źródeł
           (Faza 2).
         </EmptyState>
       )}
-      {sites.data && sites.data.total > 0 && (
-        <>
+      {sites.data && total > 0 && (
+        <PageScroll label="Wyniki" className="min-h-0 flex-1">
           <p className="px-4 pt-3 text-xs text-muted-foreground">
-            Wyników: {sites.data.total}. Wynik nie jest obietnicą przyłączenia: pokazuje, jak mocno lokalizacja pasuje do
-            profilu i jakie dane jeszcze brakują.
+            Wyników: {total}. Wynik nie jest obietnicą przyłączenia: pokazuje, jak mocno lokalizacja pasuje do profilu i
+            jakie dane jeszcze brakują.
           </p>
           <ul className="flex flex-col gap-1 p-2" aria-label="Ranking lokalizacji">
-            {sites.data.items.map((site) => (
+            {items.map((site) => (
               <SiteRow key={site.site_id} site={site} />
             ))}
           </ul>
-          {sites.data.items.length < sites.data.total && (
+          {sites.hasNextPage && (
             <div className="p-3">
-              <Button variant="outline" size="sm" className="w-full" onClick={() => setLimit((l) => Math.min(l + PAGE, 200))}>
-                Pokaż więcej ({sites.data.items.length} z {sites.data.total})
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => void sites.fetchNextPage()}
+                disabled={sites.isFetchingNextPage}
+              >
+                Pokaż więcej ({items.length} z {total})
               </Button>
             </div>
           )}
-        </>
+        </PageScroll>
       )}
     </div>
   );

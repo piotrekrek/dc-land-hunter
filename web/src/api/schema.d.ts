@@ -459,6 +459,7 @@ export interface components {
             lon: number;
             /** Lat */
             lat: number;
+            mw_fact: components["schemas"]["FactOut"];
             /** Parcel Ids */
             parcel_ids: string[];
             /**
@@ -517,6 +518,7 @@ export interface components {
             lon: number;
             /** Lat */
             lat: number;
+            mw_fact: components["schemas"]["FactOut"];
         };
         /** SitesPage */
         SitesPage: {

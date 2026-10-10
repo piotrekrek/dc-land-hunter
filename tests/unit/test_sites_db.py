@@ -105,6 +105,8 @@ def test_site_card_has_breakdown_provenance_and_geometry(seeded: None, client: T
     assert card["site_id"] == top["site_id"]
     assert {c["category"] for c in card["categories"]} == {"grid", "zoning", "land", "connectivity", "bonus"}
     assert any(item["key"] for item in card["items"])
+    assert card["mw_fact"]["confidence"] == "estimated"
+    assert card["mw_fact"]["value"] == card["estimated_mw"]
     assert card["features"]["area_ha"]["source_id"] == "egib"
     assert card["features"]["area_ha"]["confidence"] == "verified"
     assert card["geometry"]["type"] in {"Polygon", "MultiPolygon"}

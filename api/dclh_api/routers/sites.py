@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -27,7 +28,7 @@ SORT_COLUMNS: dict[str, str] = {
 
 _SUMMARY_COLUMNS = """
     site_id, zone_id, area_ha, estimated_mw, score, upside_score, completeness, excluded, grid_badge,
-    large_campus, split_suggested, flags,
+    large_campus, split_suggested, flags, scored_at,
     ST_X(ST_Transform(ST_PointOnSurface(geom), 4326)) AS lon,
     ST_Y(ST_Transform(ST_PointOnSurface(geom), 4326)) AS lat
 """
@@ -61,10 +62,25 @@ def list_sites(
             ),
             {**params, "limit": limit, "offset": offset},
         ).mappings()
-        items = [SiteSummary(**row) for row in rows]
+        items = [_summary(dict(row)) for row in rows]
     except SQLAlchemyError as exc:
         raise _unavailable() from exc
     return SitesPage(total=total, offset=offset, limit=limit, items=items)
+
+
+def _mw_fact(row: Mapping[str, Any]) -> FactOut:
+    """The estimate is area × density (config): source is the parcel area, confidence is estimated.
+
+    `as_of` is the scoring run date, since the parcel data's own date is not stored yet.
+    """
+    return FactOut(
+        value=row["estimated_mw"], source_id="egib", as_of=row["scored_at"], confidence="estimated"
+    )
+
+
+def _summary(row: Mapping[str, Any]) -> SiteSummary:
+    fields = {k: row[k] for k in SiteSummary.model_fields if k != "mw_fact"}
+    return SiteSummary(**fields, mw_fact=_mw_fact(row))
 
 
 def _fact_map(features: dict[str, Any]) -> dict[str, FactOut]:
@@ -92,7 +108,7 @@ def get_site(site_id: str, session: Annotated[Session, Depends(db_session)]) -> 
     detail = row["detail"]
     score = detail["score"]
     return SiteDetail(
-        **{k: row[k] for k in SiteSummary.model_fields},
+        **_summary(dict(row)).model_dump(),
         parcel_ids=row["parcel_ids"],
         scored_at=row["scored_at"],
         exclusions=score["exclusions"],
