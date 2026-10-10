@@ -96,3 +96,15 @@ Not done yet (needs real data from a machine in Poland):
   9 tests on synthetic parcels. `expansion_ha` is not implemented: the brief does not define how to compute it.
 - Blocked on live data (needs a Polish machine, see Phase 0 / Phase 1): `ru` zoning, `egib` parcels, constraint
   layers, the grid pre-filter run on real substations, and the golden-set run.
+
+## Ready for real data (PRG first)
+
+- `sources/prg.py`: PRG connector. Fetches the WFS layers A00 (country), A01 (voivodeships), A02 (powiats)
+  and A03 (gminas) and bundles them in one zip snapshot. Parses to one table in EPSG:2180 with
+  `level`, `teryt`, `name`. Fails loudly on missing fields or coordinates outside Poland.
+- `dclh fetch prg` runs fetch and parse without the database and prints row counts per level.
+- 4 tests on synthetic GML. **Not yet checked against a real PRG payload**: the field names
+  (`jpt_kod_je`, `jpt_nazwa_`) and the axis order are assumptions until the first VPS run.
+
+Next on the VPS: `uv run dclh fetch prg`. If it fails on fields or bounds, paste the error; the report lists the
+available columns, which settles the names.
