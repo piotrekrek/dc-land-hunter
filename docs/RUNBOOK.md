@@ -162,3 +162,16 @@ git add tests/fixtures/live && git commit -m "Live sample: CGE Konin" && git pus
 
 The Konin coordinates are an estimate ("north of Konin near a retail park"; the plot is not public). Check the
 point on the Geoportal map first and pass the right `--lon`/`--lat`. Keep `--radius-m` small.
+
+## Deploying to the VPS
+
+The repo is checked out at `/home/piotr/dc-land-hunter`. To deploy the latest `main`:
+
+```
+cd ~/dc-land-hunter
+git pull
+docker compose -f infra/docker-compose.yml up --build -d
+docker compose -f infra/docker-compose.yml ps
+```
+
+Hard-refresh the browser afterwards (Ctrl+Shift+R). `.env` exists only on the VPS and is not in git.
