@@ -14,14 +14,15 @@ describe("App shell", () => {
     mockFetch({
       "/api/health": { status: "ok", version: "0.1.0", database: true, postgis_version: "3.4", time: "" },
       "/api/auth/me": { email: "ala@example.org", role: "member" },
+      "/api/sites": { total: 0, offset: 0, limit: 50, items: [] },
     });
     renderWithProviders(<AppRoutes />);
-    await screen.findByText("Brak lokalizacji do wyświetlenia");
+    await screen.findByText("Brak lokalizacji dla tych filtrów");
     const nav = screen.getAllByRole("navigation", { name: "Główna nawigacja" })[0]!;
     for (const item of NAV_ITEMS) {
       expect(nav).toHaveTextContent(item.label);
     }
-    expect(screen.getByText("Brak lokalizacji do wyświetlenia")).toBeInTheDocument();
+    expect(screen.getByText("Brak lokalizacji dla tych filtrów")).toBeInTheDocument();
     expect(screen.getByTestId("map")).toBeInTheDocument();
     expect(await screen.findByText("Połączono z API")).toBeInTheDocument();
   });

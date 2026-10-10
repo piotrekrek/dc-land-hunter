@@ -90,7 +90,7 @@ Not done yet (needs real data from a machine in Poland):
   Polish explanation per line; grid badge; estimated MW and flags. Details and my interpretation choices:
   `docs/SCORING.md` (**please review the table of sub-criterion weights**).
 - 54 tests, including hypothesis properties (monotonicity, bounds, well-formed output for random sites).
-- Not yet: computing the features from real data, the sites list/card in the web app, the golden-set run.
+- Not yet: live data for the features (connectors), the golden-set run. Sites list and card are built (see below).
 - Site clustering (`model/sites.py`): parcels touching or within 5 m in the same zone form one site; area in ha,
   Polsby-Popper compactness, estimated MW (6 MW/ha), stable `site_id`, >80 ha split suggestion (flag only).
   9 tests on synthetic parcels. `expansion_ha` is not implemented: the brief does not define how to compute it.
@@ -104,8 +104,21 @@ Not done yet (needs real data from a machine in Poland):
   Zone-code mapping (`P`, `PU`, `P/U`, `U/P`, `E`, `IT` → production; `SG` → plan ogólny; procedures outrank codes)
   is an assumption until the APP schema is checked on real data. 43 new tests on synthetic geometry with exact
   distances.
+- Scored sites are stored: migration `0004` (`sites` table with PostGIS geometry, provenance-carrying `detail`
+  JSON), `scoring/run.py` (`score_candidates`, `write_sites`: one run replaces the table, excluded sites kept).
+- API: `GET /api/sites` (sort by score, upside, completeness, area or MW; filters `min_mw`, `min_ha`,
+  `include_excluded`; paging) and `GET /api/sites/{id}` (score breakdown, features with source, confidence and
+  as-of, exclusion reasons, GeoJSON outline). Login required, whitelisted sort columns.
+- Web: the home list ("Lokalizacje") is the ranked list with filters that live in the URL (defaults 60 MW and
+  10 ha, the brief's target) and "Pokaż więcej" paging; the site card at `/lokalizacje/:id` shows the score,
+  the breakdown per category with confidence and source, and the exclusion reasons. All UI text is Polish.
+  26 web tests; Playwright smoke text updated.
+- Tests: 223 Python tests. The 16 PostGIS tests now run locally too: PostGIS 3.4 is installed in this
+  sandbox's PostgreSQL 16 (`dclh` role and database). Sites DB tests cover the write, list, filters, paging,
+  card and login requirement against real PostGIS.
+- Not done in this step: the map choropleth over the sites, and a `dclh score` command. The command has no
+  parcel input until the `egib` connector loads parcels, so it would produce an empty table today.
 - Still missing for Phase 2: the live connectors (`ru`, `egib` + `uldk`, `gdos`, `isok`, `midas`, `nid`, `kiug`,
   residential buildings) that fill the layers, the golden-set run, and the first manual top-30 review. They all
-  need a Polish machine (Phase 0). Not yet: DB persistence of scored sites (`sites` table), the sites API and the
-  sites list / site card in the web app, the map choropleth, expansion land, and the PSE/telecom/city/heat-network
-  distances.
+  need a Polish machine (Phase 0). Not yet: the map choropleth, the `dclh score` command, expansion land, and the
+  PSE/telecom/city/heat-network distances.
