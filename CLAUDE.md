@@ -5,8 +5,6 @@ The phase plan is in `docs/PLAN.md` and the current state is in `docs/STATUS.md`
 
 ## Repo conventions
 
-- Layout: `pipeline/` (Python ETL + scoring, package `dclh_pipeline`), `api/` (FastAPI, package `dclh_api`),
-  `web/` (React + Vite), `config/`, `data/`, `docs/`, `infra/`, `tests/`.
 - Python 3.12, managed with `uv` as one workspace (root `pyproject.toml`). Run `uv sync` once.
 - Fast checks before every commit:
   - `uv run ruff check . && uv run ruff format --check . && uv run mypy`
