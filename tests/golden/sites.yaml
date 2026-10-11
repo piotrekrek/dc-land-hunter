@@ -22,7 +22,18 @@ sites:
       lat: 52.173889
       what: "village centre of Reguły, SIMC 0005300"
       source: "https://www.polskawliczbach.pl/wies_Reguly"
-      uldk_check: "ULDK GetParcelByXY (WGS84), 11.10.2026: commune Michałowice, powiat pruszkowski, mazowieckie. Commune only, not the plot."
+    # Parcel candidates (ULDK, obręb 0013 Reguły). Not the plot: the 40 ha site may be several parcels, and the
+    # likely planning document is the MPZP "Regulska" (about 39 ha, between Al. Jerozolimskie, ul. Regulska and the WKD line).
+    candidate_parcels:
+      - {id: "142104_2.0013.408", area_m2: 17692, note: "plan boundary: south edge of plot"}
+      - {id: "142104_2.0013.409", area_m2: 2188, note: "plan boundary: south edge of plot"}
+      - {id: "142104_2.0013.562/2", area_m2: 43000, note: "mid-size parcel in the plan area (approx.)"}
+      - {id: "142104_2.0013.562/3", area_m2: 43000, note: "mid-size parcel in the plan area (approx.)"}
+      - {id: "142104_2.0013.562/4", area_m2: 43000, note: "mid-size parcel in the plan area (approx.)"}
+      - {id: "142104_2.0013.564/2", area_m2: 23000, note: "mid-size parcel in the plan area (approx.)"}
+      - {id: "rejected: 402/1", area_m2: 1156, note: "listing says 9050 m2; ULDK says 1156 m2, rejected"}
+      - {id: "unconfirmed: 631/23, 631/30, 628/23", note: "probably road or rail corridors; not confirmed"}
+    uldk_check: "ULDK GetParcelByXY (WGS84), 11.10.2026: commune Michałowice, powiat pruszkowski, mazowieckie. Commune only, not the plot."
     sources: ["https://eurobuildcee.com/en/news/37149-hillwood-moves-planned-data-centre-further-from-homes"]
 
   - name: Tauron Jaworzno / Wysoki Brzeg
