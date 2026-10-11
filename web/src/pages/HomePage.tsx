@@ -1,12 +1,9 @@
-import { List, Map as MapIcon, MapPinned } from "lucide-react";
+import { List, Map as MapIcon } from "lucide-react";
 import { useState } from "react";
 
-import { EmptyState } from "@/components/EmptyState";
 import { MapView } from "@/components/map/MapView";
-import { PageScroll } from "@/components/PageScroll";
-import { Badge } from "@/components/ui/badge";
+import { SiteList } from "@/components/sites/SiteList";
 import { Button } from "@/components/ui/button";
-import { formatHa, formatMW } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /** "Mapa i lista": ranked list on the left, map on the right; a list/map toggle on phones. */
@@ -33,18 +30,9 @@ export function HomePage() {
       >
         <div className="border-b p-4">
           <h1 className="text-base font-semibold">Lokalizacje</h1>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <Badge>min. {formatMW(60)}</Badge>
-            <Badge>min. {formatHa(10)}</Badge>
-            <Badge>cały obszar (AOI)</Badge>
-          </div>
+          <p className="mt-1 text-xs text-muted-foreground">Ranking kandydatów pod centrum danych w obszarze zainteresowania.</p>
         </div>
-        <PageScroll label="Wyniki" className="h-auto min-h-0 flex-1">
-          <EmptyState icon={MapPinned} title="Brak lokalizacji do wyświetlenia">
-            Ranking lokalizacji pojawi się po pierwszym pełnym przebiegu pipeline’u (Faza 2). Teraz możesz sprawdzić stan
-            źródeł danych w zakładce „Źródła danych”.
-          </EmptyState>
-        </PageScroll>
+        <SiteList />
       </section>
 
       <section aria-label="Mapa" className={cn("min-h-0 flex-1 lg:block", mobileView === "map" ? "block" : "hidden")}>

@@ -46,6 +46,11 @@ class Snapshot:
         )
 
 
+def object_path(objects_dir: Path, sha: str, suffix: str) -> Path:
+    """Where an object lives: `<objects_dir>/<sha[:2]>/<sha><suffix>`."""
+    return objects_dir / sha[:2] / f"{sha}{suffix}"
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as fh:
@@ -94,13 +99,7 @@ class SnapshotStore:
         fetched_at: datetime | None = None,
     ) -> Snapshot:
         """Move `file` into the store (large downloads are written to disk first, then saved)."""
-        sha = sha256_file(file)
-        target = self._source_dir(source_id) / "objects" / sha[:2] / f"{sha}{suffix}"
-        if target.exists():
-            file.unlink()
-        else:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(file, target)
+        sha, target = self._put_object(source_id, file, suffix)
         previous = self.latest(source_id)
         snap = Snapshot(
             source_id=source_id,
@@ -115,6 +114,30 @@ class SnapshotStore:
         with self._manifest(source_id).open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(snap.to_json(), ensure_ascii=False) + "\n")
         return snap
+
+    def put_object(self, source_id: str, content: bytes, *, suffix: str = ".bin") -> str:
+        """Store raw bytes as an object without a manifest line; returns the sha256.
+
+        For parts of a snapshot (e.g. the pages of a tiled download). Only the snapshot that refers to them
+        is recorded in the manifest, so `latest()` and change detection see one entry per fetch.
+        """
+        tmp_dir = self._source_dir(source_id) / "tmp"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=tmp_dir, delete=False) as fh:
+            fh.write(content)
+            tmp = Path(fh.name)
+        sha, _ = self._put_object(source_id, tmp, suffix)
+        return sha
+
+    def _put_object(self, source_id: str, file: Path, suffix: str) -> tuple[str, Path]:
+        sha = sha256_file(file)
+        target = object_path(self._source_dir(source_id) / "objects", sha, suffix)
+        if target.exists():
+            file.unlink()
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(file, target)
+        return sha, target
 
     def history(self, source_id: str) -> list[Snapshot]:
         manifest = self._manifest(source_id)

@@ -71,3 +71,13 @@ def test_site_id_changes_with_zone() -> None:
     one = cluster_sites([Parcel("1", "Z1", square(0, 0))])[0]
     two = cluster_sites([Parcel("1", "Z2", square(0, 0))])[0]
     assert one.site_id != two.site_id
+
+
+def test_site_constants_match_the_scoring_config() -> None:
+    """model/sites.py keeps two defaults for clustering; the scoring config is the source of truth."""
+    from dclh_pipeline.config import load_scoring
+    from dclh_pipeline.model.sites import DEFAULT_MW_PER_HA, SPLIT_SUGGESTION_HA
+
+    cfg = load_scoring()
+    assert cfg.target.mw_per_ha == DEFAULT_MW_PER_HA
+    assert cfg.target.large_site_split_ha == SPLIT_SUGGESTION_HA

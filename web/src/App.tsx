@@ -8,6 +8,7 @@ import { LoginPage } from "@/pages/LoginPage";
 import { HomePage } from "@/pages/HomePage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+import { SiteCardPage } from "@/pages/SiteCardPage";
 import { SourcesPage } from "@/pages/SourcesPage";
 
 export function AppRoutes() {
@@ -75,6 +76,7 @@ export function AppRoutes() {
             />
           }
         />
+        <Route path="lokalizacje/:siteId" element={<SiteCardPage />} />
         <Route path="zrodla" element={<SourcesPage />} />
         <Route path="ustawienia" element={<SettingsPage />} />
         <Route

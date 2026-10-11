@@ -1,0 +1,31 @@
+{
+  "place": "CGE Konin",
+  "lon": 18.2514,
+  "lat": 52.236,
+  "radius_m": 300.0,
+  "bbox_2180": [
+    448594.59591951966,
+    485514.38785065897,
+    449194.59591951966,
+    486114.38785065897
+  ],
+  "fetched_at": "2026-10-10T23:42:34.384342+00:00",
+  "responses": [
+    {
+      "source_id": "egib",
+      "url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/EGIB/WFS/UslugaZbiorcza?service=WFS&version=2.0.0&request=GetFeature&typeNames=ms%3Adzialki&srsName=EPSG%3A2180&bbox=485514.38785065897%2C448594.59591951966%2C486114.38785065897%2C449194.59591951966%2Curn%3Aogc%3Adef%3Acrs%3AEPSG%3A%3A2180&count=20&startIndex=0",
+      "status": 200,
+      "bytes": 38226,
+      "sha256": "85126da0203ab86ccbc8a261add0e3459be6a617bed9dc34c9e3cae815ab8626",
+      "file": "egib_getfeature.gml"
+    },
+    {
+      "source_id": "uldk",
+      "url": "https://uldk.gugik.gov.pl/?request=GetParcelByXY&xy=448894.60%2C485814.39%2C2180&result=teryt%2Cvoivodeship%2Ccounty%2Ccommune%2Cgeom_wkt",
+      "status": 200,
+      "bytes": 759,
+      "sha256": "c86672eb1e233337b6b4b21cfb10dbaab5da0e46906e750329dc79ca67319803",
+      "file": "uldk_getparcelbyxy.txt"
+    }
+  ]
+}

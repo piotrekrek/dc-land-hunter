@@ -12,13 +12,14 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from dclh_pipeline import __version__
+from dclh_pipeline import __version__, capture
 from dclh_pipeline.config import load_scoring, load_sources
 from dclh_pipeline.discovery import STATUS_ICON, discover, render_markdown, save_report, update_sources_doc
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.settings import REPO_ROOT, get_settings
 from dclh_pipeline.snapshots import SnapshotStore
 from dclh_pipeline.sources.base import Source
+from dclh_pipeline.sources.egib import EgibConnector
 from dclh_pipeline.sources.prg import PrgConnector
 
 app = typer.Typer(help="DC Land Hunter pipeline", no_args_is_help=True)
@@ -119,6 +120,66 @@ def fetch_cmd(source: Annotated[str, typer.Argument(help="Source id, e.g. prg")]
     table = connector.parse(snapshot)
     console.print(f"parsed {len(table)} rows · columns {list(table.columns)}")
     console.print(table.drop(columns="geometry").groupby("level").size().to_string())
+
+
+@app.command("capture-sample")
+def capture_sample_cmd(
+    name: Annotated[str, typer.Option(help="Place name, used for the output folder")],
+    lon: Annotated[float, typer.Option(help="Centre longitude (WGS84)")],
+    lat: Annotated[float, typer.Option(help="Centre latitude (WGS84)")],
+    radius_m: Annotated[float, typer.Option(help="Half-width of the square search area, metres")] = 300,
+    out: Annotated[
+        Path | None, typer.Option(help="Output folder (default: tests/fixtures/live/<name>)")
+    ] = None,
+) -> None:
+    """Record a small live sample from EGiB (WFS) and ULDK for one place, for fixtures. Run from Poland."""
+    settings = get_settings()
+    if settings.contact_email.endswith(".invalid"):
+        raise typer.BadParameter("set DCLH_CONTACT_EMAIL first (it goes into the User-Agent)")
+    config = load_sources()
+    egib_spec = config.get("egib")
+    egib_url = next(str(p.url) for p in egib_spec.probes if getattr(p, "kind", None) == "ogc")
+    place = capture.Place(name=name, lon=lon, lat=lat, radius_m=radius_m)
+    target = out or capture.default_out_dir(REPO_ROOT, place)
+    with PoliteClient(
+        user_agent=settings.user_agent,
+        rate_limit_per_s=config.defaults.rate_limit_per_s,
+        timeout_s=config.defaults.timeout_s,
+        retries=1,
+    ) as client:
+        meta = capture.capture(client, egib_url=egib_url, place=place, out_dir=target)
+    for r in meta["responses"]:
+        console.print(f"{r['source_id']:<6} HTTP {r['status']}  {r['bytes']} B  -> {target / r['file']}")
+    console.print(f"Metadata: {target / 'capture.json'}")
+
+
+@app.command("fetch-egib")
+def fetch_egib_cmd(
+    lon: Annotated[float, typer.Option(help="Centre longitude (WGS84)")],
+    lat: Annotated[float, typer.Option(help="Centre latitude (WGS84)")],
+    radius_m: Annotated[float, typer.Option(help="Half-width of the square search area, metres")] = 300,
+) -> None:
+    """Fetch and parse EGiB parcels around one point, without the database. Run from Poland."""
+    settings = get_settings()
+    if settings.contact_email.endswith(".invalid"):
+        raise typer.BadParameter("set DCLH_CONTACT_EMAIL first (it goes into the User-Agent)")
+    config = load_sources()
+    spec = config.get("egib")
+    place = capture.Place(name="egib-fetch", lon=lon, lat=lat, radius_m=radius_m)
+    connector = EgibConnector(spec, bboxes=[place.bbox])
+    store = SnapshotStore(settings.raw_dir)
+    with PoliteClient(
+        user_agent=settings.user_agent,
+        rate_limit_per_s=config.defaults.rate_limit_per_s,
+        timeout_s=config.defaults.timeout_s,
+        retries=2,
+    ) as client:
+        snapshot = connector.fetch(client, store)
+    console.print(f"snapshot {snapshot.sha256[:12]} · {snapshot.size_bytes} bytes · {snapshot.path}")
+    table = connector.parse(snapshot)
+    console.print(f"parsed {len(table)} parcels · columns {list(table.columns)}")
+    if len(table):
+        console.print(table["parcel_id"].head(5).to_string(index=False))
 
 
 @app.command("enqueue")

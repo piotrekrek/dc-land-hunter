@@ -129,6 +129,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sites */
+        get: operations["list_sites_api_sites_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/{site_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Site */
+        get: operations["get_site_api_sites__site_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -149,6 +183,17 @@ export interface components {
             env_decision_found: number;
             /** Public Seller */
             public_seller: number;
+        };
+        /** CategoryOut */
+        CategoryOut: {
+            /** Category */
+            category: string;
+            /** Points */
+            points: number;
+            /** Max Points */
+            max_points: number;
+            /** Upside Points */
+            upside_points: number;
         };
         /** ConnectionCost */
         ConnectionCost: {
@@ -188,6 +233,37 @@ export interface components {
         DiscoverIn: {
             /** Sources */
             sources?: string[];
+        };
+        /** ExclusionOut */
+        ExclusionOut: {
+            /** Key */
+            key: string;
+            /** Reason Pl */
+            reason_pl: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "exclude" | "penalty";
+            /** Penalty Points */
+            penalty_points: number;
+        };
+        /**
+         * FactOut
+         * @description A feature value with its provenance (brief section 4: source_id, as_of, confidence).
+         */
+        FactOut: {
+            /** Value */
+            value: number | boolean | string;
+            /** Source Id */
+            source_id: string;
+            /** As Of */
+            as_of: string | null;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "verified" | "estimated" | "missing";
         };
         /** GridParams */
         GridParams: {
@@ -305,6 +381,34 @@ export interface components {
             /** Node 220 400 Km */
             node_220_400_km: number;
         };
+        /** ScoreItemOut */
+        ScoreItemOut: {
+            /** Key */
+            key: string;
+            /** Category */
+            category: string;
+            /** Label Pl */
+            label_pl: string;
+            /** Points */
+            points: number;
+            /** Max Points */
+            max_points: number;
+            /** Upside Points */
+            upside_points: number;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "verified" | "estimated" | "missing";
+            /** Source Id */
+            source_id: string | null;
+            /** As Of */
+            as_of: string | null;
+            /** Explanation Pl */
+            explanation_pl: string;
+            /** Value */
+            value: number | string | boolean | null;
+        };
         /** ScoringConfig */
         ScoringConfig: {
             target: components["schemas"]["Target"];
@@ -321,6 +425,111 @@ export interface components {
             penalties: components["schemas"]["Penalties"];
             prefilter: components["schemas"]["Prefilter"];
             connection_cost: components["schemas"]["ConnectionCost"];
+        };
+        /** SiteDetail */
+        SiteDetail: {
+            /** Site Id */
+            site_id: string;
+            /** Zone Id */
+            zone_id: string | null;
+            /** Area Ha */
+            area_ha: number;
+            /** Estimated Mw */
+            estimated_mw: number;
+            /** Score */
+            score: number;
+            /** Upside Score */
+            upside_score: number;
+            /** Completeness */
+            completeness: number;
+            /** Excluded */
+            excluded: boolean;
+            /**
+             * Grid Badge
+             * @enum {string}
+             */
+            grid_badge: "Opublikowana moc" | "Bliskość sieci" | "Brak danych";
+            /** Large Campus */
+            large_campus: boolean;
+            /** Split Suggested */
+            split_suggested: boolean;
+            /** Flags */
+            flags: string[];
+            /** Lon */
+            lon: number;
+            /** Lat */
+            lat: number;
+            mw_fact: components["schemas"]["FactOut"];
+            /** Parcel Ids */
+            parcel_ids: string[];
+            /**
+             * Scored At
+             * Format: date-time
+             */
+            scored_at: string;
+            /** Exclusions */
+            exclusions: components["schemas"]["ExclusionOut"][];
+            /** Categories */
+            categories: components["schemas"]["CategoryOut"][];
+            /** Items */
+            items: components["schemas"]["ScoreItemOut"][];
+            /** Features */
+            features: {
+                [key: string]: components["schemas"]["FactOut"];
+            };
+            /** Geometry */
+            geometry: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * SiteSummary
+         * @description One row of the ranked list. Scores are 0–100; `score` is what the list sorts on by default.
+         */
+        SiteSummary: {
+            /** Site Id */
+            site_id: string;
+            /** Zone Id */
+            zone_id: string | null;
+            /** Area Ha */
+            area_ha: number;
+            /** Estimated Mw */
+            estimated_mw: number;
+            /** Score */
+            score: number;
+            /** Upside Score */
+            upside_score: number;
+            /** Completeness */
+            completeness: number;
+            /** Excluded */
+            excluded: boolean;
+            /**
+             * Grid Badge
+             * @enum {string}
+             */
+            grid_badge: "Opublikowana moc" | "Bliskość sieci" | "Brak danych";
+            /** Large Campus */
+            large_campus: boolean;
+            /** Split Suggested */
+            split_suggested: boolean;
+            /** Flags */
+            flags: string[];
+            /** Lon */
+            lon: number;
+            /** Lat */
+            lat: number;
+            mw_fact: components["schemas"]["FactOut"];
+        };
+        /** SitesPage */
+        SitesPage: {
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
+            /** Items */
+            items: components["schemas"]["SiteSummary"][];
         };
         /** SourceOut */
         SourceOut: {
@@ -609,6 +818,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScoringConfig"];
+                };
+            };
+        };
+    };
+    list_sites_api_sites_get: {
+        parameters: {
+            query?: {
+                sort?: "score" | "upside" | "completeness" | "area" | "mw";
+                order?: "asc" | "desc";
+                min_mw?: number;
+                min_ha?: number;
+                include_excluded?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitesPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_site_api_sites__site_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

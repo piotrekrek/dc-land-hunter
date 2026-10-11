@@ -90,12 +90,57 @@ Not done yet (needs real data from a machine in Poland):
   Polish explanation per line; grid badge; estimated MW and flags. Details and my interpretation choices:
   `docs/SCORING.md` (**please review the table of sub-criterion weights**).
 - 54 tests, including hypothesis properties (monotonicity, bounds, well-formed output for random sites).
-- Not yet: computing the features from real data, the sites list/card in the web app, the golden-set run.
+- Not yet: live data for the features (EGiB connector written, not yet run live), the golden-set run. Sites list and card are built (see below).
 - Site clustering (`model/sites.py`): parcels touching or within 5 m in the same zone form one site; area in ha,
   Polsby-Popper compactness, estimated MW (6 MW/ha), stable `site_id`, >80 ha split suggestion (flag only).
   9 tests on synthetic parcels. `expansion_ha` is not implemented: the brief does not define how to compute it.
-- Blocked on live data (needs a Polish machine, see Phase 0 / Phase 1): `ru` zoning, `egib` parcels, constraint
-  layers, the grid pre-filter run on real substations, and the golden-set run.
+- Feature layer (`model/features.py`, `model/zoning.py`): grid distances (110 kV line, GPZ, 220/400 kV node), N-1
+  count of distinct 110 kV lines within 3 km, the grid pre-filter (3 / 5 / 25 km, any one keeps a zone), powered
+  brownfields (industrial area ≤ 200 m from the site with a 110 kV substation ≤ 100 m from that area), zoning
+  (RU zone with most overlap → verified; industrial area without a plan → `unknown`, estimated; loaded register
+  without any plan → `unknown`, missing), constraint overlap in % of site area, boolean touch checks, residential
+  distance in metres, and `build_site_features()` which assembles `SiteFeatures` from a `Site` and the loaded layers.
+  Every fact carries source_id, as_of and confidence; a layer that is not loaded gives a missing fact, never zero.
+  Zone-code mapping (`P`, `PU`, `P/U`, `U/P`, `E`, `IT` → production; `SG` → plan ogólny; procedures outrank codes)
+  is an assumption until the APP schema is checked on real data. 43 new tests on synthetic geometry with exact
+  distances.
+- Scored sites are stored: migration `0004` (`sites` table with PostGIS geometry, provenance-carrying `detail`
+  JSON), `scoring/run.py` (`score_candidates`, `write_sites`: one run replaces the table, excluded sites kept).
+- API: `GET /api/sites` (sort by score, upside, completeness, area or MW; filters `min_mw`, `min_ha`,
+  `include_excluded`; paging) and `GET /api/sites/{id}` (score breakdown, features with source, confidence and
+  as-of, exclusion reasons, GeoJSON outline). Login required, whitelisted sort columns.
+- Web: the home list ("Lokalizacje") is the ranked list with filters that live in the URL (defaults 60 MW and
+  10 ha, the brief's target) and "Pokaż więcej" paging; the site card at `/lokalizacje/:id` shows the score,
+  the breakdown per category with confidence and source, and the exclusion reasons. All UI text is Polish.
+  26 web tests; Playwright smoke text updated.
+- Tests: 223 Python tests. The 16 PostGIS tests now run locally too: PostGIS 3.4 is installed in this
+  sandbox's PostgreSQL 16 (`dclh` role and database). Sites DB tests cover the write, list, filters, paging,
+  card and login requirement against real PostGIS.
+- Not done in this step: the map choropleth over the sites, and a `dclh score` command. The command has no
+  parcel input until the `egib` connector loads parcels, so it would produce an empty table today.
+- EGiB connector (`sources/egib.py`): parcels by WFS in 1 km tiles aligned to the grid, inside candidate zones
+  only. Paged with `numberReturned`/`numberMatched`, WFS exceptions raised (HTTP 200 included), each page kept as
+  a raw object, the snapshot is a JSON bundle, and parcels on tile edges are de-duplicated. Layer `ms:dzialki` and
+  EPSG:2180 come from the 10.10.2026 discovery report. **Attribute names (`identyfikator`, `gml_id`) are not yet
+  checked against a real response**: the first live run from Poland must confirm them. Tests use synthetic pages
+  (`tests/fixtures/egib/`). Not yet wired into the scheduled runner (it needs the candidate zones from the DB).
+- Live sample capture (`dclh capture-sample`, see `docs/RUNBOOK.md`; the bbox is now northing-first): one EGiB WFS page (20 parcels) and one
+  ULDK lookup for a point, with metadata, for committing as fixtures. Built and tested with mocked responses. To
+  be run on the VPS for CGE Konin (estimated point, to be checked on Geoportal).
+- **Real EGiB and ULDK responses** (`tests/fixtures/live/poddebice-axis-order-check/`, captured 11.10.2026 on the
+  VPS). The request bbox was sent easting-first, but WFS 2.0 with the EPSG:2180 URN expects northing-first, so the
+  sample came back as **Poddębice** parcels, not Konin. The request now sends northing first (test:
+  `test_request_bbox_is_northing_first`). Confirmed against ULDK: parcel `101103_5.0011.1` is in Poddębice gmina,
+  at about 51.90 N, 18.78 E, and the parcel attributes were correct.
+  Also from the sample: the parcel id is `ID_DZIALKI` (the same form as ULDK, e.g. `306201_1.0002.1573`); GDAL
+  gives easting-northing geometries (no swap, the earlier swap was wrong); `numberMatched="unknown"`, so paging
+  continues while pages are full; the registered area (`POLE_EWIDENYJNE`) and land-use class are empty, so the
+  land score uses the geometry area.
+  Next: capture the CGE Konin sample again with the corrected request (`dclh capture-sample`).
+- Still missing for Phase 2: the live connectors (`ru`, `egib` + `uldk`, `gdos`, `isok`, `midas`, `nid`, `kiug`,
+  residential buildings) that fill the layers, the golden-set run, and the first manual top-30 review. They all
+  need a Polish machine (Phase 0). Not yet: the map choropleth, the `dclh score` command, expansion land, and the
+  PSE/telecom/city/heat-network distances.
 
 ## Ready for real data (PRG first)
 
