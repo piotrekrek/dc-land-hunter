@@ -17,7 +17,8 @@
 
 defaults:
   rate_limit_per_s: 1.0
-  timeout_s: 30
+  # Geoportal WFS pages can take about a minute (PRG, 11.10.2026); 30 s timed out on a live run.
+  timeout_s: 120
 
 sources:
   - id: prg
