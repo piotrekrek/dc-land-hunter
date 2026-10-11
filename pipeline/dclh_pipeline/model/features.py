@@ -16,7 +16,7 @@ from shapely import STRtree, unary_union
 from shapely.geometry.base import BaseGeometry
 
 from dclh_pipeline.config import Prefilter, ScoringConfig
-from dclh_pipeline.model.grid import SubstationClass
+from dclh_pipeline.model.grid import SubstationClass, is_foreign_operator
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.sites import Site
 from dclh_pipeline.scoring.types import Fact, SiteFeatures, ZoningKind
@@ -46,6 +46,9 @@ BOOL_CONSTRAINTS: dict[str, str] = {
 
 POWERED_BROWNFIELD_NEAR_M = 200.0  # industrial area this close to the site counts as the site's area
 POWERED_BROWNFIELD_SUBSTATION_M = 100.0  # a 110 kV substation this close to that area makes it "powered"
+# A plan zone must cover at least this share of the site to count: boundaries rarely align, so touching or
+# centimetre slivers must not decide the zoning.
+MIN_ZONING_OVERLAP_SHARE = 0.01
 
 
 class GeomIndex:
@@ -97,6 +100,7 @@ class Substation:
     voltages: tuple[int, ...]
     geom: BaseGeometry  # Point, EPSG:2180
     name: str | None = None  # OSM `name` tag, used to match DSO capacity lists to GPZ
+    operator: str | None = None  # OSM `operator` tag: tells a DSO/PSE station from an industrial one
 
 
 @dataclass(frozen=True)
@@ -116,6 +120,7 @@ class GridIndex:
     line110: _IdIndex
     gpz110: _IdIndex
     hv110_substations: _IdIndex
+    own_hv110: _IdIndex  # 110 kV substations whose operator is named and is not a DSO or PSE
     node: _IdIndex
 
 
@@ -199,6 +204,13 @@ def build_grid_index(
         hv110_substations=_IdIndex(
             [(s.osm_id, s.geom) for s in subs if any(V_110 <= v < V_220 for v in s.voltages)]
         ),
+        own_hv110=_IdIndex(
+            [
+                (s.osm_id, s.geom)
+                for s in subs
+                if any(V_110 <= v < V_220 for v in s.voltages) and is_foreign_operator(s.operator)
+            ]
+        ),
         node=_IdIndex([(s.osm_id, s.geom) for s in subs if s.cls is SubstationClass.NODE_220_400]),
     )
 
@@ -244,13 +256,15 @@ def grid_facts(
 def powered_brownfield(site: BaseGeometry, industrial: Layer | None, grid: GridIndex) -> Fact[bool] | None:
     """Brief section 3: an industrial or brownfield area near the site with its own 110 kV substation.
 
+    "Own" means the OSM operator is named and is not a DSO or PSE, so a utility GPZ beside a factory does not
+    count, and neither does a substation with no operator tag (unknown, so not claimed).
     Missing (None) when either the industrial layer or the grid is not loaded; False when both are loaded and
     no such area exists.
     """
     if industrial is None or not len(grid.hv110_substations):
         return None
     for area in industrial.index.within_m(site, POWERED_BROWNFIELD_NEAR_M):
-        if grid.hv110_substations.geoms.within_m(area, POWERED_BROWNFIELD_SUBSTATION_M):
+        if grid.own_hv110.geoms.within_m(area, POWERED_BROWNFIELD_SUBSTATION_M):
             return _fact(True, grid.source_id, grid.as_of, grid.confidence)
     return _fact(False, grid.source_id, grid.as_of, grid.confidence)
 
@@ -269,6 +283,8 @@ def zoning_fact(
             if not zone.intersects(site):
                 continue
             overlap = zone.intersection(site).area
+            if overlap < site.area * MIN_ZONING_OVERLAP_SHARE:
+                continue
             if best is None or overlap > best[0]:
                 best = (overlap, kind)
         if best is not None:

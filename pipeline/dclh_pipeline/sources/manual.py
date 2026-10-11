@@ -21,8 +21,9 @@ the whole import with the row number, so a partly-read file never reaches the sc
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Mapping
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -34,6 +35,7 @@ from shapely.geometry import Point
 from dclh_pipeline.config import SourceSpec
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.model.gpz_match import normalise_name
+from dclh_pipeline.model.grid import parse_osm_ref
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
 from dclh_pipeline.sources.base import Source
 from dclh_pipeline.sources.prg import EPSG, POLAND_BOUNDS
@@ -74,9 +76,14 @@ def _row_error(row: int, message: str) -> ValueError:
     return ValueError(f"row {row + 2}: {message}")  # +2: the header line, and 1-based numbering
 
 
+_EXCEL_MIDNIGHT = re.compile(r"(\d{4}-\d{2}-\d{2})[ T]00:00:00(\.0+)?")
+
+
 def _parse_date(text: str, row: int) -> pd.Timestamp:
     if not text:
         raise _row_error(row, "as_of is empty (use YYYY-MM-DD)")
+    if m := _EXCEL_MIDNIGHT.fullmatch(text):
+        text = m.group(1)  # an Excel date cell, read as text, carries a midnight time
     try:
         return pd.Timestamp(date.fromisoformat(text))
     except ValueError as exc:
@@ -101,6 +108,22 @@ class ManualFileSource(Source):
             suffix=self.path.suffix.lower() or ".csv",
             url=f"manual:{self.path.name}",
         )
+
+    def import_file(self, store: SnapshotStore) -> tuple[Snapshot, pd.DataFrame]:
+        """Validate every row first, and store the file only when all of them are valid.
+
+        A rejected file leaves no trace in the store. An accepted one is marked good, so it can serve as the
+        fallback snapshot like any fetched one.
+        """
+        probe = Snapshot(
+            source_id=self.id,
+            fetched_at=datetime.now(UTC),
+            sha256="",
+            path=self.path,
+            size_bytes=self.path.stat().st_size,
+        )
+        table = self.parse(probe)
+        return store.mark_good(self.store_file(store)), table
 
     def fetch(self, client: PoliteClient, store: SnapshotStore) -> Snapshot:
         """The client is not used: manual sources never go to the network."""
@@ -133,7 +156,9 @@ class ManualCapacitySource(ManualFileSource):
                 }
             )
         table = pd.DataFrame(rows, columns=["dso", "gpz_name", "published_mw", "as_of", "note"])
-        duplicated = table["gpz_name"].duplicated(keep=False)
+        # "GPZ Piaski" and "Piaski" are the same station to the matcher, so they count as one name.
+        normalised = table["gpz_name"].map(normalise_name)
+        duplicated = normalised.duplicated(keep=False)
         if duplicated.any():
             names = sorted(set(table.loc[duplicated, "gpz_name"]))
             raise ValueError(f"{self.id}: GPZ names listed twice: {names}")
@@ -259,9 +284,11 @@ def load_gpz_mapping(path: Path) -> dict[str, dict[str, int]]:
         if not key or not str(rec["osm_id"]):
             continue  # blank template rows
         try:
-            osm_id = int(str(rec["osm_id"]))
+            osm_id = parse_osm_ref(str(rec["osm_id"]))
         except ValueError as exc:
-            raise _row_error(i, f"osm_id {rec['osm_id']!r} is not an integer") from exc
+            raise _row_error(
+                i, f"osm_id {rec['osm_id']!r} is not an OSM reference (use 123, n123 or w123)"
+            ) from exc
         bucket = out.setdefault(dso, {})
         if key in bucket:
             raise _row_error(i, f"{dso} GPZ {rec['dso_gpz_name']!r} is mapped twice")

@@ -53,7 +53,7 @@ Last updated: 11.10.2026 · Phase 0 done except source verification; Phase 1 sta
 
 ## Phase 3: grid capacity and PSE data (code and fixtures; acceptance not yet measurable)
 
-What works (tests: 317 Python passing with PostGIS, 34 web):
+What works (tests: 339 Python passing with PostGIS, 34 web):
 - **GPZ name matching** (`model/gpz_match.py`): names are folded (diacritics, case, "GPZ"/"stacja") and matched with
   rapidfuzz at `grid.gpz_match_min_score` (88). A tie with another station is ambiguous and stays unmatched, with
   the reason kept. A manual mapping in `data/manual/gpz_mapping.csv` always wins (verified, confidence "verified").
@@ -73,12 +73,32 @@ Not done, and why:
   or Playwright capture comes only after one is verified in `docs/SOURCES.md`.
 - **PSE PDFs (`pse_odb`, `pse_avail`)**: the pdfplumber parser is not written. Without a real file the layout is a guess,
   so the parser would be untested. Until then, the owner converts the PDF table to CSV/XLSX.
-- **OSM substation names**: the matcher needs `Substation.name`, which only an OSM connector can fill. The OSM
-  connector is still a Phase 1 item, so the matching cannot run on the real grid yet.
-- **Acceptance (≥70% of Enea/Energa GPZs matched)** cannot be measured. It needs the OSM names and the real DSO
-  files, both on the VPS. The report command for the match rate is not written yet.
+- **OSM connector not yet run on the real extract.** `sources/osm_power.py` is written and tested on a generated PBF
+  (it streams `poland-latest.osm.pbf`, checks the size against `Content-Length`, reads substations and `power=line`
+  ways, and fills `Substation.name` and `.operator`). The first real run is `uv run dclh fetch osm_power` on the VPS;
+  the 1,000-substation floor and the Poland bounds check will fail loudly on a wrong file. Relation-mapped
+  substations and generators are not read. `dclh aoi build` and the BDOT10k/PRG loading are still open.
+- **Acceptance (≥70% of Enea/Energa GPZs matched)** cannot be measured. It needs the real OSM extract and the real
+  DSO files, both on the VPS. The report command for the match rate is not written yet.
 - **Scoring run**: there is still no `dclh score` command (Phase 2 item), so the new layers are not yet loaded in a
   real run. `build_site_features` and the engine already consume them, and tests cover that path.
+
+Code review and QA of this work (high effort; every finding reproduced before fixing, each has a regression test):
+- Matching: a number in a name must be identical ("Gdańsk 10" no longer matches "Gdańsk 1"); "Stacja
+  elektroenergetyczna X" and "X 110/15 kV" normalise to "X"; tied stations within 500 m count as one station mapped
+  twice in OSM; a manual mapping may point at any substation, including unnamed ones.
+- Import: Excel date cells are accepted; names that normalise alike count as duplicates; `import-manual` now validates
+  before storing, so a rejected file leaves no trace, and an accepted one is marked good (usable as the fallback
+  snapshot).
+- Download: asks for an uncompressed body (so the size check is exact) and honours `Retry-After`.
+- **Two changes to Phase 2 behaviour, found by the review (please confirm you agree):**
+  1. *Powered brownfield* now requires the OSM `operator` tag to name an owner that is not a DSO or PSE. Before, any
+     industrial area near any 110 kV station got the +15, including every utility GPZ. A substation with no operator
+     tag is not counted (unknown, not claimed), so recall drops until OSM operators are checked.
+  2. *Zoning* ignores a plan zone that covers less than 1% of the site. Before, a zone that only touched the site
+     (or overlapped by centimetres) counted as the site's zoning, verified, and earned the full zoning points.
+- Open, not fixed: nothing from the review. The end-to-end QA test (`test_phase3_end_to_end.py`) runs the chain
+  OSM file → DSO/PSE files → matching → features → score.
 
 Decisions to check:
 - Fuzzy-matched GPZs get "estimated" confidence; manual mappings get "verified". Fuzzy matching below 88 is not used.

@@ -101,6 +101,47 @@ def test_duplicate_gpz_name_is_rejected(tmp_path: Path) -> None:
         source.parse(source.store_file(_store(tmp_path)))
 
 
+def test_excel_date_cells_are_accepted_but_a_real_time_is_not(tmp_path: Path) -> None:
+    file = tmp_path / "enea.xlsx"
+    pd.DataFrame(
+        {
+            "dso": ["enea"],
+            "gpz_name": ["Piaski"],
+            "published_mw": [9.0],
+            "as_of": [pd.Timestamp("2026-09-01")],  # a real date cell, not text
+        }
+    ).to_excel(file, index=False)
+    source = _enea(file)
+    table = source.parse(source.store_file(_store(tmp_path)))
+    assert table["as_of"].iloc[0] == pd.Timestamp("2026-09-01")
+    noon = _write(tmp_path / "noon.csv", CAPACITY_HEADER + "enea,Piaski,1,2026-09-01 12:30:00,\n")
+    with pytest.raises(ValueError, match="not a date"):
+        _enea(noon).parse(_enea(noon).store_file(_store(tmp_path)))
+
+
+def test_names_that_normalise_to_the_same_station_count_as_duplicates(tmp_path: Path) -> None:
+    file = _write(
+        tmp_path / "enea.csv",
+        CAPACITY_HEADER + "enea,GPZ Piaski,1,2026-09-01,\nenea,Piaski,2,2026-09-01,\n",
+    )
+    source = _enea(file)
+    with pytest.raises(ValueError, match="listed twice"):
+        source.parse(source.store_file(_store(tmp_path)))
+
+
+def test_import_file_validates_before_storing_and_marks_good(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    bad = _write(tmp_path / "bad.csv", CAPACITY_HEADER + "enea,Piaski,-1,2026-09-01,\n")
+    with pytest.raises(ValueError, match="row 2"):
+        _enea(bad).import_file(store)
+    assert store.latest("enea") is None  # nothing was stored
+    good = _write(tmp_path / "good.csv", CAPACITY_HEADER + "enea,Piaski,1,2026-09-01,\n")
+    snapshot, table = _enea(good).import_file(store)
+    assert len(table) == 1
+    assert snapshot.good is True
+    assert store.latest_good("enea") == snapshot
+
+
 def test_missing_columns_are_named_in_the_error(tmp_path: Path) -> None:
     file = _write(tmp_path / "enea.csv", "dso,gpz_name\nenea,Piaski\n")
     source = _enea(file)
@@ -169,7 +210,7 @@ def test_gpz_mapping_rejects_duplicates_and_bad_ids(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="mapped twice"):
         load_gpz_mapping(dup)
     bad = _write(tmp_path / "bad.csv", "osm_id,dso,dso_gpz_name,note\nabc,enea,Piaski,\n")
-    with pytest.raises(ValueError, match="not an integer"):
+    with pytest.raises(ValueError, match="not an OSM reference"):
         load_gpz_mapping(bad)
 
 

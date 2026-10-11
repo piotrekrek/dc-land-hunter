@@ -38,9 +38,14 @@ def line(osm_id: int, x: float, voltage: int | None = 110_000) -> Line:
 
 
 def sub(
-    osm_id: int, x: float, y: float, cls: SubstationClass, voltages: tuple[int, ...] = (110_000, 15_000)
+    osm_id: int,
+    x: float,
+    y: float,
+    cls: SubstationClass,
+    voltages: tuple[int, ...] = (110_000, 15_000),
+    operator: str | None = None,
 ) -> Substation:
-    return Substation(osm_id, cls, voltages, Point(x, y))
+    return Substation(osm_id, cls, voltages, Point(x, y), operator=operator)
 
 
 def layer(
@@ -129,10 +134,22 @@ def test_build_grid_index_classifies_by_substation_class() -> None:
 
 def test_powered_brownfield_needs_110kv_substation_in_nearby_industrial_area() -> None:
     industrial_next_door = layer([box(600, 0, 1_200, 400)])  # 100 m east of the site
-    grid_with_station = build_grid_index([sub(1, 900, 200, SubstationClass.GPZ_110_SN)], [])
-    grid_without = build_grid_index([sub(1, 5_000, 200, SubstationClass.GPZ_110_SN)], [])
+    steelworks = "Huta Zawiercie S.A."
+    grid_with_station = build_grid_index(
+        [sub(1, 900, 200, SubstationClass.GPZ_110_SN, operator=steelworks)], []
+    )
+    grid_without = build_grid_index([sub(1, 5_000, 200, SubstationClass.GPZ_110_SN, operator=steelworks)], [])
     assert powered_brownfield(SITE, industrial_next_door, grid_with_station).value is True  # type: ignore[union-attr]
     assert powered_brownfield(SITE, industrial_next_door, grid_without).value is False  # type: ignore[union-attr]
+
+
+def test_utility_and_unlabelled_substations_do_not_make_a_powered_brownfield() -> None:
+    industrial_next_door = layer([box(600, 0, 1_200, 400)])
+    for operator in ("Enea Operator S.A.", "PSE S.A.", "Tauron Dystrybucja", None):
+        grid = build_grid_index([sub(1, 900, 200, SubstationClass.GPZ_110_SN, operator=operator)], [])
+        fact = powered_brownfield(SITE, industrial_next_door, grid)
+        assert fact is not None
+        assert fact.value is False, operator
 
 
 def test_powered_brownfield_is_missing_without_industrial_layer() -> None:
@@ -163,6 +180,20 @@ def test_zoning_takes_the_zone_covering_most_of_the_site() -> None:
     assert fact.value is ZoningKind.MPZP_PRODUCTION
     assert fact.confidence is Confidence.VERIFIED
     assert fact.source_id == "ru"
+
+
+def test_a_zone_that_only_touches_or_slivers_the_site_does_not_decide_the_zoning() -> None:
+    production = ZoningLayer(
+        "ru", None, ((ZoningKind.MPZP_PRODUCTION, box(-500, 0, 0, 400)),)
+    )  # shares an edge
+    touching = zoning_fact(SITE, production, None)
+    assert touching is not None
+    assert touching.value is ZoningKind.UNKNOWN
+    assert touching.confidence is Confidence.MISSING
+    sliver = ZoningLayer("ru", None, ((ZoningKind.MPZP_PRODUCTION, box(-500, 0, 0.5, 400)),))  # 0.5 m overlap
+    assert zoning_fact(SITE, sliver, None).value is ZoningKind.UNKNOWN  # type: ignore[union-attr]
+    covering = ZoningLayer("ru", None, ((ZoningKind.MPZP_PRODUCTION, box(-500, 0, 300, 400)),))  # most of it
+    assert zoning_fact(SITE, covering, None).value is ZoningKind.MPZP_PRODUCTION  # type: ignore[union-attr]
 
 
 def test_industrial_area_without_plan_is_unknown_not_bad() -> None:

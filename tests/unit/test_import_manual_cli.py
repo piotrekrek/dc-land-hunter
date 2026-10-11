@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 
 from dclh_pipeline import cli
 from dclh_pipeline.settings import Settings
+from dclh_pipeline.snapshots import SnapshotStore
 
 
 @pytest.fixture
@@ -27,7 +28,8 @@ def test_import_manual_stores_and_validates_the_file(tmp_path: Path, settings_in
     assert result.exit_code == 0, result.output
     assert "validated 1 rows" in result.output
     assert file.exists()  # the owner's file is not moved
-    assert (settings_in.raw_dir / "enea").exists()
+    store = SnapshotStore(settings_in.raw_dir)
+    assert store.latest_good("enea") is not None  # an accepted file can serve as the fallback snapshot
 
 
 def test_import_manual_reports_the_row_of_a_bad_value(tmp_path: Path, settings_in: Settings) -> None:
@@ -35,7 +37,9 @@ def test_import_manual_reports_the_row_of_a_bad_value(tmp_path: Path, settings_i
     file.write_text("dso,gpz_name,published_mw,as_of\nenea,Piaski,-3,2026-09-01\n", encoding="utf-8")
     result = CliRunner().invoke(cli.app, ["import-manual", "enea", str(file)])
     assert result.exit_code != 0
-    assert "row 2" in str(result.exception)
+    assert "row 2" in result.output
+    assert "was not imported" in result.output
+    assert not (settings_in.raw_dir / "enea").exists()  # a rejected file leaves no trace in the store
 
 
 def test_import_manual_rejects_unknown_sources_and_missing_files(

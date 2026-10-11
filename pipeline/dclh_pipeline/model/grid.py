@@ -14,6 +14,26 @@ V_220 = 220_000
 V_MV_MIN = 1_000
 
 
+# Node and way ids are separate OSM id spaces, but substations are keyed by one integer. A way gets this
+# offset, so a node `n123` and a way `w123` never collide. Real OSM ids are far below it.
+WAY_ID_OFFSET = 1_000_000_000_000
+_OSM_REF = re.compile(r"([nw]?)(\d+)")
+
+
+def osm_ref(osm_id: int) -> str:
+    """The OSM-style reference of a substation key: `n123` for a node, `w456` for a way."""
+    return f"w{osm_id - WAY_ID_OFFSET}" if osm_id >= WAY_ID_OFFSET else f"n{osm_id}"
+
+
+def parse_osm_ref(text: str) -> int:
+    """`n123`, `w456` or a bare `123` (a node) → the integer key. Raises ValueError for anything else."""
+    m = _OSM_REF.fullmatch(text.strip().lower())
+    if not m:
+        raise ValueError(f"{text!r} is not an OSM reference (use 123, n123 or w123)")
+    number = int(m.group(2))
+    return number + WAY_ID_OFFSET if m.group(1) == "w" else number
+
+
 class SubstationClass(StrEnum):
     GPZ_110_SN = "GPZ_110_SN"  # 110 kV plus a medium-voltage level: a "GPZ"
     NODE_220_400 = "NODE_220_400"  # PSE transmission node (220 kV or 400 kV present)

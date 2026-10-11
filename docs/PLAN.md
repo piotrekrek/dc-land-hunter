@@ -78,7 +78,8 @@ Tasks:
 - [x] GPZ name matching (rapidfuzz) plus `data/manual/gpz_mapping.csv`, with the match score stored. Matching needs OSM substation names (Phase 1 OSM connector).
 - [~] `pse_closed` (XLSX), `pse_odb` (PDF, pdfplumber), `pse_avail` (PDF) parsers with saved fixtures. **XLSX/CSV point lists done** through the manual import. PDF parsing waits for a real file.
 - [x] Grid confidence badges: Opublikowana moc / Bliskość sieci / Brak danych (list and card, from Phase 2).
-- [ ] GPZ match report (the match rate per DSO) and a `dclh score` run that loads these layers. Both need the OSM names and real files on the VPS.
+- [~] OSM power connector (`osm_power`): written and tested on a generated file; first real run on the VPS. Brings substation names and operators.
+- [ ] GPZ match report (the match rate per DSO) and a `dclh score` run that loads these layers. Both need the real OSM extract and real files on the VPS.
 
 Acceptance: at least 70% of GPZs in Enea and Energa areas are matched to published capacity (or the reason is documented), and scores use them.
 

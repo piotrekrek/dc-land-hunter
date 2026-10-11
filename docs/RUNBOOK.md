@@ -127,10 +127,20 @@ uv run dclh import-manual enea  data/manual/enea_2026-10.csv     # or energa, ta
 uv run dclh import-manual pse_closed  data/manual/pse_closed_2026-10.xlsx   # or pse_odb, pse_avail
 ```
 
-The command stores a snapshot under `data/raw/<source>/` (the original file stays where it is) and checks every
-row. A bad row fails the whole import and prints its row number; fix the file and run it again. The GPZ names in the
+The command checks every row first and stores a snapshot under `data/raw/<source>/` only if all are valid (the
+original file stays where it is). A bad row fails the whole import and prints its row number; nothing is stored,
+so fix the file and run it again. The GPZ names in the
 DSO file are matched to OSM substations by name: a fuzzy match needs a score of at least `grid.gpz_match_min_score`
 (88) and a clear winner. Put any other match in `data/manual/gpz_mapping.csv` (it always wins).
+
+## OSM power grid (substations and lines)
+
+```bash
+uv run dclh fetch osm_power   # streams the ~2 GB Poland extract; run on the VPS
+```
+
+A download whose size differs from `Content-Length` is rejected, as is an extract with fewer than 1,000
+substations or substations outside Poland. Substation names and operators feed the GPZ matching.
 
 ## Troubleshooting
 

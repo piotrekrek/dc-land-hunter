@@ -23,16 +23,18 @@ def build_gpz_capacity_layer(
     candidates: Sequence[GpzCandidate],
     *,
     manual: Mapping[str, Mapping[str, int]] | None = None,
+    stations: Sequence[GpzCandidate] = (),
     min_score: float = 88.0,
 ) -> tuple[GpzCapacityLayer, list[MatchResult]]:
     """Match each DSO GPZ row to a substation and keep the matched ones.
 
     `capacity` has the columns `dso`, `gpz_name`, `published_mw` (NaN when nothing is published) and `as_of`.
-    `manual` is keyed by DSO id, then by the normalised DSO GPZ name (see `load_gpz_mapping`).
+    `manual` is keyed by DSO id, then by the normalised DSO GPZ name (see `load_gpz_mapping`). `stations` are
+    all substations (`station_points`): a manual mapping may point at any of them, named or not.
     Returns the layer and one `MatchResult` per input row, so the owner can see every miss and its reason.
     """
     manual = manual or {}
-    by_key = {c.key: c for c in candidates}
+    by_key = {c.key: c for c in stations} | {c.key: c for c in candidates}
     items: list[GpzCapacityItem] = []
     results: list[MatchResult] = []
     for dso, rows in capacity.groupby("dso", sort=True):
@@ -41,6 +43,7 @@ def build_gpz_capacity_layer(
             list(rows["gpz_name"]),
             candidates,
             manual=manual.get(str(dso)),
+            manual_targets=by_key.keys(),
             min_score=min_score,
         )
         results.extend(matched)

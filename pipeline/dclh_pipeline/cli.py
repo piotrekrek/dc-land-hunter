@@ -21,13 +21,14 @@ from dclh_pipeline.snapshots import SnapshotStore
 from dclh_pipeline.sources.base import Source
 from dclh_pipeline.sources.egib import EgibConnector
 from dclh_pipeline.sources.manual import MANUAL_CAPACITY, MANUAL_POINTS
+from dclh_pipeline.sources.osm_power import OsmPowerConnector
 from dclh_pipeline.sources.prg import PrgConnector
 
 app = typer.Typer(help="DC Land Hunter pipeline", no_args_is_help=True)
 console = Console()
 
 # Connectors that `dclh fetch` can run without the database.
-CONNECTORS: dict[str, type[Source]] = {"prg": PrgConnector}
+CONNECTORS: dict[str, type[Source]] = {"prg": PrgConnector, "osm_power": OsmPowerConnector}
 
 
 @app.callback()
@@ -120,7 +121,9 @@ def fetch_cmd(source: Annotated[str, typer.Argument(help="Source id, e.g. prg")]
     console.print(f"snapshot {snapshot.sha256[:12]} · {snapshot.size_bytes} bytes · {snapshot.path}")
     table = connector.parse(snapshot)
     console.print(f"parsed {len(table)} rows · columns {list(table.columns)}")
-    console.print(table.drop(columns="geometry").groupby("level").size().to_string())
+    group = next((col for col in ("level", "kind") if col in table.columns), None)
+    if group:
+        console.print(table.drop(columns="geometry").groupby(group).size().to_string())
 
 
 @app.command("import-manual")
@@ -130,7 +133,8 @@ def import_manual_cmd(
 ) -> None:
     """Import a published file for a source with no verified endpoint.
 
-    Stores a snapshot and validates every row. The file itself is left where it is.
+    Validates every row, then stores a snapshot. A rejected file is not stored, and the file itself is left
+    where it is.
     """
     manual = {**MANUAL_CAPACITY, **MANUAL_POINTS}
     if source not in manual:
@@ -140,9 +144,11 @@ def import_manual_cmd(
     spec = next(s for s in load_sources().sources if s.id == source)
     connector = manual[source](spec, file)
     store = SnapshotStore(get_settings().raw_dir)
-    snapshot = connector.store_file(store)
+    try:
+        snapshot, table = connector.import_file(store)
+    except ValueError as exc:
+        raise typer.BadParameter(f"{file.name} was not imported: {exc}") from exc
     console.print(f"snapshot {snapshot.sha256[:12]} · {snapshot.size_bytes} bytes · {snapshot.path}")
-    table = connector.parse(snapshot)
     console.print(f"validated {len(table)} rows · columns {list(table.columns)}")
 
 
