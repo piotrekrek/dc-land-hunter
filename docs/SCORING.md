@@ -78,3 +78,13 @@ The engine scores whatever features it is given. `model/features.py` now compute
 constraint and residential features from geometry (see `docs/STATUS.md`), and missing layers stay missing. The
 live connectors that load those layers, the site list and card in the web app, and the golden-set check
 (`tests/golden/sites.yaml`, which needs real parcel data) are still to do.
+
+## Rules added in the Phase 3 review
+
+- **Powered brownfield** needs a 110 kV substation (within 100 m of an industrial area within 200 m of the site)
+  whose OSM `operator` names an owner that is neither a DSO nor PSE. A utility GPZ next to a factory does not count,
+  and a substation without an operator tag is not counted either.
+- **Zoning** uses a plan zone only if it covers at least 1% of the site. A zone that merely touches the site is
+  ignored, so the site falls back to "unknown" (not bad).
+- **Published headroom** (Opublikowana moc) comes from the nearest matched GPZ within 5 km that has a published
+  value. A fuzzy name match gives `estimated` confidence, a manual mapping `verified`.

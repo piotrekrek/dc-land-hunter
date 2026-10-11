@@ -289,6 +289,21 @@ export interface components {
             pse_odb_nearby_km: number;
             /** Powered Brownfield Bonus */
             powered_brownfield_bonus: number;
+            /**
+             * Published Gpz Km
+             * @default 5
+             */
+            published_gpz_km: number;
+            /**
+             * Closed Switchyard Km
+             * @default 3
+             */
+            closed_switchyard_km: number;
+            /**
+             * Gpz Match Min Score
+             * @default 88
+             */
+            gpz_match_min_score: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {

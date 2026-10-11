@@ -37,6 +37,9 @@ grid:
   published_gpz_headroom_bonus: 5            # Enea/Energa MV data, signal only
   pse_odb_nearby_km: 15                      # demand signal, shown, small bonus
   powered_brownfield_bonus: 15
+  published_gpz_km: 5                       # Phase 3: DSO headroom counts for a GPZ this close
+  closed_switchyard_km: 3                   # Phase 3: a closed PSE switchyard this close counts
+  gpz_match_min_score: 88                   # Phase 3: fuzzy GPZ name match threshold (0-100)
 
 zoning: {mpzp_production: 100, plan_ogolny_SG: 80, procedure_in_progress: 50, unknown: 30, other: 0}
 

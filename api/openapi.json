@@ -660,6 +660,25 @@
           "powered_brownfield_bonus": {
             "type": "number",
             "title": "Powered Brownfield Bonus"
+          },
+          "published_gpz_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Published Gpz Km",
+            "default": 5.0
+          },
+          "closed_switchyard_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Closed Switchyard Km",
+            "default": 3.0
+          },
+          "gpz_match_min_score": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Gpz Match Min Score",
+            "default": 88.0
           }
         },
         "additionalProperties": false,

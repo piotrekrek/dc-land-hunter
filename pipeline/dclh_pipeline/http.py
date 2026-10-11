@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from pathlib import Path
 from types import TracebackType
 from typing import Any, Self
 from urllib.parse import urlsplit
@@ -81,6 +82,36 @@ class PoliteClient:
         if self.respect_robots and not self.allowed(url):
             raise RobotsDisallowedError(url)
         return self._send_with_retries(method, url, **kwargs)
+
+    def download(self, url: str, dest: Path) -> httpx.Headers:
+        """Stream a large file to `dest` without holding it in memory; returns the response headers.
+
+        Honours robots.txt, the per-host rate limit and Retry-After, and retries transient failures (a failed
+        attempt starts the file again). `dest` is overwritten. The server is asked not to compress the body,
+        so the bytes written are the bytes announced in Content-Length.
+        """
+        if self.respect_robots and not self.allowed(url):
+            raise RobotsDisallowedError(url)
+        host = urlsplit(url).netloc
+        attempt = 0
+        while True:
+            self._throttle(host)
+            try:
+                with self._client.stream("GET", url, headers={"Accept-Encoding": "identity"}) as resp:
+                    if resp.status_code not in RETRY_STATUSES or attempt >= self.retries:
+                        resp.raise_for_status()
+                        with dest.open("wb") as fh:
+                            for chunk in resp.iter_bytes(1 << 20):
+                                fh.write(chunk)
+                        return resp.headers
+                    retry_after = resp.headers.get("retry-after", "")
+                    if retry_after.isdigit():
+                        self._sleep(min(float(retry_after), 120.0))
+            except httpx.TransportError:
+                if attempt >= self.retries:
+                    raise
+            self._sleep(self.backoff_s * (2**attempt))
+            attempt += 1
 
     def allowed(self, url: str) -> bool:
         parts = urlsplit(url)

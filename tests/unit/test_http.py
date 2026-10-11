@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 
 import httpx
 import pytest
@@ -77,3 +78,59 @@ def test_gives_up_after_retries(make_client: ClientFactory) -> None:
         return httpx.Response(404 if request.url.path == "/robots.txt" else 502)
 
     assert make_client(handler, retries=1).get("https://a.example.pl/x").status_code == 502
+
+
+def test_download_streams_to_a_file_and_retries_transient_errors(
+    make_client: ClientFactory, tmp_path: Path
+) -> None:
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        calls["n"] += 1
+        return httpx.Response(503) if calls["n"] == 1 else httpx.Response(200, content=b"abc" * 1000)
+
+    dest = tmp_path / "big.bin"
+    headers = make_client(handler).download("https://example.org/big.bin", dest)
+    assert dest.read_bytes() == b"abc" * 1000
+    assert headers["content-length"] == "3000"
+    assert calls["n"] == 2
+
+
+def test_download_respects_robots_and_raises_on_client_errors(
+    make_client: ClientFactory, tmp_path: Path
+) -> None:
+    def blocked(request: httpx.Request) -> httpx.Response:
+        return (
+            httpx.Response(200, text="User-agent: *\nDisallow: /")
+            if request.url.path == "/robots.txt"
+            else httpx.Response(200)
+        )
+
+    with pytest.raises(RobotsDisallowedError):
+        make_client(blocked).download("https://example.org/x", tmp_path / "x")
+
+    def missing(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        make_client(missing).download("https://example.org/x", tmp_path / "x")
+
+
+def test_download_honours_retry_after_and_asks_for_an_uncompressed_body(
+    make_client: ClientFactory, fake_clock: FakeClock, tmp_path: Path
+) -> None:
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        seen.append(request.headers["accept-encoding"])
+        if len(seen) == 1:
+            return httpx.Response(429, headers={"retry-after": "60"})
+        return httpx.Response(200, content=b"ok")
+
+    make_client(handler).download("https://example.org/f", tmp_path / "f")
+    assert seen == ["identity", "identity"]
+    assert 60.0 in fake_clock.sleeps  # waited what the server asked, not just the 2 s backoff

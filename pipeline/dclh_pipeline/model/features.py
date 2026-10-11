@@ -16,7 +16,7 @@ from shapely import STRtree, unary_union
 from shapely.geometry.base import BaseGeometry
 
 from dclh_pipeline.config import Prefilter, ScoringConfig
-from dclh_pipeline.model.grid import SubstationClass
+from dclh_pipeline.model.grid import SubstationClass, is_foreign_operator
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.sites import Site
 from dclh_pipeline.scoring.types import Fact, SiteFeatures, ZoningKind
@@ -46,6 +46,9 @@ BOOL_CONSTRAINTS: dict[str, str] = {
 
 POWERED_BROWNFIELD_NEAR_M = 200.0  # industrial area this close to the site counts as the site's area
 POWERED_BROWNFIELD_SUBSTATION_M = 100.0  # a 110 kV substation this close to that area makes it "powered"
+# A plan zone must cover at least this share of the site to count: boundaries rarely align, so touching or
+# centimetre slivers must not decide the zoning.
+MIN_ZONING_OVERLAP_SHARE = 0.01
 
 
 class GeomIndex:
@@ -96,6 +99,8 @@ class Substation:
     cls: SubstationClass
     voltages: tuple[int, ...]
     geom: BaseGeometry  # Point, EPSG:2180
+    name: str | None = None  # OSM `name` tag, used to match DSO capacity lists to GPZ
+    operator: str | None = None  # OSM `operator` tag: tells a DSO/PSE station from an industrial one
 
 
 @dataclass(frozen=True)
@@ -115,6 +120,7 @@ class GridIndex:
     line110: _IdIndex
     gpz110: _IdIndex
     hv110_substations: _IdIndex
+    own_hv110: _IdIndex  # 110 kV substations whose operator is named and is not a DSO or PSE
     node: _IdIndex
 
 
@@ -125,6 +131,43 @@ class ZoningLayer:
     source_id: str
     as_of: datetime | None
     zones: tuple[tuple[ZoningKind, BaseGeometry], ...]
+
+
+@dataclass(frozen=True)
+class GpzCapacityItem:
+    """One DSO GPZ with a matched location.
+
+    `mw` is the published headroom, or None when nothing is published.
+    """
+
+    geom: BaseGeometry  # Point, EPSG:2180 (the matched OSM substation)
+    source_id: str  # the DSO id, e.g. "enea"
+    gpz_name: str
+    mw: float | None
+    as_of: datetime | None
+    confidence: Confidence  # verified for a manual mapping, estimated for a fuzzy match
+
+
+@dataclass(frozen=True)
+class GpzCapacityLayer:
+    """Published DSO capacity per matched GPZ (Phase 3). Only matched GPZs are in the layer."""
+
+    items: tuple[GpzCapacityItem, ...]
+    index: GeomIndex
+
+    @classmethod
+    def build(cls, items: Sequence[GpzCapacityItem]) -> GpzCapacityLayer:
+        return cls(tuple(items), GeomIndex(i.geom for i in items))
+
+
+@dataclass(frozen=True)
+class PointLayer:
+    """Points from one PSE list (closed switchyards, ODB entries, planned load stations), EPSG:2180."""
+
+    source_id: str
+    as_of: datetime | None
+    confidence: Confidence
+    index: GeomIndex
 
 
 class _IdIndex:
@@ -160,6 +203,13 @@ def build_grid_index(
         gpz110=_IdIndex([(s.osm_id, s.geom) for s in subs if s.cls is SubstationClass.GPZ_110_SN]),
         hv110_substations=_IdIndex(
             [(s.osm_id, s.geom) for s in subs if any(V_110 <= v < V_220 for v in s.voltages)]
+        ),
+        own_hv110=_IdIndex(
+            [
+                (s.osm_id, s.geom)
+                for s in subs
+                if any(V_110 <= v < V_220 for v in s.voltages) and is_foreign_operator(s.operator)
+            ]
         ),
         node=_IdIndex([(s.osm_id, s.geom) for s in subs if s.cls is SubstationClass.NODE_220_400]),
     )
@@ -206,13 +256,15 @@ def grid_facts(
 def powered_brownfield(site: BaseGeometry, industrial: Layer | None, grid: GridIndex) -> Fact[bool] | None:
     """Brief section 3: an industrial or brownfield area near the site with its own 110 kV substation.
 
+    "Own" means the OSM operator is named and is not a DSO or PSE, so a utility GPZ beside a factory does not
+    count, and neither does a substation with no operator tag (unknown, so not claimed).
     Missing (None) when either the industrial layer or the grid is not loaded; False when both are loaded and
     no such area exists.
     """
     if industrial is None or not len(grid.hv110_substations):
         return None
     for area in industrial.index.within_m(site, POWERED_BROWNFIELD_NEAR_M):
-        if grid.hv110_substations.geoms.within_m(area, POWERED_BROWNFIELD_SUBSTATION_M):
+        if grid.own_hv110.geoms.within_m(area, POWERED_BROWNFIELD_SUBSTATION_M):
             return _fact(True, grid.source_id, grid.as_of, grid.confidence)
     return _fact(False, grid.source_id, grid.as_of, grid.confidence)
 
@@ -231,6 +283,8 @@ def zoning_fact(
             if not zone.intersects(site):
                 continue
             overlap = zone.intersection(site).area
+            if overlap < site.area * MIN_ZONING_OVERLAP_SHARE:
+                continue
             if best is None or overlap > best[0]:
                 best = (overlap, kind)
         if best is not None:
@@ -283,6 +337,50 @@ def residential_fact(site: BaseGeometry, residential: Layer | None) -> Fact[floa
     return _fact(distance, residential.source_id, residential.as_of, residential.confidence)
 
 
+def published_headroom_fact(
+    site: BaseGeometry, layer: GpzCapacityLayer, cfg: ScoringConfig
+) -> Fact[float] | None:
+    """Published MW of the nearest GPZ (within `published_gpz_km`) that has a published value.
+
+    Missing (None) when no such GPZ exists. A GPZ with a published 0 MW is a real zero, not missing.
+    """
+    radius = cfg.grid.published_gpz_km * M_PER_KM
+    candidates = [
+        layer.items[i] for i in layer.index.indices_within_m(site, radius) if layer.items[i].mw is not None
+    ]
+    if not candidates:
+        return None
+    nearest = min(candidates, key=lambda item: site.distance(item.geom))
+    if nearest.mw is None:  # unreachable: candidates above already have a value
+        return None
+    return _fact(nearest.mw, nearest.source_id, nearest.as_of, nearest.confidence)
+
+
+def closed_switchyard_fact(
+    site: BaseGeometry, layer: PointLayer | None, cfg: ScoringConfig
+) -> Fact[bool] | None:
+    """True when a closed PSE switchyard is within `closed_switchyard_km`.
+
+    Missing when the list is not loaded.
+    """
+    if layer is None:
+        return None
+    hit = bool(layer.index.indices_within_m(site, cfg.grid.closed_switchyard_km * M_PER_KM))
+    return _fact(hit, layer.source_id, layer.as_of, layer.confidence)
+
+
+def nearest_point_km_fact(site: BaseGeometry, layer: PointLayer | None) -> Fact[float] | None:
+    """Distance in km to the nearest point of a PSE list. Missing when the list is not loaded or empty."""
+    if layer is None:
+        return None
+    distance = layer.index.nearest_distance_m(site)
+    return (
+        None
+        if distance is None
+        else _fact(distance / M_PER_KM, layer.source_id, layer.as_of, layer.confidence)
+    )
+
+
 @dataclass(frozen=True)
 class SiteLayers:
     """Everything a site's features come from. A None layer means "not loaded", so its facts are missing."""
@@ -292,6 +390,10 @@ class SiteLayers:
     industrial: Layer | None = None  # OSM / BDOT10k industrial and brownfield areas
     residential: Layer | None = None  # residential buildings
     constraints: dict[str, Layer] = field(default_factory=dict)
+    capacity: GpzCapacityLayer | None = None  # DSO published capacity per matched GPZ
+    pse_closed: PointLayer | None = None  # PSE closed switchyards (no connection possible)
+    pse_odb: PointLayer | None = None  # PSE connection conditions issued (demand signal)
+    pse_planned: PointLayer | None = None  # PSE planned load stations
 
 
 def build_site_features(
@@ -311,6 +413,11 @@ def build_site_features(
     if layers.grid is not None:
         features.update(grid_facts(site.geom, layers.grid, cfg))
         features["powered_brownfield"] = powered_brownfield(site.geom, layers.industrial, layers.grid)
+    if layers.capacity is not None:
+        features["published_gpz_headroom_mw"] = published_headroom_fact(site.geom, layers.capacity, cfg)
+    features["closed_switchyard_nearby"] = closed_switchyard_fact(site.geom, layers.pse_closed, cfg)
+    features["dist_pse_odb_km"] = nearest_point_km_fact(site.geom, layers.pse_odb)
+    features["dist_pse_planned_station_km"] = nearest_point_km_fact(site.geom, layers.pse_planned)
     features["zoning"] = zoning_fact(site.geom, layers.zoning, layers.industrial)
     features["residential_min_m"] = residential_fact(site.geom, layers.residential)
     features.update(constraint_facts(site.geom, layers.constraints))
