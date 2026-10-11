@@ -16,7 +16,7 @@ Last updated: 10.10.2026 (Phase 0 started).
 | DB migrations | Alembic, with hand-written migrations (no autogenerate for PostGIS types). | Predictable DDL. |
 | Tiles | Martin serving PostGIS tables and functions. | Brief. |
 | Web | React 18, TypeScript, Vite, Tailwind, shadcn/ui (copied components), MapLibre GL, TanStack Query and Table, react-router. pnpm. | Brief. |
-| Basemap | OpenFreeMap "positron" vector style (free, no key, OSM data), configurable through `VITE_BASEMAP_STYLE`. The Geoportal orthophoto WMTS is used on the site card. | No paid service. Calm neutral look. |
+| Basemap | OpenFreeMap "dark" vector style (matches the dark UI) (free, no key, OSM data), configurable through `VITE_BASEMAP_STYLE`. The Geoportal orthophoto WMTS is used on the site card. | No paid service. Calm neutral look. |
 | API client | `openapi-typescript` generates types from FastAPI's OpenAPI schema into `web/src/api/schema.d.ts`. | Brief: generate the TS client. |
 | Jobs | A `jobs` table polled by the worker (no broker). The worker is the pipeline image running supercronic. | Brief. |
 | Auth | argon2 password hashes with server-side sessions in an http-only cookie. Phase 4 adds the UI; tables come in Phase 1. | Brief. |
