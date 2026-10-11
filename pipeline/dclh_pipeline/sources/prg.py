@@ -25,6 +25,7 @@ from typing import ClassVar
 import geopandas as gpd
 import pandas as pd
 from pyogrio import read_dataframe
+from shapely.geometry import box
 
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
@@ -176,3 +177,15 @@ def _check_axis_order(table: gpd.GeoDataFrame) -> None:
             f"PRG gmina Poznań is not near ({px:.0f},{py:.0f}) in EPSG:2180; "
             "check the axis order (EPSG:2180 is northing/easting)"
         )
+
+
+def clip_to_bbox(
+    table: gpd.GeoDataFrame, bbox: tuple[float, float, float, float], tolerance_m: float = 50.0
+) -> gpd.GeoDataFrame:
+    """Rows whose boundary touches the bbox (EPSG:2180), with geometry simplified to `tolerance_m` for small files.
+
+    Used to cut a committable sample from the full PRG download; the tests never read the full file.
+    """
+    hits = table[table.intersects(box(*bbox))].copy()
+    hits["geometry"] = hits.geometry.simplify(tolerance_m, preserve_topology=True)
+    return hits
