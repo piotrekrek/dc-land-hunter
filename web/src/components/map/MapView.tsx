@@ -6,7 +6,7 @@ import { LayerControl } from "./LayerControl";
 import { LAYER_GROUPS, OWN_SOURCES, addGridLayers, setGroupVisibility } from "./layers";
 
 /** Free OSM-based vector basemap (no API key). Override with VITE_BASEMAP_STYLE. */
-const BASEMAP_STYLE: string = import.meta.env.VITE_BASEMAP_STYLE ?? "https://tiles.openfreemap.org/styles/positron";
+const BASEMAP_STYLE: string = import.meta.env.VITE_BASEMAP_STYLE || "https://tiles.openfreemap.org/styles/dark";
 
 /** Rough extent of the AOI (Poland west of the Vistula); replaced by the real AOI bounds in Phase 1. */
 const AOI_BOUNDS: [[number, number], [number, number]] = [
