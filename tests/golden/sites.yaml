@@ -38,6 +38,7 @@ sites:
 
   - name: Tauron Jaworzno / Wysoki Brzeg
     expect: not_excluded_top20pct
+    decision: "kept by owner (11.10.2026): no source yet; find or revisit"
     capacity_mw: 150
     area_ha: 54
     lon: null
@@ -77,6 +78,7 @@ sites:
 
   - name: Data4 Jawczyce
     expect: excluded_too_small
+    decision: "kept by owner (11.10.2026): address only (Przyparkowa 21, 4 ha); verify via geocoding + ULDK or revisit"
     lon: null
     lat: null
     verified_on_geoportal: false
@@ -84,6 +86,7 @@ sites:
 
   - name: Atman Duchnice
     expect: excluded_too_small
+    decision: "kept by owner (11.10.2026): address only (Duchnicka 66); verify via geocoding + ULDK or revisit"
     lon: null
     lat: null
     verified_on_geoportal: false
@@ -91,6 +94,7 @@ sites:
 
   - name: Switch Mory
     expect: excluded_too_small
+    decision: "kept by owner (11.10.2026): address only (Kręta 39-37, Mory); verify via geocoding + ULDK or revisit"
     lon: null
     lat: null
     verified_on_geoportal: false
