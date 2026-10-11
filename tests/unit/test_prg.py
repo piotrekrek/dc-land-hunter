@@ -182,3 +182,12 @@ def test_upper_case_field_names_from_the_live_service_are_read(tmp_path: Path) -
     table = PrgConnector(SPEC).parse(save_bundle(store, bundle(upper)))  # type: ignore[arg-type]
     assert list(table["teryt"]) == ["00", "14", "1465", "146504"]
     assert table.loc[table["level"] == "gmina", "name"].item() == "Ożarów Mazowiecki"
+
+
+def test_measured_live_extent_is_inside_the_bounds() -> None:
+    """The extent the live PRG download had on 11.10.2026 must pass the bounds check."""
+    from dclh_pipeline.sources.prg import POLAND_BOUNDS
+
+    x0, y0, x1, y1 = POLAND_BOUNDS
+    live = (171_699.0, 133_223.0, 861_896.0, 797_228.0)
+    assert x0 < live[0] and y0 < live[1] and live[2] < x1 and live[3] < y1

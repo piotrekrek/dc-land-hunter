@@ -43,8 +43,10 @@ CODE_FIELD = "jpt_kod_je"  # TERYT code
 NAME_FIELD = "jpt_nazwa_"
 EPSG = 2180
 # Bounding box of Poland in EPSG:2180 as (min x, min y, max x, max y), with x = easting and y = northing.
-# Poland is wider than it is tall, so the box is not symmetric and catches part of a swap.
-POLAND_BOUNDS = (140_000.0, 120_000.0, 860_000.0, 780_000.0)
+# Generous box around Poland, as the real PRG extent was measured on 11.10.2026 (x 171 699–861 896,
+# y 133 223–797 228; the country itself reaches about 168 000–853 000 and 126 000–776 000). A box cannot tell
+# the axes apart, which is why the Poznań centroid check below exists.
+POLAND_BOUNDS = (120_000.0, 100_000.0, 900_000.0, 850_000.0)
 # A box can't prove the axis order, so the Poznań gmina centroid (easting, northing) is checked too.
 POZNAN_XY = (360_000.0, 505_000.0)
 POZNAN_TOLERANCE_M = 40_000.0
