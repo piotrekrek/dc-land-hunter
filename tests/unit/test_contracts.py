@@ -10,15 +10,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import geopandas as gpd
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from shapely.geometry import box
+from shapely.geometry import Point, box
 
 from dclh_pipeline.config import load_scoring
 from dclh_pipeline.model.sites import Parcel, cluster_sites
 from dclh_pipeline.scoring.run import score_candidates
 from dclh_pipeline.sources.egib import read_page
+from dclh_pipeline.sources.prg import locate
 from dclh_pipeline.sources.uldk import parse_point
 from tests.conftest import FIXTURES
 
@@ -145,11 +147,26 @@ def test_golden_konin_has_coordinates() -> None:
     assert konin["lon"] is not None and konin["lat"] is not None
 
 
-@pytest.mark.skip(
-    reason="Needs the clipped PRG sample (plan step 2): commune must come from the admin boundaries"
-)
-def test_commune_comes_from_admin_boundaries_not_the_egib_attribute() -> None:
-    pass
+PRG_KONIN = FIXTURES / "prg" / "konin_region.geojson"
+
+
+@pytest.fixture(scope="module")
+def prg_konin():  # type: ignore[no-untyped-def]
+    return gpd.read_file(PRG_KONIN)
+
+
+def test_konin_point_is_in_the_konin_gmina(prg_konin) -> None:  # type: ignore[no-untyped-def]
+    """The ULDK point for Konin and the PRG boundaries must agree on the commune (TERYT 3062011)."""
+    found = locate(prg_konin, Point(448894.6, 485814.39))
+    assert found["gmina"]["teryt"] == "3062011"
+    assert found["powiat"]["teryt"] == "3062"
+    assert found["voivodeship"]["name"] == "wielkopolskie"
+
+
+def test_every_konin_parcel_is_in_the_konin_gmina_by_boundaries(konin_parcels, prg_konin) -> None:  # type: ignore[no-untyped-def]
+    """The commune comes from the boundaries: the EGiB 'NAZWA_GMINY' attribute is not used."""
+    communes = {locate(prg_konin, geom).get("gmina", {}).get("teryt") for geom in konin_parcels.geometry}
+    assert communes == {"3062011"}
 
 
 @pytest.mark.skip(reason="Needs the RU connector, which is not written yet (plan step 3)")

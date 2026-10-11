@@ -26,6 +26,7 @@ import geopandas as gpd
 import pandas as pd
 from pyogrio import read_dataframe
 from shapely.geometry import box
+from shapely.geometry.base import BaseGeometry
 
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
@@ -189,3 +190,20 @@ def clip_to_bbox(
     hits = table[table.intersects(box(*bbox))].copy()
     hits["geometry"] = hits.geometry.simplify(tolerance_m, preserve_topology=True)
     return hits
+
+
+def locate(table: gpd.GeoDataFrame, geom: BaseGeometry) -> dict[str, dict[str, str]]:
+    """The admin unit at each level that contains the geometry's representative point (EPSG:2180).
+
+    Used to name a parcel's commune from the boundaries rather than from an attribute of another source.
+    Levels with no unit at that point are left out.
+    """
+    point = geom.representative_point()
+    found: dict[str, dict[str, str]] = {}
+    for level in LAYERS:
+        units = table[table["level"] == level]
+        hit = units[units.geometry.contains(point)]
+        if not hit.empty:
+            row = hit.iloc[0]
+            found[level] = {"teryt": str(row["teryt"]), "name": str(row["name"])}
+    return found
