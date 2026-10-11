@@ -20,6 +20,11 @@ The phase plan is in `docs/PLAN.md` and the current state is in `docs/STATUS.md`
 - Source endpoints are unverified until `docs/SOURCES.md` marks them ✓. Many Polish public services block
   non-Polish IPs, so the discovery command (`uv run dclh discover`) must run from a machine in Poland.
 
+## Git workflow
+
+- Always open a pull request for every change; never push straight to `main`. Merge only when the owner asks.
+- Add tests when fixing anything bigger than a one-liner.
+
 ## Deployment
 
 - Production runs on the owner's VPS, repo checkout at `/home/piotr/dc-land-hunter` (user `piotr`).
