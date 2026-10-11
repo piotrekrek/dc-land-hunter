@@ -182,7 +182,7 @@ def _check_axis_order(table: gpd.GeoDataFrame) -> None:
 def clip_to_bbox(
     table: gpd.GeoDataFrame, bbox: tuple[float, float, float, float], tolerance_m: float = 50.0
 ) -> gpd.GeoDataFrame:
-    """Rows whose boundary touches the bbox (EPSG:2180), with geometry simplified to `tolerance_m` for small files.
+    """Rows whose boundary touches the bbox (EPSG:2180); geometry is simplified to `tolerance_m`.
 
     Used to cut a committable sample from the full PRG download; the tests never read the full file.
     """
