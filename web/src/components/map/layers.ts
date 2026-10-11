@@ -16,6 +16,9 @@ const SOURCES: Record<string, SourceSpecification> = {
   substations: { type: "vector", tiles: [tileUrl("substations")], minzoom: 5 },
 };
 
+/** Ids of the sources served by Martin; any other source error belongs to the basemap. */
+export const OWN_SOURCES: ReadonlySet<string> = new Set(Object.keys(SOURCES));
+
 // Voltage colours: distinct in hue and lightness so they stay apart for common colour-vision deficiencies.
 export const VOLTAGE_COLORS = { v110: "#2b6cb0", v220: "#d97706", v400: "#b91c1c" } as const;
 
