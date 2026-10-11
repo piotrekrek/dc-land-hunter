@@ -22,6 +22,7 @@ sites:
       lat: 52.173889
       what: "village centre of Reguły, SIMC 0005300"
       source: "https://www.polskawliczbach.pl/wies_Reguly"
+      uldk_check: "ULDK GetParcelByXY (WGS84), 11.10.2026: commune Michałowice, powiat pruszkowski, mazowieckie. Commune only, not the plot."
     sources: ["https://eurobuildcee.com/en/news/37149-hillwood-moves-planned-data-centre-further-from-homes"]
 
   - name: Tauron Jaworzno / Wysoki Brzeg
@@ -50,6 +51,7 @@ sites:
       what: "village centre of Domiechowice, SIMC 0535379"
       source: "https://www.polskawliczbach.pl/wies_Domiechowice"
       alternative: {lon: 19.333, lat: 51.383, source: "https://en.wikipedia.org/wiki/Domiechowice"}
+      uldk_check: "ULDK GetParcelByXY (WGS84), 11.10.2026: commune Bełchatów, powiat bełchatowski, łódzkie. Commune only, not the plot."
     sources: ["https://www.datacenterdynamics.com/en/news/500mw-data-center-campus-planned-for-be%C5%82chat%C3%B3w-poland/", "https://wbj.pl/data-center-near-belchatow-being-built-with-500-mw-capacity/post/148866", "https://itwiz.pl/belchatow-z-szansa-na-jedno-z-najwiekszych-centrow-danych-w-europie/"]
 
   - name: CGE Konin
