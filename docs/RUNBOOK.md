@@ -123,7 +123,7 @@ uv run alembic -c api/alembic.ini revision -m "add substations"   # then edit th
 |---|---|
 | Top bar says "Baza danych niedostępna" | `docker compose … ps db` and `logs migrate` |
 | Top bar says "API niedostępne" | `logs api`; is `migrate` finished (exit 0)? |
-| Map has no background ("Podkład mapowy niedostępny") | The OpenFreeMap style URL is unreachable; set `VITE_BASEMAP_STYLE` at build time |
+| Map has no background ("Podkład mapowy niedostępny") | The VPS cannot reach `tiles.openfreemap.org` through Caddy `/basemap/*` (check `docker compose logs caddy`), or `VITE_BASEMAP_STYLE` points to an unreachable style |
 | `/tiles/catalog` is empty | Expected until Phase 1 creates views in the `tiles` schema |
 | Discovery shows ✗ everywhere | Running outside Poland, or outbound traffic is filtered |
 | Scheduler restarts in a loop | It must be started with the absolute path `/usr/local/bin/supercronic` |

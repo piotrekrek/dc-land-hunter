@@ -19,6 +19,13 @@
 		reverse_proxy martin:3000
 	}
 
+	# Basemap (OpenFreeMap) via our own origin: the web app rewrites tiles.openfreemap.org URLs to /basemap/*.
+	handle_path /basemap/* {
+		reverse_proxy https://tiles.openfreemap.org {
+			header_up Host tiles.openfreemap.org
+		}
+	}
+
 	handle {
 		root * /srv
 		@assets path /assets/*
