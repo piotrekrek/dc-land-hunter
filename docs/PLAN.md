@@ -3,7 +3,7 @@
 This plan turns `PROJECT_BRIEF.md` into phases with concrete tasks, acceptance checks and risks.
 It is a living document: update it when a phase finishes or the plan changes.
 
-Last updated: 10.10.2026 (Phase 0 started).
+Last updated: 11.10.2026 (Phase 0 started; Phase 3 code on fixtures, acceptance pending live data).
 
 ## Key decisions
 
@@ -74,10 +74,11 @@ Acceptance: a full AOI run completes, the golden-set report is produced and the 
 ## Phase 3: Grid capacity and PSE data
 
 Tasks:
-- `enea`, `energa` and `tauron` connectors, each following discovery's fallback order: JSON endpoint → Playwright → manual CSV.
-- GPZ name matching (rapidfuzz) plus `data/manual/gpz_mapping.csv`, with the match score stored.
-- `pse_closed` (XLSX), `pse_odb` (PDF, pdfplumber), `pse_avail` (PDF) parsers with saved fixtures.
-- Grid confidence badges: Opublikowana moc / Bliskość sieci / Brak danych.
+- [~] `enea`, `energa` and `tauron` connectors, each following discovery's fallback order: JSON endpoint → Playwright → manual CSV. **Manual CSV done** (`dclh import-manual`). JSON endpoint and Playwright wait for a verified endpoint (none in the 10.10.2026 discovery).
+- [x] GPZ name matching (rapidfuzz) plus `data/manual/gpz_mapping.csv`, with the match score stored. Matching needs OSM substation names (Phase 1 OSM connector).
+- [~] `pse_closed` (XLSX), `pse_odb` (PDF, pdfplumber), `pse_avail` (PDF) parsers with saved fixtures. **XLSX/CSV point lists done** through the manual import. PDF parsing waits for a real file.
+- [x] Grid confidence badges: Opublikowana moc / Bliskość sieci / Brak danych (list and card, from Phase 2).
+- [ ] GPZ match report (the match rate per DSO) and a `dclh score` run that loads these layers. Both need the OSM names and real files on the VPS.
 
 Acceptance: at least 70% of GPZs in Enea and Energa areas are matched to published capacity (or the reason is documented), and scores use them.
 

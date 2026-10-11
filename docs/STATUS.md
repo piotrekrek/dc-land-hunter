@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 10.10.2026 · Phase 0 done except source verification; Phase 1 started (code only, no real data yet)
+Last updated: 11.10.2026 · Phase 0 done except source verification; Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
 
 ## Phase 0: what works
 
@@ -50,6 +50,47 @@ Last updated: 10.10.2026 · Phase 0 done except source verification; Phase 1 sta
 3. Źródła danych: 28 sources with status; run `docker compose -f infra/docker-compose.yml exec api dclh enqueue discover`
    and refresh after ~30 s to see the discovery result appear.
 4. Ustawienia: scoring weights and profile read from `config/scoring.yaml`.
+
+## Phase 3: grid capacity and PSE data (code and fixtures; acceptance not yet measurable)
+
+What works (tests: 317 Python passing with PostGIS, 34 web):
+- **GPZ name matching** (`model/gpz_match.py`): names are folded (diacritics, case, "GPZ"/"stacja") and matched with
+  rapidfuzz at `grid.gpz_match_min_score` (88). A tie with another station is ambiguous and stays unmatched, with
+  the reason kept. A manual mapping in `data/manual/gpz_mapping.csv` always wins (verified, confidence "verified").
+- **Manual CSV/XLSX imports** (`sources/manual.py`, `dclh import-manual <source> <file>`) for `enea`, `energa`,
+  `tauron` (published MW per GPZ) and `pse_closed`, `pse_odb`, `pse_avail` (point lists). Every row is validated and
+  a bad row fails the import with its row number. The file is copied into the snapshot store; the original stays put.
+- **Layers and features** (`model/features.py`, `model/capacity.py`): `published_gpz_headroom_mw` from the nearest
+  matched GPZ within `grid.published_gpz_km` (5 km) that has a published value; `closed_switchyard_nearby` within
+  `closed_switchyard_km` (3 km); `dist_pse_odb_km` and `dist_pse_planned_station_km`. A list that is not loaded gives
+  missing, never zero. A published 0 MW is a real zero.
+- **Grid badges**: "Opublikowana moc" is set when a published headroom exists (engine, Phase 2). The list and card show
+  the three badges (Opublikowana moc / Bliskość sieci / Brak danych).
+
+Not done, and why:
+- **No live endpoints.** Discovery (10.10.2026) found no data endpoint for Enea, Energa or Tauron, and only candidate
+  links for the PSE lists. No connector calls a live URL. The manual CSV is the fallback in the plan; a JSON endpoint
+  or Playwright capture comes only after one is verified in `docs/SOURCES.md`.
+- **PSE PDFs (`pse_odb`, `pse_avail`)**: the pdfplumber parser is not written. Without a real file the layout is a guess,
+  so the parser would be untested. Until then, the owner converts the PDF table to CSV/XLSX.
+- **OSM substation names**: the matcher needs `Substation.name`, which only an OSM connector can fill. The OSM
+  connector is still a Phase 1 item, so the matching cannot run on the real grid yet.
+- **Acceptance (≥70% of Enea/Energa GPZs matched)** cannot be measured. It needs the OSM names and the real DSO
+  files, both on the VPS. The report command for the match rate is not written yet.
+- **Scoring run**: there is still no `dclh score` command (Phase 2 item), so the new layers are not yet loaded in a
+  real run. `build_site_features` and the engine already consume them, and tests cover that path.
+
+Decisions to check:
+- Fuzzy-matched GPZs get "estimated" confidence; manual mappings get "verified". Fuzzy matching below 88 is not used.
+- PSE point layers are "estimated" (coordinates from a list are approximate).
+- Empty PSE lists give missing distances, not "far away", so an empty file does not inflate the score.
+
+Demo script (Phase 3):
+1. `uv run pytest tests/unit/test_gpz_match.py tests/unit/test_manual_sources.py tests/unit/test_capacity_features.py -q`
+2. Save a DSO file with the columns from `data/manual/README.md`, then `uv run dclh import-manual enea <file>`.
+   A bad value prints the row number and nothing is stored as valid.
+3. `uv run dclh config-check` passes with the three new grid keys (`published_gpz_km`, `closed_switchyard_km`,
+   `gpz_match_min_score`) in `config/scoring.yaml`.
 
 ## Manual review loop (top 30 sites)
 
