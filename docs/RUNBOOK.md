@@ -145,6 +145,24 @@ Weekly cron (Mondays 05:30 Warsaw time, the VPS's local time zone):
 
 Check the log after each run. A failed run prints the reason and exits non-zero.
 
+## Live samples for test fixtures (run once per place, on the VPS)
+
+`dclh capture-sample` records one small live response from EGiB (WFS, 20 parcels) and ULDK for a point, plus a
+metadata file with URLs, status codes and hashes. It writes to `tests/fixtures/live/<place>/` and is meant to be
+committed, so the parsers can be tested against what the services really return.
+
+```bash
+cd /home/piotr/dc-land-hunter
+git pull --ff-only origin claude/bold-mayer-shpf2t
+uv sync
+export DCLH_CONTACT_EMAIL="<your contact address>"   # goes into the User-Agent, not into git
+uv run dclh capture-sample --name "CGE Konin" --lon 18.2514 --lat 52.2360 --radius-m 300
+git add tests/fixtures/live && git commit -m "Live sample: CGE Konin" && git push origin claude/bold-mayer-shpf2t
+```
+
+The Konin coordinates are an estimate ("north of Konin near a retail park"; the plot is not public). Check the
+point on the Geoportal map first and pass the right `--lon`/`--lat`. Keep `--radius-m` small.
+
 ## Deploying to the VPS
 
 The repo is checked out at `/home/piotr/dc-land-hunter`. To deploy the latest `main`:

@@ -186,6 +186,167 @@
           }
         }
       }
+    },
+    "/api/sites": {
+      "get": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "List Sites",
+        "operationId": "list_sites_api_sites_get",
+        "parameters": [
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "score",
+                "upside",
+                "completeness",
+                "area",
+                "mw"
+              ],
+              "type": "string",
+              "default": "score",
+              "title": "Sort"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "default": "desc",
+              "title": "Order"
+            }
+          },
+          {
+            "name": "min_mw",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "default": 0,
+              "title": "Min Mw"
+            }
+          },
+          {
+            "name": "min_ha",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "default": 0,
+              "title": "Min Ha"
+            }
+          },
+          {
+            "name": "include_excluded",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Excluded"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SitesPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites/{site_id}": {
+      "get": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "Get Site",
+        "operationId": "get_site_api_sites__site_id__get",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -233,6 +394,34 @@
           "public_seller"
         ],
         "title": "BonusParams"
+      },
+      "CategoryOut": {
+        "properties": {
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "points": {
+            "type": "number",
+            "title": "Points"
+          },
+          "max_points": {
+            "type": "number",
+            "title": "Max Points"
+          },
+          "upside_points": {
+            "type": "number",
+            "title": "Upside Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category",
+          "points",
+          "max_points",
+          "upside_points"
+        ],
+        "title": "CategoryOut"
       },
       "ConnectionCost": {
         "properties": {
@@ -338,6 +527,93 @@
         },
         "type": "object",
         "title": "DiscoverIn"
+      },
+      "ExclusionOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "reason_pl": {
+            "type": "string",
+            "title": "Reason Pl"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "exclude",
+              "penalty"
+            ],
+            "title": "Mode"
+          },
+          "penalty_points": {
+            "type": "number",
+            "title": "Penalty Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "reason_pl",
+          "mode",
+          "penalty_points"
+        ],
+        "title": "ExclusionOut"
+      },
+      "FactOut": {
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Value"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "estimated",
+              "missing"
+            ],
+            "title": "Confidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "source_id",
+          "as_of",
+          "confidence"
+        ],
+        "title": "FactOut",
+        "description": "A feature value with its provenance (brief section 4: source_id, as_of, confidence)."
       },
       "GridParams": {
         "properties": {
@@ -658,6 +934,102 @@
         ],
         "title": "Prefilter"
       },
+      "ScoreItemOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "label_pl": {
+            "type": "string",
+            "title": "Label Pl"
+          },
+          "points": {
+            "type": "number",
+            "title": "Points"
+          },
+          "max_points": {
+            "type": "number",
+            "title": "Max Points"
+          },
+          "upside_points": {
+            "type": "number",
+            "title": "Upside Points"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "estimated",
+              "missing"
+            ],
+            "title": "Confidence"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "explanation_pl": {
+            "type": "string",
+            "title": "Explanation Pl"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "category",
+          "label_pl",
+          "points",
+          "max_points",
+          "upside_points",
+          "confidence",
+          "source_id",
+          "as_of",
+          "explanation_pl",
+          "value"
+        ],
+        "title": "ScoreItemOut"
+      },
       "ScoringConfig": {
         "properties": {
           "target": {
@@ -714,6 +1086,288 @@
           "connection_cost"
         ],
         "title": "ScoringConfig"
+      },
+      "SiteDetail": {
+        "properties": {
+          "site_id": {
+            "type": "string",
+            "title": "Site Id"
+          },
+          "zone_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zone Id"
+          },
+          "area_ha": {
+            "type": "number",
+            "title": "Area Ha"
+          },
+          "estimated_mw": {
+            "type": "number",
+            "title": "Estimated Mw"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "upside_score": {
+            "type": "number",
+            "title": "Upside Score"
+          },
+          "completeness": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Completeness"
+          },
+          "excluded": {
+            "type": "boolean",
+            "title": "Excluded"
+          },
+          "grid_badge": {
+            "type": "string",
+            "enum": [
+              "Opublikowana moc",
+              "Bliskość sieci",
+              "Brak danych"
+            ],
+            "title": "Grid Badge"
+          },
+          "large_campus": {
+            "type": "boolean",
+            "title": "Large Campus"
+          },
+          "split_suggested": {
+            "type": "boolean",
+            "title": "Split Suggested"
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Flags"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "mw_fact": {
+            "$ref": "#/components/schemas/FactOut"
+          },
+          "parcel_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Parcel Ids"
+          },
+          "scored_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Scored At"
+          },
+          "exclusions": {
+            "items": {
+              "$ref": "#/components/schemas/ExclusionOut"
+            },
+            "type": "array",
+            "title": "Exclusions"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryOut"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ScoreItemOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "features": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/FactOut"
+            },
+            "type": "object",
+            "title": "Features"
+          },
+          "geometry": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Geometry"
+          }
+        },
+        "type": "object",
+        "required": [
+          "site_id",
+          "zone_id",
+          "area_ha",
+          "estimated_mw",
+          "score",
+          "upside_score",
+          "completeness",
+          "excluded",
+          "grid_badge",
+          "large_campus",
+          "split_suggested",
+          "flags",
+          "lon",
+          "lat",
+          "mw_fact",
+          "parcel_ids",
+          "scored_at",
+          "exclusions",
+          "categories",
+          "items",
+          "features",
+          "geometry"
+        ],
+        "title": "SiteDetail"
+      },
+      "SiteSummary": {
+        "properties": {
+          "site_id": {
+            "type": "string",
+            "title": "Site Id"
+          },
+          "zone_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zone Id"
+          },
+          "area_ha": {
+            "type": "number",
+            "title": "Area Ha"
+          },
+          "estimated_mw": {
+            "type": "number",
+            "title": "Estimated Mw"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "upside_score": {
+            "type": "number",
+            "title": "Upside Score"
+          },
+          "completeness": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Completeness"
+          },
+          "excluded": {
+            "type": "boolean",
+            "title": "Excluded"
+          },
+          "grid_badge": {
+            "type": "string",
+            "enum": [
+              "Opublikowana moc",
+              "Bliskość sieci",
+              "Brak danych"
+            ],
+            "title": "Grid Badge"
+          },
+          "large_campus": {
+            "type": "boolean",
+            "title": "Large Campus"
+          },
+          "split_suggested": {
+            "type": "boolean",
+            "title": "Split Suggested"
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Flags"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "mw_fact": {
+            "$ref": "#/components/schemas/FactOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "site_id",
+          "zone_id",
+          "area_ha",
+          "estimated_mw",
+          "score",
+          "upside_score",
+          "completeness",
+          "excluded",
+          "grid_badge",
+          "large_campus",
+          "split_suggested",
+          "flags",
+          "lon",
+          "lat",
+          "mw_fact"
+        ],
+        "title": "SiteSummary",
+        "description": "One row of the ranked list. Scores are 0–100; `score` is what the list sorts on by default."
+      },
+      "SitesPage": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SiteSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "offset",
+          "limit",
+          "items"
+        ],
+        "title": "SitesPage"
       },
       "SourceOut": {
         "properties": {

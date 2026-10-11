@@ -74,6 +74,7 @@ obligation to connections up to 100 MW (to confirm with a lawyer before the calc
 
 ## What is not built yet
 
-The engine scores whatever features it is given. Computing those features (distances from the grid tables,
-constraint overlaps, zoning) needs the real data layers from Phases 1–3, and the site list and card in the web app
-come after that. The golden-set check (`tests/golden/sites.yaml`) needs real parcel data too.
+The engine scores whatever features it is given. `model/features.py` now computes the grid, zoning, brownfield,
+constraint and residential features from geometry (see `docs/STATUS.md`), and missing layers stay missing. The
+live connectors that load those layers, the site list and card in the web app, and the golden-set check
+(`tests/golden/sites.yaml`, which needs real parcel data) are still to do.

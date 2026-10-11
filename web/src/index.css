@@ -23,7 +23,7 @@
 
   --ok: oklch(0.52 0.12 155);
   --ok-soft: oklch(0.95 0.04 155);
-  --warn: oklch(0.55 0.12 70);
+  --warn: oklch(0.47 0.11 70);
   --warn-soft: oklch(0.96 0.05 85);
   --bad: oklch(0.53 0.17 27);
   --bad-soft: oklch(0.95 0.03 27);

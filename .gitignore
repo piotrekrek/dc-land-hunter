@@ -30,3 +30,6 @@ data/cache/
 .DS_Store
 .idea/
 .vscode/
+
+# GDAL sidecar index written next to GML files when they are read
+*.gfs
