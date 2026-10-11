@@ -1,6 +1,7 @@
 import maplibregl, { type StyleSpecification } from "maplibre-gl";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { proxyBasemapRequest } from "./basemap";
 import { LayerControl } from "./LayerControl";
 import { LAYER_GROUPS, OWN_SOURCES, addGridLayers, setGroupVisibility } from "./layers";
 
@@ -44,6 +45,7 @@ export function MapView() {
     const map = new maplibregl.Map({
       container: container.current,
       style: BASEMAP_STYLE,
+      transformRequest: (url) => proxyBasemapRequest(url),
       bounds: AOI_BOUNDS,
       fitBoundsOptions: { padding: 24 },
       hash: "mapa", // map position lives in the URL (#mapa=zoom/lat/lng) so a view can be shared
