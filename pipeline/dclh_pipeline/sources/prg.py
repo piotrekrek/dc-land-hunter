@@ -131,14 +131,17 @@ def _read_level(level: str, gml: bytes) -> gpd.GeoDataFrame:
         path = Path(tmp_dir) / f"{level}.gml"
         path.write_bytes(gml)
         raw = read_dataframe(path)
-    missing = {CODE_FIELD, NAME_FIELD} - set(raw.columns)
-    if missing:
-        raise ValueError(f"PRG {level}: fields {sorted(missing)} not found; available: {sorted(raw.columns)}")
+    # The real service uses upper case (JPT_KOD_JE, JPT_NAZWA_); match the names without regard to case.
+    by_lower = {c.lower(): c for c in raw.columns}
+    code_col, name_col = by_lower.get(CODE_FIELD), by_lower.get(NAME_FIELD)
+    if code_col is None or name_col is None:
+        missing = [f for f, c in ((CODE_FIELD, code_col), (NAME_FIELD, name_col)) if c is None]
+        raise ValueError(f"PRG {level}: fields {missing} not found; available: {sorted(raw.columns)}")
     out = gpd.GeoDataFrame(
         {
             "level": level,
-            "teryt": raw[CODE_FIELD].astype(str),
-            "name": raw[NAME_FIELD].astype(str),
+            "teryt": raw[code_col].astype(str),
+            "name": raw[name_col].astype(str),
         },
         geometry=raw.geometry.values,
         crs=f"EPSG:{EPSG}",

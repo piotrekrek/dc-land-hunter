@@ -170,3 +170,15 @@ def test_mirrored_poznan_is_rejected() -> None:
 
 def test_poznan_in_place_is_accepted() -> None:
     _check_axis_order(poznan_table(360_000, 505_000))
+
+
+def test_upper_case_field_names_from_the_live_service_are_read(tmp_path: Path) -> None:
+    """The live WFS returns JPT_KOD_JE / JPT_NAZWA_ (checked on the VPS, 11.10.2026)."""
+    upper = {
+        layer: content.replace(b"jpt_kod_je", b"JPT_KOD_JE").replace(b"jpt_nazwa_", b"JPT_NAZWA_")
+        for layer, content in good_parts().items()
+    }
+    store = SnapshotStore(tmp_path)
+    table = PrgConnector(SPEC).parse(save_bundle(store, bundle(upper)))  # type: ignore[arg-type]
+    assert list(table["teryt"]) == ["00", "14", "1465", "146504"]
+    assert table.loc[table["level"] == "gmina", "name"].item() == "Ożarów Mazowiecki"
