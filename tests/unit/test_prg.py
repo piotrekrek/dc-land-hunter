@@ -170,3 +170,39 @@ def test_mirrored_poznan_is_rejected() -> None:
 
 def test_poznan_in_place_is_accepted() -> None:
     _check_axis_order(poznan_table(360_000, 505_000))
+
+
+def test_upper_case_field_names_from_the_live_service_are_read(tmp_path: Path) -> None:
+    """The live WFS returns JPT_KOD_JE / JPT_NAZWA_ (checked on the VPS, 11.10.2026)."""
+    upper = {
+        layer: content.replace(b"jpt_kod_je", b"JPT_KOD_JE").replace(b"jpt_nazwa_", b"JPT_NAZWA_")
+        for layer, content in good_parts().items()
+    }
+    store = SnapshotStore(tmp_path)
+    table = PrgConnector(SPEC).parse(save_bundle(store, bundle(upper)))  # type: ignore[arg-type]
+    assert list(table["teryt"]) == ["00", "14", "1465", "146504"]
+    assert table.loc[table["level"] == "gmina", "name"].item() == "Ożarów Mazowiecki"
+
+
+def test_measured_live_extent_is_inside_the_bounds() -> None:
+    """The extent the live PRG download had on 11.10.2026 must pass the bounds check."""
+    from dclh_pipeline.sources.prg import POLAND_BOUNDS
+
+    x0, y0, x1, y1 = POLAND_BOUNDS
+    live = (171_699.0, 133_223.0, 861_896.0, 797_228.0)
+    assert x0 < live[0] and y0 < live[1] and live[2] < x1 and live[3] < y1
+
+
+def test_clip_keeps_only_rows_that_touch_the_bbox() -> None:
+    from shapely.geometry import box as geom_box
+
+    from dclh_pipeline.sources.prg import clip_to_bbox
+
+    table = gpd.GeoDataFrame(
+        {"level": ["gmina"] * 3, "teryt": ["1", "2", "3"], "name": ["in", "out", "edge"]},
+        geometry=[geom_box(0, 0, 100, 100), geom_box(500, 500, 600, 600), geom_box(90, 0, 200, 100)],
+        crs="EPSG:2180",
+    )
+    kept = clip_to_bbox(table, (50, 0, 150, 100))
+    assert sorted(kept["name"]) == ["edge", "in"]
+    assert kept.crs.to_epsg() == 2180

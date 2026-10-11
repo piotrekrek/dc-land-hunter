@@ -25,6 +25,8 @@ from typing import ClassVar
 import geopandas as gpd
 import pandas as pd
 from pyogrio import read_dataframe
+from shapely.geometry import box
+from shapely.geometry.base import BaseGeometry
 
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
@@ -43,8 +45,10 @@ CODE_FIELD = "jpt_kod_je"  # TERYT code
 NAME_FIELD = "jpt_nazwa_"
 EPSG = 2180
 # Bounding box of Poland in EPSG:2180 as (min x, min y, max x, max y), with x = easting and y = northing.
-# Poland is wider than it is tall, so the box is not symmetric and catches part of a swap.
-POLAND_BOUNDS = (140_000.0, 120_000.0, 860_000.0, 780_000.0)
+# Generous box around Poland, as the real PRG extent was measured on 11.10.2026 (x 171 699–861 896,
+# y 133 223–797 228; the country itself reaches about 168 000–853 000 and 126 000–776 000). A box cannot tell
+# the axes apart, which is why the Poznań centroid check below exists.
+POLAND_BOUNDS = (120_000.0, 100_000.0, 900_000.0, 850_000.0)
 # A box can't prove the axis order, so the Poznań gmina centroid (easting, northing) is checked too.
 POZNAN_XY = (360_000.0, 505_000.0)
 POZNAN_TOLERANCE_M = 40_000.0
@@ -131,14 +135,17 @@ def _read_level(level: str, gml: bytes) -> gpd.GeoDataFrame:
         path = Path(tmp_dir) / f"{level}.gml"
         path.write_bytes(gml)
         raw = read_dataframe(path)
-    missing = {CODE_FIELD, NAME_FIELD} - set(raw.columns)
-    if missing:
-        raise ValueError(f"PRG {level}: fields {sorted(missing)} not found; available: {sorted(raw.columns)}")
+    # The real service uses upper case (JPT_KOD_JE, JPT_NAZWA_); match the names without regard to case.
+    by_lower = {c.lower(): c for c in raw.columns}
+    code_col, name_col = by_lower.get(CODE_FIELD), by_lower.get(NAME_FIELD)
+    if code_col is None or name_col is None:
+        missing = [f for f, c in ((CODE_FIELD, code_col), (NAME_FIELD, name_col)) if c is None]
+        raise ValueError(f"PRG {level}: fields {missing} not found; available: {sorted(raw.columns)}")
     out = gpd.GeoDataFrame(
         {
             "level": level,
-            "teryt": raw[CODE_FIELD].astype(str),
-            "name": raw[NAME_FIELD].astype(str),
+            "teryt": raw[code_col].astype(str),
+            "name": raw[name_col].astype(str),
         },
         geometry=raw.geometry.values,
         crs=f"EPSG:{EPSG}",
@@ -171,3 +178,32 @@ def _check_axis_order(table: gpd.GeoDataFrame) -> None:
             f"PRG gmina Poznań is not near ({px:.0f},{py:.0f}) in EPSG:2180; "
             "check the axis order (EPSG:2180 is northing/easting)"
         )
+
+
+def clip_to_bbox(
+    table: gpd.GeoDataFrame, bbox: tuple[float, float, float, float], tolerance_m: float = 50.0
+) -> gpd.GeoDataFrame:
+    """Rows whose boundary touches the bbox (EPSG:2180); geometry is simplified to `tolerance_m`.
+
+    Used to cut a committable sample from the full PRG download; the tests never read the full file.
+    """
+    hits = table[table.intersects(box(*bbox))].copy()
+    hits["geometry"] = hits.geometry.simplify(tolerance_m, preserve_topology=True)
+    return hits
+
+
+def locate(table: gpd.GeoDataFrame, geom: BaseGeometry) -> dict[str, dict[str, str]]:
+    """The admin unit at each level that contains the geometry's representative point (EPSG:2180).
+
+    Used to name a parcel's commune from the boundaries rather than from an attribute of another source.
+    Levels with no unit at that point are left out.
+    """
+    point = geom.representative_point()
+    found: dict[str, dict[str, str]] = {}
+    for level in LAYERS:
+        units = table[table["level"] == level]
+        hit = units[units.geometry.contains(point)]
+        if not hit.empty:
+            row = hit.iloc[0]
+            found[level] = {"teryt": str(row["teryt"]), "name": str(row["name"])}
+    return found

@@ -16,6 +16,13 @@ sites:
     lat: null
     verified_on_geoportal: false
     location_note: "Reguły, gmina Michałowice (SW of Warsaw), between Aleje Jerozolimskie and the WKD line; 4 buildings, 130 MW total. Sources disagree on area: >22 ha (developer) vs 40 ha (directory). Residents dispute zoning compliance."
+    # Unverified village-centre candidate (not the plot). Used by nothing until verified on Geoportal.
+    candidate:
+      lon: 20.863056
+      lat: 52.173889
+      what: "village centre of Reguły, SIMC 0005300"
+      source: "https://www.polskawliczbach.pl/wies_Reguly"
+      uldk_check: "ULDK GetParcelByXY (WGS84), 11.10.2026: commune Michałowice, powiat pruszkowski, mazowieckie. Commune only, not the plot."
     sources: ["https://eurobuildcee.com/en/news/37149-hillwood-moves-planned-data-centre-further-from-homes"]
 
   - name: Tauron Jaworzno / Wysoki Brzeg
@@ -36,6 +43,15 @@ sites:
     lat: null
     verified_on_geoportal: false
     location_note: "Domiechowice, gmina Bełchatów (woj. łódzkie), near the Rogowiec substation, ~50 ha, up to 500 MW; connection conditions reportedly secured; operation planned 2030; investor not named."
+    # Unverified village-centre candidates (the two sources differ by about 0.01 deg of longitude).
+    # The Rogowiec substation is in gmina Kleszczów, not at this village; its coordinates are not known yet.
+    candidate:
+      lon: 19.3217
+      lat: 51.3839
+      what: "village centre of Domiechowice, SIMC 0535379"
+      source: "https://www.polskawliczbach.pl/wies_Domiechowice"
+      alternative: {lon: 19.333, lat: 51.383, source: "https://en.wikipedia.org/wiki/Domiechowice"}
+      uldk_check: "ULDK GetParcelByXY (WGS84), 11.10.2026: commune Bełchatów, powiat bełchatowski, łódzkie. Commune only, not the plot."
     sources: ["https://www.datacenterdynamics.com/en/news/500mw-data-center-campus-planned-for-be%C5%82chat%C3%B3w-poland/", "https://wbj.pl/data-center-near-belchatow-being-built-with-500-mw-capacity/post/148866", "https://itwiz.pl/belchatow-z-szansa-na-jedno-z-najwiekszych-centrow-danych-w-europie/"]
 
   - name: CGE Konin
