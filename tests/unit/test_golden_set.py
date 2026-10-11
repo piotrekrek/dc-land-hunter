@@ -19,10 +19,13 @@ def test_golden_set_matches_brief() -> None:
 
 
 def test_unverified_coordinates_stay_empty() -> None:
-    """Coordinates may only be filled once verified on Geoportal (no guesses in the golden set)."""
+    """Coordinates may only be filled once verified on Geoportal. Candidates live in their own field."""
     for s in yaml.safe_load(GOLDEN.read_text(encoding="utf-8"))["sites"]:
         if not s["verified_on_geoportal"]:
             assert s["lon"] is None and s["lat"] is None, s["name"]
+        if "candidate" in s:
+            assert s["candidate"]["source"].startswith("https://"), s["name"]
+            assert 14.0 < s["candidate"]["lon"] < 24.2 and 49.0 < s["candidate"]["lat"] < 54.9, s["name"]
         else:
             assert 14.0 < s["lon"] < 24.2 and 49.0 < s["lat"] < 54.9, s["name"]
             assert s["sources"], f"{s['name']}: cite where the location comes from"
