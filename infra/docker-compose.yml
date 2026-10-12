@@ -20,6 +20,9 @@ x-python: &python
   environment: *python-env
   volumes:
     - dclh-data:/data
+    # Raw snapshots live in the repo's gitignored data/raw, so the host and every container read one store.
+    # (Container user dclh is uid 1000, the same as the VPS owner; keep it that way.)
+    - ../data/raw:/data/raw
   restart: unless-stopped
 
 services:

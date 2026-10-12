@@ -222,5 +222,8 @@ on your own machine and open a pull request, then `git checkout -- .` on the VPS
 
 Hard-refresh the browser afterwards (Ctrl+Shift+R). `.env` exists only on the VPS and is not in git.
 
-Snapshot manifests (`data/raw/<source>/manifest.jsonl`) store paths relative to the data folder, so the host
-(`data/`) and the containers (`/data`) read the same files.
+Snapshot manifests (`data/raw/<source>/manifest.jsonl`) store paths relative to the data folder, and the
+compose file bind-mounts the repo's `data/raw` at `/data/raw`. The host and the containers therefore share
+**one** snapshot store: `uv run dclh ...` on the host and `docker compose exec worker dclh ...` see the same
+snapshots. The container user `dclh` is uid 1000, the same as the VPS owner; keep it that way or the mount
+becomes unwritable. Other runtime output (discovery reports, logs) stays in the `dclh-data` volume.
