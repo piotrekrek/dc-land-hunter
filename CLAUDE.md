@@ -17,8 +17,12 @@ The phase plan is in `docs/PLAN.md` and the current state is in `docs/STATUS.md`
 - Polish formatting in the UI: `12,5 ha`, `8 MW`, `2,3 km`, dates `dd.mm.rrrr` (helpers in `web/src/lib/format.ts`).
 - Source endpoints are unverified until `docs/SOURCES.md` marks them ✓. Many Polish public services block
   non-Polish IPs, so the discovery command (`uv run dclh discover`) must run from a machine in Poland.
-- Whenever you write, implement or review code, invoke the `rigorous-coding` skill first (`.claude/skills/rigorous-coding`):
-  state assumptions before coding, don't claim correctness you haven't verified, and cover more than the happy path.
+- Whenever you write, implement or review code, invoke the `karpathy-guidelines` skill first (`.claude/skills/karpathy-guidelines`):
+  state assumptions before coding, keep changes surgical, and verify against stated success criteria. Also ask under what
+  conditions the code works and cover more than the happy path.
+- Plans go in `docs/PLAN.md`, not `docs/superpowers/plans/` (overrides `writing-plans`).
+- Never merge a branch locally or into `main`. Open a PR and let the owner merge (overrides the "merge locally" option in `finishing-a-development-branch`).
+- Skill use cases and open decisions: `docs/SKILLS.md`.
 
 ## Git workflow
 
