@@ -3,7 +3,10 @@
 This plan turns `PROJECT_BRIEF.md` into phases with concrete tasks, acceptance checks and risks.
 It is a living document: update it when a phase finishes or the plan changes.
 
-Last updated: 11.10.2026 (Phase 0 started; Phase 3 code on fixtures, acceptance pending live data).
+Last updated: 12.10.2026 (plan review: vertical slice gate, grid-first seed, owner count in scope; Phase 3 code on fixtures, acceptance pending live data).
+
+**Status words used in checklists:** `[x]` = verified on live data; `[f]` = done on fixtures/test data only; `[ ]` = not done.
+A phase is finished only when its acceptance check passes on live data.
 
 ## Key decisions
 
@@ -56,12 +59,29 @@ Tasks:
 
 Acceptance: plausible substation counts are documented and AOI tests pass.
 
+## Phase 1.5: Vertical slice (gate before more phases)
+
+Goal: prove the whole chain on real data for one powiat before widening any layer. Phase 3 live work does not continue until this passes.
+
+Tasks:
+- [ ] Real AOI (`dclh aoi build`) and PRG loaded; run on the VPS.
+- [ ] OSM power layers loaded (substations, lines) with the measured counts and peak memory recorded.
+- [ ] `dclh search --powiat <teryt>` chains: seeds → grid pre-filter → EGiB parcels → cluster → constraints → score → write sites. Missing layers stay `missing`, never zero.
+- [ ] Pilot powiat: the one containing Reguły (Pruszków). Check whether the Hillwood site appears and where it ranks.
+- [ ] Measure per powiat: EGiB request count, runtime, peak memory. Extrapolate to the AOI and fix the weekly-run plan (R7).
+- [ ] "Sprawdź działkę" minimal version (pulled forward from Phase 4): one parcel via ULDK → live layers → the same scorer. Fast test of every layer on real land.
+
+Acceptance: one powiat runs end to end on the VPS; the sites list in the app shows real results; the measurements are recorded in STATUS.md.
+
 ## Phase 2: Candidates, sites, constraints, scoring v1
 
 Tasks:
 - `ru` connector: MPZP designations (P, PU, P/U, U/P, E, infrastructure) and plan ogólny SG zones from the APP GML. Zone codes are checked against the APP schema. `kimpzp` WMS GetFeatureInfo fallback, sampled per candidate.
 - Fallback zones from OSM and BDOT10k industrial areas (`zoning=unknown`). Powered-brownfield detection.
+- **Grid-first seed** (decision 12.10.2026, runs next to the zoning seed): candidate land is every parcel cluster of at least `ha_min` inside the grid buffers (110 kV line ≤ 3 km, GPZ ≤ 5 km, node ≤ 25 km), whether or not a plan exists. Un-zoned or unplanned land gets `zoning=unknown` (30 points, `missing` or `estimated` confidence) and a flag "wymaga zmiany planu"; it can rank but never above a comparable site with production zoning. Seeds are merged by parcel id so a site found twice is scored once, and the seed(s) that found it are stored.
+- Re-run the seeds after 30.11.2026, when the Rejestr Urbanistyczny is complete.
 - Grid pre-filter (3 km line / 5 km GPZ / 25 km node, configurable).
+- Owner count (decision 12.10.2026: in scope, automatic): `owners_count` per site from the parcel register if a verified source gives it; store the count only, never names or other personal data. Feeds "few owners" (value driver) and "too many owners" (deal killer, threshold in `scoring.yaml`). If no source is verified, the fact is `missing`. Needs an owner check before any personal data is read or stored (brief 0, 9.6).
 - `egib` connector: parcels by bbox tiles inside the pre-filtered zones, with retries and cache. `uldk` for single lookups.
 - Site clustering: adjacent parcels (touching or gap ≤ 5 m) per zone, area, Polsby-Popper compactness, stable `site_id`, >80 ha split suggestion, `expansion_ha`.
 - Constraint connectors: `gdos`, `isok`, `midas`, `nid`, `kiug` (sampled), residential distance. A `constraints` table with % area and minimum distances.
@@ -111,7 +131,11 @@ Acceptance: deployed, restore tested, all checks green, no blockers in STATUS.md
 | R4 | DSO capacity maps are interactive and may change format without notice. | Phase 3 connectors break. | Snapshot plus hash, graceful degradation, and Playwright or manual CSV fallback. Weekly live smoke test alerts. |
 | R5 | GPZ name matching between OSM and DSO lists falls below 70%. | Published capacity isn't used. | Manual mapping table, match score in the UI, and a documented shortfall. |
 | R6 | OSM voltage tags are incomplete. | Substations get misclassified. | `UNKNOWN_VOLTAGE` is kept at low confidence and never dropped. Cross-check against DSO GPZ lists. |
-| R7 | Full AOI run takes longer than 3 hours on 4 vCPU / 16 GB. | Weekly run overruns. | Funnel order (pre-filter before parcels), PostGIS spatial indexes, per-source incremental refresh, profiling in Phase 2. |
+| R7 | **The VPS has 1.9 GB RAM** (the earlier 4 vCPU / 16 GB assumption was wrong; the OSM parse was already killed once). EGiB at 1 req/s and 1000 features per page may also be the bottleneck. | A full AOI run may not fit in memory or in a week. | Run per powiat; measure requests, time and memory in Phase 1.5; funnel order (pre-filter before parcels); incremental refresh; upsize the VPS or run heavy jobs elsewhere if the measurements say so. |
+| R13 | `ru`, `isok` (flood), `bdot10k` (housing) and all DSO/PSE feeds are not verified (`docs/SOURCES.md`). Flood and housing are hard exclusions. | A dead source leaves hard filters inactive. | Verify each from Poland before relying on it; fallbacks: flood from KZGW/ISOK WMS or manual layer, housing from OSM buildings. An inactive hard filter is shown on every site as "nie sprawdzono". |
+| R14 | Grid is 45% of the score but built on the thinnest data. | Ranking looks precise and is not. | Show confidence on every site; measure OSM voltage coverage in Phase 1.5; do not tune weights until live grid data exists. |
+| R15 | Golden set is weak: unverified coordinates, one site with no source, one (Bełchatów, 500 MW) out of scope. | Cannot tell whether the ranking is good. | Reclassify Bełchatów as "reference only"; add negative controls (flood, forest, under 10 ha) and a recall check on verified sites. |
+| R16 | Owner count may need personal data from the register. | RODO. | Count only; ask the owner before reading or storing anything else. |
 | R8 | Connection-fee figures and the conditions-transfer note are legal interpretations. | Misleading numbers. | Configurable values, visible "wymaga weryfikacji prawnej" label, no legal advice. |
 | R9 | Terms and robots rules for KOWR and other HTML sources. | Scraping isn't allowed. | Check the terms before Phase 5. Manual CSV import is always available. Ask the owner before automating anything marked manual. |
 | R10 | AOI split topology: the Vistula centreline has gaps, braids and reservoirs. | Wrong in/out decisions near the river. | Longest-chain main stem, snapping, explicit test cities, and owner-editable AOI in Settings. |
