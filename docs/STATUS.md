@@ -73,11 +73,12 @@ Not done, and why:
   or Playwright capture comes only after one is verified in `docs/SOURCES.md`.
 - **PSE PDFs (`pse_odb`, `pse_avail`)**: the pdfplumber parser is not written. Without a real file the layout is a guess,
   so the parser would be untested. Until then, the owner converts the PDF table to CSV/XLSX.
-- **OSM connector not yet run on the real extract.** `sources/osm_power.py` is written and tested on a generated PBF
-  (it streams `poland-latest.osm.pbf`, checks the size against `Content-Length`, reads substations and `power=line`
-  ways, and fills `Substation.name` and `.operator`). The first real run is `uv run dclh fetch osm_power` on the VPS;
-  the 1,000-substation floor and the Poland bounds check will fail loudly on a wrong file. Relation-mapped
-  substations and generators are not read. `dclh aoi build` and the BDOT10k/PRG loading are still open.
+- **OSM connector, first real run (12.10.2026, VPS with 1.9 GB RAM).** The 2.1 GB download worked (extract
+  `poland-261010`, size check passed). The first parser was killed for memory (`Killed`): it kept a location for every
+  node in Poland. It now reads in three passes and keeps only the nodes that power ways use, with `dclh fetch osm_power
+  --reuse` to re-parse the saved snapshot. **The new parser is tested on generated files only; the next real run on the
+  VPS will show the counts and the peak memory.** Relation-mapped substations and generators are not read. `dclh aoi
+  build` and the BDOT10k/PRG loading are still open.
 - **Acceptance (≥70% of Enea/Energa GPZs matched)** cannot be measured. It needs the real OSM extract and the real
   DSO files, both on the VPS. The report command for the match rate is not written yet.
 - **Scoring run**: there is still no `dclh score` command (Phase 2 item), so the new layers are not yet loaded in a
