@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Callable
 from pathlib import Path
 
@@ -204,3 +205,16 @@ def test_a_way_with_a_node_missing_from_the_extract_is_skipped_not_fatal(tmp_pat
     table = _connector(min_substations=1).parse(_snapshot(path))
     assert "line" not in set(table["kind"])
     assert len(table) == 1  # the substation node is still read
+
+
+@pytest.mark.skipif(shutil.which("osmium") is None, reason="osmium-tool not installed")
+def test_prefilter_gives_the_same_grid_as_the_full_extract(pbf: Path, tmp_path: Path) -> None:
+    """The power-only cut must not change what the parser returns, only how much it reads."""
+    from dclh_pipeline.sources.osm_power import prefilter_power
+
+    cut = prefilter_power(pbf, tmp_path / "power.osm.pbf")
+    full = _connector().parse(_snapshot(pbf))
+    small = _connector().parse(_snapshot(cut))
+    assert cut.stat().st_size <= pbf.stat().st_size
+    assert sorted(full["name"]) == sorted(small["name"])
+    assert len(full) == len(small)

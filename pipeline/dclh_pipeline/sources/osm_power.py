@@ -16,6 +16,8 @@ substation's `name` is what lets DSO capacity lists be matched to it (`model/gpz
 
 from __future__ import annotations
 
+import shutil
+import subprocess
 import tempfile
 from array import array
 from dataclasses import dataclass
@@ -77,7 +79,7 @@ class OsmPowerConnector(Source):
         killed by the out-of-memory killer on a 2 GB VPS. Here only the nodes that power ways use are kept
         (a few million), plus the power-tagged nodes.
         """
-        path = str(snapshot.path)
+        path = str(_power_source(snapshot.path))
         ways = _power_ways(path)
         locations = _NodeLocations.read(path, [ref for way in ways for ref in way.refs])
         rows: list[dict[str, object]] = []
@@ -94,6 +96,46 @@ class OsmPowerConnector(Source):
         table = table.to_crs(f"EPSG:{EPSG}")
         _check(table, self.min_substations)
         return table
+
+
+# What the parser needs: substation and power-line ways, substation nodes. The nodes that these ways reference
+# are kept by osmium by default, so the line geometry still works.
+POWER_FILTER = (
+    "w/power=line",
+    "w/power=substation",
+    "w/power=sub_station",
+    "n/power=substation",
+    "n/power=sub_station",
+)
+
+
+def prefilter_power(source: Path, target: Path) -> Path:
+    """Cut the extract down to the power objects with osmium-tool, then rename it into place."""
+    tmp = target.with_name(target.name + ".tmp")
+    command = [
+        "osmium",
+        "tags-filter",
+        "--overwrite",
+        "--output-format",
+        "pbf",
+        "--output",
+        str(tmp),
+        str(source),
+    ]
+    subprocess.run([*command, *POWER_FILTER], check=True, capture_output=True)
+    tmp.replace(target)
+    return target
+
+
+def _power_source(snapshot_path: Path) -> Path:
+    """The file to parse: a cached power-only cut when osmium-tool is installed (much less data to read),
+    otherwise the full extract (the parser then needs more time, but gives the same result)."""
+    if shutil.which("osmium") is None:
+        return snapshot_path
+    cut = snapshot_path.with_name(snapshot_path.name.removesuffix(".osm.pbf") + ".power.osm.pbf")
+    if not cut.exists():
+        prefilter_power(snapshot_path, cut)
+    return cut
 
 
 @dataclass(frozen=True)
