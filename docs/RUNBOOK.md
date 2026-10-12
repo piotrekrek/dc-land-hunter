@@ -205,13 +205,22 @@ point on the Geoportal map first and pass the right `--lon`/`--lat`. Keep `--rad
 
 ## Deploying to the VPS
 
-The repo is checked out at `/home/piotr/dc-land-hunter`. To deploy the latest `main`:
+The repo is checked out at `/home/piotr/dc-land-hunter`. **No edits on the VPS, deploy only from `main`.**
+Every change goes through a pull request and is merged to `main` first; the VPS only ever pulls.
+Editing files there (it happened with the OSM memory and voltage work) makes the checkout drift from git and
+the next `git pull` fails or silently loses the change.
 
 ```
 cd ~/dc-land-hunter
-git pull
-docker compose -f infra/docker-compose.yml up --build -d
-docker compose -f infra/docker-compose.yml ps
+scripts/deploy.sh
 ```
 
+The script refuses to run on a dirty tree or on any branch other than `main`, fast-forwards to
+`origin/main`, rebuilds, shows `docker compose ps` and prints the commit it deployed. If it refuses because
+of local changes, do not stash them blindly: look at `git diff`, move anything worth keeping into a branch
+on your own machine and open a pull request, then `git checkout -- .` on the VPS.
+
 Hard-refresh the browser afterwards (Ctrl+Shift+R). `.env` exists only on the VPS and is not in git.
+
+Snapshot manifests (`data/raw/<source>/manifest.jsonl`) store paths relative to the data folder, so the host
+(`data/`) and the containers (`/data`) read the same files.
