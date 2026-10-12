@@ -21,7 +21,14 @@ from dclh_pipeline.model.provenance import Confidence
         ("110000;15000", [110000, 15000]),
         ("400000", [400000]),
         ("110 kV", [110000]),
-        ("110", [110000]),  # bare kV value
+        ("110", [110000]),  # a sloppy "110 kV"
+        ("400", [400]),  # volts: a low-voltage side, not a 400 kV node
+        ("15000;400", [15000, 400]),  # the commonest tag on the Poland extract: a 15 kV station, 400 V side
+        ("20000/400", [20000, 400]),
+        ("6000;400", [6000, 400]),
+        ("15000;800", [15000, 800]),
+        ("220000;110000", [220000, 110000]),
+        ("400000;220000;110000", [400000, 220000, 110000]),
         ("15000;110000;15000", [110000, 15000]),
         ("", []),
         (None, []),
@@ -73,6 +80,16 @@ def test_any_valid_voltage_classifies_and_220_plus_is_a_node(volts: list[int]) -
         ("Tauron Wytwarzanie", None),
         ("PGE Górnictwo i Energetyka Konwencjonalna", None),
         ("PSE", Dso.PSE),
+        ("Tauron", Dso.TAURON),  # the short names OSM mappers actually write
+        ("Energa", Dso.ENERGA),
+        ("Enea", Dso.ENEA),
+        ("enea", Dso.ENEA),
+        ("PGE", Dso.PGE),
+        ("Stoen Operator", Dso.STOEN),
+        ("Tauron Ekoenergia", None),  # generation, not distribution
+        ("PGE GiEK S.A.", None),
+        ("PGE Energetyka Kolejowa", None),
+        ("KGHM Polska Miedź", None),
         ("Polskie Sieci Elektroenergetyczne", Dso.PSE),
         ("ArcelorMittal Poland", None),
         (None, None),
@@ -92,3 +109,18 @@ def test_foreign_operator_flags_powered_brownfield_candidates() -> None:
 def test_generation_subsidiaries_are_foreign_operators() -> None:
     assert is_foreign_operator("Enea Wytwarzanie")
     assert is_foreign_operator("PGE Górnictwo i Energetyka Konwencjonalna")
+
+
+@pytest.mark.parametrize(
+    ("tag", "cls"),
+    [
+        ("15000;400", SubstationClass.OTHER),  # was NODE_220_400: 13,086 of these on the real extract
+        ("20000;400", SubstationClass.OTHER),
+        ("400", SubstationClass.OTHER),
+        ("110000;15000", SubstationClass.GPZ_110_SN),
+        ("220000;110000", SubstationClass.NODE_220_400),
+        ("400000;220000;110000", SubstationClass.NODE_220_400),
+    ],
+)
+def test_low_voltage_sides_do_not_make_a_transmission_node(tag: str, cls: SubstationClass) -> None:
+    assert classify_substation(tag).cls is cls

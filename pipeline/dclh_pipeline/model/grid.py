@@ -46,16 +46,20 @@ class Dso(StrEnum):
     ENERGA = "energa"
     TAURON = "tauron"
     PGE = "pge"
+    STOEN = "stoen"  # Warsaw's distribution operator (Stoen Operator)
     PSE = "pse"  # transmission operator, not a DSO, but handy as an operator class
 
 
-# DSOs are matched by their legal names, not the group names: generation, mining and heating subsidiaries
-# (Enea Wytwarzanie, Tauron Wytwarzanie, PGE GiEK) own powered brownfields and must stay "foreign".
+# DSOs are matched by their legal names or by the bare short name, because that is what OSM mappers write:
+# on the Poland extract (12.10.2026) 510 GPZs say just "Tauron", 203 "Energa" and 72 "Enea". Generation,
+# mining and heating subsidiaries (Enea Wytwarzanie, Tauron Ekoenergia, PGE GiEK) own powered brownfields and
+# must stay "foreign", so a name that merely starts with a group name does not match.
 _OPERATOR_PATTERNS: tuple[tuple[re.Pattern[str], Dso], ...] = (
-    (re.compile(r"\benea[\s-]+operator\b", re.I), Dso.ENEA),
-    (re.compile(r"\benerga[\s-]+operator\b", re.I), Dso.ENERGA),
-    (re.compile(r"\btauron[\s-]+dystrybucja\b", re.I), Dso.TAURON),
-    (re.compile(r"\bpge[\s-]+dystrybucja\b", re.I), Dso.PGE),
+    (re.compile(r"\benea[\s-]+operator\b|^\s*enea\s*$", re.I), Dso.ENEA),
+    (re.compile(r"\benerga[\s-]+operator\b|^\s*energa\s*$", re.I), Dso.ENERGA),
+    (re.compile(r"\btauron[\s-]+dystrybucja\b|^\s*tauron\s*$", re.I), Dso.TAURON),
+    (re.compile(r"\bpge[\s-]+dystrybucja\b|^\s*pge\s*$", re.I), Dso.PGE),
+    (re.compile(r"\bstoen\b", re.I), Dso.STOEN),
     (re.compile(r"\bpse\b|polskie sieci elektroenergetyczne", re.I), Dso.PSE),
 )
 
@@ -76,8 +80,10 @@ def parse_voltages(tag: str | None) -> list[int]:
         value = float(m.group(1))
         if m.group(2) == "kv":
             value *= 1000
-        elif m.group(2) is None and value < 1000:
-            # A bare number below 1000 is almost certainly kV ("110"); real OSM values are volts.
+        elif m.group(2) is None and value == 110:
+            # A bare 110 is a sloppy "110 kV": there is no 110 V in the Polish grid. Every other bare number
+            # is volts, as OSM defines it. "15000;400" is a 15 kV station with a 400 V side, not a 400 kV
+            # node: the Poland extract has 16,000 of those and about a hundred real 220/400 kV stations.
             value *= 1000
         volts.append(round(value))
     return sorted(set(volts), reverse=True)
