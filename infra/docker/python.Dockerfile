@@ -10,9 +10,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # The slim image already ships ca-certificates and tzdata (needed for TZ=Europe/Warsaw in the scheduler).
 RUN pip install --no-cache-dir uv==0.11.32
 
-# pyosmium (OSM power connector) links against libexpat, which the slim image does not ship.
+# pyosmium (OSM power connector) links against libexpat, which the slim image does not ship. osmium-tool cuts
+# the extract to the power objects before parsing (see sources/osm_power.py).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libexpat1 \
+    && apt-get install -y --no-install-recommends libexpat1 osmium-tool \
     && rm -rf /var/lib/apt/lists/*
 
 # supercronic runs the scheduler's crontab. Checksum-pinned; for arm64 build with

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Callable
 from pathlib import Path
 
@@ -219,3 +220,64 @@ def test_summary_counts_classes_names_operators_and_line_voltages(pbf: Path) -> 
     assert rows["lines, all"] == 1
     assert rows["  voltage 110 kV band"] == 1
     assert rows["  voltage missing"] == 0
+
+
+needs_osmium = pytest.mark.skipif(shutil.which("osmium") is None, reason="osmium-tool not installed")
+
+
+@needs_osmium
+def test_prefilter_gives_the_same_grid_as_the_full_extract(pbf: Path, tmp_path: Path) -> None:
+    """The power-only cut must not change what the parser returns: same rows and the same geometries."""
+    from dclh_pipeline.sources.osm_power import prefilter_power
+
+    cut = prefilter_power(pbf, tmp_path / "power.osm.pbf")
+    full = _connector().parse(_snapshot(pbf)).sort_values("osm_id").reset_index(drop=True)
+    small = _connector().parse(_snapshot(cut)).sort_values("osm_id").reset_index(drop=True)
+    assert list(full["osm_id"]) == list(small["osm_id"])
+    assert list(full["name"]) == list(small["name"])
+    assert list(full.geometry.to_wkt()) == list(small.geometry.to_wkt())
+    assert cut.stat().st_size <= pbf.stat().st_size
+
+
+@needs_osmium
+def test_line_geometry_survives_the_cut(tmp_path: Path) -> None:
+    """The nodes a power line runs through are kept by osmium, so the line is not cut short."""
+    from dclh_pipeline.sources.osm_power import prefilter_power
+
+    path = _write_many_nodes_pbf(tmp_path / "many.osm.pbf")
+    cut = prefilter_power(path, tmp_path / "many.power.osm.pbf")
+    full = _connector(min_substations=1).parse(_snapshot(path))
+    small = _connector(min_substations=1).parse(_snapshot(cut))
+    assert list(full.geometry.to_wkt()) == list(small.geometry.to_wkt())
+
+
+@needs_osmium
+def test_a_changed_filter_never_reuses_an_old_cut(pbf: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from dclh_pipeline.sources import osm_power
+
+    first = osm_power._power_source(pbf)
+    monkeypatch.setattr(osm_power, "POWER_FILTER", (*osm_power.POWER_FILTER, "w/power=cable"))
+    second = osm_power._power_source(pbf)
+    assert first != second
+    assert first.exists() and second.exists()
+
+
+@needs_osmium
+def test_an_osmium_failure_shows_its_own_message_and_leaves_no_partial_file(tmp_path: Path) -> None:
+    from dclh_pipeline.sources.osm_power import prefilter_power
+
+    bad = tmp_path / "not-a-pbf.osm.pbf"
+    bad.write_bytes(b"this is not an osm file")
+    target = tmp_path / "out.osm.pbf"
+    with pytest.raises(RuntimeError, match="osmium tags-filter failed"):
+        prefilter_power(bad, target)
+    assert not target.exists()
+    assert not (tmp_path / "out.osm.pbf.tmp").exists()
+
+
+def test_without_osmium_the_full_extract_is_parsed(pbf: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from dclh_pipeline.sources import osm_power
+
+    monkeypatch.setattr(osm_power.shutil, "which", lambda _name: None)
+    assert osm_power._power_source(pbf) == pbf
+    assert len(_connector().parse(_snapshot(pbf))) == 3

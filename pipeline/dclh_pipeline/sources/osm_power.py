@@ -16,7 +16,12 @@ substation's `name` is what lets DSO capacity lists be matched to it (`model/gpz
 
 from __future__ import annotations
 
+import hashlib
+import logging
+import shutil
+import subprocess
 import tempfile
+import time
 from array import array
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -47,6 +52,8 @@ from dclh_pipeline.sources.base import Source
 from dclh_pipeline.sources.prg import EPSG, POLAND_BOUNDS
 
 PBF_URL = "https://download.geofabrik.de/europe/poland-latest.osm.pbf"
+log = logging.getLogger(__name__)
+
 COLUMNS = ["kind", "osm_id", "name", "operator", "voltage"]
 # A real extract has thousands of substations. Far fewer means a wrong or empty file.
 MIN_SUBSTATIONS_IN_EXTRACT = 1000
@@ -80,15 +87,26 @@ class OsmPowerConnector(Source):
             )
 
     def parse(self, snapshot: Snapshot) -> gpd.GeoDataFrame:
-        """Read the power objects in three passes, so memory stays small.
+        """Read the power objects in two passes, so memory stays small.
 
         One pass with a location index for every node in Poland (over 200 million) needs several GB and was
         killed by the out-of-memory killer on a 2 GB VPS. Here only the nodes that power ways use are kept
         (a few million), plus the power-tagged nodes.
         """
-        path = str(snapshot.path)
-        ways = _power_ways(path)
+        path = str(_power_source(snapshot.path))
+        started = time.monotonic()
+        ways, power_nodes = _power_objects(path)
+        log.info(
+            "OSM power: read %d ways and %d substation nodes in %.0f s",
+            len(ways),
+            len(power_nodes),
+            time.monotonic() - started,
+        )
+        started = time.monotonic()
         locations = _NodeLocations.read(path, [ref for way in ways for ref in way.refs])
+        log.info(
+            "OSM power: read %d node locations in %.0f s", len(locations.ids), time.monotonic() - started
+        )
         rows: list[dict[str, object]] = []
         geoms: list[BaseGeometry] = []
         for way in ways:
@@ -96,13 +114,74 @@ class OsmPowerConnector(Source):
             if geom is not None:  # None: a member node is missing from the extract (cut at the border)
                 rows.append(way.row())
                 geoms.append(geom)
-        for node_row, point in _power_nodes(path):
+        for node_row, point in power_nodes:
             rows.append(node_row)
             geoms.append(point)
         table = gpd.GeoDataFrame(pd.DataFrame(rows, columns=COLUMNS), geometry=geoms, crs="EPSG:4326")
         table = table.to_crs(f"EPSG:{EPSG}")
         _check(table, self.min_substations)
         return table
+
+
+# What the parser needs: substation and power-line ways, substation nodes. The nodes that these ways reference
+# are kept by osmium by default, so the line geometry still works.
+POWER_FILTER = (
+    "w/power=line",
+    "w/power=substation",
+    "w/power=sub_station",
+    "n/power=substation",
+    "n/power=sub_station",
+)
+
+
+def _filter_key() -> str:
+    """A short hash of the filter expressions, so a changed filter never reuses an old cut."""
+    return hashlib.sha1("|".join(POWER_FILTER).encode()).hexdigest()[:8]
+
+
+def prefilter_power(source: Path, target: Path) -> Path:
+    """Cut the extract down to the power objects with osmium-tool, then rename it into place."""
+    tmp = target.with_name(target.name + ".tmp")
+    command = [
+        "osmium",
+        "tags-filter",
+        "--overwrite",
+        "--output-format",
+        "pbf",
+        "--output",
+        str(tmp),
+        str(source),
+    ]
+    started = time.monotonic()
+    try:
+        subprocess.run([*command, *POWER_FILTER], check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        tmp.unlink(missing_ok=True)
+        raise RuntimeError(
+            f"osmium tags-filter failed (exit {exc.returncode}): {exc.stderr.strip()}"
+        ) from exc
+    tmp.replace(target)
+    log.info("OSM power: osmium cut %s to %s in %.0f s", source.name, target.name, time.monotonic() - started)
+    return target
+
+
+def _power_source(snapshot_path: Path) -> Path:
+    """The file to parse: a cached power-only cut when osmium-tool is installed, otherwise the full extract.
+
+    The cut gives the same result as the full file; it saves some reading, not memory. The cache name carries
+    the filter's hash, so changing POWER_FILTER builds a new cut.
+    """
+    if shutil.which("osmium") is None:
+        log.info("OSM power: osmium-tool not installed, reading the full extract")
+        return snapshot_path
+    cut = snapshot_path.with_name(
+        snapshot_path.name.removesuffix(".osm.pbf") + f".power-{_filter_key()}.osm.pbf"
+    )
+    if cut.exists():
+        log.info("OSM power: using the cached power-only cut %s", cut.name)
+    else:
+        prefilter_power(snapshot_path, cut)
+    return cut
 
 
 @dataclass(frozen=True)
@@ -132,27 +211,40 @@ def _kind(power: str | None, *, is_way: bool) -> str | None:
     return None
 
 
-def _power_ways(path: str) -> list[_PowerWay]:
-    """Pass 1: substation outlines and power lines, with the ids of the nodes they run through."""
+def _power_objects(path: str) -> tuple[list[_PowerWay], list[tuple[dict[str, object], BaseGeometry]]]:
+    """Pass 1: power ways (outlines, lines) with their node ids, and single-node substations."""
     ways: list[_PowerWay] = []
-    for obj in osmium.FileProcessor(path, osmium.osm.WAY).with_filter(osmium.filter.KeyFilter("power")):
-        if not isinstance(obj, osmium.osm.Way):
-            continue
-        kind = _kind(obj.tags.get("power"), is_way=True)
-        refs = np.fromiter((n.ref for n in obj.nodes), dtype=np.int64)
-        if kind is None or len(refs) < 2:
-            continue
-        ways.append(
-            _PowerWay(
-                osm_id=obj.id + WAY_ID_OFFSET,
-                kind=kind,
-                name=obj.tags.get("name") or "",
-                operator=obj.tags.get("operator") or "",
-                voltage=obj.tags.get("voltage") or "",
-                refs=refs,
+    nodes: list[tuple[dict[str, object], BaseGeometry]] = []
+    entities = osmium.osm.WAY | osmium.osm.NODE
+    for obj in osmium.FileProcessor(path, entities).with_filter(osmium.filter.KeyFilter("power")):
+        if isinstance(obj, osmium.osm.Way):
+            kind = _kind(obj.tags.get("power"), is_way=True)
+            refs = np.fromiter((n.ref for n in obj.nodes), dtype=np.int64)
+            if kind is None or len(refs) < 2:
+                continue
+            ways.append(
+                _PowerWay(
+                    osm_id=obj.id + WAY_ID_OFFSET,
+                    kind=kind,
+                    name=obj.tags.get("name") or "",
+                    operator=obj.tags.get("operator") or "",
+                    voltage=obj.tags.get("voltage") or "",
+                    refs=refs,
+                )
             )
-        )
-    return ways
+        elif isinstance(obj, osmium.osm.Node) and obj.location.valid():
+            kind = _kind(obj.tags.get("power"), is_way=False)
+            if kind is None:
+                continue
+            row: dict[str, object] = {
+                "kind": kind,
+                "osm_id": obj.id,
+                "name": obj.tags.get("name", ""),
+                "operator": obj.tags.get("operator", ""),
+                "voltage": obj.tags.get("voltage", ""),
+            }
+            nodes.append((row, Point(obj.location.lon, obj.location.lat)))
+    return ways, nodes
 
 
 class _NodeLocations:
@@ -195,26 +287,6 @@ class _NodeLocations:
         if len(coords) >= 4 and (coords[0] == coords[-1]).all():
             return Polygon(coords).centroid  # a substation outline: use its centre as the location
         return LineString(coords).centroid
-
-
-def _power_nodes(path: str) -> list[tuple[dict[str, object], BaseGeometry]]:
-    """Pass 3: substations mapped as a single node."""
-    out: list[tuple[dict[str, object], BaseGeometry]] = []
-    for obj in osmium.FileProcessor(path, osmium.osm.NODE).with_filter(osmium.filter.KeyFilter("power")):
-        if not isinstance(obj, osmium.osm.Node) or not obj.location.valid():
-            continue
-        kind = _kind(obj.tags.get("power"), is_way=False)
-        if kind is None:
-            continue
-        row: dict[str, object] = {
-            "kind": kind,
-            "osm_id": obj.id,
-            "name": obj.tags.get("name", ""),
-            "operator": obj.tags.get("operator", ""),
-            "voltage": obj.tags.get("voltage", ""),
-        }
-        out.append((row, Point(obj.location.lon, obj.location.lat)))
-    return out
 
 
 def _check(table: gpd.GeoDataFrame, min_substations: int) -> None:
