@@ -27,6 +27,11 @@ from dclh_pipeline.model.provenance import Confidence
         ("20000/400", [20000, 400]),
         ("6000;400", [6000, 400]),
         ("15000;800", [15000, 800]),
+        ("20000;500", [20000, 500]),  # a bare number next to volts is volts
+        ("110;15", [110000, 15000]),  # all bare: kV
+        ("400 kV", [400000]),
+        ("0.4", [400]),  # 0.4 kV
+        ("230", [230]),  # a lone low-voltage level
         ("220000;110000", [220000, 110000]),
         ("400000;220000;110000", [400000, 220000, 110000]),
         ("15000;110000;15000", [110000, 15000]),
@@ -48,6 +53,8 @@ def test_parse_voltages(tag: str | None, expected: list[int]) -> None:
         ("220000", SubstationClass.NODE_220_400),
         ("110000", SubstationClass.OTHER),  # 110 kV only: a switchyard, not a GPZ
         ("15000", SubstationClass.OTHER),
+        ("20000/800", SubstationClass.OTHER),
+        ("110000;400", SubstationClass.OTHER),
         (None, SubstationClass.UNKNOWN_VOLTAGE),
         ("n/a", SubstationClass.UNKNOWN_VOLTAGE),
     ],

@@ -7,6 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import httpx
+import numpy as np
 import osmium
 import pandas as pd
 import pytest
@@ -19,7 +20,14 @@ from dclh_pipeline.model.features import build_grid_index
 from dclh_pipeline.model.gpz_match import gpz_candidates
 from dclh_pipeline.model.grid import WAY_ID_OFFSET, SubstationClass, osm_ref, parse_osm_ref
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
-from dclh_pipeline.sources.osm_power import OsmPowerConnector, _NodeLocations, summarize_grid, to_grid
+from dclh_pipeline.sources.osm_power import (
+    OsmPowerConnector,
+    _id_batches,
+    _NodeLocations,
+    require_free_memory,
+    summarize_grid,
+    to_grid,
+)
 
 ClientFactory = Callable[..., PoliteClient]
 
@@ -186,7 +194,7 @@ def _write_many_nodes_pbf(path: Path, *, drop_node: int | None = None) -> Path:
 
 def test_only_the_nodes_that_power_ways_use_are_kept_in_memory(tmp_path: Path) -> None:
     path = _write_many_nodes_pbf(tmp_path / "many.osm.pbf")
-    locations = _NodeLocations.read(str(path), [9001, 9002, 9003, 9003])
+    locations = _NodeLocations.read(str(path), np.array([9001, 9002, 9003, 9003]))
     assert list(locations.ids) == [9001, 9002, 9003]  # 5,000 other nodes were not decoded or stored
 
 
@@ -281,3 +289,33 @@ def test_without_osmium_the_full_extract_is_parsed(pbf: Path, monkeypatch: pytes
     monkeypatch.setattr(osm_power.shutil, "which", lambda _name: None)
     assert osm_power._power_source(pbf) == pbf
     assert len(_connector().parse(_snapshot(pbf))) == 3
+
+
+def test_node_ids_are_batched_by_id_span() -> None:
+    wanted = np.array([5, 1, 3, 3, 100, 101, 5_000, 5_001])
+    batches = _id_batches(wanted, max_span=1_000)
+    assert batches == [[1, 3, 5, 100, 101], [5_000, 5_001]]
+    assert all(b[-1] - b[0] < 1_000 for b in batches)
+    assert _id_batches(None) == [] and _id_batches(np.array([], dtype=np.int64)) == []
+
+
+def test_batched_node_pass_finds_every_node_across_batches(tmp_path: Path) -> None:
+    path = _write_many_nodes_pbf(tmp_path / "many.osm.pbf")
+    wanted = np.array([9001, 9002, 9003])
+    assert len(_id_batches(wanted, max_span=1)) == 3  # span 1: every id is its own batch, so three passes
+    locations = _NodeLocations.read(str(path), wanted, max_span=1)
+    assert list(locations.ids) == [9001, 9002, 9003]
+
+
+def test_parse_refuses_to_start_when_memory_is_short(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("dclh_pipeline.sources.osm_power.available_memory_mb", lambda: 300)
+    with pytest.raises(MemoryError, match="300 MB"):
+        require_free_memory(800)
+    path = _write_many_nodes_pbf(tmp_path / "many.osm.pbf")
+    with pytest.raises(MemoryError):
+        _connector(min_substations=1).parse(_snapshot(path))
+
+
+def test_unknown_memory_does_not_block_the_parse(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("dclh_pipeline.sources.osm_power.available_memory_mb", lambda: None)
+    require_free_memory(10**9)  # no /proc/meminfo: nothing to check
