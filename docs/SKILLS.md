@@ -16,8 +16,7 @@ Skills live in `.claude/skills/` and are listed in `skills-lock.json`. Each one 
 | `receiving-code-review` | obra/Superpowers | Check review feedback technically before applying it | PR feedback from the owner or a reviewer, especially on scoring weights where a wrong change silently moves rankings | Use it to verify suggestions, not to agree with all of them |
 | `finishing-a-development-branch` | obra/Superpowers | Chooses how to integrate finished work | End of a feature branch: push and open the PR | Its "merge locally" option conflicts with our rule (owner merges). Overridden in CLAUDE.md |
 | `using-git-worktrees` | obra/Superpowers | Isolated worktree for feature work | Work on pipeline and web changes side by side without touching `main` or the VPS checkout (risk R17) | Keep worktrees out of git (`.worktrees/` must be ignored) |
-| `karpathy-guidelines` | multica-ai/andrej-karpathy-skills | Short rules: state assumptions, minimal code, surgical diffs, define success criteria | Keeps PRs small and reviewable: no speculative config knobs in the scorer, no drive-by refactors in parsers | Overlaps heavily with `rigorous-coding`, which we installed earlier. See open decision below |
-| `agent-browser` | vercel-labs/agent-browser | Browser automation CLI with accessibility-tree snapshots | Manual smoke checks of the map and card views on a phone-size viewport; checking Polish text on rendered pages | The skill file is a stub. Real instructions come from the CLI (`npm i -g agent-browser && agent-browser install`), which is not installed here. Needs owner approval before installing on the VPS |
+| `karpathy-guidelines` | multica-ai/andrej-karpathy-skills | State assumptions, minimal code, surgical diffs, goal-driven verification with a step plan | Keeps PRs small and reviewable: no speculative config knobs in the scorer, no drive-by refactors in parsers. Replaces `rigorous-coding` | Does not say to check edge cases explicitly; that line is in CLAUDE.md |
 | `webapp-testing` | anthropics/skills | Playwright-based testing of local web apps | Phase 4 acceptance E2E: login, filter and open a card, check a parcel, move a deal, export, watch → Nowości | Uses Playwright. Preferred over agent-browser for repeatable E2E tests |
 | `ui-ux-pro-max` | nextlevelbuilder/ui-ux-pro-max-skill | Searchable UI/UX rules (accessibility, touch targets, contrast, typography, charts) with a Python search script | Review of site cards (grid confidence badges), kanban on touch screens, chart legends for powiat-level data; checks for the 16 px gutter at phone width | Needs `python3`. The installed scripts make no network calls (checked). The image downloader lives in the uninstalled `design-system` skill, so keep that one out. Stack is detected from `web/package.json` |
 | `frontend-design` | anthropics/skills | Avoids generic-looking UI; gives aesthetic direction | Dashboard and one-pager look: a clear, serious style for an investor team | Keep the palette consistent with `web/` tokens; all UI text stays in Polish |
@@ -29,6 +28,8 @@ Skills live in `.claude/skills/` and are listed in `skills-lock.json`. Each one 
 
 | Skill | Reason |
 |---|---|
+| `agent-browser` | Removed in favour of `webapp-testing` (Playwright), which is already a dependency of the repo |
+| `rigorous-coding` | Removed (PR #23 install). Replaced by `karpathy-guidelines`, which covers the same ground and more. The edge-case rule moved into CLAUDE.md |
 | `using-superpowers`, `diagnosing-superpowers` | `using-superpowers` is the bootstrap for the whole Superpowers plugin and expects its SessionStart hook. We did not install the hook, so it would only add noise |
 | `subagent-driven-development`, `dispatching-parallel-agents` | Revisit once there is a real parallel workload. Overlaps with the Agent tool |
 | `writing-skills` | Overlaps with `skill-creator` (in `anthropics/skills`), which we can install later |
@@ -41,8 +42,8 @@ Skills live in `.claude/skills/` and are listed in `skills-lock.json`. Each one 
 - Plans go in `docs/PLAN.md`, not `docs/superpowers/plans/`. This overrides `writing-plans`.
 - Never merge a branch locally or into `main`. Open a PR and let the owner merge. This overrides the "merge locally" option in `finishing-a-development-branch`.
 
-## Open decisions for the owner
+## Decisions taken
 
-1. **Duplicate guidance.** `rigorous-coding` and `karpathy-guidelines` say much the same thing. Keep one? Karpathy's version is more detailed (surgical changes, success criteria). `rigorous-coding` is shorter.
-2. **agent-browser CLI.** Install the CLI on the dev machine only, or skip it and use `webapp-testing` (Playwright) for everything?
-3. **Attribution.** Commit messages and PR bodies must not name the model (system rule). The skill batch commit therefore has no `Co-Authored-By` line naming a model. Confirm this is what you want.
+1. **Duplicate guidance.** Kept `karpathy-guidelines`, removed `rigorous-coding`. Karpathy is more robust and wider: it adds the goal-driven loop, surgical-diff rules and step plans. The one thing rigorous-coding added, asking under what conditions the code works and covering non-happy paths, is now in CLAUDE.md.
+2. **Browser testing.** Playwright via `webapp-testing`. `agent-browser` is removed.
+3. **Attribution.** No model name in commit messages or PR bodies, per the system rule. Commits use no `Co-Authored-By` line naming a model.
