@@ -345,7 +345,7 @@ def summarize_grid(table: gpd.GeoDataFrame) -> list[tuple[str, int]]:
     gpz = [s for s in substations if s.cls is SubstationClass.GPZ_110_SN]
     rows.append(("GPZ 110 kV, with a name", sum(1 for s in gpz if s.name)))
     rows.append(("GPZ 110 kV, with an operator tag", sum(1 for s in gpz if s.operator)))
-    for dso in ("enea", "energa", "tauron", "pge", "pse"):
+    for dso in ("enea", "energa", "tauron", "pge", "stoen", "pse"):
         rows.append(
             (
                 f"  operator is {dso}",

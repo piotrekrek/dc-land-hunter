@@ -79,6 +79,17 @@ Not done, and why:
   --reuse` to re-parse the saved snapshot. **The new parser is tested on generated files only; the next real run on the
   VPS will show the counts and the peak memory.** Relation-mapped substations and generators are not read. `dclh aoi
   build` and the BDOT10k/PRG loading are still open.
+- **OSM extract `poland-261010`, what the real data showed (12.10.2026).** 32,277 substations and 17,274 `power=line`
+  ways. Of 1,591 GPZs (110 kV + MV), 1,581 (99%) have a name and 1,343 (84%) an operator tag, so name matching has data
+  to work with. Two parser faults found only on real data, both fixed with tests built from the real tag strings:
+  1. `voltage=15000;400` (a 15 kV station with a 400 V side) was read as a 400 kV node: 16,426 "220/400 kV nodes"
+     instead of about a hundred. Bare numbers are now volts, except `110`. This also decides the node pre-filter.
+  2. Operators written as `Tauron` (510), `Energa` (203), `Enea` (72) were treated as foreign owners, which would have
+     marked utility GPZs as "powered brownfields". Short names now count as DSOs, and `Stoen Operator` (Warsaw) was added.
+     Generation and industry (`Tauron Ekoenergia`, `PGE GiEK`, `KGHM`) stay foreign. Rail traction stations
+     (`PGE Energetyka Kolejowa`, 49) are still counted as foreign owners; whether they belong in the brownfield bonus
+     is a question for the owner.
+  Peak memory of the parse was 1,689 MB even with the pre-filter. Not yet explained; the cut is cached, so profiling is cheap.
 - **Acceptance (≥70% of Enea/Energa GPZs matched)** cannot be measured. It needs the real OSM extract and the real
   DSO files, both on the VPS. The report command for the match rate is not written yet.
 - **Scoring run**: there is still no `dclh score` command (Phase 2 item), so the new layers are not yet loaded in a
