@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
+from pathlib import Path
 
 from dclh_pipeline.snapshots import SnapshotStore
 
@@ -32,3 +34,36 @@ def test_snapshot_records_date_and_hash(store: SnapshotStore) -> None:
     assert snap.fetched_at.tzinfo is not None
     assert snap.path.read_bytes() == b"abc"
     assert store.history("isok")[0] == snap
+
+
+def test_manifest_paths_are_relative_to_the_store_root(store: SnapshotStore) -> None:
+    store.save("src", b"payload", suffix=".txt")
+    line = json.loads((store.root / "src" / "manifest.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    assert not Path(line["path"]).is_absolute()
+    assert line["path"].startswith("src/objects/")
+
+
+def test_moved_store_still_resolves_paths(store: SnapshotStore, tmp_path: Path) -> None:
+    """Host and Docker mount the data folder at different places: the manifest must work at both."""
+    store.save("src", b"payload", suffix=".txt")
+    moved = tmp_path / "elsewhere"
+    store.root.rename(moved)
+    snap = SnapshotStore(moved).latest("src")
+    assert snap is not None
+    assert snap.path.read_bytes() == b"payload"
+    assert snap.path.is_relative_to(moved)
+
+
+def test_legacy_absolute_manifest_is_rebased(store: SnapshotStore) -> None:
+    snap = store.save("src", b"payload", suffix=".txt")
+    manifest = store.root / "src" / "manifest.jsonl"
+    entry = json.loads(manifest.read_text(encoding="utf-8"))
+    entry["path"] = (
+        "/data/raw/src/objects/" + snap.path.relative_to(store.root / "src" / "objects").as_posix()
+    )
+    manifest.write_text(json.dumps(entry) + "\n", encoding="utf-8")
+    latest = store.latest("src")
+    assert latest is not None
+    assert latest.path == snap.path
+    store.mark_good(latest)
+    assert json.loads(manifest.read_text(encoding="utf-8"))["path"].startswith("src/objects/")

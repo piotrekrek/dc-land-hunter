@@ -4,6 +4,10 @@ Layout under `data/raw/<source_id>/`:
 - `objects/<sha256[:2]>/<sha256><suffix>`: raw bytes, stored once per distinct content.
 - `manifest.jsonl`: one line per fetch (date, hash, URL, whether parse succeeded).
 
+Manifest paths are relative to the store root (`<source_id>/objects/...`), so the host and the containers
+can mount the data folder at different places and still read the same manifest. Older manifests with absolute
+paths are rebased onto the root when read, and rewritten as relative on the next `mark_good`.
+
 A fetch that returns identical bytes adds a manifest line (so `as_of` moves forward) but no new object.
 """
 
@@ -33,17 +37,39 @@ class Snapshot:
     new_content: bool = True  # False when identical to the previous snapshot of this source
     good: bool = False  # True once parse() succeeded on it
 
-    def to_json(self) -> dict[str, Any]:
+    def to_json(self, root: Path) -> dict[str, Any]:
+        """Manifest form. A path inside `root` is stored relative to it; anything else stays as it is."""
         data = asdict(self)
         data["fetched_at"] = self.fetched_at.isoformat()
-        data["path"] = str(self.path)
+        data["path"] = (
+            self.path.relative_to(root).as_posix() if self.path.is_relative_to(root) else str(self.path)
+        )
         return data
 
     @classmethod
-    def from_json(cls, data: dict[str, Any]) -> Snapshot:
+    def from_json(cls, data: dict[str, Any], root: Path) -> Snapshot:
         return cls(
-            **{**data, "fetched_at": datetime.fromisoformat(data["fetched_at"]), "path": Path(data["path"])}
+            **{
+                **data,
+                "fetched_at": datetime.fromisoformat(data["fetched_at"]),
+                "path": resolve_path(data["path"], root, data["source_id"]),
+            }
         )
+
+
+def resolve_path(stored: str, root: Path, source_id: str) -> Path:
+    """Turn a manifest path into a real one under `root`.
+
+    Relative paths are joined to `root`. An absolute path comes from an older manifest written on another
+    mount point (host vs Docker): take the part from `<source_id>/` on and put it under `root`.
+    """
+    path = Path(stored)
+    if not path.is_absolute():
+        return root / path
+    parts = path.parts
+    if source_id in parts:
+        return root.joinpath(*parts[len(parts) - 1 - parts[::-1].index(source_id) :])
+    return path
 
 
 def object_path(objects_dir: Path, sha: str, suffix: str) -> Path:
@@ -112,7 +138,7 @@ class SnapshotStore:
             new_content=previous is None or previous.sha256 != sha,
         )
         with self._manifest(source_id).open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(snap.to_json(), ensure_ascii=False) + "\n")
+            fh.write(json.dumps(snap.to_json(self.root), ensure_ascii=False) + "\n")
         return snap
 
     def put_object(self, source_id: str, content: bytes, *, suffix: str = ".bin") -> str:
@@ -144,7 +170,7 @@ class SnapshotStore:
         if not manifest.exists():
             return []
         lines = manifest.read_text(encoding="utf-8").splitlines()
-        return [Snapshot.from_json(json.loads(line)) for line in lines if line.strip()]
+        return [Snapshot.from_json(json.loads(line), self.root) for line in lines if line.strip()]
 
     def latest(self, source_id: str) -> Snapshot | None:
         history = self.history(source_id)
@@ -159,9 +185,9 @@ class SnapshotStore:
         history = self.history(snapshot.source_id)
         updated = replace(snapshot, good=True)
         lines = [
-            updated.to_json()
+            updated.to_json(self.root)
             if (s.sha256, s.fetched_at) == (snapshot.sha256, snapshot.fetched_at)
-            else s.to_json()
+            else s.to_json(self.root)
             for s in history
         ]
         manifest = self._manifest(snapshot.source_id)
