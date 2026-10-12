@@ -48,7 +48,7 @@ def test_owner_workflow_end_to_end(tmp_path: Path) -> None:
             Node(id=2, location=(16.99, 52.46), tags={"power": "substation", "operator": "Enea Operator"})
         )
     store = SnapshotStore(tmp_path / "raw")
-    osm = OsmPowerConnector(_spec("osm_power"), min_substations=2)
+    osm = OsmPowerConnector(_spec("osm_power"), min_substations=2, min_available_mb=0)
     osm_snapshot = store.save("osm_power", pbf.read_bytes(), suffix=".osm.pbf")
     substations, lines = to_grid(osm.parse(osm_snapshot))
     piaski = next(s for s in substations if s.name == "GPZ Piaski")

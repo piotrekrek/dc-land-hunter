@@ -75,6 +75,9 @@ def _snapshot(path: Path) -> Snapshot:
 
 
 def _connector(**kwargs: object) -> OsmPowerConnector:
+    kwargs.setdefault(
+        "min_available_mb", 0
+    )  # the memory guard must not depend on the machine running the tests
     return OsmPowerConnector(_spec(), min_substations=kwargs.pop("min_substations", 2), **kwargs)  # type: ignore[arg-type]
 
 
@@ -108,7 +111,7 @@ def test_operator_reaches_the_grid_so_utility_stations_are_not_own_substations(p
 
 def test_extract_with_too_few_substations_is_rejected(pbf: Path) -> None:
     with pytest.raises(ValueError, match="expected at least 1000"):
-        OsmPowerConnector(_spec()).parse(_snapshot(pbf))
+        OsmPowerConnector(_spec(), min_available_mb=0).parse(_snapshot(pbf))
 
 
 def test_substations_outside_poland_are_rejected(tmp_path: Path) -> None:
@@ -313,9 +316,19 @@ def test_parse_refuses_to_start_when_memory_is_short(tmp_path: Path, monkeypatch
         require_free_memory(800)
     path = _write_many_nodes_pbf(tmp_path / "many.osm.pbf")
     with pytest.raises(MemoryError):
-        _connector(min_substations=1).parse(_snapshot(path))
+        _connector(min_substations=1, min_available_mb=800).parse(_snapshot(path))
 
 
 def test_unknown_memory_does_not_block_the_parse(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("dclh_pipeline.sources.osm_power.available_memory_mb", lambda: None)
     require_free_memory(10**9)  # no /proc/meminfo: nothing to check
+
+
+def test_node_batches_split_at_the_real_span() -> None:
+    from dclh_pipeline.sources import osm_power
+
+    span = osm_power.MAX_ID_SPAN
+    wanted = np.array(
+        [1, span, span + 1, 3 * span]
+    )  # first and last id of a batch are less than `span` apart
+    assert _id_batches(wanted) == [[1, span], [span + 1], [3 * span]]
