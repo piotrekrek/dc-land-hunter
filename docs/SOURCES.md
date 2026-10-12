@@ -4,37 +4,38 @@ Status of every source in `config/sources.yaml` (brief section 4). Each MVP sour
 status in Phase 0: ✓ verified, ⚠ reachable but the data endpoint still needs confirming (or some probes
 failed), ✗ unreachable, ⏳ not yet checked.
 
-## Current state (run of 10.10.2026, 22:55 UTC)
+## Current state (run of 12.10.2026, 07:11 UTC, from the owner's VPS in Poland)
 
-Phase 0 verification is done for all 24 MVP sources: each has a status from a run on a Polish server
-(`data/discovery/discovery-2026-10-10T2255.json`, the detailed report).
+Phase 0 verification is done for all 23 automated MVP sources (`kowr` became manual-only): each has a status
+from a run on a Polish server (`data/discovery/discovery-2026-10-12T071115.json`, the detailed report).
 
 | Status | Count | Meaning |
 |---|---|---|
-| ✓ | 10 | Verified: a data endpoint answered with real capabilities (WFS/WMS/ArcGIS) or a downloadable file |
-| ⚠ | 11 | Reachable, but the data endpoint is not confirmed yet (candidate links only, or a 404) |
-| ✗ | 2 | Unusable at the time of the run: `enea` (domain-for-sale page, since fixed); `kowr` (bot-protection challenge) |
+| ✓ | 11 | Verified: a data endpoint answered with real capabilities (WFS/WMS/ArcGIS) or a downloadable file |
+| ⚠ | 12 | Reachable, but the data endpoint is not confirmed yet (candidate links only, or a 404) |
+| ✗ | 0 | None. `kowr` (bot-protection challenge) is now manual-only |
 | – | 1 | `invest_offers`: manual CSV import by design, no probe |
 
-**Verified (✓):** `prg`, `osm_power`, `osm_land`, `kimpzp`, `egib`, `uldk`, `kiug`, `gdos`, `midas`, `nid`.
+**Verified (✓):** `prg`, `osm_power`, `osm_land`, `kimpzp`, `egib`, `uldk`, `kiug`, `gdos`, `midas`, `nid` (`nid` joined on 12.10.2026).
 
 **Open before Phase 1 can rely on them:**
 - `bdot10k`: the OPENDATA page returns 404; the WFS offers only one layer. Find the current download URL.
-- `ru`, `enea`, `energa`, `tauron`: the browser capture did not run (Playwright was not installed on the server).
-  Run `uv sync --extra discovery` on the server, then rerun discovery with `--capture-network`.
-- `enea`: the old domain is parked. The probe now points at `www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce`
-  (commit c67e187), but the ✗ above is from the run before that change. Rerun discovery to confirm. The page is
+- `ru`, `enea`, `energa`, `tauron`: the browser capture now runs (60, 18, 1 and 15 data requests). The recorded
+  calls still have to be inspected to pick the real data endpoint. `energa` shows only 1 request.
+- `enea`: the probe points at `www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce` and answers. The page is
   renewables-oriented and county-level, so check it against the GPZ-level signal the brief assumes.
+- `tauron`: `dostepnemoce.pl` redirects to `dostepnemoce.tauron-dystrybucja.pl` (a different domain; confirm it is
+  the real site). The guessed `/wp-json/tauron-connector/v1/map/sources` returns 404.
 - `uke` and `isok`, `pse_*`, `psi`, `heat`: candidate links were found in pages; each still needs its real
   data file or service confirmed.
-- `kowr`: bot protection; plan is manual CSV import unless its terms allow automated access.
+- `kowr`: bot protection. Decided on 12.10.2026: manual-only (link plus manual CSV import), no automation.
 
 Unverified endpoints are not used by any connector until they are confirmed in this file.
 
 ## Generated discovery table
 
 <!-- discovery:begin -->
-Run: 2026-10-10 23:19 UTC · from: VPS
+Run: 2026-10-12 07:11 UTC · from: VPS (owner's Polish-IP machine)
 
 | Status | Source | Plan | Probes |
 |---|---|---|---|
@@ -50,13 +51,13 @@ Run: 2026-10-10 23:19 UTC · from: VPS
 | ✓ | `gdos` GDOŚ Geoserwis – formy ochrony przyrody | mvp | ogc: ok · 200 · 2.0.0 · 23 layers · CountDefault 1000000 |
 | ⚠ | `isok` ISOK – mapy zagrożenia powodziowego | mvp | page: ok · 200 · 1 endpoint candidates |
 | ✓ | `midas` PIG-PIB MIDAS – obszary i tereny górnicze | mvp | arcgis: ok · 200 |
-| ⚠ | `nid` NID – rejestr zabytków i stanowiska archeologiczne | mvp | http: ok · 200<br>page: failed · ReadTimeout: The read operation timed out |
+| ✓ | `nid` NID – rejestr zabytków i stanowiska archeologiczne | mvp | http: ok · 200<br>page: ok · 200 · 4 endpoint candidates |
 | ⚠ | `pse_closed` PSE – zamknięte rozdzielnie (brak warunków przyłączenia) | mvp | page: ok · 200 · 3 endpoint candidates |
 | ⚠ | `pse_odb` PSE – wykaz wydanych warunków przyłączenia (odbiorcy) | mvp | page: ok · 200 · 3 endpoint candidates |
 | ⚠ | `pse_avail` PSE – raport o dostępnych mocach przyłączeniowych | mvp | page: ok · 200 · 3 endpoint candidates |
 | ⚠ | `enea` Enea Operator – mapa dostępnych mocy dla odbiorców | mvp | page: ok · 200 · 1 endpoint candidates<br>browser: ok · 18 data requests |
 | ⚠ | `energa` Energa-Operator – dostępne moce odbiorcze | mvp | page: ok · 200 · 0 endpoint candidates<br>browser: ok · 1 data requests |
-| ⚠ | `tauron` Tauron Dystrybucja – dostepnemoce.pl | mvp | page: ok · 200 · 12 endpoint candidates<br>browser: ok · 15 data requests |
+| ⚠ | `tauron` Tauron Dystrybucja – dostepnemoce.pl | mvp | page: ok · 200 · 12 endpoint candidates<br>browser: ok · 15 data requests<br>http: failed · 404 |
 | – | `dso_portals` Nowe portale mocy OSD (nowelizacja 2026) | v2 | – |
 | ⚠ | `uke` UKE – infrastruktura telekomunikacyjna | mvp | page: ok · 200 · 5 endpoint candidates |
 | ⚠ | `psi` Polska Strefa Inwestycji – mapa pomocy regionalnej | mvp | page: ok · 200 · 38 endpoint candidates |
@@ -66,6 +67,20 @@ Run: 2026-10-10 23:19 UTC · from: VPS
 | – | `bazaoos` GDOŚ – Baza OOŚ (decyzje środowiskowe) | manual | – |
 | – | `ekw` Księgi wieczyste (EKW) | manual | – |
 | – | `bip` BIP gmin | v2 | – |
+
+### Przekierowania do przeglądu (nie zastosowane automatycznie)
+
+| Source | Status | Z | Na | Uwaga |
+|---|---|---|---|---|
+| `osm_power` | 307 | https://download.geofabrik.de/europe/poland-latest.osm.pbf | https://download.geofabrik.de/europe/poland-261011.osm.pbf | ta sama domena |
+| `osm_land` | 307 | https://download.geofabrik.de/europe/poland-latest.osm.pbf | https://download.geofabrik.de/europe/poland-261011.osm.pbf | ta sama domena |
+| `isok` | 307 | https://wody.isok.gov.pl/ | https://wody.isok.gov.pl/index.html | ta sama domena |
+| `nid` | 302 | https://mapy.zabytek.gov.pl/ | https://mapy.zabytek.gov.pl/nid/ | ta sama domena |
+| `pse_closed` | 301 | https://www.pse.pl/ | https://www.pse.pl/home | ta sama domena |
+| `pse_odb` | 301 | https://www.pse.pl/ | https://www.pse.pl/home | ta sama domena |
+| `pse_avail` | 301 | https://www.pse.pl/ | https://www.pse.pl/home | ta sama domena |
+| `tauron` | 301 | https://dostepnemoce.pl/ | https://dostepnemoce.tauron-dystrybucja.pl/ | **inna domena**: sprawdzić, czy to nie strona parkingowa |
+| `psi` | 301 | https://www.gov.pl/web/fundusze-regiony/polska-strefa-inwestycji | https://www.gov.pl/ | ta sama domena |
 <!-- discovery:end -->
 
 ## MVP sources: candidate endpoints, format, licence, fallback
@@ -128,5 +143,5 @@ Fallback order for interactive maps (brief): JSON endpoint → Playwright → ma
 - **enea / energa / tauron**: JSON endpoints behind the maps; terms of use; whether Energa publishes
   load capacity at all.
 - **uke**: which public dataset gives telecom node locations.
-- **kowr**: terms of use and robots.txt before any scraping (else manual CSV).
+- **kowr**: manual-only (owner decision 12.10.2026); no scraping.
 - **heat**: whether URE publishes concession holders as a machine-readable list.

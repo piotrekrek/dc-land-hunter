@@ -254,14 +254,14 @@ sources:
 
   - id: kowr
     name: KOWR – oferty nieruchomości rolnych
-    used_for: Nowe oferty gruntów ≥1 ha w AOI
-    plan: mvp
-    cadence: daily
+    used_for: Nowe oferty gruntów ≥1 ha w AOI (ręczny import CSV)
+    plan: manual
+    cadence: none
     core: false
-    licence_expected: "Sprawdzić regulamin i robots.txt przed automatyzacją"
-    notes: "Grzeczny scraping tylko jeśli regulamin pozwala; inaczej ręczny import CSV."
-    probes:
-      - {kind: page, url: "https://nieruchomoscikowr.gov.pl/", keywords: ["oferty", "sprzedaż", "przetarg", "regulamin"]}
+    licence_expected: "Strona za ochroną antybotową; automatyzacja wyłączona decyzją właściciela (12.10.2026)"
+    notes: "Tylko link i ręczny import CSV wg szablonu data/manual/invest_offers_template.csv."
+    manual_url: "https://nieruchomoscikowr.gov.pl/"
+    probes: []
 
   - id: invest_offers
     name: Oferty inwestycyjne gmin / SSE / COI
