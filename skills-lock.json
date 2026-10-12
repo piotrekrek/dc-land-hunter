@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "rigorous-coding": {
+      "source": "jarrodwatts/claude-code-config",
+      "sourceType": "github",
+      "skillPath": "skills/rigorous-coding/SKILL.md",
+      "computedHash": "53b2418019c44e8841202602df84b682596ea0a0bf2047a2c58594c6b422fa60"
+    }
+  }
+}

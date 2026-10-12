@@ -19,6 +19,8 @@ The phase plan is in `docs/PLAN.md` and the current state is in `docs/STATUS.md`
 - Polish formatting in the UI: `12,5 ha`, `8 MW`, `2,3 km`, dates `dd.mm.rrrr` (helpers in `web/src/lib/format.ts`).
 - Source endpoints are unverified until `docs/SOURCES.md` marks them ✓. Many Polish public services block
   non-Polish IPs, so the discovery command (`uv run dclh discover`) must run from a machine in Poland.
+- Whenever you write, implement or review code, invoke the `rigorous-coding` skill first (`.claude/skills/rigorous-coding`):
+  state assumptions before coding, don't claim correctness you haven't verified, and cover more than the happy path.
 
 ## Git workflow
 
