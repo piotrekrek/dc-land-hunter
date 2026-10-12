@@ -33,7 +33,7 @@ dclh-api = { workspace = true }
 [tool.ruff]
 line-length = 110
 target-version = "py312"
-extend-exclude = ["web", "data"]
+extend-exclude = ["web", "data", ".claude"]  # vendored skill scripts, not project code
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "PTH", "DTZ"]
