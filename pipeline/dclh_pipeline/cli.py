@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import resource
 from pathlib import Path
 from typing import Annotated
 
@@ -102,7 +103,13 @@ def discover_cmd(
 
 
 @app.command("fetch")
-def fetch_cmd(source: Annotated[str, typer.Argument(help="Source id, e.g. prg")]) -> None:
+def fetch_cmd(
+    source: Annotated[str, typer.Argument(help="Source id, e.g. prg")],
+    reuse: Annotated[
+        bool,
+        typer.Option("--reuse", help="Parse the latest saved snapshot instead of downloading again"),
+    ] = False,
+) -> None:
     """Fetch and parse one source now, without the database. Saves the snapshot under data/raw."""
     if source not in CONNECTORS:
         raise typer.BadParameter(f"no connector for {source!r}; available: {sorted(CONNECTORS)}")
@@ -111,16 +118,27 @@ def fetch_cmd(source: Annotated[str, typer.Argument(help="Source id, e.g. prg")]
     spec = next(s for s in config.sources if s.id == source)
     connector = CONNECTORS[source](spec)
     store = SnapshotStore(settings.raw_dir)
-    with PoliteClient(
-        user_agent=settings.user_agent,
-        rate_limit_per_s=config.defaults.rate_limit_per_s,
-        timeout_s=config.defaults.timeout_s,
-        retries=2,
-    ) as client:
-        snapshot = connector.fetch(client, store)
+    if reuse:
+        saved = store.latest(source)
+        if saved is None:
+            raise typer.BadParameter(f"no saved snapshot of {source!r} to reuse; run without --reuse first")
+        snapshot = saved
+    else:
+        with PoliteClient(
+            user_agent=settings.user_agent,
+            rate_limit_per_s=config.defaults.rate_limit_per_s,
+            timeout_s=config.defaults.timeout_s,
+            retries=2,
+        ) as client:
+            snapshot = connector.fetch(client, store)
     console.print(f"snapshot {snapshot.sha256[:12]} · {snapshot.size_bytes} bytes · {snapshot.path}")
     table = connector.parse(snapshot)
-    console.print(f"parsed {len(table)} rows · columns {list(table.columns)}")
+    store.mark_good(snapshot)  # parse worked, so this snapshot can serve as the fallback later
+    # ru_maxrss is in kilobytes on Linux
+    console.print(
+        f"parsed {len(table)} rows · columns {list(table.columns)} · "
+        f"peak memory {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024:.0f} MB"
+    )
     group = next((col for col in ("level", "kind") if col in table.columns), None)
     if group:
         console.print(table.drop(columns="geometry").groupby(group).size().to_string())

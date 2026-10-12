@@ -17,10 +17,13 @@ substation's `name` is what lets DSO capacity lists be matched to it (`model/gpz
 from __future__ import annotations
 
 import tempfile
+from array import array
+from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar
 
 import geopandas as gpd
+import numpy as np
 import osmium
 import pandas as pd
 from shapely.geometry import LineString, Point, Polygon
@@ -68,37 +71,48 @@ class OsmPowerConnector(Source):
             )
 
     def parse(self, snapshot: Snapshot) -> gpd.GeoDataFrame:
+        """Read the power objects in three passes, so memory stays small.
+
+        One pass with a location index for every node in Poland (over 200 million) needs several GB and was
+        killed by the out-of-memory killer on a 2 GB VPS. Here only the nodes that power ways use are kept
+        (a few million), plus the power-tagged nodes.
+        """
+        path = str(snapshot.path)
+        ways = _power_ways(path)
+        locations = _NodeLocations.read(path, [ref for way in ways for ref in way.refs])
         rows: list[dict[str, object]] = []
         geoms: list[BaseGeometry] = []
-        processor = (
-            osmium.FileProcessor(str(snapshot.path), osmium.osm.NODE | osmium.osm.WAY)
-            .with_locations()
-            .with_filter(osmium.filter.KeyFilter("power"))
-        )
-        for obj in processor:
-            if not isinstance(obj, (osmium.osm.Node, osmium.osm.Way)):
-                continue
-            is_way = isinstance(obj, osmium.osm.Way)
-            kind = _kind(obj.tags.get("power"), is_way=is_way)
-            if kind is None:
-                continue
-            geom = _way_geometry(obj, kind) if isinstance(obj, osmium.osm.Way) else _node_point(obj)
-            if geom is None:
-                continue
-            rows.append(
-                {
-                    "kind": kind,
-                    "osm_id": obj.id + WAY_ID_OFFSET if is_way else obj.id,
-                    "name": obj.tags.get("name", ""),
-                    "operator": obj.tags.get("operator", ""),
-                    "voltage": obj.tags.get("voltage", ""),
-                }
-            )
-            geoms.append(geom)
+        for way in ways:
+            geom = locations.way_geometry(way.refs, way.kind)
+            if geom is not None:  # None: a member node is missing from the extract (cut at the border)
+                rows.append(way.row())
+                geoms.append(geom)
+        for node_row, point in _power_nodes(path):
+            rows.append(node_row)
+            geoms.append(point)
         table = gpd.GeoDataFrame(pd.DataFrame(rows, columns=COLUMNS), geometry=geoms, crs="EPSG:4326")
         table = table.to_crs(f"EPSG:{EPSG}")
         _check(table, self.min_substations)
         return table
+
+
+@dataclass(frozen=True)
+class _PowerWay:
+    osm_id: int
+    kind: str
+    name: str
+    operator: str
+    voltage: str
+    refs: np.ndarray  # node ids, in order
+
+    def row(self) -> dict[str, object]:
+        return {
+            "kind": self.kind,
+            "osm_id": self.osm_id,
+            "name": self.name,
+            "operator": self.operator,
+            "voltage": self.voltage,
+        }
 
 
 def _kind(power: str | None, *, is_way: bool) -> str | None:
@@ -109,24 +123,89 @@ def _kind(power: str | None, *, is_way: bool) -> str | None:
     return None
 
 
-def _node_point(node: osmium.osm.Node) -> BaseGeometry | None:
-    if not node.location.valid():
-        return None
-    return Point(node.location.lon, node.location.lat)
+def _power_ways(path: str) -> list[_PowerWay]:
+    """Pass 1: substation outlines and power lines, with the ids of the nodes they run through."""
+    ways: list[_PowerWay] = []
+    for obj in osmium.FileProcessor(path, osmium.osm.WAY).with_filter(osmium.filter.KeyFilter("power")):
+        if not isinstance(obj, osmium.osm.Way):
+            continue
+        kind = _kind(obj.tags.get("power"), is_way=True)
+        refs = np.fromiter((n.ref for n in obj.nodes), dtype=np.int64)
+        if kind is None or len(refs) < 2:
+            continue
+        ways.append(
+            _PowerWay(
+                osm_id=obj.id + WAY_ID_OFFSET,
+                kind=kind,
+                name=obj.tags.get("name") or "",
+                operator=obj.tags.get("operator") or "",
+                voltage=obj.tags.get("voltage") or "",
+                refs=refs,
+            )
+        )
+    return ways
 
 
-def _way_geometry(way: osmium.osm.Way, kind: str) -> BaseGeometry | None:
-    try:
-        coords = [(n.lon, n.lat) for n in way.nodes]
-    except osmium.InvalidLocationError:
-        return None  # a member node is missing from the extract (cut at the border)
-    if len(coords) < 2:
-        return None
-    if kind == "line":
-        return LineString(coords)
-    if len(coords) >= 4 and coords[0] == coords[-1]:
-        return Polygon(coords).centroid  # a substation outline: use its centre as the location
-    return LineString(coords).centroid
+class _NodeLocations:
+    """Longitude and latitude of a chosen set of nodes, sorted by id for lookup."""
+
+    def __init__(self, ids: np.ndarray, lon: np.ndarray, lat: np.ndarray) -> None:
+        order = np.argsort(ids)
+        self.ids, self.lon, self.lat = ids[order], lon[order], lat[order]
+
+    @classmethod
+    def read(cls, path: str, wanted: list[int]) -> _NodeLocations:
+        """Pass 2: only the nodes in `wanted` are decoded; the other 200 million are skipped."""
+        ids: array[int] = array("q")
+        lon: array[float] = array("d")
+        lat: array[float] = array("d")
+        if wanted:
+            unique = np.unique(np.asarray(wanted, dtype=np.int64)).tolist()
+            for obj in osmium.FileProcessor(path, osmium.osm.NODE).with_filter(
+                osmium.filter.IdFilter(unique)
+            ):
+                if isinstance(obj, osmium.osm.Node) and obj.location.valid():
+                    ids.append(obj.id)
+                    lon.append(obj.location.lon)
+                    lat.append(obj.location.lat)
+        return cls(
+            np.frombuffer(ids, dtype=np.int64),
+            np.frombuffer(lon, dtype=np.float64),
+            np.frombuffer(lat, dtype=np.float64),
+        )
+
+    def way_geometry(self, refs: np.ndarray, kind: str) -> BaseGeometry | None:
+        if not len(self.ids):
+            return None
+        pos = np.searchsorted(self.ids, refs)
+        if (pos >= len(self.ids)).any() or (self.ids[pos] != refs).any():
+            return None  # a member node is not in the extract
+        coords = np.column_stack((self.lon[pos], self.lat[pos]))
+        if kind == "line":
+            return LineString(coords)
+        if len(coords) >= 4 and (coords[0] == coords[-1]).all():
+            return Polygon(coords).centroid  # a substation outline: use its centre as the location
+        return LineString(coords).centroid
+
+
+def _power_nodes(path: str) -> list[tuple[dict[str, object], BaseGeometry]]:
+    """Pass 3: substations mapped as a single node."""
+    out: list[tuple[dict[str, object], BaseGeometry]] = []
+    for obj in osmium.FileProcessor(path, osmium.osm.NODE).with_filter(osmium.filter.KeyFilter("power")):
+        if not isinstance(obj, osmium.osm.Node) or not obj.location.valid():
+            continue
+        kind = _kind(obj.tags.get("power"), is_way=False)
+        if kind is None:
+            continue
+        row: dict[str, object] = {
+            "kind": kind,
+            "osm_id": obj.id,
+            "name": obj.tags.get("name", ""),
+            "operator": obj.tags.get("operator", ""),
+            "voltage": obj.tags.get("voltage", ""),
+        }
+        out.append((row, Point(obj.location.lon, obj.location.lat)))
+    return out
 
 
 def _check(table: gpd.GeoDataFrame, min_substations: int) -> None:

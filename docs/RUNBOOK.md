@@ -142,6 +142,17 @@ uv run dclh fetch osm_power   # streams the ~2 GB Poland extract; run on the VPS
 A download whose size differs from `Content-Length` is rejected, as is an extract with fewer than 1,000
 substations or substations outside Poland. Substation names and operators feed the GPZ matching.
 
+The download is about 2 GB and takes minutes. To parse the snapshot you already have without downloading again:
+
+```bash
+uv run dclh fetch osm_power --reuse
+```
+
+The last line before the counts shows the peak memory of the parse. On the 2 GB VPS the first version of the parser
+(one pass with a location index for every node in Poland) was killed by the out-of-memory killer (`Killed` at the end
+of the log). The parser now reads in three passes and keeps only the nodes that power ways use. Run long fetches in the
+background (`exec -d worker sh -c '... > /data/osm_fetch.log 2>&1'`) and check the end of the log.
+
 ## Troubleshooting
 
 | Symptom | Check |

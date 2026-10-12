@@ -18,7 +18,7 @@ from dclh_pipeline.model.features import build_grid_index
 from dclh_pipeline.model.gpz_match import gpz_candidates
 from dclh_pipeline.model.grid import WAY_ID_OFFSET, SubstationClass, osm_ref, parse_osm_ref
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
-from dclh_pipeline.sources.osm_power import OsmPowerConnector, to_grid
+from dclh_pipeline.sources.osm_power import OsmPowerConnector, _NodeLocations, to_grid
 
 ClientFactory = Callable[..., PoliteClient]
 
@@ -166,3 +166,41 @@ def test_osm_refs_round_trip_and_never_collide() -> None:
     assert parse_osm_ref("W5") == WAY_ID_OFFSET + 5
     with pytest.raises(ValueError, match="not an OSM reference"):
         parse_osm_ref("r5")
+
+
+def _write_many_nodes_pbf(path: Path, *, drop_node: int | None = None) -> Path:
+    """5,000 unrelated nodes plus one power line through nodes 9001, 9002, 9003 (west to east)."""
+    with osmium.SimpleWriter(str(path)) as w:
+        for node_id in range(1, 5001):
+            w.add_node(Node(id=node_id, location=(14.0 + node_id / 1000, 50.0)))
+        for node_id, lon in [(9001, 17.0), (9002, 17.1), (9003, 17.2)]:
+            if node_id != drop_node:
+                w.add_node(Node(id=node_id, location=(lon, 52.0)))
+        w.add_node(
+            Node(id=9100, location=(17.0, 52.1), tags={"power": "substation", "voltage": "110000;15000"})
+        )
+        w.add_way(Way(id=50, nodes=[9001, 9002, 9003], tags={"power": "line", "voltage": "110000"}))
+    return path
+
+
+def test_only_the_nodes_that_power_ways_use_are_kept_in_memory(tmp_path: Path) -> None:
+    path = _write_many_nodes_pbf(tmp_path / "many.osm.pbf")
+    locations = _NodeLocations.read(str(path), [9001, 9002, 9003, 9003])
+    assert list(locations.ids) == [9001, 9002, 9003]  # 5,000 other nodes were not decoded or stored
+
+
+def test_line_geometry_follows_the_node_order(tmp_path: Path) -> None:
+    path = _write_many_nodes_pbf(tmp_path / "many.osm.pbf")
+    table = _connector(min_substations=1).parse(_snapshot(path))
+    line = table[table["kind"] == "line"].geometry.iloc[0]
+    xs = [x for x, _ in line.coords]
+    assert xs == sorted(xs)  # west to east, as the nodes were listed
+    assert len(xs) == 3
+    assert table[table["kind"] == "substation"]["osm_id"].tolist() == [9100]
+
+
+def test_a_way_with_a_node_missing_from_the_extract_is_skipped_not_fatal(tmp_path: Path) -> None:
+    path = _write_many_nodes_pbf(tmp_path / "cut.osm.pbf", drop_node=9002)  # cut at the border
+    table = _connector(min_substations=1).parse(_snapshot(path))
+    assert "line" not in set(table["kind"])
+    assert len(table) == 1  # the substation node is still read
