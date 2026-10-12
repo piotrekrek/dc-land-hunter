@@ -71,6 +71,12 @@ prefilter:
   gpz110_km: 5
   node_220_400_km: 25
 
+# Search (dclh search). Parcels below min_parcel_ha are ignored before clustering: EGiB has no land use, so
+# without a zoning layer this is what keeps town lots from chaining into one huge "site". Clusters above
+# target.large_site_split_ha are cut into pieces of about that size.
+search:
+  min_parcel_ha: 1.0
+
 # Connection-cost calculator (brief section 3, Prawo energetyczne amendment of 30.04.2026).
 # NEEDS LEGAL VERIFICATION. Shown in the UI with the label "wymaga weryfikacji prawnej".
 connection_cost:

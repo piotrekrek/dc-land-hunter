@@ -76,13 +76,36 @@ def _compactness(geom: BaseGeometry) -> float:
     return float(4 * math.pi * geom.area / perimeter**2)
 
 
+def _split_by_grid(group: list[Parcel], max_site_ha: float, gap_m: float) -> list[list[Parcel]]:
+    """Cut an oversized cluster along a square grid, assigning each parcel by its centroid.
+
+    The cell area is `max_site_ha`, so each piece is roughly that size. Each cell is re-clustered, because a
+    cell can hold parcels that are no longer connected to each other.
+    """
+    side = math.sqrt(max_site_ha * 10_000)
+    cells: dict[tuple[int, int], list[Parcel]] = defaultdict(list)
+    for parcel in group:
+        c = parcel.geom.centroid
+        cells[(math.floor(c.x / side), math.floor(c.y / side))].append(parcel)
+    pieces: list[list[Parcel]] = []
+    for key in sorted(cells):
+        members = cells[key]
+        pieces.extend([members[i] for i in comp] for comp in _components([p.geom for p in members], gap_m))
+    return pieces
+
+
 def cluster_sites(
     parcels: Iterable[Parcel],
     *,
     gap_m: float = GAP_M,
     mw_per_ha: float = DEFAULT_MW_PER_HA,
+    max_site_ha: float | None = None,
 ) -> list[Site]:
     """Cluster parcels into sites, per zone. Parcels with no zone are clustered among themselves.
+
+    With `max_site_ha`, a cluster larger than that is cut into pieces of about that size
+    (flag `split_cluster`).
+    Without zoning, adjacency alone chains a whole town into one cluster, so the search always sets it.
 
     The result is sorted by `site_id` so repeated runs give the same order.
     """
@@ -93,14 +116,22 @@ def cluster_sites(
     sites: list[Site] = []
     for zone_id, zone_parcels in by_zone.items():
         geoms = [p.geom for p in zone_parcels]
+        groups: list[tuple[list[Parcel], bool]] = []
         for members in _components(geoms, gap_m):
             group = [zone_parcels[i] for i in members]
+            if max_site_ha is not None and sum(p.geom.area for p in group) / 10_000 > max_site_ha:
+                groups.extend((piece, True) for piece in _split_by_grid(group, max_site_ha, gap_m))
+            else:
+                groups.append((group, False))
+        for group, was_split in groups:
             ids = tuple(sorted(p.parcel_id for p in group))
             geom = union_all([p.geom for p in group])
             area_ha = geom.area / 10_000
             flags: list[str] = []
             if len(group) > 1:
                 flags.append("multi_parcel")
+            if was_split:
+                flags.append("split_cluster")
             if zone_id is None:
                 flags.append("no_zone")
             sites.append(

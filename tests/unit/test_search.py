@@ -88,3 +88,18 @@ def test_no_seed_does_not_call_the_fetcher() -> None:
 def test_search_needs_the_grid() -> None:
     with pytest.raises(ValueError, match="grid"):
         run_search(AREA, SiteLayers(), CFG, lambda tiles: parcels())
+
+
+def test_small_lots_do_not_chain_into_one_site() -> None:
+    # A town: 400 lots of 0.04 ha in a 20 x 20 grid, plus one 16 ha field next to it.
+    lots = [
+        (f"lot-{i}-{j}", box(X0 + i * 20, Y0 + j * 20, X0 + i * 20 + 20, Y0 + j * 20 + 20))
+        for i in range(20)
+        for j in range(20)
+    ]
+    field = ("field", box(X0 + 400, Y0, X0 + 800, Y0 + 400))
+    rows = [*lots, field]
+    frame = gpd.GeoDataFrame({"parcel_id": [r[0] for r in rows]}, geometry=[r[1] for r in rows], crs=2180)
+    result = run_search(AREA, SiteLayers(grid=grid()), CFG, lambda tiles: frame)
+    assert result.report.parcels_below_min == 400
+    assert [s.site.parcel_ids for s in result.scored] == [("field",)]

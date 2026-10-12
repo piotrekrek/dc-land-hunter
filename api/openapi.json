@@ -1085,6 +1085,12 @@
           "prefilter": {
             "$ref": "#/components/schemas/Prefilter"
           },
+          "search": {
+            "$ref": "#/components/schemas/SearchParams",
+            "default": {
+              "min_parcel_ha": 1.0
+            }
+          },
           "connection_cost": {
             "$ref": "#/components/schemas/ConnectionCost"
           }
@@ -1105,6 +1111,19 @@
           "connection_cost"
         ],
         "title": "ScoringConfig"
+      },
+      "SearchParams": {
+        "properties": {
+          "min_parcel_ha": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Min Parcel Ha",
+            "default": 1.0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SearchParams"
       },
       "SiteDetail": {
         "properties": {

@@ -439,7 +439,21 @@ export interface components {
             bonus: components["schemas"]["BonusParams"];
             penalties: components["schemas"]["Penalties"];
             prefilter: components["schemas"]["Prefilter"];
+            /**
+             * @default {
+             *       "min_parcel_ha": 1
+             *     }
+             */
+            search: components["schemas"]["SearchParams"];
             connection_cost: components["schemas"]["ConnectionCost"];
+        };
+        /** SearchParams */
+        SearchParams: {
+            /**
+             * Min Parcel Ha
+             * @default 1
+             */
+            min_parcel_ha: number;
         };
         /** SiteDetail */
         SiteDetail: {
