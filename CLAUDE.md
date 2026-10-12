@@ -21,6 +21,9 @@ The phase plan is in `docs/PLAN.md` and the current state is in `docs/STATUS.md`
   non-Polish IPs, so the discovery command (`uv run dclh discover`) must run from a machine in Poland.
 - Whenever you write, implement or review code, invoke the `rigorous-coding` skill first (`.claude/skills/rigorous-coding`):
   state assumptions before coding, don't claim correctness you haven't verified, and cover more than the happy path.
+- Plans go in `docs/PLAN.md`, not `docs/superpowers/plans/` (overrides `writing-plans`).
+- Never merge a branch locally or into `main`. Open a PR and let the owner merge (overrides the "merge locally" option in `finishing-a-development-branch`).
+- Skill use cases and open decisions: `docs/SKILLS.md`.
 
 ## Git workflow
 
