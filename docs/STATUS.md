@@ -215,3 +215,17 @@ Not done yet (needs real data from a machine in Poland):
 
 Next on the VPS: `uv run dclh fetch prg`. If it fails on fields or bounds, paste the error; the report lists the
 available columns, which settles the names.
+
+## Phase 1.5: `dclh search` (code on fixtures; not yet run live)
+
+- `dclh search <powiat TERYT> [--write]` (`search.py`): grid-first seed (110 kV line 3 km / GPZ 5 km / node 25 km,
+  from `scoring.yaml` `prefilter`, cut to the powiat) → 1 km EGiB tiles that touch the seed → parcels in the seed →
+  clusters → clusters under `target.ha_min` dropped and counted → `score_candidates` → optional `write_sites`.
+  Prints the funnel counts, timings per stage and peak memory (the R7 measurement).
+- Needs saved `prg` and `osm_power` snapshots (`dclh fetch prg`, `dclh fetch osm_power`) and runs from Poland.
+- 9 tests on synthetic geometry (funnel counts, seed shape, tiles, empty cases, CLI preconditions).
+- Not yet: the zoning seed (no `ru` connector), constraint and housing layers (sites are scored with those facts
+  missing, so hard filters for flood, Natura, forest and housing do not act), DSO/PSE layers, the "wymaga zmiany
+  planu" flag, the owner count. The `parcel_id` is the only EGiB attribute used.
+- **Next on the VPS:** `uv run dclh search 1421` (Pruszków, Reguły). Record the report in this file and check
+  whether the Hillwood area appears.
