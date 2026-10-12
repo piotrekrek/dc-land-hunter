@@ -22,7 +22,7 @@ from dclh_pipeline.snapshots import SnapshotStore
 from dclh_pipeline.sources.base import Source
 from dclh_pipeline.sources.egib import EgibConnector
 from dclh_pipeline.sources.manual import MANUAL_CAPACITY, MANUAL_POINTS
-from dclh_pipeline.sources.osm_power import OsmPowerConnector
+from dclh_pipeline.sources.osm_power import OsmPowerConnector, summarize_grid
 from dclh_pipeline.sources.prg import PrgConnector
 
 app = typer.Typer(help="DC Land Hunter pipeline", no_args_is_help=True)
@@ -142,6 +142,9 @@ def fetch_cmd(
     group = next((col for col in ("level", "kind") if col in table.columns), None)
     if group:
         console.print(table.drop(columns="geometry").groupby(group).size().to_string())
+    if source == "osm_power":
+        for label, count in summarize_grid(table):
+            console.print(f"{label:<60} {count:>8}")
 
 
 @app.command("import-manual")

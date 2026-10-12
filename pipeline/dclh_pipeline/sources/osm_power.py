@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import tempfile
 from array import array
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar
@@ -32,7 +33,15 @@ from shapely.geometry.base import BaseGeometry
 from dclh_pipeline.config import SourceSpec
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.model.features import Line, Substation
-from dclh_pipeline.model.grid import WAY_ID_OFFSET, classify_substation, parse_voltages
+from dclh_pipeline.model.grid import (
+    V_110,
+    V_220,
+    WAY_ID_OFFSET,
+    SubstationClass,
+    classify_substation,
+    derive_operator,
+    parse_voltages,
+)
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
 from dclh_pipeline.sources.base import Source
 from dclh_pipeline.sources.prg import EPSG, POLAND_BOUNDS
@@ -247,3 +256,55 @@ def to_grid(table: gpd.GeoDataFrame) -> tuple[list[Substation], list[Line]]:
             volts = parse_voltages(voltage_tag)
             lines.append(Line(int(rec.osm_id), volts[0] if volts else None, rec.geometry))
     return substations, lines
+
+
+def summarize_grid(table: gpd.GeoDataFrame) -> list[tuple[str, int]]:
+    """Counts that show whether the extract is usable for matching, as (label, count) rows.
+
+    Most `power=substation` objects in OSM are small medium-voltage transformer stations. What matters here
+    is how many are 110 kV GPZs, how many of those have a name (needed to match DSO capacity lists) and an
+    operator (needed to tell a factory's own substation from a utility one), and which voltage the lines
+    carry.
+    """
+    substations, lines = to_grid(table)
+    rows: list[tuple[str, int]] = [("substations, all", len(substations))]
+    for cls in SubstationClass:
+        rows.append((f"  class {cls.value}", sum(1 for s in substations if s.cls is cls)))
+    gpz = [s for s in substations if s.cls is SubstationClass.GPZ_110_SN]
+    rows.append(("GPZ 110 kV, with a name", sum(1 for s in gpz if s.name)))
+    rows.append(("GPZ 110 kV, with an operator tag", sum(1 for s in gpz if s.operator)))
+    for dso in ("enea", "energa", "tauron", "pge", "pse"):
+        rows.append(
+            (
+                f"  operator is {dso}",
+                sum(1 for s in gpz if (d := derive_operator(s.operator)) and d.value == dso),
+            )
+        )
+    rows.append(
+        (
+            "  operator is another named owner",
+            sum(1 for s in gpz if s.operator and derive_operator(s.operator) is None),
+        )
+    )
+    rows.append(
+        (
+            "110 kV substations with an owner that is not a DSO or PSE",
+            sum(
+                1
+                for s in substations
+                if any(V_110 <= v < V_220 for v in s.voltages)
+                and s.operator
+                and derive_operator(s.operator) is None
+            ),
+        )
+    )
+    rows.append(("lines, all", len(lines)))
+    bands: list[tuple[str, Callable[[int | None], bool]]] = [
+        ("  voltage 110 kV band", lambda v: v is not None and V_110 <= v < V_220),
+        ("  voltage 220 kV and above", lambda v: v is not None and v >= V_220),
+        ("  voltage below 110 kV", lambda v: v is not None and v < V_110),
+        ("  voltage missing", lambda v: v is None),
+    ]
+    for label, test in bands:
+        rows.append((label, sum(1 for ln in lines if test(ln.voltage))))
+    return rows

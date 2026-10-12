@@ -18,7 +18,7 @@ from dclh_pipeline.model.features import build_grid_index
 from dclh_pipeline.model.gpz_match import gpz_candidates
 from dclh_pipeline.model.grid import WAY_ID_OFFSET, SubstationClass, osm_ref, parse_osm_ref
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
-from dclh_pipeline.sources.osm_power import OsmPowerConnector, _NodeLocations, to_grid
+from dclh_pipeline.sources.osm_power import OsmPowerConnector, _NodeLocations, summarize_grid, to_grid
 
 ClientFactory = Callable[..., PoliteClient]
 
@@ -204,3 +204,18 @@ def test_a_way_with_a_node_missing_from_the_extract_is_skipped_not_fatal(tmp_pat
     table = _connector(min_substations=1).parse(_snapshot(path))
     assert "line" not in set(table["kind"])
     assert len(table) == 1  # the substation node is still read
+
+
+def test_summary_counts_classes_names_operators_and_line_voltages(pbf: Path) -> None:
+    rows = dict(summarize_grid(_connector().parse(_snapshot(pbf))))
+    assert rows["substations, all"] == 2
+    assert rows["  class GPZ_110_SN"] == 1
+    assert rows["  class UNKNOWN_VOLTAGE"] == 1  # the outline without a voltage tag
+    assert rows["GPZ 110 kV, with a name"] == 1
+    assert rows["GPZ 110 kV, with an operator tag"] == 1
+    assert rows["  operator is enea"] == 1
+    assert rows["  operator is tauron"] == 0
+    assert rows["110 kV substations with an owner that is not a DSO or PSE"] == 0
+    assert rows["lines, all"] == 1
+    assert rows["  voltage 110 kV band"] == 1
+    assert rows["  voltage missing"] == 0

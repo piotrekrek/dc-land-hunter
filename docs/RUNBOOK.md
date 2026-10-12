@@ -148,6 +148,10 @@ The download is about 2 GB and takes minutes. To parse the snapshot you already 
 uv run dclh fetch osm_power --reuse
 ```
 
+After the row counts, `fetch osm_power` prints a breakdown: substations by class, how many 110 kV GPZs have a name
+and an operator tag (and which DSO), 110 kV substations owned by someone else (powered-brownfield candidates), and
+lines by voltage. The first real numbers go into `docs/STATUS.md`.
+
 The last line before the counts shows the peak memory of the parse. On the 2 GB VPS the first version of the parser
 (one pass with a location index for every node in Poland) was killed by the out-of-memory killer (`Killed` at the end
 of the log). The parser now reads in three passes and keeps only the nodes that power ways use. Run long fetches in the
