@@ -42,6 +42,7 @@ class SearchReport:
     tiles: int = 0
     parcels_fetched: int = 0
     parcels_in_seed: int = 0
+    parcels_below_min: int = 0
     clusters: int = 0
     clusters_below_min_area: int = 0
     scored: int = 0
@@ -54,6 +55,7 @@ class SearchReport:
             ("Kafelki 1 km do pobrania", str(self.tiles)),
             ("Działki pobrane", str(self.parcels_fetched)),
             ("Działki w obszarze seed", str(self.parcels_in_seed)),
+            ("  pominięte (poniżej min. powierzchni działki)", str(self.parcels_below_min)),
             ("Klastry (lokalizacje)", str(self.clusters)),
             ("  poniżej minimalnej powierzchni", str(self.clusters_below_min_area)),
             ("Ocenione", str(self.scored)),
@@ -126,11 +128,15 @@ def run_search(
     started = time.monotonic()
     in_seed = fetched[fetched.geometry.intersects(seed)]
     report.parcels_in_seed = len(in_seed)
-    # No zoning layer yet, so zone_id is None and clustering is by adjacency alone.
+    # No zoning layer yet, so zone_id is None. Small lots are dropped first and oversized clusters are cut,
+    # otherwise adjacency chains a whole town into one site.
+    big_enough = in_seed[in_seed.geometry.area / 10_000 >= cfg.search.min_parcel_ha]
+    report.parcels_below_min = len(in_seed) - len(big_enough)
     parcels = [
-        Parcel(str(pid), None, geom) for pid, geom in zip(in_seed["parcel_id"], in_seed.geometry, strict=True)
+        Parcel(str(pid), None, geom)
+        for pid, geom in zip(big_enough["parcel_id"], big_enough.geometry, strict=True)
     ]
-    sites = cluster_sites(parcels, mw_per_ha=cfg.target.mw_per_ha)
+    sites = cluster_sites(parcels, mw_per_ha=cfg.target.mw_per_ha, max_site_ha=cfg.target.large_site_split_ha)
     report.clusters = len(sites)
     big = [replace(s, flags=[*s.flags, "seed_grid"]) for s in sites if s.area_ha >= cfg.target.ha_min]
     report.clusters_below_min_area = len(sites) - len(big)

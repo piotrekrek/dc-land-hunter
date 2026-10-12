@@ -244,5 +244,9 @@ available columns, which settles the names.
 - Not yet: the zoning seed (no `ru` connector), constraint and housing layers (sites are scored with those facts
   missing, so hard filters for flood, Natura, forest and housing do not act), DSO/PSE layers, the "wymaga zmiany
   planu" flag, the owner count. The `parcel_id` is the only EGiB attribute used.
-- **Next on the VPS:** `uv run dclh search 1421` (Pruszków, Reguły). Record the report in this file and check
-  whether the Hillwood area appears.
+- **First real run, powiat 1421 (12.10.2026, VPS 3.9 GB):** 314 tiles, 138,160 parcels fetched (473 s), 113,957 in
+  the seed, peak memory 827 MB. Result: **one** cluster of 26,174 ha, because adjacency chained the whole built-up
+  area together; the Hillwood area could not be told apart. Fix: parcels under `search.min_parcel_ha` (1 ha) are
+  dropped before clustering and clusters above `target.large_site_split_ha` (80 ha) are cut on a grid into pieces of
+  about that size (flag `split_cluster`). Both are blunt stand-ins for the missing zoning layer. **Next on the VPS:**
+  rerun `uv run dclh search 1421` and check whether the Hillwood area appears as its own site.

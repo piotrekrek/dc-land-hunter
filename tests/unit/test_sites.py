@@ -81,3 +81,20 @@ def test_site_constants_match_the_scoring_config() -> None:
     cfg = load_scoring()
     assert cfg.target.mw_per_ha == DEFAULT_MW_PER_HA
     assert cfg.target.large_site_split_ha == SPLIT_SUGGESTION_HA
+
+
+def test_oversized_cluster_is_cut_into_pieces_of_about_the_maximum() -> None:
+    # A 1 km x 5 km strip of ten 10 ha parcels (100 ha each km², 500 ha total), all touching.
+    strip = [Parcel(str(i), None, square(i * 500, 0, side=500)) for i in range(10)]
+    whole = cluster_sites(strip)
+    assert len(whole) == 1 and whole[0].area_ha == pytest.approx(250.0)
+    pieces = cluster_sites(strip, max_site_ha=80.0)
+    assert len(pieces) > 1
+    assert sorted(pid for s in pieces for pid in s.parcel_ids) == sorted(str(i) for i in range(10))
+    assert all("split_cluster" in s.flags for s in pieces)
+    assert cluster_sites(strip, max_site_ha=80.0) == pieces  # deterministic
+
+
+def test_cluster_under_the_maximum_is_left_alone() -> None:
+    sites = cluster_sites([Parcel("1", None, square(0, 0, side=500))], max_site_ha=80.0)
+    assert len(sites) == 1 and "split_cluster" not in sites[0].flags

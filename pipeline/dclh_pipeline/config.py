@@ -147,6 +147,11 @@ class Prefilter(_Model):
     node_220_400_km: float = Field(gt=0)
 
 
+class SearchParams(_Model):
+    # EGiB carries no land use, so without zoning the search drops town lots by size before clustering.
+    min_parcel_ha: float = Field(default=1.0, ge=0)
+
+
 class ConnectionCost(_Model):
     legal_basis: str
     verified: bool
@@ -170,6 +175,7 @@ class ScoringConfig(_Model):
     bonus: BonusParams
     penalties: Penalties
     prefilter: Prefilter
+    search: SearchParams = SearchParams()
     connection_cost: ConnectionCost
 
 
