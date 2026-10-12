@@ -1,0 +1,2662 @@
+{
+  "started_at": "2026-10-12T07:11:15.723165+00:00",
+  "finished_at": "2026-10-12T07:14:46.914489+00:00",
+  "user_agent": "DCLandHunter/0.1 (+mailto:unset@example.invalid)",
+  "ran_from": "VPS (owner's Polish-IP machine)",
+  "sources": [
+    {
+      "source_id": "prg",
+      "name": "GUGiK PRG – granice administracyjne",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "ogc",
+          "url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WFS/AdministrativeBoundaries",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/xml; charset=UTF-8",
+          "final_url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WFS/AdministrativeBoundaries?service=WFS&request=GetCapabilities&version=2.0.0",
+          "redirect_status": null,
+          "elapsed_ms": 1153,
+          "size_bytes": 76474,
+          "details": {
+            "root": "WFS_Capabilities",
+            "version": "2.0.0",
+            "title": "Usługa pobierania Państwowego Rejestru Granic - jednostki administracyjne",
+            "layer_count": 52,
+            "layers": [
+              "ms:W12_Przystan_morska",
+              "ms:W11_Port_morski",
+              "ms:W10_Reda",
+              "ms:W09_Pas_techniczny",
+              "ms:W08_Pas_ochronny",
+              "ms:W07_Pas_nadbrzezny",
+              "ms:W06_Morskie_linie_brzegowe",
+              "ms:W05_Strefa_przylegla",
+              "ms:W04_Wylaczna_strefa_ekonomiczna",
+              "ms:W03_Morskie_wody_wewnetrzne",
+              "ms:W02_Morze_terytorialne_RP",
+              "ms:W01_Linia_podstawowa_morza_terytorialnego",
+              "ms:U11_Urzad_zeglugi_srodladowej",
+              "ms:U10_Urzad_morski",
+              "ms:U09_Regionalny_zarzad_gospodarki_wodnej_PGWWP",
+              "ms:U08_Zarzad_zlewni_PGWWP",
+              "ms:U07_Regionalna_dyrekcja_lasow_panstwowych",
+              "ms:U06_Nadlesnictwo",
+              "ms:U05_Izba_administracji_skarbowej",
+              "ms:U04_Urzad_celno-skarbowy",
+              "ms:U03_Wyspecjalizowany_urzad_skarbowy",
+              "ms:U02_Urzad_skarbowy",
+              "ms:U01_Archiwum_panstwowe",
+              "ms:K13_Obszar_dzialania_szefa_obrony_cywilnej_gminy",
+              "ms:K12_Obszar_dzialania_szefa_obrony_cywilnej_powiatu",
+              "ms:K11_Obszar_dzialania_szefa_obrony_cywilnej_wojewodztwa",
+              "ms:K10_Dywizjon_strazy_granicznej",
+              "ms:K09_Placowka_strazy_granicznej",
+              "ms:K08_Oddzial_strazy_granicznej",
+              "ms:K07_Komenda_powiatowa_strazy_pozarnej",
+              "ms:K06_Komenda_wojewodzka_strazy_pozarnej",
+              "ms:K05_Komisariat_policji",
+              "ms:K04_Komenda_rejonowa_policji",
+              "ms:K03_Komenda_stoleczna_policji",
+              "ms:K02_Komenda_powiatowa_policji",
+              "ms:K01_Komenda_wojewodzka_policji",
+              "ms:P03_Prokuratura_rejonowa",
+              "ms:P02_Prokuratura_okregowa",
+              "ms:P01_Prokuratura_regionalna",
+              "ms:S04_Wojewodzki_sad_administracyjny",
+              "ms:S03_Sad_rejonowy",
+              "ms:S02_Sad_okregowy",
+              "ms:S01_Sad_apelacyjny",
+              "ms:R02_Granice_obwodow_spisowych",
+              "ms:R01_Granice_rejonow_statystycznych",
+              "ms:A06_Granice_obrebow_ewidencyjnych",
+              "ms:A05_Granice_jednostek_ewidencyjnych",
+              "ms:A04_Granice_miast",
+              "ms:A03_Granice_gmin",
+              "ms:A02_Granice_powiatow",
+              "ms:A01_Granice_wojewodztw",
+              "ms:A00_Granice_panstwa"
+            ]
+          },
+          "error": null
+        },
+        {
+          "kind": "http",
+          "url": "https://opendata.geoportal.gov.pl/prg/granice/00_jednostki_administracyjne.zip",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/octet-stream",
+          "final_url": "https://opendata.geoportal.gov.pl/prg/granice/00_jednostki_administracyjne.zip",
+          "redirect_status": null,
+          "elapsed_ms": 1380,
+          "size_bytes": 377381627,
+          "details": {},
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "osm_power",
+      "name": "OpenStreetMap – sieć elektroenergetyczna (Geofabrik)",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "http",
+          "url": "https://download.geofabrik.de/europe/poland-latest.osm.pbf",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/octet-stream",
+          "final_url": "https://download.geofabrik.de/europe/poland-261011.osm.pbf",
+          "redirect_status": 307,
+          "elapsed_ms": 1096,
+          "size_bytes": 2106806751,
+          "details": {
+            "last-modified": "Mon, 12 Oct 2026 01:19:53 GMT",
+            "etag": "\"7d9351df-65d9a7ec67978\"",
+            "accept-ranges": "bytes"
+          },
+          "error": null
+        },
+        {
+          "kind": "http",
+          "url": "https://download.geofabrik.de/europe/poland-latest.osm.pbf.md5",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/plain",
+          "final_url": "https://download.geofabrik.de/europe/poland-latest.osm.pbf.md5",
+          "redirect_status": null,
+          "elapsed_ms": 1000,
+          "size_bytes": 56,
+          "details": {
+            "preview": "c995563a06e6510cce6aef7c38a7e817  poland-latest.osm.pbf\n"
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "osm_land",
+      "name": "OpenStreetMap – użytkowanie terenu i budynki (Geofabrik)",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "http",
+          "url": "https://download.geofabrik.de/europe/poland-latest.osm.pbf",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/octet-stream",
+          "final_url": "https://download.geofabrik.de/europe/poland-261011.osm.pbf",
+          "redirect_status": 307,
+          "elapsed_ms": 996,
+          "size_bytes": 2106806751,
+          "details": {
+            "last-modified": "Mon, 12 Oct 2026 01:19:53 GMT",
+            "etag": "\"7d9351df-65d9a7ec67978\"",
+            "accept-ranges": "bytes"
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "bdot10k",
+      "name": "GUGiK BDOT10k",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "ogc",
+          "url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/BDOT/WFS/PobieranieBDOT10k",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/xml; charset=UTF-8",
+          "final_url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/BDOT/WFS/PobieranieBDOT10k?service=WFS&request=GetCapabilities&version=2.0.0",
+          "redirect_status": null,
+          "elapsed_ms": 200,
+          "size_bytes": 15236,
+          "details": {
+            "root": "WFS_Capabilities",
+            "version": "2.0.0",
+            "title": "Usługa WFS pobierania danych BDOT10k",
+            "layer_count": 1,
+            "layers": [
+              "ms:BDOT10k_powiaty"
+            ]
+          },
+          "error": null
+        },
+        {
+          "kind": "page",
+          "url": "https://opendata.geoportal.gov.pl/bdot10k/",
+          "outcome": "failed",
+          "status_code": 404,
+          "content_type": "text/html; charset=UTF-8",
+          "final_url": "https://opendata.geoportal.gov.pl/bdot10k/",
+          "redirect_status": null,
+          "elapsed_ms": 48,
+          "size_bytes": 28,
+          "details": {},
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "ru",
+      "name": "Rejestr Urbanistyczny",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://rejestr-urbanistyczny.gov.pl/",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html",
+          "final_url": "https://rejestr-urbanistyczny.gov.pl/",
+          "redirect_status": null,
+          "elapsed_ms": 1012,
+          "size_bytes": 22530,
+          "details": {
+            "title": "Rejestr Urbanistyczny",
+            "endpoint_candidates": [
+              "https://rejestr-urbanistyczny.gov.pl/assets/federation.manifest.json"
+            ],
+            "keyword_links": [],
+            "scripts_scanned": [
+              "https://rejestr-urbanistyczny.gov.pl/polyfills-4XL5DXPK.js",
+              "https://rejestr-urbanistyczny.gov.pl/main-TM4Q6B7R.js"
+            ]
+          },
+          "error": null
+        },
+        {
+          "kind": "browser",
+          "url": "https://rejestr-urbanistyczny.gov.pl/",
+          "outcome": "ok",
+          "status_code": null,
+          "content_type": null,
+          "final_url": null,
+          "redirect_status": null,
+          "elapsed_ms": 25894,
+          "size_bytes": null,
+          "details": {
+            "title": "Lista aktów planowania przestrzennego - Rejestr Urbanistyczny",
+            "data_requests": [
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/main-TM4Q6B7R.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-7CQE7XW4.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-2VMXMS7J.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/assets/federation.manifest.json",
+                "status": 200,
+                "content_type": "application/json",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/remoteEntry.json",
+                "status": 200,
+                "content_type": "application/json",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/repo-fe/remoteEntry.json",
+                "status": 200,
+                "content_type": "application/json",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/published-fe/remoteEntry.json",
+                "status": 200,
+                "content_type": "application/json",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/eservices-fe/remoteEntry.json",
+                "status": 200,
+                "content_type": "application/json",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/published-details-fe/remoteEntry.json",
+                "status": 200,
+                "content_type": "application/json",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/notifications-fe/remoteEntry.json",
+                "status": 200,
+                "content_type": "application/json",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-O3IV4QAD.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/_angular_common.XTO7sTMqKH.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/_angular_core.iKKeIXOiCf.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/_angular_common_http.BYYhwrP_PI.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/_angular_platform_browser.IFhNu6ozpj.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-65HPZZAW.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/_angular_platform_browser_animations.JeI8mIJlQb.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/_angular_material_core.hDQcwINNjV.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/_ngx_translate_core.qVlmo8h4js.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/_angular_router.rb49rPwl3t.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/mrit_ru_shared_fe.ZhylCtC_9w.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-JSSFPNKJ.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/rxjs.5xXMcM4jWX.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/rxjs_operators.OZxSJbd191.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-GMKLLVOI.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-RSWT3MQO.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-UCHCNZX3.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/_angular_animations_browser.elasYjQ2Az.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-HGEVE5R3.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-HBBOBSRP.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-UFYYYDLW.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-IU7KRFQE.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-62LYHI3L.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-LCMP6SVB.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-J3EKRZXS.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-TW56CY3D.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-2NNKEIX6.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-KHF3TBMS.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-P6GH5WIE.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-OS4AXCNH.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-QRAAC5NO.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-DJ62U24W.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-TI4SYL6I.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-N3EGLDB6.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-RECHUXGF.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-JE6VEUSL.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-FVDLKYOC.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-GORIVATX.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-VXXFPN4G.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-JYA5LDWK.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-QLZSQRL7.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-MQ6KVUBG.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-PPRI772F.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-7RHXFCZM.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-XID2BBVI.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-VACNRS7J.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-GJ3B5U6M.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-RKKP7VIB.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-7P3GQWYV.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://rejestr-urbanistyczny.gov.pl/chunk-LRCNZVZT.js",
+                "status": 200,
+                "content_type": "application/javascript",
+                "resource_type": "fetch"
+              }
+            ],
+            "controls": [
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Akty planowania przestrzennego"
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "close"
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Deklaracja dostępności"
+              }
+            ],
+            "action_errors": [
+              "fill input[type=search], input[type=text]: TimeoutError",
+              "press input[type=search], input[type=text]: TimeoutError"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": "Rejestr niekompletny do 30.11.2026 – brak planu oznacza 'nieznane', nie 'złe'."
+    },
+    {
+      "source_id": "kimpzp",
+      "name": "KIMPZP – Krajowa Integracja MPZP",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "ogc",
+          "url": "https://mapy.geoportal.gov.pl/wss/ext/KrajowaIntegracjaMiejscowychPlanowZagospodarowaniaPrzestrzennego",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/xml",
+          "final_url": "https://mapy.geoportal.gov.pl/wss/ext/KrajowaIntegracjaMiejscowychPlanowZagospodarowaniaPrzestrzennego?service=WMS&request=GetCapabilities&version=1.3.0",
+          "redirect_status": null,
+          "elapsed_ms": 88,
+          "size_bytes": 23800,
+          "details": {
+            "root": "WMS_Capabilities",
+            "version": "1.3.0",
+            "title": "Krajowa Integracja Miejscowych Planów Zagospodarowania Przestrzennego",
+            "feature_info_formats": [
+              "application/vnd.ogc.gml",
+              "text/html",
+              "text/plain"
+            ],
+            "layer_count": 9,
+            "layers": [
+              "plany",
+              "plany_granice",
+              "raster",
+              "wektor-str",
+              "wektor-lzb",
+              "wektor-pow",
+              "wektor-lin",
+              "wektor-pkt",
+              "granice"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "egib",
+      "name": "EGiB – zbiorcza usługa WFS działek",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "ogc",
+          "url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/EGIB/WFS/UslugaZbiorcza",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/xml; charset=UTF-8",
+          "final_url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/EGIB/WFS/UslugaZbiorcza?service=WFS&request=GetCapabilities&version=2.0.0",
+          "redirect_status": null,
+          "elapsed_ms": 1261,
+          "size_bytes": 17111,
+          "details": {
+            "root": "WFS_Capabilities",
+            "version": "2.0.0",
+            "title": "Zbiorcza usługa EGiB",
+            "count_default": "1000",
+            "layer_count": 2,
+            "layers": [
+              "ms:dzialki",
+              "ms:budynki"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "uldk",
+      "name": "ULDK – Usługa Lokalizacji Działek Katastralnych",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "http",
+          "url": "https://uldk.gugik.gov.pl/?request=GetParcelByXY&xy=637500,486500,2180&result=teryt,voivodeship,county,commune",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/plain; charset=UTF-8",
+          "final_url": "https://uldk.gugik.gov.pl/?request=GetParcelByXY&xy=637500,486500,2180&result=teryt,voivodeship,county,commune",
+          "redirect_status": null,
+          "elapsed_ms": 1132,
+          "size_bytes": 65,
+          "details": {
+            "preview": "0\n146510_8.0502.55|mazowieckie|powiat Warszawa|Warszawa (miasto)\n"
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "kiug",
+      "name": "KIUG – użytki gruntowe i klasy bonitacyjne",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "ogc",
+          "url": "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaUzytkowGruntowych",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/xml",
+          "final_url": "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaUzytkowGruntowych?service=WMS&request=GetCapabilities&version=1.3.0",
+          "redirect_status": null,
+          "elapsed_ms": 1027,
+          "size_bytes": 15273,
+          "details": {
+            "root": "WMS_Capabilities",
+            "version": "1.3.0",
+            "title": "Krajowa Integracja Użytków Gruntowych",
+            "feature_info_formats": [
+              "text/html",
+              "text/xml"
+            ],
+            "layer_count": 4,
+            "layers": [
+              "powiaty",
+              "uzytki",
+              "kontury",
+              "klasouzytki"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "gdos",
+      "name": "GDOŚ Geoserwis – formy ochrony przyrody",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "ogc",
+          "url": "https://sdi.gdos.gov.pl/wfs",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/xml",
+          "final_url": "https://sdi.gdos.gov.pl/wfs?service=WFS&request=GetCapabilities&version=2.0.0",
+          "redirect_status": null,
+          "elapsed_ms": 1021,
+          "size_bytes": 85917,
+          "details": {
+            "root": "WFS_Capabilities",
+            "version": "2.0.0",
+            "title": "Usługa pobierania (Web Feature Service) Generalnej Dyrekcji Ochrony Środowiska",
+            "count_default": "1000000",
+            "layer_count": 23,
+            "layers": [
+              "GDOS:ElektrownieWiatrowe",
+              "GDOS:korytarzeEkologiczne",
+              "GDOS:Mezoregiony",
+              "GDOS:ObszarySpecjalnejOchrony",
+              "GDOS:N2kKonsultowanePtasiePowiekszenie",
+              "GDOS:N2kKonsultowanePtasieZmniejszenie",
+              "GDOS:N2kProponowanePtasiePowiekszenie",
+              "GDOS:N2kProponowanePtasieZmniejszenie",
+              "GDOS:SpecjalneObszaryOchrony",
+              "GDOS:N2kKonsultowaneSiedliskowePowiekszenie",
+              "GDOS:N2kKonsultowaneSiedliskoweZmniejszenie",
+              "GDOS:N2kProponowaneSiedliskowePowiekszenie",
+              "GDOS:N2kProponowaneSiedliskoweZmniejszenie",
+              "GDOS:ObszaryChronionegoKrajobrazu",
+              "GDOS:ramsar",
+              "GDOS:ParkiKrajobrazowe",
+              "GDOS:ParkiNarodowe",
+              "GDOS:PomnikiPrzyrodyPowierzchniowe",
+              "GDOS:PomnikiPrzyrodyPunktowe",
+              "GDOS:Rezerwaty",
+              "GDOS:StanowiskaDokumentacyjne",
+              "GDOS:UzytkiEkologiczne",
+              "GDOS:ZespolyPrzyrodniczoKrajobrazowe"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "isok",
+      "name": "ISOK – mapy zagrożenia powodziowego",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://wody.isok.gov.pl/",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html; charset=UTF-8",
+          "final_url": "https://wody.isok.gov.pl/index.html",
+          "redirect_status": 307,
+          "elapsed_ms": 1056,
+          "size_bytes": 16781,
+          "details": {
+            "title": "Informatyczny System Osłony Kraju | ISOK",
+            "endpoint_candidates": [
+              "https://wody.isok.gov.pl/manifest.json"
+            ],
+            "keyword_links": [
+              {
+                "url": "https://wody.isok.gov.pl/inspire.html",
+                "text": "Usługi INSPIRE Usługi danych przestrzennych opublikowanych w ramach INSPIRE"
+              }
+            ],
+            "scripts_scanned": [
+              "https://wody.isok.gov.pl/assets/js/simple.min.js?v=7c4d5b8b523"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "midas",
+      "name": "PIG-PIB MIDAS – obszary i tereny górnicze",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "arcgis",
+          "url": "https://cbdgmapa.pgi.gov.pl/arcgis/rest/services",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/json; charset=UTF-8",
+          "final_url": "https://cbdgmapa.pgi.gov.pl/arcgis/rest/services?f=json",
+          "redirect_status": null,
+          "elapsed_ms": 1323,
+          "size_bytes": 355,
+          "details": {
+            "current_version": 11.1,
+            "folders": [
+              "3D",
+              "admin_geo",
+              "geofizyka",
+              "geoinz",
+              "geomorze",
+              "geosrodowisko",
+              "geotermia",
+              "geozagrozenia",
+              "gp",
+              "historia",
+              "Hosted",
+              "hydrogeologia",
+              "inspire",
+              "kartografia",
+              "mapa_topo",
+              "surowce_mineralne",
+              "teren",
+              "test",
+              "Utilities",
+              "waterprotect",
+              "web_mercator"
+            ],
+            "services": [
+              "analizy_pkt_bad (MapServer)",
+              "cbdg_bloki_k (MapServer)",
+              "cbdg_otwory_web (FeatureServer)",
+              "cbdg_otwory_web (MapServer)",
+              "cbdg_otwory (MapServer)",
+              "jaskinie (MapServer)",
+              "konc_obsz_przetarg (MapServer)",
+              "mapy_seryjne_pig (MapServer)",
+              "mgsp50k_skorowidz (MapServer)",
+              "midas_wod_podz (MapServer)",
+              "midas (MapServer)",
+              "prg (MapServer)",
+              "regiony_geograf (MapServer)",
+              "skorowidze (MapServer)",
+              "3D/mgpbk1000k_webm (MapServer)",
+              "3D/smgt10k_3d (MapServer)",
+              "3D/tatry3d (MapServer)",
+              "admin_geo/urzedy_geol_ed (FeatureServer)",
+              "admin_geo/urzedy_geol_ed (MapServer)",
+              "admin_geo/urzedy_geol (MapServer)",
+              "geofizyka/geofiz_doku_zasiegi (MapServer)",
+              "geofizyka/geofiz_sge_pkt (MapServer)",
+              "geofizyka/grawimetria (MapServer)",
+              "geofizyka/magnetotelluryka (MapServer)",
+              "geofizyka/magnetyka (MapServer)",
+              "geofizyka/profile_2d_3d (MapServer)",
+              "geoinz/agi_mapy (MapServer)",
+              "geoinz/agi (MapServer)",
+              "geoinz/atlas_gi_otwory (MapServer)",
+              "geoinz/geofizykainzynierska (MapServer)",
+              "geoinz/geoinz_wfm (MapServer)",
+              "geoinz/geoinz_wfs (MapServer)",
+              "geoinz/gi_dk (MapServer)",
+              "geoinz/mgip500k (MapServer)",
+              "geoinz/MgiP50k (MapServer)",
+              "geoinz/pmgip300k (MapServer)",
+              "geoinz/smgip50k (MapServer)",
+              "geomorze/batymetria (MapServer)",
+              "geomorze/gm_atlasgeoch (MapServer)",
+              "geomorze/gm_atlaslito (MapServer)",
+              "geomorze/gm_folk (MapServer)",
+              "geomorze/gm_odkryta (MapServer)",
+              "geomorze/gm_punkty (MapServer)",
+              "geomorze/gm_shepard (MapServer)",
+              "geomorze/gm_skorowidz (MapServer)",
+              "geomorze/neptun_geoecho (FeatureServer)",
+              "geomorze/neptun_geoecho (MapServer)",
+              "geosrodowisko/atlas_geochem (MapServer)",
+              "geosrodowisko/geochem_atl_polska_wl (MapServer)",
+              "geosrodowisko/geochem_atl_reg_arch_wl (MapServer)",
+              "geosrodowisko/geochem_atl_reg_wl (MapServer)",
+              "geosrodowisko/geochem_atl_szczegolowe_wl (MapServer)",
+              "geosrodowisko/geochemia_pkt_wl (MapServer)",
+              "geosrodowisko/geostanowiska_prd (FeatureServer)",
+              "geosrodowisko/geostanowiska_prd (MapServer)",
+              "geosrodowisko/geostanowiska (FeatureServer)",
+              "geosrodowisko/geostanowiska (MapServer)",
+              "geosrodowisko/haldy (MapServer)",
+              "geosrodowisko/moek (MapServer)",
+              "geosrodowisko/obszary_zweryfikowane (MapServer)"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "nid",
+      "name": "NID – rejestr zabytków i stanowiska archeologiczne",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "http",
+          "url": "https://api.dane.gov.pl/1.4/datasets?q=rejestr%20zabytk%C3%B3w%20nieruchomych&per_page=5",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/vnd.api+json",
+          "final_url": "https://api.dane.gov.pl/1.4/datasets?q=rejestr%20zabytk%C3%B3w%20nieruchomych&per_page=5",
+          "redirect_status": null,
+          "elapsed_ms": 2329,
+          "size_bytes": 13455,
+          "details": {
+            "json_keys": [
+              "data",
+              "jsonapi",
+              "links",
+              "meta"
+            ]
+          },
+          "error": null
+        },
+        {
+          "kind": "page",
+          "url": "https://mapy.zabytek.gov.pl/",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html; charset=utf-8",
+          "final_url": "https://mapy.zabytek.gov.pl/nid/",
+          "redirect_status": 302,
+          "elapsed_ms": 1627,
+          "size_bytes": 708303,
+          "details": {
+            "title": "NID | Portal mapowy",
+            "endpoint_candidates": [
+              "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/WMTS/1.0.0/WMTSCapabilities.xml",
+              "https://usluga2.zabytek.gov.pl/AZP/wms",
+              "http://www.bing.com/api/maps/mapcontrol?callback=_callbackForBingMaps&",
+              "http://studio.hexagongeospatial.com/AppStudioApi/api/maps/"
+            ],
+            "keyword_links": [],
+            "scripts_scanned": [
+              "https://mapy.zabytek.gov.pl/nid/Compositor.WebClient.ashx?p=%2fnid%2fMapWithRibbon.aspx&e=pl-PL.release.js&t=639064021771609916",
+              "https://mapy.zabytek.gov.pl/nid/CRSNames.WebClient.ashx?t=637716086560000000",
+              "https://mapy.zabytek.gov.pl/nid/MarkersNames.WebClient.ashx",
+              "https://mapy.zabytek.gov.pl/nid/AnnotationNames.WebClient.ashx",
+              "https://mapy.zabytek.gov.pl/nid/WebResource.axd?d=WT2-Cc3VU1x8GQrbIQGkzZpgDb9yqvTc_eaiK9u933-eukbty8HbBjdDqDYEJ3zFhatN4Loq0WUxe0dDFZydC5No23HptmVmIL5oblej5662IhW1QDOkVFCErEnaciTgmT16Ow2&t=637654679520000000"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "pse_closed",
+      "name": "PSE – zamknięte rozdzielnie (brak warunków przyłączenia)",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://www.pse.pl/",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html;charset=UTF-8",
+          "final_url": "https://www.pse.pl/home",
+          "redirect_status": 301,
+          "elapsed_ms": 24816,
+          "size_bytes": 125476,
+          "details": {
+            "title": "Polskie Sieci Elektroenergetyczne S.A. - PSE",
+            "endpoint_candidates": [
+              "https://api.raporty.pse.pl/api/pdgsz?$filter=business_date",
+              "https://api.raporty.pse.pl/api/",
+              "https://www.pse.pl/api/jsonws/invoke"
+            ],
+            "keyword_links": [
+              {
+                "url": "https://www.pse.pl/-/komunikat-osp-z-dnia-6-pazdziernika-2026-r-w-sprawie-zatwierdzenia-przez-prezesa-ure-zmian-nr-5-2026-warunkow-dotyczacych-bilansowania?safeargs=696e686572697452656469726563743d747275652672656469726563743d253246686f6d65",
+                "text": "Komunikat OSP z dnia 6 października 2026 r. w sprawie zatwierdzenia przez Prezesa URE Zmian nr 5/2026 Warunków Dotyczący"
+              },
+              {
+                "url": "https://www.pse.pl/-/komunikat-osp-z-dnia-24-09-2026-r-dotyczacy-wystapienia-do-prezesa-ure-o-zatwierdzenie-zmian-nr-6-2026-warunkow-dotyczacych-bilansowania?safeargs=696e686572697452656469726563743d747275652672656469726563743d253246686f6d65",
+                "text": "Komunikat OSP z dnia 24.09.2026 r. dotyczący wystąpienia do Prezesa URE o zatwierdzenie Zmian nr 6/2026 Warunków Dotyczą"
+              }
+            ],
+            "scripts_scanned": [
+              "https://www.pse.pl/html/js/barebone.jsp?safeargs=62726f7773657249643d6f74686572267468656d6549643d707365696e7445726e65745f5741525f707365696e7445726e65747468656d6526636f6c6f72536368656d6549643d3031266d696e6966696572547970653d6a73266d696e696669657242756e646c6549643d6a6176617363726970742e62617265626f6e652e66696c6573266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343639303030",
+              "https://www.pse.pl/html/portlet/dynamic_data_lists/js/main.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343932303030",
+              "https://www.pse.pl/html/portlet/dynamic_data_mapping/js/main.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343932303030",
+              "https://www.pse.pl/html/portlet/journal/js/main.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343932303030",
+              "https://www.pse.pl/html/portlet/journal/js/navigation.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343932303030",
+              "https://www.pse.pl/visioneo-portlet/resources/js/moment.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343838303030",
+              "https://www.pse.pl/visioneo-portlet/resources/js/head.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343838303030",
+              "https://www.pse.pl/visioneo-portlet/resources/js/vui-jquery.4.0.0.0.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343838303030"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "pse_odb",
+      "name": "PSE – wykaz wydanych warunków przyłączenia (odbiorcy)",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://www.pse.pl/",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html;charset=UTF-8",
+          "final_url": "https://www.pse.pl/home",
+          "redirect_status": 301,
+          "elapsed_ms": 1393,
+          "size_bytes": 125476,
+          "details": {
+            "title": "Polskie Sieci Elektroenergetyczne S.A. - PSE",
+            "endpoint_candidates": [
+              "https://api.raporty.pse.pl/api/pdgsz?$filter=business_date",
+              "https://api.raporty.pse.pl/api/",
+              "https://www.pse.pl/api/jsonws/invoke"
+            ],
+            "keyword_links": [],
+            "scripts_scanned": [
+              "https://www.pse.pl/html/js/barebone.jsp?safeargs=62726f7773657249643d6f74686572267468656d6549643d707365696e7445726e65745f5741525f707365696e7445726e65747468656d6526636f6c6f72536368656d6549643d3031266d696e6966696572547970653d6a73266d696e696669657242756e646c6549643d6a6176617363726970742e62617265626f6e652e66696c6573266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343639303030",
+              "https://www.pse.pl/html/portlet/dynamic_data_lists/js/main.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343932303030",
+              "https://www.pse.pl/html/portlet/dynamic_data_mapping/js/main.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343932303030",
+              "https://www.pse.pl/html/portlet/journal/js/main.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343932303030",
+              "https://www.pse.pl/html/portlet/journal/js/navigation.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343932303030",
+              "https://www.pse.pl/visioneo-portlet/resources/js/moment.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343838303030",
+              "https://www.pse.pl/visioneo-portlet/resources/js/head.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343838303030",
+              "https://www.pse.pl/visioneo-portlet/resources/js/vui-jquery.4.0.0.0.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343838303030"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "pse_avail",
+      "name": "PSE – raport o dostępnych mocach przyłączeniowych",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://www.pse.pl/",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html;charset=UTF-8",
+          "final_url": "https://www.pse.pl/home",
+          "redirect_status": 301,
+          "elapsed_ms": 1641,
+          "size_bytes": 125476,
+          "details": {
+            "title": "Polskie Sieci Elektroenergetyczne S.A. - PSE",
+            "endpoint_candidates": [
+              "https://api.raporty.pse.pl/api/pdgsz?$filter=business_date",
+              "https://api.raporty.pse.pl/api/",
+              "https://www.pse.pl/api/jsonws/invoke"
+            ],
+            "keyword_links": [],
+            "scripts_scanned": [
+              "https://www.pse.pl/html/js/barebone.jsp?safeargs=62726f7773657249643d6f74686572267468656d6549643d707365696e7445726e65745f5741525f707365696e7445726e65747468656d6526636f6c6f72536368656d6549643d3031266d696e6966696572547970653d6a73266d696e696669657242756e646c6549643d6a6176617363726970742e62617265626f6e652e66696c6573266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343639303030",
+              "https://www.pse.pl/html/portlet/dynamic_data_lists/js/main.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343932303030",
+              "https://www.pse.pl/html/portlet/dynamic_data_mapping/js/main.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343932303030",
+              "https://www.pse.pl/html/portlet/journal/js/main.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343932303030",
+              "https://www.pse.pl/html/portlet/journal/js/navigation.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343932303030",
+              "https://www.pse.pl/visioneo-portlet/resources/js/moment.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343838303030",
+              "https://www.pse.pl/visioneo-portlet/resources/js/head.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343838303030",
+              "https://www.pse.pl/visioneo-portlet/resources/js/vui-jquery.4.0.0.0.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630343838303030"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "enea",
+      "name": "Enea Operator – mapa dostępnych mocy dla odbiorców",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html; charset=utf-8",
+          "final_url": "https://www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce",
+          "redirect_status": null,
+          "elapsed_ms": 1150,
+          "size_bytes": 304229,
+          "details": {
+            "title": "Dostępne moce odbiorcze | Enea Operator",
+            "endpoint_candidates": [
+              "https://www.operator.enea.pl/sites/operator/files/2025-06/broszura_prosument_final.pdf"
+            ],
+            "keyword_links": [
+              {
+                "url": "https://www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce",
+                "text": "Dostępne moce odbiorcze"
+              },
+              {
+                "url": "https://portalodbiorcy.operator.enea.pl/",
+                "text": "Portal Odbiorcy"
+              }
+            ],
+            "scripts_scanned": [
+              "https://www.operator.enea.pl/sites/operator/files/languages/pl_J0KhowzRngstzzbQjeh4NlOjL7FXsv9-lHiG0tRssYQ.js?tmkxs5",
+              "https://www.operator.enea.pl/sites/default/files/dist/assets/accordion-CelKjhnx.js?tmkxs5",
+              "https://www.operator.enea.pl/sites/default/files/dist/assets/dialog--header-CJOE7KFz.js?tmkxs5",
+              "https://www.operator.enea.pl/sites/default/files/dist/assets/formatted-text-iqAav0Fg.js?tmkxs5",
+              "https://www.operator.enea.pl/sites/default/files/dist/assets/header-hgYbn11p.js?tmkxs5",
+              "https://www.operator.enea.pl/sites/default/files/dist/assets/menu--buttons-DlFcoBrN.js?tmkxs5",
+              "https://www.operator.enea.pl/sites/default/files/dist/assets/menu--footer-CDmR6c2v.js?tmkxs5",
+              "https://www.operator.enea.pl/sites/default/files/dist/assets/menu--link-D4nEaNqK.js?tmkxs5"
+            ]
+          },
+          "error": null
+        },
+        {
+          "kind": "browser",
+          "url": "https://www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce",
+          "outcome": "ok",
+          "status_code": null,
+          "content_type": null,
+          "final_url": null,
+          "redirect_status": null,
+          "elapsed_ms": 26894,
+          "size_bytes": null,
+          "details": {
+            "title": "Dostępne moce odbiorcze | Enea Operator",
+            "data_requests": [
+              {
+                "url": "https://pagead2.googlesyndication.com/ccm/collect?rcb=1&frm=0&apvc=1&ae=g&en=page_view&dl=https%3A%2F%2Fwww.operator.enea.pl%2Fprzylaczenie-do-sieci%2Fdostepne-moce&scrsrc=www.googletagmanager.com&rnd=2099082069.1791789201&navt=n&npa=1&ep.ads_data_redaction=1&gdid=dMWZhNz&_tu=CA&gtm=45He6a72v72199294za200zd72199294xeaxf1&gcs=G100&gcd=13p3p3p2p5l1&dma_cps=-&dma=1&tag_exp=115616985~115938465~115938469~118897920~118897930~120385422~120469145~120469153~121046263~121046271~121246026~121246034&tft=1791789201425&tfd=363&fmt=8",
+                "status": 200,
+                "content_type": "",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://consentcdn.cookiebot.com/consentconfig/3cefb3d2-2140-454a-863f-0c57ba0f7d99/settings.json",
+                "status": 200,
+                "content_type": "application/json",
+                "resource_type": "xhr"
+              },
+              {
+                "url": "https://pagead2.googlesyndication.com/ccm/collect?rcb=4&frm=0&apvc=0&tid=AW-18344042016&en=page_view&dl=https%3A%2F%2Fwww.operator.enea.pl%2Fprzylaczenie-do-sieci%2Fdostepne-moce&scrsrc=www.googletagmanager.com&rnd=2099082069.1791789201&navt=n&npa=1&us_privacy=1YNY&did=dMWZhNz&gdid=dMWZhNz&_tu=CA&gtm=45je6a72v899387974za20ozb72199294zd72199294xecxf1&gcs=G100&gcd=13p3pPp2p5l1&dma_cps=-&dma=1&tag_exp=115938465~115938468~118897920~118897930~120213116~120385422~120469145~120469153~121046263~121046271~121246026~121246034&tft=1791789201910&tfd=849&tids=AW-18344042016&fmt=8",
+                "status": 200,
+                "content_type": "",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-61ZGMZMBBH&gtm=45je6a72v899387974za20ozb72199294zd72199294xf1&_p=1791789201152&gcs=G100&gcd=13p3pPp2p5l1&npa=1&dma_cps=-&dma=1&gdid=dMWZhNz&_eu=AAAAAGA&cid=1178152070.1791789202&frm=0&pscdl=denied&rcb=4&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B153.0.8010.12%7CNot_A%2520Brand%3B8.0.0.0%7CChromium%3B153.0.8010.12&uam=&uamb=0&uap=Windows&uapv=&uaw=0&ul=pl-pl&gaf=2&_s=1&tag_exp=115938465~115938468~118897920~118897930~120213116~120385422~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791789201&sct=1&seg=0&dl=https%3A%2F%2Fwww.operator.enea.pl%2Fprzylaczenie-do-sieci%2Fdostepne-moce&dt=Dost%C4%99pne%20moce%20odbiorcze%20%7C%20Enea%20Operator&_tu=CA&en=page_view&_fv=1&_nsi=1&_ss=1&tfd=836",
+                "status": 204,
+                "content_type": "text/plain",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://pagead2.googlesyndication.com/ccm/collect?rcb=0&frm=0&apvc=0&tid=AW-17986830095&en=page_view&dl=https%3A%2F%2Fwww.operator.enea.pl%2Fprzylaczenie-do-sieci%2Fdostepne-moce&scrsrc=www.googletagmanager.com&rnd=2099082069.1791789201&navt=n&npa=1&us_privacy=1YNY&did=dMWZhNz&gdid=dMWZhNz&_tu=CA&gtm=45be6a72v9245477743za20ozb72199294zd72199294xecxf1&gcs=G100&gcd=13p3p3p2p5l1&dma_cps=-&dma=1&tag_exp=115938465~115938469~118897920~118897930~120213116~120385423~120469145~120469153~121046263~121046271~121246026~121246034~121284210&tft=1791789201974&tfd=913&tids=AW-17986830095&fmt=8",
+                "status": 200,
+                "content_type": "",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-PJPY5DWZG6&gtm=45je6a72v893144393za20ozb72199294zd72199294xf1&_p=1791789201152&gcs=G100&gcd=13p3pPp2p5l1&npa=1&dma_cps=-&dma=1&gdid=dMWZhNz&_eu=AAAAAGA&cid=1178152070.1791789202&frm=0&pscdl=denied&rcb=5&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B153.0.8010.12%7CNot_A%2520Brand%3B8.0.0.0%7CChromium%3B153.0.8010.12&uam=&uamb=0&uap=Windows&uapv=&uaw=0&ul=pl-pl&gaf=2&_s=1&tag_exp=115616986~115938465~115938469~118897920~118897930~120213116~120385422~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791789202&sct=1&seg=0&dl=https%3A%2F%2Fwww.operator.enea.pl%2Fprzylaczenie-do-sieci%2Fdostepne-moce&dt=Dost%C4%99pne%20moce%20odbiorcze%20%7C%20Enea%20Operator&_tu=CA&en=page_view&_fv=1&_ss=1&tfd=971",
+                "status": 204,
+                "content_type": "text/plain",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://pagead2.googlesyndication.com/ccm/collect?rcb=19&frm=0&apvc=0&tid=AW-17796711674&en=page_view&dl=https%3A%2F%2Fwww.operator.enea.pl%2Fprzylaczenie-do-sieci%2Fdostepne-moce&scrsrc=www.googletagmanager.com&rnd=2099082069.1791789201&navt=n&npa=1&us_privacy=1YNY&did=dMWZhNz&gdid=dMWZhNz&_tu=CA&gtm=45be6a72v9239243369za20ozb72199294zd72199294xecxf1&gcs=G100&gcd=13p3p3p2p5l1&dma_cps=-&dma=1&tag_exp=115938465~115938468~118897920~118897930~119793973~120213116~120385422~120412526~120469145~120469153~121046263~121046271~121246026~121246034&tft=1791789202096&tfd=1035&tids=AW-17796711674&fmt=8",
+                "status": 200,
+                "content_type": "",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-JH1WGYW4GV&gtm=45je6a72v894650665za20ozb72199294zd72199294xf1&_p=1791789201152&gcs=G100&gcd=13p3pPp2p5l1&npa=1&dma_cps=-&dma=1&gdid=dMWZhNz&cid=1178152070.1791789202&frm=0&ngs=1&pscdl=denied&rcb=7&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B153.0.8010.12%7CNot_A%2520Brand%3B8.0.0.0%7CChromium%3B153.0.8010.12&uam=&uamb=0&uap=Windows&uapv=&uaw=0&ul=pl-pl&_s=1&tag_exp=115938465~115938469~118897920~118897930~119793972~120213116~120385422~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791789202&sct=1&seg=0&dl=https%3A%2F%2Fwww.operator.enea.pl%2Fprzylaczenie-do-sieci%2Fdostepne-moce&dt=Dost%C4%99pne%20moce%20odbiorcze%20%7C%20Enea%20Operator&_tu=CA&en=page_view&_fv=1&_ss=1&tfd=1096",
+                "status": 204,
+                "content_type": "text/plain",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-D1519WJKVK&gtm=45je6a72v9131638056za20ozb72199294zd72199294xf1&_p=1791789201152&gcs=G100&gcd=13p3pPp2p5l1&npa=1&dma_cps=-&dma=1&gdid=dMWZhNz&_eu=AAAAAGA&cid=1178152070.1791789202&frm=0&pscdl=denied&rcb=18&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B153.0.8010.12%7CNot_A%2520Brand%3B8.0.0.0%7CChromium%3B153.0.8010.12&uam=&uamb=0&uap=Windows&uapv=&uaw=0&ul=pl-pl&gaf=2&_s=1&tag_exp=115938465~115938469~118897920~118897930~120213116~120385422~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791789202&sct=1&seg=0&dl=https%3A%2F%2Fwww.operator.enea.pl%2Fprzylaczenie-do-sieci%2Fdostepne-moce&dt=Dost%C4%99pne%20moce%20odbiorcze%20%7C%20Enea%20Operator&_tu=CA&en=page_view&_fv=1&_ss=1&tfd=1161",
+                "status": 204,
+                "content_type": "text/plain",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-HV7C6SVQQT&gtm=45je6a72v874144225za20ozb72199294zd72199294xf1&_p=1791789201152&gcs=G100&gcd=13p3pPp2p5l1&npa=1&dma_cps=-&dma=1&gdid=dMWZhNz&_eu=AAAAAGAC&cid=1178152070.1791789202&frm=0&pscdl=denied&rcb=2&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B153.0.8010.12%7CNot_A%2520Brand%3B8.0.0.0%7CChromium%3B153.0.8010.12&uam=&uamb=0&uap=Windows&uapv=&uaw=0&ul=pl-pl&gaf=2&_s=1&tag_exp=115938465~115938468~118897920~118897930~120213116~120385423~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791789202&sct=1&seg=0&dl=https%3A%2F%2Fwww.operator.enea.pl%2Fprzylaczenie-do-sieci%2Fdostepne-moce&dt=Dost%C4%99pne%20moce%20odbiorcze%20%7C%20Enea%20Operator&_tu=CA&en=page_view&_fv=1&_ss=1&tfd=1239",
+                "status": 204,
+                "content_type": "text/plain",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://googleads.g.doubleclick.net/pagead/id",
+                "status": 302,
+                "content_type": "text/html; charset=ISO-8859-2",
+                "resource_type": "xhr"
+              },
+              {
+                "url": "https://googleads.g.doubleclick.net/pagead/id?slf_rd=1",
+                "status": 200,
+                "content_type": "application/json; charset=ISO-8859-2",
+                "resource_type": "xhr"
+              },
+              {
+                "url": "https://ep1.adtrafficquality.google/getconfig/sodar?sv=200&tid=afs&tv=1234567890&st=env&sjk=vPDXXkJ7Q16CYDNAjUEeFg==&sde=1",
+                "status": 200,
+                "content_type": "application/json; charset=ISO-8859-2",
+                "resource_type": "xhr"
+              },
+              {
+                "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-KW1Y1D7FPS&gtm=45je6a72v899742887z872199294za20gzb72199294zd72199294xf1&_p=1791789201152&gcs=G100&gcd=13p3pPp2p5l1&npa=1&dma_cps=-&dma=1&gdid=dMWZhNz&_eu=AAAAAGAC&cid=1178152070.1791789202&frm=0&pscdl=denied&rcb=15&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B153.0.8010.12%7CNot_A%2520Brand%3B8.0.0.0%7CChromium%3B153.0.8010.12&uam=&uamb=0&uap=Windows&uapv=&uaw=0&ul=pl-pl&gaf=2&_s=1&tag_exp=115938465~115938468~118897920~118897930~120213116~120385422~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791789203&sct=1&seg=0&dl=https%3A%2F%2Fwww.operator.enea.pl%2Fprzylaczenie-do-sieci%2Fdostepne-moce&dt=Dost%C4%99pne%20moce%20odbiorcze%20%7C%20Enea%20Operator&_tu=CA&en=page_load_time&_fv=1&_ss=1&epn.loading_time_sec=1.98&tfd=2311",
+                "status": 204,
+                "content_type": "text/plain",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://jnn-pa.googleapis.com/$rpc/google.internal.waa.v1.Waa/GenerateIT",
+                "status": 200,
+                "content_type": "application/json+protobuf; charset=UTF-8",
+                "resource_type": "xhr"
+              },
+              {
+                "url": "https://www.youtube.com/youtubei/v1/log_event?alt=json",
+                "status": 200,
+                "content_type": "application/json; charset=UTF-8",
+                "resource_type": "xhr"
+              },
+              {
+                "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-61ZGMZMBBH&gtm=45je6a72v899387974z872199294za20gzb72199294zd72199294xf1&_p=1791789201152&gcs=G100&gcd=13p3pPp2p5l1&npa=1&dma_cps=-&dma=1&gdid=dMWZhNz&_eu=AAAAAGA&cid=1178152070.1791789202&frm=0&pscdl=denied&rcb=4&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B153.0.8010.12%7CNot_A%2520Brand%3B8.0.0.0%7CChromium%3B153.0.8010.12&uam=&uamb=0&uap=Windows&uapv=&uaw=0&ul=pl-pl&gaf=2&_s=2&tag_exp=115938465~115938468~118897920~118897930~120213116~120385422~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791789201&sct=1&seg=0&dl=https%3A%2F%2Fwww.operator.enea.pl%2Fprzylaczenie-do-sieci%2Fdostepne-moce&dt=Dost%C4%99pne%20moce%20odbiorcze%20%7C%20Enea%20Operator&_tu=CA&en=page_load_time&epn.loading_time_sec=1.98&_et=1171&tfd=7008",
+                "status": 204,
+                "content_type": "text/plain",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-KW1Y1D7FPS&gtm=45je6a72v899742887z872199294za20gzb72199294zd72199294xf1&_p=1791789201152&gcs=G100&gcd=13p3pPp2p5l1&npa=1&dma_cps=-&dma=1&gdid=dMWZhNz&_eu=AAAAAGAC&cid=1178152070.1791789202&frm=0&pscdl=denied&rcb=15&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B153.0.8010.12%7CNot_A%2520Brand%3B8.0.0.0%7CChromium%3B153.0.8010.12&uam=&uamb=0&uap=Windows&uapv=&uaw=0&ul=pl-pl&gaf=2&_s=2&tag_exp=115938465~115938468~118897920~118897930~120213116~120385422~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791789203&sct=1&seg=0&dl=https%3A%2F%2Fwww.operator.enea.pl%2Fprzylaczenie-do-sieci%2Fdostepne-moce&dt=Dost%C4%99pne%20moce%20odbiorcze%20%7C%20Enea%20Operator&_tu=CA&en=timer&_et=8039&upn.timer_cycle=1&tfd=15356",
+                "status": 204,
+                "content_type": "text/plain",
+                "resource_type": "fetch"
+              }
+            ],
+            "controls": [
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "input",
+                "type": "checkbox",
+                "name": null,
+                "id": "CybotCookiebotDialogBodyLevelButtonNecessary",
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "input",
+                "type": "checkbox",
+                "name": null,
+                "id": "CybotCookiebotDialogBodyLevelButtonPreferences",
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "input",
+                "type": "checkbox",
+                "name": null,
+                "id": "CybotCookiebotDialogBodyLevelButtonStatistics",
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "input",
+                "type": "checkbox",
+                "name": null,
+                "id": "CybotCookiebotDialogBodyLevelButtonMarketing",
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": "CybotCookiebotDialogDetailBodyContentCookieContainerNecessary",
+                "placeholder": null,
+                "text": "Niezbędne  6"
+              },
+              {
+                "tag": "input",
+                "type": "checkbox",
+                "name": null,
+                "id": "CybotCookiebotDialogBodyLevelButtonNecessaryInline",
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": "CybotCookiebotDialogDetailBodyContentCookieContainerPreference",
+                "placeholder": null,
+                "text": "Preferencje  0"
+              },
+              {
+                "tag": "input",
+                "type": "checkbox",
+                "name": null,
+                "id": "CybotCookiebotDialogBodyLevelButtonPreferencesInline",
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": "CybotCookiebotDialogDetailBodyContentCookieContainerStatistics",
+                "placeholder": null,
+                "text": "Statystyka  6"
+              },
+              {
+                "tag": "input",
+                "type": "checkbox",
+                "name": null,
+                "id": "CybotCookiebotDialogBodyLevelButtonStatisticsInline",
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": "CybotCookiebotDialogDetailBodyContentCookieContainerAdvertising",
+                "placeholder": null,
+                "text": "Marketing  23"
+              },
+              {
+                "tag": "input",
+                "type": "checkbox",
+                "name": null,
+                "id": "CybotCookiebotDialogBodyLevelButtonMarketingInline",
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": "CybotCookiebotDialogDetailBodyContentCookieContainerUnclassified",
+                "placeholder": null,
+                "text": "Nieklasyfikowane  0"
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": "CybotCookiebotDialogDetailBodyContentIABv2Purposes",
+                "placeholder": null,
+                "text": "[#IABV2_LABEL_PURPOSES#]"
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": "CybotCookiebotDialogDetailBodyContentIABv2Features",
+                "placeholder": null,
+                "text": "[#IABV2_LABEL_FEATURES#]"
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": "CybotCookiebotDialogDetailBodyContentIABv2Partners",
+                "placeholder": null,
+                "text": "[#IABV2_LABEL_PARTNERS#]"
+              },
+              {
+                "tag": "input",
+                "type": "checkbox",
+                "name": null,
+                "id": "CybotCookiebotDialogBodyContentCheckboxPersonalInformation",
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": "CybotCookiebotDialogBodyButtonDecline",
+                "placeholder": null,
+                "text": "Odrzuć wszystkie"
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": "CybotCookiebotDialogBodyLevelButtonLevelOptinAllowallSelection",
+                "placeholder": null,
+                "text": "Zmień ustawienia"
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": "CybotCookiebotDialogBodyLevelButtonCustomize",
+                "placeholder": null,
+                "text": "Zmień ustawienia"
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": "CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll",
+                "placeholder": null,
+                "text": "Akceptuję wszystkie"
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": "CybotCookiebotBannerCloseButtonE2E",
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Open main menu"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Go back"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Zamknij"
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Szukaj"
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Zaloguj"
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Rozwiń wszystkie"
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Zwiń wszystkie"
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Dostępne moce odbiorcze"
+              }
+            ],
+            "action_errors": [
+              "fill input[type=search], input[type=text]: TimeoutError",
+              "press input[type=search], input[type=text]: TimeoutError"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "energa",
+      "name": "Energa-Operator – dostępne moce odbiorcze",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://energa-operator.pl/",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html;charset=UTF-8",
+          "final_url": "https://energa-operator.pl/",
+          "redirect_status": null,
+          "elapsed_ms": 1025,
+          "size_bytes": 47834,
+          "details": {
+            "title": "Strona główna | Energa-Operator S.A.SzukajZamknij wyszukiwarkęZamknij menuSzukajZamknij wyszukiwarkęPokaż podmenuPokaż podmenuPokaż podmenuPowrótOtwórz stronęPowrótOtwórz stronęPowrótOtwórz stronęTrójkąt z wykrzyknikiemTelefonCzytaj więćejCzytaj więćejCzytaj więćejlinkedinfacebookinstagramvimeoyoutube",
+            "endpoint_candidates": [],
+            "keyword_links": [
+              {
+                "url": "https://energa-operator.pl/dla-konsumenta",
+                "text": "Dla konsumenta Praktyczne informacje i usługi dla odbiorców energii w \"pigułce\", w tym sprawy przyłączeń, liczników, awa"
+              },
+              {
+                "url": "https://energa-operator.pl/deklaracja-dostepnosci",
+                "text": "Deklaracja dostępności"
+              }
+            ],
+            "scripts_scanned": []
+          },
+          "error": null
+        },
+        {
+          "kind": "browser",
+          "url": "https://energa-operator.pl/",
+          "outcome": "ok",
+          "status_code": null,
+          "content_type": null,
+          "final_url": null,
+          "redirect_status": null,
+          "elapsed_ms": 15782,
+          "size_bytes": null,
+          "details": {
+            "title": "Strona główna | Energa-Operator S.A.",
+            "data_requests": [
+              {
+                "url": "https://cdn-netpr.pl/theme/348/242/img/svg-sprite.svg",
+                "status": 200,
+                "content_type": "image/svg+xml",
+                "resource_type": "fetch"
+              }
+            ],
+            "controls": [
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Dostępność\nZmień poziom dostępności"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Szukaj"
+              },
+              {
+                "tag": "input",
+                "type": "search",
+                "name": "q",
+                "id": "header-search-input",
+                "placeholder": "szukaj",
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Szukaj"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": "search-close",
+                "placeholder": null,
+                "text": "Zamknij wyszukiwarkę"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Zamknij menu"
+              },
+              {
+                "tag": "input",
+                "type": "search",
+                "name": "q",
+                "id": "mobile-header-search-input",
+                "placeholder": "szukaj",
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Szukaj"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Zamknij wyszukiwarkę"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Usługi       Pokaż podmenu"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Dostawcy i przetargi       Pokaż podmenu"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "O nas       Pokaż podmenu"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Powrót     Wróć"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Powrót     Wróć"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Powrót     Wróć"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Dostępność"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "‹"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "›"
+              }
+            ],
+            "action_errors": []
+          },
+          "error": null
+        }
+      ],
+      "notes": "Istnienie i format do potwierdzenia."
+    },
+    {
+      "source_id": "tauron",
+      "name": "Tauron Dystrybucja – dostepnemoce.pl",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://dostepnemoce.pl/",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html; charset=UTF-8",
+          "final_url": "https://dostepnemoce.tauron-dystrybucja.pl/",
+          "redirect_status": 301,
+          "elapsed_ms": 1214,
+          "size_bytes": 113015,
+          "details": {
+            "title": "Strona główna - Tauron Dystrybucja | Portal dla Klienta biznesowego",
+            "endpoint_candidates": [
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-content/uploads/2026/09/raport_case-study_gmina_ujazd_wersja_finalna.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/C21.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/B11.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/A21.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/B21.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/C22a.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/B22.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/A22.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/C22b.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/C23.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/B23.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/A23.pdf"
+            ],
+            "keyword_links": [
+              {
+                "url": "https://dostepnemoce.tauron-dystrybucja.pl/",
+                "text": ""
+              },
+              {
+                "url": "https://dostepnemoce.tauron-dystrybucja.pl/#mapa",
+                "text": "Zobacz, gdzie mamy planowaną dostępną moc"
+              },
+              {
+                "url": "https://dostepnemoce.tauron-dystrybucja.pl/wp-content/uploads/2026/09/raport_case-study_gmina_ujazd_wersja_finalna.pdf",
+                "text": "pobierz raport"
+              },
+              {
+                "url": "https://www.tauron-dystrybucja.pl/przylaczenie-do-sieci/wniosek-online/srednie-napiecie",
+                "text": "Obiekt produkcyjno-usługowy W zakładach przemysłowych i usługowych kluczowa jest ciągłość dostaw energii i odpowiednia m"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/C21.pdf",
+                "text": "GRUPA TARYFOWA C21"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/B11.pdf",
+                "text": "GRUPA TARYFOWA B11"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/A21.pdf",
+                "text": "GRUPA TARYFOWA A21"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/B21.pdf",
+                "text": "GRUPA TARYFOWA B21"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/C22a.pdf",
+                "text": "GRUPA TARYFOWA C22a"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/B22.pdf",
+                "text": "GRUPA TARYFOWA B22"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/A22.pdf",
+                "text": "GRUPA TARYFOWA A22"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/C22b.pdf",
+                "text": "GRUPA TARYFOWA C22b"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/C23.pdf",
+                "text": "GRUPA TARYFOWA C23"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/B23.pdf",
+                "text": "GRUPA TARYFOWA B23"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/A23.pdf",
+                "text": "GRUPA TARYFOWA A23"
+              }
+            ],
+            "scripts_scanned": [
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-includes/js/jquery/jquery.min.js?ver=3.7.1",
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1",
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-includes/js/dist/hooks.min.js?ver=f0f188028580e8dc1255",
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-includes/js/dist/i18n.min.js?ver=1dfe7db3940c23ea9216",
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-content/plugins/contact-form-7/includes/swv/js/index.js?ver=6.2.2",
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-content/plugins/contact-form-7/includes/js/index.js?ver=6.2.2",
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-content/themes/flatsome/inc/extensions/flatsome-live-search/flatsome-live-search.js?ver=3.19.7",
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-includes/js/hoverIntent.min.js?ver=1.10.2"
+            ]
+          },
+          "error": null
+        },
+        {
+          "kind": "browser",
+          "url": "https://dostepnemoce.pl/",
+          "outcome": "ok",
+          "status_code": null,
+          "content_type": null,
+          "final_url": null,
+          "redirect_status": null,
+          "elapsed_ms": 17116,
+          "size_bytes": null,
+          "details": {
+            "title": "Strona główna - Tauron Dystrybucja | Portal dla Klienta biznesowego",
+            "data_requests": [
+              {
+                "url": "https://googleads.g.doubleclick.net/pagead/id",
+                "status": 302,
+                "content_type": "text/html; charset=ISO-8859-2",
+                "resource_type": "xhr"
+              },
+              {
+                "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-QDPYBR4T5B&gtm=45je6a72v9236723133za20ozb9236716148zd9236716148xf1&_p=1791789254249&gcd=13l3l3l2l1l1&npa=1&dma_cps=a&dma=1&cid=742157303.1791789255&frm=0&ngs=1&pscdl=noapi&rcb=5&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B153.0.8010.12%7CNot_A%2520Brand%3B8.0.0.0%7CChromium%3B153.0.8010.12&uam=&uamb=0&uap=Windows&uapv=&uaw=0&ul=pl-pl&_s=1&tag_exp=115616985~115938465~115938468~118897920~118897930~120213116~120385422~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791789255&sct=1&seg=0&dl=https%3A%2F%2Fdostepnemoce.tauron-dystrybucja.pl%2F&dt=Strona%20g%C5%82%C3%B3wna%20-%20Tauron%20Dystrybucja%20%7C%20Portal%20dla%20Klienta%20biznesowego&en=page_view&_fv=1&_nsi=1&_ss=1&gap.plf=5&tfd=1368",
+                "status": 204,
+                "content_type": "text/plain",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://googleads.g.doubleclick.net/pagead/id?slf_rd=1",
+                "status": 200,
+                "content_type": "application/json; charset=ISO-8859-2",
+                "resource_type": "xhr"
+              },
+              {
+                "url": "https://dostepnemoce.tauron-dystrybucja.pl/wp-json/contact-form-7/v1/contact-forms/1431/feedback/schema",
+                "status": 200,
+                "content_type": "application/json; charset=UTF-8",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/fo/3239292598:1791781512:Dah2MFEPcfvG86ChiMos-ehpft-sfABxob_blYA54fo/a4944e7ef82abd18/UuhmdsDV0IVUIWLJ9xyAgvVeB5Poo3hmlkt44RdnMOE-1791789255-1.2.1.1-ovb4T_7nTHbV7GLv1J_OiqEYHUyS7JfxqD3U_Hr3rIIIzGX2Ob17lT8PP0dIhoD7",
+                "status": 200,
+                "content_type": "text/plain; charset=UTF-8",
+                "resource_type": "xhr"
+              },
+              {
+                "url": "https://jnn-pa.googleapis.com/$rpc/google.internal.waa.v1.Waa/GenerateIT",
+                "status": 200,
+                "content_type": "application/json+protobuf; charset=UTF-8",
+                "resource_type": "xhr"
+              },
+              {
+                "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/pat/a4944e7ef82abd18/1791789256234/31d5414ada0d08505f55a8b9ff74ea70e7f9157ce2ec04a3ee78b95612aea501/BtCScWM48OKSAzliPHonoyrG34kOy7GI8Y__cRTmpFE-1791789256-1.3.1.1-ibd2LvGgOXyAJR3mWnrOjMDqzHI7TQEgRJnrcJ6JahbvfClFM6Du32dhLLNymwIviKDnYBX1c1iSSXGRz0x2JFTzQcJgKhBG2KPwB._IP64CEnHNjYgxzEQhQtCf8R.YfsSxkuV1amJwg3StJvUQu0ctjI8rnxI_pSTxl7WhL3Qv1hXR9Jj1L4YvxQJvHHgMSFoLje2rtTWVwFF3BFlx.ePmuTX_KyBTUa.Mnw0f2O8FN5S5iAT7K6N46SMYxxm6.DcQ87WKS_CL8P8UZIBgxIoz9st3QoSVI29YLoVXqyA2OV66i.i__89jHrUyHDW1JfjLJIIz6MRFdABs59h.5dD7nNSG1X2bvwPZ47U.fNgJ3c05XOF_hOoE4C0ZKppV9lWa5rcd1hHG0QYqP8tJYSOj1gG1nWXTWRAgBwon40ExJJNBR5tcBO7m688hZphEoSAe1lkCbonnneBy9eriG_Obez8PKWu.ySxHcoym.8daZW3dF6_0syzcKss8cW5NoxevSwK9vRWs4RdCZYHLSIyjCe_i8kfTkwg4VenPZXotVSg_6KfRunatVJYoYgbAP5CdUeKAJM91FVbM2e8Zo3V7D8YONtvCiMfc46d94sq2d.s14BjXT3HS1qQH32l_SJKofDo_vfX1THhsGZwQLTFEWY2S.72JQLa5tphKt2oP5q9Pdn1R5FHxBlSW1HI.E6xIYtBTWLOVHMi5qeEcKQJBS0hhyH1G8DFlgameEXK7ukFf_Z8gfSR31JDeW5vh8t.7t6LefSPG6_a.s9iAKTjEYmiMZVu4JMhEMXMo3GuWhw6j35a4PGNjQ1OMYUz.",
+                "status": 401,
+                "content_type": "text/plain; charset=utf-8",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://dostepnemoce.tauron-dystrybucja.pl/wp-json/tauron-connector/v1/map/sources",
+                "status": 200,
+                "content_type": "application/json; charset=UTF-8",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://dostepnemoce.tauron-dystrybucja.pl/wp-json/tauron-connector/v1/map/sources",
+                "status": 200,
+                "content_type": "application/json; charset=UTF-8",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://dostepnemoce.tauron-dystrybucja.pl/wp-json/tauron-connector/v1/map/sources",
+                "status": 200,
+                "content_type": "application/json; charset=UTF-8",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://dostepnemoce.tauron-dystrybucja.pl/wp-json/tauron-connector/v1/map/sources",
+                "status": 200,
+                "content_type": "application/json; charset=UTF-8",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://dostepnemoce.tauron-dystrybucja.pl/wp-json/tauron-connector/v1/map/sources",
+                "status": 200,
+                "content_type": "application/json; charset=UTF-8",
+                "resource_type": "fetch"
+              },
+              {
+                "url": "https://www.youtube.com/youtubei/v1/log_event?alt=json",
+                "status": 200,
+                "content_type": "application/json; charset=UTF-8",
+                "resource_type": "xhr"
+              },
+              {
+                "url": "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/fo/3239292598:1791781512:Dah2MFEPcfvG86ChiMos-ehpft-sfABxob_blYA54fo/a4944e7ef82abd18/UuhmdsDV0IVUIWLJ9xyAgvVeB5Poo3hmlkt44RdnMOE-1791789255-1.2.1.1-ovb4T_7nTHbV7GLv1J_OiqEYHUyS7JfxqD3U_Hr3rIIIzGX2Ob17lT8PP0dIhoD7",
+                "status": 200,
+                "content_type": "text/plain; charset=UTF-8",
+                "resource_type": "xhr"
+              },
+              {
+                "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-QDPYBR4T5B&gtm=45je6a72v9236723133z89236716148za20gzb9236716148zd9236716148xf1&_p=1791789254249&gcd=13l3l3l2l1l1&npa=1&dma_cps=a&dma=1&_eu=AAAAAAQ&cid=742157303.1791789255&frm=0&ngs=1&pscdl=noapi&rcb=5&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B153.0.8010.12%7CNot_A%2520Brand%3B8.0.0.0%7CChromium%3B153.0.8010.12&uam=&uamb=0&uap=Windows&uapv=&uaw=0&ul=pl-pl&_s=2&tag_exp=115616985~115938465~115938468~118897920~118897930~120213116~120385422~120469145~120469153~121046263~121046271~121246026~121246034&sid=1791789255&sct=1&seg=0&dl=https%3A%2F%2Fdostepnemoce.tauron-dystrybucja.pl%2F&dt=Strona%20g%C5%82%C3%B3wna%20-%20Tauron%20Dystrybucja%20%7C%20Portal%20dla%20Klienta%20biznesowego&en=https%3A%2F%2Fdostepnemoce.tauron-dystrybucja.pl%2F&gap.plf=5&_et=3&tfd=6375",
+                "status": 204,
+                "content_type": "text/plain",
+                "resource_type": "fetch"
+              }
+            ],
+            "controls": [
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "select",
+                "type": "select-one",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "WytwórcyOdbiorcy"
+              },
+              {
+                "tag": "input",
+                "type": "number",
+                "name": "minimum_mw",
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "select",
+                "type": "select-one",
+                "name": "year_from",
+                "id": null,
+                "placeholder": null,
+                "text": "202620272028202920302031"
+              },
+              {
+                "tag": "select",
+                "type": "select-one",
+                "name": "year_to",
+                "id": null,
+                "placeholder": null,
+                "text": "202620272028202920302031"
+              },
+              {
+                "tag": "select",
+                "type": "select-one",
+                "name": "province",
+                "id": null,
+                "placeholder": null,
+                "text": "Wszystkie województwadolnośląskieopolski"
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Wyszukaj GPZ"
+              },
+              {
+                "tag": "select",
+                "type": "select-one",
+                "name": "kind",
+                "id": null,
+                "placeholder": null,
+                "text": "GPZ czynne i planowaneInstalacje OZEKlas"
+              },
+              {
+                "tag": "input",
+                "type": "search",
+                "name": "query",
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Pokaż warstwę"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Wyczyść warstwy"
+              },
+              {
+                "tag": "input",
+                "type": "number",
+                "name": "lat",
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "input",
+                "type": "number",
+                "name": "lng",
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "submit",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Sprawdź punkt"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Pokaż granice punktu"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "WYSZUKAJ"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "GRANICE ODDZIAŁÓW"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "GRANICA ZASIĘGU"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "DOSTĘPNE MOCE DLA ODBIORCÓW"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "DOSTĘPNE MOCE DLA WYTWÓRCÓW"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "MAPA INWESTYCJI"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "MAPA PRZYŁĄCZEŃ"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "MAPA ELASTYCZNOŚCI"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "WŁĄCZ/WYŁĄCZ ZOOM KÓŁKIEM"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "RESET WIDOKU"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "×"
+              },
+              {
+                "tag": "input",
+                "type": "search",
+                "name": null,
+                "id": null,
+                "placeholder": "Wyszukaj GPZ, gminę, powiat lub inwestycję…",
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "×"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "×"
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "input",
+                "type": "hidden",
+                "name": "_wpcf7",
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "input",
+                "type": "hidden",
+                "name": "_wpcf7_version",
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "input",
+                "type": "hidden",
+                "name": "_wpcf7_locale",
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "input",
+                "type": "hidden",
+                "name": "_wpcf7_unit_tag",
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "input",
+                "type": "hidden",
+                "name": "_wpcf7_container_post",
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "input",
+                "type": "hidden",
+                "name": "_wpcf7_posted_data_hash",
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "input",
+                "type": "text",
+                "name": "your-name",
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "input",
+                "type": "email",
+                "name": "your-email",
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "select",
+                "type": "select-one",
+                "name": "select-95",
+                "id": null,
+                "placeholder": null,
+                "text": "województwo dolnośląskie\nwojewództwo opo"
+              },
+              {
+                "tag": "textarea",
+                "type": "textarea",
+                "name": "your-message",
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "input",
+                "type": "submit",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "input",
+                "type": "hidden",
+                "name": "_wpcf7_turnstile_response",
+                "id": "cf-chl-widget-3sztm_response",
+                "placeholder": null,
+                "text": null
+              },
+              {
+                "tag": "button",
+                "type": "button",
+                "name": null,
+                "id": null,
+                "placeholder": null,
+                "text": "Zgadzam się"
+              }
+            ],
+            "action_errors": []
+          },
+          "error": null
+        },
+        {
+          "kind": "http",
+          "url": "https://dostepnemoce.tauron-dystrybucja.pl/wp-json/tauron-connector/v1/map/sources",
+          "outcome": "failed",
+          "status_code": 404,
+          "content_type": "application/json; charset=UTF-8",
+          "final_url": "https://dostepnemoce.tauron-dystrybucja.pl/wp-json/tauron-connector/v1/map/sources",
+          "redirect_status": null,
+          "elapsed_ms": 122,
+          "size_bytes": 135,
+          "details": {
+            "json_keys": [
+              "code",
+              "data",
+              "message"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "dso_portals",
+      "name": "Nowe portale mocy OSD (nowelizacja 2026)",
+      "plan": "v2",
+      "status": "not_checked",
+      "probes": [],
+      "notes": null
+    },
+    {
+      "source_id": "uke",
+      "name": "UKE – infrastruktura telekomunikacyjna",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://www.uke.gov.pl/",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html; charset=utf-8",
+          "final_url": "https://www.uke.gov.pl/",
+          "redirect_status": null,
+          "elapsed_ms": 1213,
+          "size_bytes": 32650,
+          "details": {
+            "title": "Urząd Komunikacji Elektronicznej",
+            "endpoint_candidates": [
+              "https://www.uke.gov.pl/szablony/uke/images/favicon/manifest.json",
+              "https://uke.gov.pl/download/gfx/uke/pl/defaultstronaopisowa/211/1/1/standardy_ochrony_maloletnich.pdf",
+              "https://vimeo.com/api/v2/video/",
+              "https://vzaar.com/api/videos/",
+              "https://player.vimeo.com/api/player.js"
+            ],
+            "keyword_links": [
+              {
+                "url": "https://www.uke.gov.pl/mapaserwisu/",
+                "text": "Mapa Serwisu"
+              }
+            ],
+            "scripts_scanned": [
+              "https://www.uke.gov.pl/gfx/uke/_thumbs/uke__1788346293_ono.js",
+              "https://www.uke.gov.pl/_Incapsula_Resource?SWJIYLWA=719d34d31c8e3a6e6fffd425f7e032f3&ns=2&cb=1620162775"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": "Właściwa usługa (WMS/eksport) do ustalenia w discovery."
+    },
+    {
+      "source_id": "psi",
+      "name": "Polska Strefa Inwestycji – mapa pomocy regionalnej",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://www.gov.pl/web/fundusze-regiony/polska-strefa-inwestycji",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html;charset=UTF-8",
+          "final_url": "https://www.gov.pl/",
+          "redirect_status": 301,
+          "elapsed_ms": 1063,
+          "size_bytes": 40574,
+          "details": {
+            "title": "Portal Gov.pl",
+            "endpoint_candidates": [
+              "https://developer.mozilla.org/en-US/docs/Web/API/Navigator/battery",
+              "https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement.toDataURL",
+              "https://developer.mozilla.org/en-US/docs/Web/API/Clipboard",
+              "https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API",
+              "https://developer.mozilla.org/en-US/docs/Web/API/ClipboardEvent/ClipboardEvent",
+              "https://developer.mozilla.org/en-US/docs/Web/API/navigator.registerProtocolHandler",
+              "https://developer.mozilla.org/en/docs/Web/API/CustomEvent",
+              "https://developer.mozilla.org/en-US/docs/Web/API/DocumentFragment",
+              "https://developer.mozilla.org/en/docs/Web/API/Intersection_Observer_API",
+              "https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver",
+              "https://developer.mozilla.org/en-US/docs/Web/API/ShadowRoot",
+              "https://developer.mozilla.org/en-US/docs/Web/API/Element/createShadowRoot",
+              "https://developer.mozilla.org/en-US/docs/Web/API/Detecting_device_orientation",
+              "https://developer.mozilla.org/en-US/docs/Web/API/GlobalEventHandlers.oninput",
+              "https://developer.mozilla.org/en/API/Fullscreen",
+              "https://developer.mozilla.org/en-US/docs/Web/API/WindowEventHandlers/onhashchange",
+              "https://developer.mozilla.org/en-US/docs/Web/API/window.history",
+              "https://developer.mozilla.org/en-US/docs/Web/API/Media_Source_Extensions_API",
+              "https://developer.mozilla.org/en-US/docs/Web/API/Channel_Messaging_API/Using_channel_messaging",
+              "https://developer.mozilla.org/en-US/docs/Web/API/navigator.sendBeacon",
+              "https://developer.mozilla.org/en-US/docs/Web/API/NetworkInformation/effectiveType",
+              "https://developer.mozilla.org/en-US/docs/Web/API/PointerEvent",
+              "https://developer.mozilla.org/en-US/docs/API/Pointer_Lock_API",
+              "https://developer.mozilla.org/en-US/docs/Web/API/Proximity_Events",
+              "https://developer.mozilla.org/en-US/docs/Web/API/Window/scrollTo",
+              "https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder",
+              "https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder",
+              "https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams",
+              "https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredential",
+              "https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Using_Extensions",
+              "https://developer.mozilla.org/en-US/docs/Web/API/MediaStream_Recording_API",
+              "https://developer.mozilla.org/en-US/docs/Web/API/WindowOrWorkerGlobalScope/atob",
+              "https://developer.mozilla.org/en-US/docs/Web/API/Window.matchMedia",
+              "https://developer.mozilla.org/en-US/docs/Web/API/PushManager",
+              "https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver",
+              "https://developer.mozilla.org/en-US/docs/Web/API/Worker/Worker",
+              "https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers",
+              "https://developer.mozilla.org/en-US/docs/Web/API/XDomainRequest"
+            ],
+            "keyword_links": [],
+            "scripts_scanned": [
+              "https://www.gov.pl/scripts/polyfills/modernizr-custom.js",
+              "https://www.gov.pl/scripts/polyfills/polyfills.js",
+              "https://www.gov.pl/scripts/vendors/jquery-3.7.1.min.js",
+              "https://www.gov.pl/scripts/vendors/jquery-ui-1.13.2.min.js",
+              "https://www.gov.pl/scripts/vendors/modaal.min.js",
+              "https://www.gov.pl/scripts/vendors/b_util.js",
+              "https://www.gov.pl/scripts/vendors/b_tab_orginal.js",
+              "https://www.gov.pl/scripts/vendors/validate.min.js"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": "Tabela statyczna przygotowana ręcznie z rozporządzenia: data/manual/psi_aid.csv."
+    },
+    {
+      "source_id": "kowr",
+      "name": "KOWR – oferty nieruchomości rolnych",
+      "plan": "mvp",
+      "status": "failed",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://nieruchomoscikowr.gov.pl/",
+          "outcome": "failed",
+          "status_code": 200,
+          "content_type": "text/html",
+          "final_url": "https://nieruchomoscikowr.gov.pl/",
+          "redirect_status": null,
+          "elapsed_ms": 1031,
+          "size_bytes": 212,
+          "details": {},
+          "error": "strona ochrony antybotowej (challenge), nie treść"
+        }
+      ],
+      "notes": "Grzeczny scraping tylko jeśli regulamin pozwala; inaczej ręczny import CSV."
+    },
+    {
+      "source_id": "invest_offers",
+      "name": "Oferty inwestycyjne gmin / SSE / COI",
+      "plan": "mvp",
+      "status": "not_checked",
+      "probes": [],
+      "notes": "Ręczny import CSV wg szablonu data/manual/invest_offers_template.csv."
+    },
+    {
+      "source_id": "heat",
+      "name": "Sieci ciepłownicze (proxy – koncesje URE)",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://bip.ure.gov.pl/",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html; charset=UTF-8",
+          "final_url": "https://bip.ure.gov.pl/",
+          "redirect_status": null,
+          "elapsed_ms": 1035,
+          "size_bytes": 16357,
+          "details": {
+            "title": "BIP - Urząd Regulacji Energetyki",
+            "endpoint_candidates": [
+              "https://bip.ure.gov.pl/decrypt.json"
+            ],
+            "keyword_links": [
+              {
+                "url": "https://bip.ure.gov.pl/bip/40-wzrost-dostawa-ciepla",
+                "text": "40% wzrost – dostawa ciepła"
+              },
+              {
+                "url": "https://bip.ure.gov.pl/bip/rejestry-i-bazy",
+                "text": "Rejestry i bazy"
+              },
+              {
+                "url": "https://bip.ure.gov.pl/bip/wykaz-odbiorcow-przemys",
+                "text": "Wykaz odbiorców przemysłowych"
+              },
+              {
+                "url": "https://bip.ure.gov.pl/bip/changelog",
+                "text": "Rejestr zmian"
+              }
+            ],
+            "scripts_scanned": [
+              "https://bip.ure.gov.pl/dokumenty/szablonyimg/3-svgxuse.js",
+              "https://bip.ure.gov.pl/dokumenty/szablony/dynamic/3/3-852.js?v=0.320"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "bazaoos",
+      "name": "GDOŚ – Baza OOŚ (decyzje środowiskowe)",
+      "plan": "manual",
+      "status": "not_checked",
+      "probes": [],
+      "notes": null
+    },
+    {
+      "source_id": "ekw",
+      "name": "Księgi wieczyste (EKW)",
+      "plan": "manual",
+      "status": "not_checked",
+      "probes": [],
+      "notes": null
+    },
+    {
+      "source_id": "bip",
+      "name": "BIP gmin",
+      "plan": "v2",
+      "status": "not_checked",
+      "probes": [],
+      "notes": null
+    }
+  ]
+}

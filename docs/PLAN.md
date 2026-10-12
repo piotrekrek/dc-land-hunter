@@ -111,7 +111,7 @@ Acceptance: E2E flows pass (login, filter + open card, check parcel, move deal, 
 
 ## Phase 5: Monitoring
 
-Tasks: snapshot diffs → events (all nine types), Nowości feed with "mark as seen", watches, weekly digest email (SMTP, Monday 07:00), scheduled runs (Monday 05:00 Europe/Warsaw plus per-source cadence), `kowr` connector (after a terms check) and manual offer CSV import with template.
+Tasks: snapshot diffs → events (all nine types), Nowości feed with "mark as seen", watches, weekly digest email (SMTP, Monday 07:00), scheduled runs (Monday 05:00 Europe/Warsaw plus per-source cadence), manual offer CSV import (`kowr` is manual-only, no connector) with template.
 
 Acceptance: two consecutive fixture runs produce the expected events, and a test digest renders correctly.
 

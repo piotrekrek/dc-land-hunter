@@ -11,11 +11,11 @@ from dclh_pipeline.config import ScoringConfig, load_scoring, load_sources
 # Source ids from PROJECT_BRIEF.md section 4, by plan.
 BRIEF_MVP = {
     "prg", "osm_power", "osm_land", "bdot10k", "ru", "kimpzp", "egib", "uldk", "kiug", "gdos", "isok",
-    "midas", "nid", "pse_closed", "pse_odb", "pse_avail", "enea", "energa", "tauron", "uke", "psi", "kowr",
+    "midas", "nid", "pse_closed", "pse_odb", "pse_avail", "enea", "energa", "tauron", "uke", "psi",
     "invest_offers", "heat",
 }  # fmt: skip
 BRIEF_V2 = {"dso_portals", "bip"}
-BRIEF_MANUAL = {"bazaoos", "ekw"}
+BRIEF_MANUAL = {"bazaoos", "ekw", "kowr"}
 # Sources fed only by manual imports, so there is nothing to probe.
 NO_PROBES = {"invest_offers"}
 # Core sources gate score publishing (brief section 10).
