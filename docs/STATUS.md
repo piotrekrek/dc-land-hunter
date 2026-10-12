@@ -89,7 +89,13 @@ Not done, and why:
      Generation and industry (`Tauron Ekoenergia`, `PGE GiEK`, `KGHM`) stay foreign. Rail traction stations
      (`PGE Energetyka Kolejowa`, 49) are still counted as foreign owners; whether they belong in the brownfield bonus
      is a question for the owner.
-  Peak memory of the parse was 1,689 MB even with the pre-filter. Not yet explained; the cut is cached, so profiling is cheap.
+  Peak memory of the parse was 1,689 MB with one `IdFilter` over all node ids: it keeps a dense bitmap over the id
+  range (ids reach about 13 billion), about 1.3 GB. The node pass now runs in id-range batches (`MAX_ID_SPAN`), and the
+  parse refuses to start with less than 800 MB available. **Measured on the VPS: 470 MB peak**, with the cut cached.
+  These memory changes and the refined voltage rule (known low-voltage levels, all-kV tags such as `110;15`) were
+  found as uncommitted edits in the VPS checkout, written there and tested on the real file; they are ported here with
+  tests, together with the operator fix that the VPS did not have.
+  Real counts after the voltage fix: 144 220/400 kV nodes (was 16,426), 1,594 GPZs of which 1,584 have a name.
 - **Acceptance (≥70% of Enea/Energa GPZs matched)** cannot be measured. It needs the real OSM extract and the real
   DSO files, both on the VPS. The report command for the match rate is not written yet.
 - **Scoring run**: there is still no `dclh score` command (Phase 2 item), so the new layers are not yet loaded in a

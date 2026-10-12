@@ -64,27 +64,37 @@ _OPERATOR_PATTERNS: tuple[tuple[re.Pattern[str], Dso], ...] = (
 )
 
 
+# Low-voltage levels that mappers write as bare numbers of volts. "400" is the usual 400 V transformer side
+# ("15000;400"), not 400 kV. A lone "400" is ambiguous; it is read as volts, because 400 kV stations are
+# normally tagged "400000" and a lone "400" is far more often a low-voltage station.
+_LV_VOLTS = frozenset({230, 400, 600, 660, 690, 800})
+
+
 def parse_voltages(tag: str | None) -> list[int]:
     """Parse an OSM `voltage` tag ("110000;15000", "400000", "110 kV") into volts, descending.
 
+    OSM defines the value in volts. A bare number below 1000 is read as kV ("110", "110;15") only when
+    nothing says otherwise: it is volts when it is a known low-voltage level (230, 400, 600, 660, 690, 800)
+    or when the tag also holds a value of 1000 V or more ("15000;400", "20000;500"). On the Poland extract
+    (12.10.2026) 16,426 stations carried tags like "15000;400" (a 15 kV station with a 400 V side); reading
+    the 400 as kV made them look like 220/400 kV nodes, of which there are about a hundred.
     Unparsable parts are ignored; an empty list means "no usable voltage".
     """
     if not tag:
         return []
-    volts: list[int] = []
+    parsed: list[tuple[float, str | None]] = []
     for part in re.split(r"[;,/]", tag):
         part = part.strip().lower().replace(" ", "")
         m = re.fullmatch(r"(\d+(?:\.\d+)?)(kv|v)?", part)
-        if not m:
-            continue
-        value = float(m.group(1))
-        if m.group(2) == "kv":
+        if m:
+            parsed.append((float(m.group(1)), m.group(2)))
+    has_high_volts = any(unit != "kv" and value >= 1000 for value, unit in parsed)
+    volts: list[int] = []
+    for value, unit in parsed:
+        if unit == "kv":
             value *= 1000
-        elif m.group(2) is None and value == 110:
-            # A bare 110 is a sloppy "110 kV": there is no 110 V in the Polish grid. Every other bare number
-            # is volts, as OSM defines it. "15000;400" is a 15 kV station with a 400 V side, not a 400 kV
-            # node: the Poland extract has 16,000 of those and about a hundred real 220/400 kV stations.
-            value *= 1000
+        elif unit is None and value < 1000 and not has_high_volts and round(value) not in _LV_VOLTS:
+            value *= 1000  # a bare kV value ("110")
         volts.append(round(value))
     return sorted(set(volts), reverse=True)
 

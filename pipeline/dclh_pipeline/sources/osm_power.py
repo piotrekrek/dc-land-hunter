@@ -17,6 +17,7 @@ substation's `name` is what lets DSO capacity lists be matched to it (`model/gpz
 from __future__ import annotations
 
 import hashlib
+import itertools
 import logging
 import shutil
 import subprocess
@@ -57,17 +58,32 @@ log = logging.getLogger(__name__)
 COLUMNS = ["kind", "osm_id", "name", "operator", "voltage"]
 # A real extract has thousands of substations. Far fewer means a wrong or empty file.
 MIN_SUBSTATIONS_IN_EXTRACT = 1000
+# `parse()` peaks at a few hundred MB. It refuses to start when less than this is available, so a parse on a
+# busy 2 GB VPS fails with a clear message instead of being killed by the out-of-memory killer (which also
+# hits the database and the API running on the same host).
+MIN_AVAILABLE_MB = 800
+# `osmium.filter.IdFilter` keeps a dense bitmap over the node-id range it covers (about 4 MB per 33 million
+# ids). One filter over all of Poland's power nodes (ids up to about 13 billion) needed 1.3 GB, so the node
+# pass runs in batches whose ids span at most this much: about 256 MB each, at the price of one extra read of
+# the file per batch. Measured on the VPS: peak 1,689 MB with one filter, 470 MB with batches.
+MAX_ID_SPAN = 2**31
 
 
 class OsmPowerConnector(Source):
     id: ClassVar[str] = "osm_power"
 
     def __init__(
-        self, spec: SourceSpec, *, url: str = PBF_URL, min_substations: int = MIN_SUBSTATIONS_IN_EXTRACT
+        self,
+        spec: SourceSpec,
+        *,
+        url: str = PBF_URL,
+        min_substations: int = MIN_SUBSTATIONS_IN_EXTRACT,
+        min_available_mb: int = MIN_AVAILABLE_MB,
     ) -> None:
         super().__init__(spec)
         self.url = url
         self.min_substations = min_substations
+        self.min_available_mb = min_available_mb
 
     def fetch(self, client: PoliteClient, store: SnapshotStore) -> Snapshot:
         tmp_root = store.root / self.id / "tmp"
@@ -93,6 +109,7 @@ class OsmPowerConnector(Source):
         killed by the out-of-memory killer on a 2 GB VPS. Here only the nodes that power ways use are kept
         (a few million), plus the power-tagged nodes.
         """
+        require_free_memory(self.min_available_mb)
         path = str(_power_source(snapshot.path))
         started = time.monotonic()
         ways, power_nodes = _power_objects(path)
@@ -103,7 +120,7 @@ class OsmPowerConnector(Source):
             time.monotonic() - started,
         )
         started = time.monotonic()
-        locations = _NodeLocations.read(path, [ref for way in ways for ref in way.refs])
+        locations = _NodeLocations.read(path, np.concatenate([way.refs for way in ways]) if ways else None)
         log.info(
             "OSM power: read %d node locations in %.0f s", len(locations.ids), time.monotonic() - started
         )
@@ -121,6 +138,29 @@ class OsmPowerConnector(Source):
         table = table.to_crs(f"EPSG:{EPSG}")
         _check(table, self.min_substations)
         return table
+
+
+def available_memory_mb() -> int | None:
+    """`MemAvailable` from /proc/meminfo in MB, or None where it is not readable (not Linux).
+
+    Swap is deliberately not counted: a parse that has to live in swap is a parse that stalls the whole host.
+    """
+    try:
+        for line in Path("/proc/meminfo").read_text().splitlines():
+            if line.startswith("MemAvailable:"):
+                return int(line.split()[1]) // 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    return None
+
+
+def require_free_memory(min_mb: int) -> None:
+    free = available_memory_mb()
+    if free is not None and free < min_mb:
+        raise MemoryError(
+            f"only {free} MB of memory is available, the OSM parse wants at least {min_mb} MB; "
+            "stop other jobs (or the heavy containers) and retry"
+        )
 
 
 # What the parser needs: substation and power-line ways, substation nodes. The nodes that these ways reference
@@ -247,6 +287,21 @@ def _power_objects(path: str) -> tuple[list[_PowerWay], list[tuple[dict[str, obj
     return ways, nodes
 
 
+def _id_batches(wanted: np.ndarray | None, max_span: int = MAX_ID_SPAN) -> list[list[int]]:
+    """Sorted unique ids split into runs whose first and last id are less than `max_span` apart."""
+    if wanted is None or not len(wanted):
+        return []
+    unique = np.unique(wanted.astype(np.int64))
+    starts = [0]
+    while True:
+        nxt = int(np.searchsorted(unique, unique[starts[-1]] + max_span, side="left"))
+        if nxt >= len(unique):
+            break
+        starts.append(nxt)
+    bounds = [*starts, len(unique)]
+    return [unique[a:b].tolist() for a, b in itertools.pairwise(bounds)]
+
+
 class _NodeLocations:
     """Longitude and latitude of a chosen set of nodes, sorted by id for lookup."""
 
@@ -255,16 +310,17 @@ class _NodeLocations:
         self.ids, self.lon, self.lat = ids[order], lon[order], lat[order]
 
     @classmethod
-    def read(cls, path: str, wanted: list[int]) -> _NodeLocations:
-        """Pass 2: only the nodes in `wanted` are decoded; the other 200 million are skipped."""
+    def read(cls, path: str, wanted: np.ndarray | None, max_span: int = MAX_ID_SPAN) -> _NodeLocations:
+        """Pass 2: only the nodes in `wanted` are decoded; the other 200 million are skipped.
+
+        The ids go through osmium's `IdFilter` in batches that each span less than `max_span`, because one
+        filter over the whole id range allocates over a gigabyte (see `MAX_ID_SPAN`).
+        """
         ids: array[int] = array("q")
         lon: array[float] = array("d")
         lat: array[float] = array("d")
-        if wanted:
-            unique = np.unique(np.asarray(wanted, dtype=np.int64)).tolist()
-            for obj in osmium.FileProcessor(path, osmium.osm.NODE).with_filter(
-                osmium.filter.IdFilter(unique)
-            ):
+        for batch in _id_batches(wanted, max_span):
+            for obj in osmium.FileProcessor(path, osmium.osm.NODE).with_filter(osmium.filter.IdFilter(batch)):
                 if isinstance(obj, osmium.osm.Node) and obj.location.valid():
                     ids.append(obj.id)
                     lon.append(obj.location.lon)
