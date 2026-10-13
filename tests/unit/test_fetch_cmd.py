@@ -59,3 +59,9 @@ def test_plain_fetch_still_downloads(settings_in: Settings, monkeypatch: pytest.
     result = CliRunner().invoke(cli.app, ["fetch", "prg"])
     assert result.exit_code == 0, result.output
     assert _Stub.fetched == 1
+
+
+def test_load_grid_without_a_snapshot_says_so(settings_in: Settings) -> None:
+    result = CliRunner().invoke(cli.app, ["load-grid"])
+    assert result.exit_code != 0
+    assert "no saved snapshot" in result.output

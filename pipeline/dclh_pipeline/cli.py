@@ -317,6 +317,33 @@ def search_cmd(
         console.print(f"wrote {count} sites")
 
 
+@app.command("load-grid")
+def load_grid_cmd() -> None:
+    """Load the saved OSM grid into the database, so the map shows stations and lines.
+
+    Parses the latest `osm_power` snapshot (no download; run `dclh fetch osm_power` first) and replaces the
+    `substations` and `lines` tables in one transaction. Needs the database.
+    """
+    from dclh_pipeline.db import session_scope
+    from dclh_pipeline.grid_load import load_grid
+
+    settings = get_settings()
+    config = load_sources()
+    snapshot = SnapshotStore(settings.raw_dir).latest("osm_power")
+    if snapshot is None:
+        raise typer.BadParameter("no saved snapshot of 'osm_power'; run `dclh fetch osm_power` first")
+    table = OsmPowerConnector(config.get("osm_power")).parse(snapshot)
+    with session_scope() as session:
+        report = load_grid(session, table, as_of=snapshot.fetched_at)
+    for cls, count in sorted(report.substations.items()):
+        console.print(f"substations {cls:<16} {count:>8}")
+    console.print(f"lines >= 110 kV{'':<13} {report.lines:>8}")
+    console.print(
+        f"not loaded: {report.skipped_substations} other substations, "
+        f"{report.skipped_lines} lines below 110 kV or without voltage"
+    )
+
+
 @app.command("enqueue")
 def enqueue_cmd(
     kind: str,

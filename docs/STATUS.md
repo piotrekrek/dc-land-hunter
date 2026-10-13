@@ -233,6 +233,19 @@ Not done yet (needs real data from a machine in Poland):
 Next on the VPS: `uv run dclh fetch prg`. If it fails on fields or bounds, paste the error; the report lists the
 available columns, which settles the names.
 
+## Stations on the map: `dclh load-grid` (12.10.2026, tested on PostGIS, not yet run on the VPS)
+
+- `dclh load-grid` parses the saved `osm_power` snapshot (no download) and replaces `substations` and `lines` in one
+  transaction, so the existing Martin views and map layers show them. Loaded: 110 kV + SN stations, 220/400 kV
+  nodes, stations with an unreadable voltage (confidence "missing"), and lines of 110 kV and above. Not loaded: the
+  medium-voltage-only and 110 kV-only stations (`OTHER`), which would bury the GPZs. A 110 kV-only switchyard is
+  therefore not on the map; say so if you want it.
+- `dso` and `foreign_operator` come from the OSM `operator` tag. `circuits` and line `operator` stay empty.
+- Tests: `tests/unit/test_grid_load.py` (rows, SRID, tile views, reload replaces, failed load keeps the old grid).
+- **Next on the VPS:** deploy, `dclh fetch osm_power --reuse`, `dclh load-grid`, hard-refresh and zoom in (stations
+  from zoom 5, lines from zoom 4). Compare the printed counts with 1,594 GPZs and 144 nodes at 220/400 kV.
+- Not done: a station popup (name, operator, voltages), clipping to the AOI.
+
 ## Phase 1.5: `dclh search` (code on fixtures; not yet run live)
 
 - `dclh search <powiat TERYT> [--write]` (`search.py`): grid-first seed (110 kV line 3 km / GPZ 5 km / node 25 km,
