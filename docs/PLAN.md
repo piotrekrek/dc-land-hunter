@@ -64,9 +64,9 @@ Acceptance: plausible substation counts are documented and AOI tests pass.
 Goal: prove the whole chain on real data for one powiat before widening any layer. Phase 3 live work does not continue until this passes.
 
 Tasks:
-- [ ] Real AOI (`dclh aoi build`) and PRG loaded; run on the VPS.
-- [ ] OSM power layers loaded (substations, lines) with the measured counts and peak memory recorded.
-- [ ] `dclh search --powiat <teryt>` chains: seeds → grid pre-filter → EGiB parcels → cluster → constraints → score → write sites. Missing layers stay `missing`, never zero.
+- [x] Real AOI (`dclh aoi build`) loaded on the VPS (about 188,000 km²). PRG admin units are not loaded into the database.
+- [x] OSM power layers loaded (13,200 substations, 16,105 lines).
+- [x] `dclh search <teryt>` chains: seeds → grid pre-filter → EGiB parcels → cluster → constraints → score → write sites. Missing layers stay `missing`, never zero.
 - [ ] Pilot powiat: the one containing Reguły (Pruszków). Check whether the Hillwood site appears and where it ranks.
 - [ ] Measure per powiat: EGiB request count, runtime, peak memory. Extrapolate to the AOI and fix the weekly-run plan (R7).
 - [ ] "Sprawdź działkę" minimal version (pulled forward from Phase 4): one parcel via ULDK → live layers → the same scorer. Fast test of every layer on real land.
