@@ -51,6 +51,7 @@ vi.mock("maplibre-gl", () => {
     addLayer() {}
     remove() {}
     setLayoutProperty() {}
+    setPaintProperty() {}
     getCanvas() {
       return h.canvas;
     }
