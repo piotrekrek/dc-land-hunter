@@ -207,6 +207,24 @@ it says so and the printed report is still complete. Keep a copy of the output w
 A section that fails prints `FAILED` and a verdict "could not be checked"; the others still run. Paste the report back,
 then record the confirmed endpoints in `docs/SOURCES.md`. No connector uses an endpoint before that.
 
+## KW number coverage probe (test ride, run on the VPS)
+
+`dclh kw-probe` measures how many parcels of the scored sites show a land register (KW) number in the public EGiB
+services. For each parcel it asks ULDK for a point inside it and KIEG (`integracja.gugik.gov.pl`) GetFeatureInfo at that
+point. It writes nothing to the database. Each parcel costs about 3 s, so the defaults take the top 50 sites and stop at
+300 parcels (about 15 minutes):
+
+```bash
+cd ~/dc-land-hunter
+docker compose -f infra/docker-compose.yml exec worker dclh kw-probe | tee ~/kw-probe.txt
+# options: --sites 50 --max-parcels 300 --powiat 1421
+```
+
+The report shows each status as a share of all parcels (`kw`, `answer_without_kw`, `no_answer`, `error`), a table per
+powiat, and how many sites have at least one KW number. It ends with one raw answer per powiat and status. It is saved
+to `<data dir>/discovery/kw-probe-<date>.md` and `.csv`. Paste the report back. The raw samples show whether a
+county's answer has a KW field under another format, which the pattern `AAAA/NNNNNNNN/C` would miss.
+
 ## Live samples for test fixtures (run once per place, on the VPS)
 
 `dclh capture-sample` records one small live response from EGiB (WFS, 20 parcels) and ULDK for a point, plus a

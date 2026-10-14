@@ -309,6 +309,70 @@ def search_cmd(
         console.print(f"wrote {count} sites for powiat {found.teryt}")
 
 
+@app.command("kw-probe")
+def kw_probe_cmd(
+    sites: Annotated[int, typer.Option(help="Top sites by score (not excluded) to take parcels from")] = 50,
+    max_parcels: Annotated[int, typer.Option(help="Stop after this many parcels (about 3 s each)")] = 300,
+    powiat: Annotated[str | None, typer.Option(help="Only sites of this powiat, e.g. 1421")] = None,
+    out: Annotated[Path | None, typer.Option(help="Report directory (default: <data dir>/discovery)")] = None,
+) -> None:
+    """Measure how many parcels of the scored sites show a KW number in public EGiB services. Run from Poland.
+
+    Reads parcel ids from the `sites` table, asks ULDK for a point in each parcel and KIEG GetFeatureInfo
+    at that point. Writes nothing to the database; saves a Markdown report and a CSV (parcel, site, status,
+    KW).
+    """
+    import csv
+
+    from sqlalchemy import text
+
+    from dclh_pipeline import kw_probe
+    from dclh_pipeline.db import session_scope
+
+    settings = get_settings()
+    if settings.contact_email.endswith(".invalid"):
+        raise typer.BadParameter("set DCLH_CONTACT_EMAIL first (it goes into the User-Agent)")
+    query = "SELECT site_id, parcel_ids FROM sites WHERE NOT excluded"
+    params: dict[str, object] = {"n": sites}
+    if powiat:
+        query += " AND powiat = :powiat"
+        params["powiat"] = powiat
+    with session_scope() as session:
+        rows = session.execute(text(query + " ORDER BY score DESC LIMIT :n"), params).all()
+    todo = [(pid, site_id) for site_id, parcel_ids in rows for pid in parcel_ids][:max_parcels]
+    if not todo:
+        raise typer.BadParameter("no sites for this selection; run `dclh search <powiat> --write` first")
+    console.print(f"{len(rows)} sites, probing {len(todo)} parcels")
+    config = load_sources()
+    results = []
+    with PoliteClient(
+        user_agent=settings.user_agent,
+        rate_limit_per_s=config.defaults.rate_limit_per_s,
+        timeout_s=config.defaults.timeout_s,
+        retries=1,
+    ) as client:
+        for i, (pid, site_id) in enumerate(todo, 1):
+            result = kw_probe.probe_parcel(client, pid, site_id)
+            results.append(result)
+            console.print(f"{i:>4}/{len(todo)} {pid:<28} {result.status:<18} {result.kw or ''}")
+    now = datetime.now(UTC)
+    report = kw_probe.render_report(results, sites=len(rows), stamp=f"{now:%Y-%m-%d %H:%M UTC}")
+    console.print(report)  # first: a failed save must never lose the report
+    folder = out or settings.data_dir / "discovery"
+    stem = folder / f"kw-probe-{now:%Y-%m-%dT%H%M}"
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        stem.with_suffix(".md").write_text(report, encoding="utf-8")
+        with stem.with_suffix(".csv").open("w", newline="", encoding="utf-8") as fh:
+            writer = csv.writer(fh)
+            writer.writerow(["parcel_id", "site_id", "status", "kw", "note"])
+            writer.writerows((r.parcel_id, r.site_id, r.status, r.kw or "", r.note) for r in results)
+    except OSError as exc:
+        console.print(f"Report could not be saved to {stem}: {exc}. Copy it from the output above.")
+        return
+    console.print(f"Saved: {stem}.md and {stem}.csv")
+
+
 @app.command("load-grid")
 def load_grid_cmd() -> None:
     """Load the saved OSM grid into the database, so the map shows stations and lines.
