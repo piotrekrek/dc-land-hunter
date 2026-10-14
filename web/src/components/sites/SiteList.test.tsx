@@ -67,6 +67,17 @@ describe("SiteList", () => {
     expect(within(rows[0]!).getByRole("link", { name: "Więcej informacji" })).toHaveAttribute("href", "/lokalizacje/site-a");
   });
 
+  it("links each site to its location in Google Maps without selecting it", async () => {
+    mockFetch({ "/api/sites": { total: 1, offset: 0, limit: 50, items: [site({ lon: 20.5, lat: 51.2 })] } });
+    const onSelect = vi.fn();
+    renderWithProviders(<SiteList onSelect={onSelect} />);
+    const link = await screen.findByRole("link", { name: "Mapy Google" });
+    expect(link).toHaveAttribute("href", "https://www.google.com/maps?q=51.200000,20.500000");
+    expect(link).toHaveAttribute("target", "_blank");
+    await userEvent.click(link);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   it("does not select the site when the Więcej informacji link is used", async () => {
     mockFetch({ "/api/sites": { total: 1, offset: 0, limit: 50, items: [site({})] } });
     const onSelect = vi.fn();
