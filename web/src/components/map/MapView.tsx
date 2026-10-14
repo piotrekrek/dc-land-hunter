@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { proxyBasemapRequest } from "./basemap";
 import { LayerControl } from "./LayerControl";
 import { LAYER_GROUPS, LINE_LAYER_IDS, OWN_SOURCES, addGridLayers, setGroupVisibility } from "./layers";
+import { type MapFocus } from "@/lib/sites";
 import { linePopup, renderPopup, stationPopup } from "./popup";
 
 /** Free OSM-based vector basemap (no API key). Override with VITE_BASEMAP_STYLE. */
@@ -16,6 +17,8 @@ const AOI_BOUNDS: [[number, number], [number, number]] = [
 ];
 
 const BASEMAP_TIMEOUT_MS = 8000;
+/** A candidate site is 10 to 80 ha (about 0.3 to 1 km across); this zoom shows it with its surroundings. */
+const FOCUS_ZOOM = 15;
 
 /** Clickable layers, in priority order: a station wins over a line passing through it. */
 const CLICKABLE: string[] = ["substations-circle", ...LINE_LAYER_IDS];
@@ -46,7 +49,7 @@ const FALLBACK_STYLE: StyleSpecification = {
   ],
 };
 
-export function MapView() {
+export function MapView({ focus = null }: { focus?: MapFocus | null }) {
   const container = useRef<HTMLDivElement>(null);
   const [basemapFailed, setBasemapFailed] = useState(false);
   const [basemapIssue, setBasemapIssue] = useState<string | null>(null);
@@ -147,6 +150,18 @@ export function MapView() {
       map.remove();
     };
   }, []);
+
+  // Fly to the site picked in the list and mark it. Declared after the effect that creates the map, so it exists.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !focus) return;
+    map.resize(); // the map is hidden (0x0) on phones until "Mapa" is selected
+    map.flyTo({ center: [focus.lon, focus.lat], zoom: FOCUS_ZOOM });
+    const marker = new maplibregl.Marker({ color: "#2563eb" }).setLngLat([focus.lon, focus.lat]).addTo(map);
+    return () => {
+      marker.remove();
+    };
+  }, [focus]);
 
   return (
     <div className="relative h-full w-full">

@@ -4,11 +4,19 @@ import { useState } from "react";
 import { MapView } from "@/components/map/MapView";
 import { SiteList } from "@/components/sites/SiteList";
 import { Button } from "@/components/ui/button";
+import { type MapFocus } from "@/lib/sites";
 import { cn } from "@/lib/utils";
 
 /** "Mapa i lista": ranked list on the left, map on the right; a list/map toggle on phones. */
 export function HomePage() {
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
+  const [focus, setFocus] = useState<MapFocus | null>(null);
+
+  // Picking a site flies the map to it; on a phone the map is a separate view, so switch to it.
+  const select = (site: { site_id: string; lon: number; lat: number }) => {
+    setFocus({ siteId: site.site_id, lon: site.lon, lat: site.lat });
+    setMobileView("map");
+  };
 
   return (
     <div className="flex h-full flex-col lg:flex-row">
@@ -32,11 +40,11 @@ export function HomePage() {
           <h1 className="text-base font-semibold">Lokalizacje</h1>
           <p className="mt-1 text-xs text-muted-foreground">Ranking kandydatów pod centrum danych w obszarze zainteresowania.</p>
         </div>
-        <SiteList />
+        <SiteList selectedId={focus?.siteId} onSelect={select} />
       </section>
 
       <section aria-label="Mapa" className={cn("min-h-0 flex-1 lg:block", mobileView === "map" ? "block" : "hidden")}>
-        <MapView />
+        <MapView focus={focus} />
       </section>
     </div>
   );

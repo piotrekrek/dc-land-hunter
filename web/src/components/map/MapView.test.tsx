@@ -11,6 +11,8 @@ const h = vi.hoisted(() => {
     resize: undefined as unknown as ReturnType<typeof vi.fn>,
     canvas: { style: { cursor: "" } },
     features: [] as unknown[],
+    flyTo: undefined as unknown as ReturnType<typeof vi.fn>,
+    markers: [] as Array<{ lngLat: unknown; removed: boolean }>,
     popups: [] as Array<{
       lngLat: unknown;
       content?: HTMLElement;
@@ -55,6 +57,24 @@ vi.mock("maplibre-gl", () => {
     queryRenderedFeatures() {
       return h.features;
     }
+    flyTo(options: unknown) {
+      h.flyTo(options);
+    }
+  }
+  class FakeMarker {
+    setLngLat(ll: unknown) {
+      this.lngLat = ll;
+      h.markers.push(this);
+      return this;
+    }
+    addTo() {
+      return this;
+    }
+    remove() {
+      this.removed = true;
+    }
+    lngLat: unknown;
+    removed = false;
   }
   class FakePopup {
     constructor() {
@@ -82,6 +102,7 @@ vi.mock("maplibre-gl", () => {
     default: {
       Map: FakeMap,
       Popup: FakePopup,
+      Marker: FakeMarker,
       NavigationControl: class {},
       ScaleControl: class {},
     },
@@ -240,5 +261,35 @@ describe("MapView click popups", () => {
     h.features = [];
     act(() => emit("mousemove", { point }));
     expect(h.canvas.style.cursor).toBe("");
+  });
+});
+
+describe("MapView focus", () => {
+  beforeEach(() => {
+    h.setStyle = vi.fn();
+    h.resize = vi.fn();
+    h.flyTo = vi.fn();
+    h.markers = [];
+  });
+
+  it("flies to the focused site and marks it", () => {
+    render(<MapView focus={{ siteId: "site-a", lon: 20.9, lat: 52.1 }} />);
+    expect(h.flyTo).toHaveBeenCalledWith({ center: [20.9, 52.1], zoom: 15 });
+    expect(h.markers).toHaveLength(1);
+    expect(h.markers[0]!.lngLat).toEqual([20.9, 52.1]);
+  });
+
+  it("moves the marker when another site is picked, and flies again for the same site", () => {
+    const { rerender } = render(<MapView focus={{ siteId: "site-a", lon: 20.9, lat: 52.1 }} />);
+    rerender(<MapView focus={{ siteId: "site-b", lon: 17.0, lat: 51.1 }} />);
+    expect(h.markers[0]!.removed).toBe(true);
+    expect(h.flyTo).toHaveBeenLastCalledWith({ center: [17.0, 51.1], zoom: 15 });
+    rerender(<MapView focus={{ siteId: "site-b", lon: 17.0, lat: 51.1 }} />);
+    expect(h.flyTo).toHaveBeenCalledTimes(3);
+  });
+
+  it("does nothing without a focus", () => {
+    render(<MapView />);
+    expect(h.flyTo).not.toHaveBeenCalled();
   });
 });

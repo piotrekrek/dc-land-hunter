@@ -2,6 +2,13 @@ import type { components } from "@/api/schema";
 
 export type SiteSummary = components["schemas"]["SiteSummary"];
 export type SiteDetail = components["schemas"]["SiteDetail"];
+/** A site the user picked in the list; the map flies to it. A new object per click, so picking it again re-centres. */
+export interface MapFocus {
+  siteId: string;
+  lon: number;
+  lat: number;
+}
+
 export type Confidence = components["schemas"]["FactOut"]["confidence"];
 
 export const SORT_OPTIONS = [

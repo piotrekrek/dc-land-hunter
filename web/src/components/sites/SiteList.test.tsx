@@ -42,7 +42,7 @@ describe("SiteList", () => {
         items: [site({}), site({ site_id: "site-b", score: 42, area_ha: 12.5, estimated_mw: 75, grid_badge: "Bliskość sieci" })],
       },
     });
-    renderWithProviders(<SiteList />);
+    renderWithProviders(<SiteList onSelect={() => {}} />);
     const rows = await screen.findAllByTestId("site-row");
     expect(rows).toHaveLength(2);
     expect(within(rows[0]!).getByText(/32 ha/)).toBeInTheDocument();
@@ -52,9 +52,32 @@ describe("SiteList", () => {
     expect(within(rows[0]!).getByLabelText("Wynik 81 na 100")).toBeInTheDocument();
   });
 
+  it("selects a site on click and links to its page with Więcej informacji", async () => {
+    mockFetch({ "/api/sites": { total: 2, offset: 0, limit: 50, items: [site({}), site({ site_id: "site-b", lon: 20.5, lat: 51.2 })] } });
+    const onSelect = vi.fn();
+    renderWithProviders(<SiteList selectedId="site-b" onSelect={onSelect} />);
+    const rows = await screen.findAllByTestId("site-row");
+
+    await userEvent.click(within(rows[1]!).getByRole("button", { name: /Kompletność danych/ }));
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect.mock.calls[0]![0]).toMatchObject({ site_id: "site-b", lon: 20.5, lat: 51.2 });
+
+    expect(within(rows[1]!).getByRole("button")).toHaveAttribute("aria-pressed", "true");
+    expect(within(rows[0]!).getByRole("button")).toHaveAttribute("aria-pressed", "false");
+    expect(within(rows[0]!).getByRole("link", { name: "Więcej informacji" })).toHaveAttribute("href", "/lokalizacje/site-a");
+  });
+
+  it("does not select the site when the Więcej informacji link is used", async () => {
+    mockFetch({ "/api/sites": { total: 1, offset: 0, limit: 50, items: [site({})] } });
+    const onSelect = vi.fn();
+    renderWithProviders(<SiteList onSelect={onSelect} />);
+    await userEvent.click(await screen.findByRole("link", { name: "Więcej informacji" }));
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   it("explains the empty state when the filters hide everything", async () => {
     mockFetch({ "/api/sites": { total: 0, offset: 0, limit: 50, items: [] } });
-    renderWithProviders(<SiteList />);
+    renderWithProviders(<SiteList onSelect={() => {}} />);
     expect(await screen.findByText("Brak lokalizacji dla tych filtrów")).toBeInTheDocument();
   });
 
@@ -69,7 +92,7 @@ describe("SiteList", () => {
         headers: { "Content-Type": "application/json" },
       });
     });
-    renderWithProviders(<SiteList />);
+    renderWithProviders(<SiteList onSelect={() => {}} />);
     const more = await screen.findByRole("button", { name: /Pokaż więcej \(1 z 80\)/ });
     await userEvent.click(more);
     const urls = fetchSpy.mock.calls.map(([input]) => (typeof input === "string" ? input : (input as Request).url));
@@ -78,7 +101,7 @@ describe("SiteList", () => {
 
   it("keeps the ranked list in a scrollable region", async () => {
     mockFetch({ "/api/sites": { total: 1, offset: 0, limit: 50, items: [site({})] } });
-    renderWithProviders(<SiteList />);
+    renderWithProviders(<SiteList onSelect={() => {}} />);
     await screen.findAllByTestId("site-row");
     expect(screen.getByRole("region", { name: "Wyniki" })).toContainElement(screen.getByRole("list", { name: "Ranking lokalizacji" }));
   });
@@ -92,7 +115,7 @@ describe("SiteList", () => {
         items: [site({ excluded: true, score: 0, upside_score: 30, completeness: 0.4 })],
       },
     });
-    renderWithProviders(<SiteList />, { route: "/?excluded=1" });
+    renderWithProviders(<SiteList onSelect={() => {}} />, { route: "/?excluded=1" });
     expect(await screen.findByText("Wykluczona")).toBeInTheDocument();
     expect(screen.getByText(/po wyjaśnieniu brakujących danych do 30 pkt/)).toBeInTheDocument();
   });
