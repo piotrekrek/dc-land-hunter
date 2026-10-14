@@ -39,8 +39,6 @@ LAYERS: dict[str, str] = {
 NAME_FIELD = "nazwa"
 CODE_FIELD = "kodinspire"
 EPSG = 2180
-PAGE_SIZE = 1000
-MAX_PAGES = 50  # safety stop; the largest layer (about 2,150 reserves) needs 3 pages
 
 _NUMBER_MATCHED = re.compile(rb'numberMatched="(\d+|unknown)"')
 _NUMBER_RETURNED = re.compile(rb'numberReturned="(\d+)"')
@@ -60,45 +58,38 @@ class GdosConnector(Source):
         )
 
     def _fetch_layer(self, client: PoliteClient, archive: zipfile.ZipFile, kind: str, typename: str) -> None:
-        received = 0
-        for page in range(MAX_PAGES):
-            params = {
-                "service": "WFS",
-                "request": "GetFeature",
-                "version": "2.0.0",
-                "typeNames": typename,
-                "srsName": f"EPSG:{EPSG}",
-                "count": str(PAGE_SIZE),
-                "startIndex": str(received),
-            }
-            resp = client.get(WFS_URL, params=params)
-            resp.raise_for_status()
-            content = resp.content
-            if b"ExceptionReport" in content[:2000]:
-                raise ValueError(f"GDOŚ WFS returned an exception for {typename}")
-            returned = _count_returned(content)
-            archive.writestr(f"{kind}-{page:04d}.gml", content)
-            received += returned
-            matched = _number_matched(content)
-            if matched is not None:
-                if received >= matched:
-                    return
-                if returned == 0:
-                    raise ValueError(f"GDOŚ {kind}: got {received} of {matched} features, then an empty page")
-            elif returned < PAGE_SIZE:
-                return  # no numberMatched: a short page is the last one
-        raise ValueError(f"GDOŚ {kind}: more than {MAX_PAGES} pages; refusing to keep paging")
+        # One request per layer, with no startIndex or count. GeoServer refuses to page these tables
+        # ("Cannot do natural order without a primary key", seen 14.10.2026), and a whole layer is about
+        # 30 MB, so one call is enough. The response is still checked against numberMatched, so a server
+        # cap cannot truncate it silently.
+        params = {
+            "service": "WFS",
+            "request": "GetFeature",
+            "version": "2.0.0",
+            "typeNames": typename,
+            "srsName": f"EPSG:{EPSG}",
+        }
+        resp = client.get(WFS_URL, params=params)
+        resp.raise_for_status()
+        content = resp.content
+        if b"ExceptionReport" in content[:2000]:
+            raise ValueError(f"GDOŚ WFS returned an exception for {typename}")
+        matched = _number_matched(content)
+        if matched is None:
+            raise ValueError(f"GDOŚ {kind}: the response has no numberMatched; cannot check it is complete")
+        returned = _count_returned(content)
+        if returned < matched:
+            raise ValueError(f"GDOŚ {kind}: got {returned} of {matched} features; the response is incomplete")
+        archive.writestr(f"{kind}.gml", content)
 
     def parse(self, snapshot: Snapshot) -> gpd.GeoDataFrame:
         frames: list[gpd.GeoDataFrame] = []
         with zipfile.ZipFile(snapshot.path) as archive:
             names = archive.namelist()
             for kind in LAYERS:
-                pattern = re.compile(rf"{kind}-\d+\.gml")
-                members = sorted(n for n in names if pattern.fullmatch(n))
-                if not members:
+                if f"{kind}.gml" not in names:
                     raise ValueError(f"GDOŚ snapshot has no data for layer {kind!r}")
-                frames.extend(_read_layer(kind, archive.read(n)) for n in members)
+                frames.append(_read_layer(kind, archive.read(f"{kind}.gml")))
         table = gpd.GeoDataFrame(
             pd.concat(frames, ignore_index=True), geometry="geometry", crs=f"EPSG:{EPSG}"
         )

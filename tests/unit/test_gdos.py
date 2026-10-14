@@ -56,7 +56,7 @@ def bundle(parts: dict[str, bytes]) -> bytes:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
         for kind, content in parts.items():
-            archive.writestr(f"{kind}-0000.gml", content)
+            archive.writestr(f"{kind}.gml", content)
     return buffer.getvalue()
 
 
@@ -112,36 +112,37 @@ def test_fetch_bundles_each_layer(tmp_path: Path, make_client: ClientFactory) ->
     store = SnapshotStore(tmp_path)
     snapshot = GdosConnector(SPEC).fetch(make_client(handler), store)
     with zipfile.ZipFile(snapshot.path) as archive:
-        assert sorted(archive.namelist()) == sorted(f"{kind}-0000.gml" for kind in LAYERS)
+        assert sorted(archive.namelist()) == sorted(f"{kind}.gml" for kind in LAYERS)
     assert set(GdosConnector(SPEC).parse(snapshot)["kind"]) == set(LAYERS)
 
 
-def test_fetch_pages_until_number_matched(tmp_path: Path, make_client: ClientFactory) -> None:
-    total = 2_152  # the reserves layer on 14.10.2026 needs three pages of 1000
-    seen: list[str] = []
+def test_each_layer_is_requested_once_without_paging(tmp_path: Path, make_client: ClientFactory) -> None:
+    # GeoServer cannot page these tables (no primary key), so the request must not carry startIndex or count.
+    requests: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/robots.txt":
             return httpx.Response(404)
-        start = int(request.url.params["startIndex"])
-        count = min(1000, total - start)
-        seen.append(request.url.params["startIndex"])
-        body = f'<wfs:FeatureCollection numberMatched="{total}" numberReturned="{count}"></wfs:FeatureCollection>'
+        requests.append(request)
+        body = '<wfs:FeatureCollection numberMatched="2152" numberReturned="2152"></wfs:FeatureCollection>'
         return httpx.Response(200, content=body.encode())
 
-    GdosConnector(SPEC)._fetch_layer(make_client(handler), _archive(tmp_path), "reserve", LAYERS["reserve"])
-    assert seen == ["0", "1000", "2000"]
+    archive = _archive(tmp_path)
+    GdosConnector(SPEC)._fetch_layer(make_client(handler), archive, "reserve", LAYERS["reserve"])
+    assert len(requests) == 1
+    assert "startIndex" not in requests[0].url.params and "count" not in requests[0].url.params
+    assert archive.namelist() == ["reserve.gml"]
 
 
 def test_fetch_rejects_a_layer_cut_short(tmp_path: Path, make_client: ClientFactory) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/robots.txt":
             return httpx.Response(404)
-        # claims 2,152 features, then returns an empty page
-        body = '<wfs:FeatureCollection numberMatched="2152" numberReturned="0"></wfs:FeatureCollection>'
+        # the server claims 2,152 features but returns only 1,000
+        body = '<wfs:FeatureCollection numberMatched="2152" numberReturned="1000"></wfs:FeatureCollection>'
         return httpx.Response(200, content=body.encode())
 
-    with pytest.raises(ValueError, match="got 0 of 2152"):
+    with pytest.raises(ValueError, match="got 1000 of 2152"):
         GdosConnector(SPEC)._fetch_layer(
             make_client(handler), _archive(tmp_path), "reserve", LAYERS["reserve"]
         )
