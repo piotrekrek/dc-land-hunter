@@ -1,6 +1,27 @@
 # Status
 
-Last updated: 11.10.2026 · Phase 0 done except source verification; Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
+Last updated: 14.10.2026 · Phase 1.5 pilot run on the VPS (powiat 1421); earlier: Phase 0 done except source verification; Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
+
+## Phase 1.5: pilot powiat on the VPS (14.10.2026)
+
+`dclh search 1421 --write` (pruszkowski) ran end to end on the VPS and wrote 315 sites, so the app's list now has real rows.
+DB before the run: 1 AOI (about 188,000 km², valid), 13,200 substations, 16,105 lines; `admin_units` is empty (PRG is read from the snapshot at run time).
+
+| Measure | Value |
+|---|---|
+| Grid seed area | 246 km² |
+| EGiB tiles (1 km) / HTTP requests | 314 / 350 |
+| Parcels downloaded / inside seed | 138,183 / 113,969 |
+| Parcels under the minimum area (dropped) | 110,319 (97%) |
+| Clusters / under minimum area / scored | 1,239 / 924 / 315 |
+| Excluded by hard filters | 0 (no constraint layers loaded yet) |
+| Runtime | parcels 1,300 s (about 4.1 s per tile); seed, cluster, score under 2 s |
+| Peak memory | 703 MB |
+
+Reading the numbers:
+- EGiB download is the whole cost: about 5.3 s per km² of seed. At that rate every 10,000 km² of seed takes about 15 h, so a full AOI run needs a smaller seed or a smarter tile choice (97% of downloaded parcels are discarded as too small). This is risk R7.
+- Scores are 57.8 to 59.3 and all 315 sites are close together: zoning, constraints, housing and DSO/PSE data are all `missing`, so the ranking only reflects grid distance and size. Do not read it as a real ranking yet.
+- Not checked: whether Reguły (Hillwood) is among the sites; its coordinates are still unverified.
 
 ## Phase 0: what works
 
@@ -98,8 +119,8 @@ Not done, and why:
   Real counts after the voltage fix: 144 220/400 kV nodes (was 16,426), 1,594 GPZs of which 1,584 have a name.
 - **Acceptance (≥70% of Enea/Energa GPZs matched)** cannot be measured. It needs the real OSM extract and the real
   DSO files, both on the VPS. The report command for the match rate is not written yet.
-- **Scoring run**: there is still no `dclh score` command (Phase 2 item), so the new layers are not yet loaded in a
-  real run. `build_site_features` and the engine already consume them, and tests cover that path.
+- **Scoring run**: `dclh search --write` scores and writes sites (there is no separate `dclh score`), but the new
+  layers are not yet loaded in a real run. `build_site_features` and the engine already consume them, and tests cover that path.
 
 Code review and QA of this work (high effort; every finding reproduced before fixing, each has a regression test):
 - Matching: a number in a name must be identical ("Gdańsk 10" no longer matches "Gdańsk 1"); "Stacja
