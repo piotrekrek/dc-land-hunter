@@ -21,7 +21,9 @@ from a run on a Polish server (`data/discovery/discovery-2026-10-12T071115.json`
 **Follow-up run (14.10.2026, VPS, `data/discovery/followup-2026-10-14T2145.md`):**
 - `gdos` ✓ (layers confirmed on the same day): `GDOS:SpecjalneObszaryOchrony` (SOO, 871), `GDOS:ObszarySpecjalnejOchrony`
   (OSO, 145), `GDOS:ParkiNarodowe` (46), `GDOS:Rezerwaty` (2,152). EPSG:2180, attributes `nazwa`, `kodinspire`.
-  Used for `protected_nature_pct` (Natura 2000, national park, reserve).
+  Used for `protected_nature_pct` (Natura 2000, national park, reserve). **Paging is refused** by this server ("Cannot do
+  natural order without a primary key"), so each layer is fetched in one request (about 30 MB for SOO; numberMatched
+  is checked).
 - `bdot10k` ✓ download link: the powiat index layer `ms:BDOT10k_powiaty` (WFS) carries a `URL_GML` field per powiat,
   for example `https://opendata.geoportal.gov.pl/bdot10k/schemat2021/04/0401_GML.zip` (powiat 0401; 18.6 MB for 1421).
   Not yet used by a connector.
