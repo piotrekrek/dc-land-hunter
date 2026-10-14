@@ -244,7 +244,14 @@ available columns, which settles the names.
 - Tests: `tests/unit/test_grid_load.py` (rows, SRID, tile views, reload replaces, failed load keeps the old grid).
 - **Next on the VPS:** deploy, `dclh fetch osm_power --reuse`, `dclh load-grid`, hard-refresh and zoom in (stations
   from zoom 5, lines from zoom 4). Compare the printed counts with 1,594 GPZs and 144 nodes at 220/400 kV.
-- Not done: a station popup (name, operator, voltages), clipping to the AOI.
+- Click popups (`web/src/components/map/popup.ts`): clicking a station or a 110 kV+ line opens a Polish popup with name,
+  class, voltages, operator (+ DSO, "obcy operator" flag), confidence and source, WGS84 coordinates with a copy button,
+  and links to Google Maps and the OSM object. The position is labelled "wg OpenStreetMap, nie pomiar geodezyjny".
+  Tested with a mocked MapLibre (no WebGL in vitest) and pure-function tests, including that OSM text is never
+  interpreted as HTML. **Not yet seen in a real browser against Martin tiles:** how Martin encodes the `voltages` array
+  is unverified, so the parser accepts an array, a JSON string and `{a,b}` text. The tile has no `as_of`, so the popup
+  shows no date. Station coordinates come from the tile geometry (quantised, roughly metres at high zoom).
+- Not done: clipping to the AOI.
 
 ## Phase 1.5: `dclh search` (code on fixtures; not yet run live)
 
