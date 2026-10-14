@@ -23,6 +23,17 @@ Reading the numbers:
 - Scores are 57.8 to 59.3 and all 315 sites are close together: zoning, constraints, housing and DSO/PSE data are all `missing`, so the ranking only reflects grid distance and size. Do not read it as a real ranking yet.
 - Not checked: whether Reguły (Hillwood) is among the sites; its coordinates are still unverified.
 
+## Discovery follow-up for the open sources (code on mock answers; not yet run from Poland)
+
+`dclh discover-followup` (`followup.py`, run instructions in `docs/RUNBOOK.md`) asks the next question for `bdot10k`
+(download link in the powiat index?), `kimpzp` (WFS next to the WMS? answer at Reguły), `isok` (services on the INSPIRE
+page) and `ru` (API addresses in the JavaScript of its federated modules). It exists because the 12.10.2026 discovery run
+found only that these are reachable: `ru` is an Angular app whose data calls the browser capture never saw, `bdot10k` has a
+single WFS layer and a dead page, and the `isok` capture stopped at the home page. KIMPZP is included because it is already
+verified and has vector layers (`wektor-pow`, `plany`), so it may give zoning without `ru`.
+14 tests on canned answers (parsing, WMS 1.1.1 axis order, per-section failure isolation, CLI). **Next on the VPS:** run it,
+paste the report, and record the confirmed endpoints in `docs/SOURCES.md`.
+
 ## Phase 0: what works
 
 - Repo layout, `CLAUDE.md`, `docs/PLAN.md` (phases, decisions, risks).
