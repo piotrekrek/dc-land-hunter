@@ -18,6 +18,7 @@ docs/SOURCES.md.
 from __future__ import annotations
 
 import json
+import posixpath
 import re
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -200,7 +201,12 @@ def isok(client: PoliteClient) -> list[str]:
     links = service_links(resp.text, ISOK_INSPIRE)
     lines = [f"{len(links)} service or file links:"] + [f"  {u}" for u in links[:MAX_SHOWN]]
     working = 0
-    for url in [u for u in links if re.search(r"wfs|wms", u, re.I)][:5]:
+    services = [
+        u
+        for u in links
+        if re.search(r"wfs|wms", u, re.I) and not urlsplit(u).path.endswith((".html", ".htm"))
+    ]
+    for url in services[:5]:
         service = "WFS" if re.search(r"wfs", url, re.I) else "WMS"
         bare = urlsplit(url)._replace(query="", fragment="").geturl()
         ok, summary = _ogc_summary(client, bare, service)
@@ -213,8 +219,15 @@ def isok(client: PoliteClient) -> list[str]:
 # --------------------------------------------------------------------------- 4. ru
 
 
+def _is_app_file(name: str) -> bool:
+    """Shared libraries carry their package name (`_angular_core.<hash>.js`, `@angular/...`): no API there."""
+    return (
+        not name.startswith(("_", "@")) and "/@" not in name and not posixpath.basename(name).startswith("_")
+    )
+
+
 def js_files(manifest: Any, base_url: str) -> list[str]:
-    """Every string in a module-federation manifest that names a .js or .mjs file, as an absolute address."""
+    """Every string in a module-federation manifest naming an app .js or .mjs file, as an absolute address."""
     names: dict[str, None] = {}
 
     def walk(node: Any) -> None:
@@ -224,7 +237,7 @@ def js_files(manifest: Any, base_url: str) -> list[str]:
         elif isinstance(node, list):
             for value in node:
                 walk(value)
-        elif isinstance(node, str) and re.search(r"\.m?js$", node):
+        elif isinstance(node, str) and re.search(r"\.m?js$", node) and _is_app_file(node):
             names.setdefault(urljoin(base_url, node), None)
 
     walk(manifest)
@@ -250,10 +263,19 @@ def ru(client: PoliteClient) -> list[str]:
         if not resp.is_success:
             lines.append(f"{remote}: remoteEntry.json HTTP {resp.status_code}")
             continue
-        files = js_files(json.loads(resp.text), entry)[:MAX_JS_FILES]
-        lines.append(f"{remote}: {len(files)} JavaScript files listed")
+        manifest = json.loads(resp.text)
+        keys = sorted(manifest) if isinstance(manifest, dict) else type(manifest).__name__
+        files = js_files(manifest, entry)[:MAX_JS_FILES]
+        lines.append(
+            f"{remote}: manifest keys {keys}; {len(files)} app JavaScript files: "
+            f"{[f.rsplit('/', 1)[-1] for f in files]}"
+        )
         for file in files:
-            js = client.get(file)
+            try:
+                js = client.get(file)
+            except Exception as exc:  # one bad file (a redirect loop was seen) must not end the section
+                lines.append(f"  {file.rsplit('/', 1)[-1]}: {type(exc).__name__}")
+                continue
             if js.is_success:
                 scanned += 1
                 found_urls, found_paths = api_hints(js.content[:MAX_JS_BYTES].decode("utf-8", "replace"))
