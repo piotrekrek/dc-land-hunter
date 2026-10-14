@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { proxyBasemapRequest } from "./basemap";
 import { LayerControl } from "./LayerControl";
-import { LAYER_GROUPS, OWN_SOURCES, addGridLayers, setGroupVisibility } from "./layers";
+import { LAYER_GROUPS, LINE_LAYER_IDS, OWN_SOURCES, addGridLayers, setGroupVisibility } from "./layers";
 import { linePopup, renderPopup, stationPopup } from "./popup";
 
 /** Free OSM-based vector basemap (no API key). Override with VITE_BASEMAP_STYLE. */
@@ -18,7 +18,7 @@ const AOI_BOUNDS: [[number, number], [number, number]] = [
 const BASEMAP_TIMEOUT_MS = 8000;
 
 /** Clickable layers, in priority order: a station wins over a line passing through it. */
-const CLICKABLE = ["substations-circle", "lines"] as const;
+const CLICKABLE: string[] = ["substations-circle", ...LINE_LAYER_IDS];
 /** Lines are thin, so a click within this many pixels counts as a hit. */
 const HIT_PX = 6;
 

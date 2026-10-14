@@ -1,6 +1,6 @@
 import { Layers } from "lucide-react";
 
-import { VOLTAGE_COLORS, LAYER_GROUPS } from "./layers";
+import { LAYER_GROUPS } from "./layers";
 
 interface Props {
   visible: Record<string, boolean>;
@@ -24,22 +24,9 @@ export function LayerControl({ visible, onToggle }: Props) {
                 checked={visible[g.id] ?? g.defaultOn}
                 onChange={(e) => onToggle(g.id, e.target.checked)}
               />
+              {g.color && <span aria-hidden className="h-0.5 w-5 rounded" style={{ background: g.color }} />}
               {g.label}
             </label>
-          </li>
-        ))}
-      </ul>
-      <ul className="mt-3 flex flex-col gap-1 border-t pt-2 text-xs text-muted-foreground" aria-label="Legenda napięć">
-        {(
-          [
-            ["110 kV", VOLTAGE_COLORS.v110],
-            ["220 kV", VOLTAGE_COLORS.v220],
-            ["400 kV", VOLTAGE_COLORS.v400],
-          ] as const
-        ).map(([label, color]) => (
-          <li key={label} className="flex items-center gap-2">
-            <span aria-hidden className="h-0.5 w-5 rounded" style={{ background: color }} />
-            {label}
           </li>
         ))}
       </ul>
