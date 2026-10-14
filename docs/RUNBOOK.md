@@ -185,6 +185,26 @@ Weekly cron (Mondays 05:30 Warsaw time, the VPS's local time zone):
 
 Check the log after each run. A failed run prints the reason and exits non-zero.
 
+## Discovery follow-up for the open sources (run on the VPS)
+
+`dclh discover` only says a source is reachable. `dclh discover-followup` asks the next question for the sources that
+block the hard filters and the zoning layer, and prints a verdict for each (it needs `DCLH_CONTACT_EMAIL`, which the
+containers take from the VPS `.env`):
+
+```bash
+cd ~/dc-land-hunter
+docker compose -f infra/docker-compose.yml exec worker dclh discover-followup
+```
+
+It takes a few minutes (one request per second per host) and saves `data/discovery/followup-<date>.md`. Sections:
+1. **bdot10k**: does the powiat index (`BDOT10k_powiaty`) carry a download link per powiat?
+2. **kimpzp**: is there a WFS next to the WMS, and what does the WMS answer at a parcel in the Reguły plan area?
+3. **isok**: which WFS, WMS or ATOM services does the INSPIRE page list, and do they answer GetCapabilities?
+4. **ru**: which API addresses are in the JavaScript of the Rejestr Urbanistyczny modules?
+
+A section that fails prints `FAILED` and a verdict "could not be checked"; the others still run. Paste the report back,
+then record the confirmed endpoints in `docs/SOURCES.md`. No connector uses an endpoint before that.
+
 ## Live samples for test fixtures (run once per place, on the VPS)
 
 `dclh capture-sample` records one small live response from EGiB (WFS, 20 parcels) and ULDK for a point, plus a

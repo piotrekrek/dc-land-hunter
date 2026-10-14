@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import resource
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -13,7 +14,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from dclh_pipeline import __version__, capture
+from dclh_pipeline import __version__, capture, followup
 from dclh_pipeline.config import load_scoring, load_sources
 from dclh_pipeline.discovery import STATUS_ICON, discover, render_markdown, save_report, update_sources_doc
 from dclh_pipeline.http import PoliteClient
@@ -171,6 +172,29 @@ def import_manual_cmd(
         raise typer.BadParameter(f"{file.name} was not imported: {exc}") from exc
     console.print(f"snapshot {snapshot.sha256[:12]} · {snapshot.size_bytes} bytes · {snapshot.path}")
     console.print(f"validated {len(table)} rows · columns {list(table.columns)}")
+
+
+@app.command("discover-followup")
+def discover_followup_cmd(
+    out: Annotated[Path, typer.Option(help="Report directory")] = REPO_ROOT / "data" / "discovery",
+) -> None:
+    """Ask the open questions for bdot10k, kimpzp, isok and ru, with a verdict for each. Run from Poland."""
+    settings = get_settings()
+    if settings.contact_email.endswith(".invalid"):
+        raise typer.BadParameter("set DCLH_CONTACT_EMAIL first (it goes into the User-Agent)")
+    config = load_sources()
+    with PoliteClient(
+        user_agent=settings.user_agent,
+        rate_limit_per_s=config.defaults.rate_limit_per_s,
+        timeout_s=config.defaults.timeout_s,
+        retries=1,
+    ) as client:
+        report = followup.run(client)
+    out.mkdir(parents=True, exist_ok=True)
+    target = out / f"followup-{datetime.now(UTC):%Y-%m-%dT%H%M}.md"
+    target.write_text(report, encoding="utf-8")
+    console.print(report)
+    console.print(f"Saved: {target}")
 
 
 @app.command("capture-sample")
