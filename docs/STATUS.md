@@ -34,6 +34,17 @@ verified and has vector layers (`wektor-pow`, `plany`), so it may give zoning wi
 14 tests on canned answers (parsing, WMS 1.1.1 axis order, per-section failure isolation, CLI). **Next on the VPS:** run it,
 paste the report, and record the confirmed endpoints in `docs/SOURCES.md`.
 
+## Per-powiat search and nightly queue (code, tested; deploy after merge)
+
+- Sites now belong to a powiat (migration `0005`, rows from the 1421 pilot tagged as such). A search replaces only its own
+  powiat's sites (`write_sites(..., powiat=)`), which fixes a bug that would have wiped the other powiats.
+- `search_powiat` (`powiat_search.py`) is shared by `dclh search` and the `search` job. A failed attempt is recorded in
+  `search_runs` in its own transaction, so the planner moves a failing powiat to the back of the queue.
+- `plan_searches` job (cron `0 1 * * *` Warsaw): queues the 8 powiats attempted longest ago (never-attempted first), skipping
+  any already queued. Each search job carries `not_after` = 05:00 Warsaw and is skipped if it starts after that.
+- Not done yet: the tile skip for built-up areas (needs `osm_land`), the per-tile parcel cache, and the admin_units load.
+  Measure the seed (step 1 of the optimisation plan) before tuning these.
+
 ## Phase 0: what works
 
 - Repo layout, `CLAUDE.md`, `docs/PLAN.md` (phases, decisions, risks).

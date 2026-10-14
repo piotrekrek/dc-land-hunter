@@ -4,3 +4,7 @@
 # Phase 0: weekly live check of every source. It doubles as the weekly live smoke test (brief section 10)
 # and only reports; it never blocks anything. From Phase 2 the full weekly run is added here (Mon 05:00).
 0 5 * * 1 dclh enqueue discover --payload '{"ran_from": "scheduler"}'
+
+# Nightly search (Warsaw time): queue the 8 powiats attempted longest ago. Each search job is skipped if it
+# starts after 05:00, so the night window closes on its own. Needs the `prg` snapshot (lists the powiats).
+0 1 * * * dclh enqueue plan_searches --payload '{"limit": 8, "window_end_hour": 5}'

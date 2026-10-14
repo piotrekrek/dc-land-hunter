@@ -64,11 +64,11 @@ def to_jsonable(value: Any) -> Any:
 _INSERT = text(
     """
     INSERT INTO sites (
-        site_id, zone_id, parcel_ids, area_ha, compactness, estimated_mw, score, upside_score, completeness,
-        excluded, grid_badge, large_campus, split_suggested, flags, detail, scored_at, geom
+        site_id, powiat, zone_id, parcel_ids, area_ha, compactness, estimated_mw, score, upside_score,
+        completeness, excluded, grid_badge, large_campus, split_suggested, flags, detail, scored_at, geom
     ) VALUES (
-        :site_id, :zone_id, :parcel_ids, :area_ha, :compactness, :estimated_mw, :score, :upside_score,
-        :completeness, :excluded, :grid_badge, :large_campus, :split_suggested, :flags,
+        :site_id, :powiat, :zone_id, :parcel_ids, :area_ha, :compactness, :estimated_mw, :score,
+        :upside_score, :completeness, :excluded, :grid_badge, :large_campus, :split_suggested, :flags,
         CAST(:detail AS jsonb),
         :scored_at, ST_SetSRID(ST_GeomFromWKB(:wkb), 2180)
     )
@@ -76,11 +76,12 @@ _INSERT = text(
 )
 
 
-def _row(item: ScoredSite, scored_at: datetime) -> dict[str, Any]:
+def _row(item: ScoredSite, scored_at: datetime, powiat: str) -> dict[str, Any]:
     s, sc = item.site, item.score
     detail = {"score": to_jsonable(sc), "features": to_jsonable(item.features)}
     return {
         "site_id": s.site_id,
+        "powiat": powiat,
         "zone_id": s.zone_id,
         "parcel_ids": list(s.parcel_ids),
         "area_ha": s.area_ha,
@@ -100,9 +101,12 @@ def _row(item: ScoredSite, scored_at: datetime) -> dict[str, Any]:
     }
 
 
-def write_sites(session: Session, scored: Sequence[ScoredSite], *, scored_at: datetime) -> int:
-    """Replace the `sites` table with this run's results. Runs inside the caller's transaction."""
-    session.execute(text("DELETE FROM sites"))
+def write_sites(session: Session, scored: Sequence[ScoredSite], *, scored_at: datetime, powiat: str) -> int:
+    """Replace the sites of one powiat with this run's results; other powiats are kept.
+
+    Runs inside the caller's transaction.
+    """
+    session.execute(text("DELETE FROM sites WHERE powiat = :powiat"), {"powiat": powiat})
     if scored:
-        session.execute(_INSERT, [_row(item, scored_at) for item in scored])
+        session.execute(_INSERT, [_row(item, scored_at, powiat) for item in scored])
     return len(scored)

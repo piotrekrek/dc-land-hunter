@@ -52,16 +52,31 @@ def client() -> Iterator[TestClient]:
 @pytest.fixture
 def seeded() -> Iterator[None]:
     with session_scope() as session:
-        write_sites(session, score_candidates(parcel_sites(), layers(), CFG), scored_at=SCORED_AT)
+        write_sites(
+            session, score_candidates(parcel_sites(), layers(), CFG), scored_at=SCORED_AT, powiat="1421"
+        )
     yield
 
 
 def test_run_writes_sites_and_replaces_previous_run(seeded: None) -> None:
     with session_scope() as session:
         assert session.execute(text("SELECT count(*) FROM sites")).scalar_one() == 3
-        write_sites(session, score_candidates(parcel_sites()[:1], layers(), CFG), scored_at=SCORED_AT)
+        write_sites(
+            session, score_candidates(parcel_sites()[:1], layers(), CFG), scored_at=SCORED_AT, powiat="1421"
+        )
     with session_scope() as session:
         assert session.execute(text("SELECT count(*) FROM sites")).scalar_one() == 1
+
+
+def test_a_powiat_run_keeps_the_sites_of_other_powiats(seeded: None) -> None:
+    # Only the powiat's own rows are replaced: searching 1425 must leave the three sites of 1421 alone.
+    with session_scope() as session:
+        write_sites(session, [], scored_at=SCORED_AT, powiat="1425")
+    with session_scope() as session:
+        assert session.execute(text("SELECT count(*) FROM sites WHERE powiat = '1421'")).scalar_one() == 3
+    with session_scope() as session:
+        write_sites(session, [], scored_at=SCORED_AT, powiat="1421")
+        assert session.execute(text("SELECT count(*) FROM sites")).scalar_one() == 0
 
 
 def test_list_hides_excluded_by_default_and_sorts_by_score(seeded: None, client: TestClient) -> None:
