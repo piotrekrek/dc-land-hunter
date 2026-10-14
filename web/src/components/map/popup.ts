@@ -77,7 +77,7 @@ export function osmUrl(osmId: number): string {
     : `https://www.openstreetmap.org/node/${osmId}`;
 }
 
-const mapsUrl = (lng: number, lat: number) => `https://www.google.com/maps?q=${lat.toFixed(6)},${lng.toFixed(6)}`;
+export const mapsUrl = (lng: number, lat: number) => `https://www.google.com/maps?q=${lat.toFixed(6)},${lng.toFixed(6)}`;
 
 function operatorRow(props: TileProps): PopupRow | null {
   const operator = text(props.operator);

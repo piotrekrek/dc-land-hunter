@@ -5,6 +5,7 @@ import { Link, useSearchParams } from "react-router";
 
 import { api, unwrap } from "@/api/client";
 import { EmptyState } from "@/components/EmptyState";
+import { mapsUrl } from "@/components/map/popup";
 import { PageScroll } from "@/components/PageScroll";
 import { ScoreBadge } from "@/components/sites/ScoreBadge";
 import { SiteFilterBar } from "@/components/sites/SiteFilterBar";
@@ -49,13 +50,21 @@ function SiteRow({ site, selected, onSelect }: { site: SiteSummary; selected: bo
         </span>
       </button>
       {/* Aligned with the text column: p-3 (12) + score badge (48) + gap (12) = 72px. */}
-      <div className="pb-3 pl-[72px]">
+      <div className="flex gap-4 pb-3 pl-[72px]">
         <Link
           to={`/lokalizacje/${encodeURIComponent(site.site_id)}`}
           className="text-sm text-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
         >
           Więcej informacji
         </Link>
+        <a
+          href={mapsUrl(site.lon, site.lat)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          Mapy Google
+        </a>
       </div>
     </li>
   );

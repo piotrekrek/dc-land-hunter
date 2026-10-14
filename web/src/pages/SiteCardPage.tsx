@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router";
 
 import { api, unwrap } from "@/api/client";
 import { EmptyState } from "@/components/EmptyState";
+import { mapsUrl } from "@/components/map/popup";
 import { PageScroll } from "@/components/PageScroll";
 import { ScoreBadge } from "@/components/sites/ScoreBadge";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
@@ -76,6 +77,16 @@ function SiteCard({ site }: { site: SiteDetail }) {
             <span className="text-xs">
               powierzchnia × gęstość z ustawień ({formatDate(site.mw_fact.as_of)})
             </span>
+          </p>
+          <p className="mt-1 text-sm">
+            <a
+              href={mapsUrl(site.lon, site.lat)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              Pokaż w Mapach Google
+            </a>
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             <Badge variant={site.grid_badge === "Opublikowana moc" ? "ok" : site.grid_badge === "Bliskość sieci" ? "accent" : "neutral"}>
