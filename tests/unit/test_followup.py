@@ -196,6 +196,58 @@ def test_ru_scans_the_listed_files(make_client: ClientFactory) -> None:
     assert lines[-1] == "Verdict: 1 gov.pl addresses and 1 api-like paths in 1 files"
 
 
+def test_ru_skips_shared_libraries_and_survives_a_file_that_loops(make_client: ClientFactory) -> None:
+    """Shared Angular libraries say nothing about the API, and one manifest entry redirected in a loop on the VPS."""
+    manifest = json.dumps(
+        {
+            "name": "published-fe",
+            "shared": [
+                {"outFileName": "_angular_core.SwIrv27wUc.js"},
+                {"outFileName": "@angular/core/event-dispatch-contract.min.js"},
+            ],
+            "exposes": [{"outFileName": "chunk-A.js"}, {"outFileName": "chunk-B.js"}],
+        }
+    )
+    fetched: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        fetched.append(path)
+        if path.endswith("remoteEntry.json"):
+            return httpx.Response(200, text=manifest) if "published-fe" in path else httpx.Response(404)
+        if "chunk-B" in path:
+            raise httpx.TooManyRedirects("redirect loop")
+        return httpx.Response(200, text='const a = "/backend/api/zones";')
+
+    lines = followup.ru(make_client(_router({"rejestr-urbanistyczny": handler})))
+    assert not any(
+        "_angular_core" in p or "@angular" in p for p in fetched
+    )  # shared libraries are never fetched
+    assert "  path: /backend/api/zones" in lines  # chunk-A was scanned although chunk-B looped
+    assert any("chunk-B.js" in line and "TooManyRedirects" in line for line in lines)
+    assert any(
+        line.startswith("published-fe: manifest keys") for line in lines
+    )  # structure is always reported
+
+
+def test_isok_does_not_test_viewer_pages_as_services(make_client: ClientFactory) -> None:
+    capabilities = (FIXTURES / "ogc" / "wfs_capabilities.xml").read_bytes()
+    page = (
+        '<a href="/app/layer-viewer/index.html?service=WMS&request=GetCapabilities">viewer</a>'
+        '<a href="https://wody.isok.gov.pl/wss/INSPIRE/INSPIRE_NZ_HY_WORP_WMS">WMS</a>'
+    )
+    tested: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.params.get("request") == "GetCapabilities":
+            tested.append(request.url.path)
+            return httpx.Response(200, content=capabilities, headers={"content-type": "text/xml"})
+        return httpx.Response(200, text=page, headers={"content-type": "text/html"})
+
+    followup.isok(make_client(_router({"wody.isok.gov.pl": handler})))
+    assert tested == ["/wss/INSPIRE/INSPIRE_NZ_HY_WORP_WMS"]
+
+
 # --- the whole run -------------------------------------------------------------------------------
 
 
@@ -226,3 +278,28 @@ def test_cli_needs_a_contact_email(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(cli, "get_settings", lambda: Settings(data_dir=tmp_path))
     result = CliRunner().invoke(cli.app, ["discover-followup", "--out", str(tmp_path)])
     assert result.exit_code != 0 and "DCLH_CONTACT_EMAIL" in result.output
+
+
+def test_cli_prints_the_report_even_when_it_cannot_be_saved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """On the VPS the default folder was read-only for the container user and the report was lost."""
+    settings = Settings(data_dir=tmp_path / "data", contact_email="tester@example.org")
+    monkeypatch.setattr(cli, "get_settings", lambda: settings)
+    monkeypatch.setattr(followup, "run", lambda _client: "# REPORT")
+    blocker = tmp_path / "blocker"
+    blocker.write_text("a file where a folder is needed")
+    result = CliRunner().invoke(cli.app, ["discover-followup", "--out", str(blocker / "sub")])
+    assert result.exit_code == 0, result.output
+    assert "# REPORT" in result.output  # printed before any attempt to save
+    assert "could not be saved" in result.output
+
+
+def test_cli_default_folder_follows_the_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """In the container the data dir is the writable /data volume; /app/data is not writable."""
+    settings = Settings(data_dir=tmp_path / "data", contact_email="tester@example.org")
+    monkeypatch.setattr(cli, "get_settings", lambda: settings)
+    monkeypatch.setattr(followup, "run", lambda _client: "# REPORT")
+    result = CliRunner().invoke(cli.app, ["discover-followup"])
+    assert result.exit_code == 0, result.output
+    assert len(list((tmp_path / "data" / "discovery").glob("followup-*.md"))) == 1

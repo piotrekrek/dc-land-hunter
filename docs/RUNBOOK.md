@@ -196,7 +196,9 @@ cd ~/dc-land-hunter
 docker compose -f infra/docker-compose.yml exec worker dclh discover-followup
 ```
 
-It takes a few minutes (one request per second per host) and saves `data/discovery/followup-<date>.md`. Sections:
+It takes a few minutes (one request per second per host). The report is printed first, then saved to
+`<data dir>/discovery/followup-<date>.md` (`/data/discovery` in Docker, `data/discovery` on the host). If the save fails
+it says so and the printed report is still complete. Keep a copy of the output with `| tee ~/followup.md`. Sections:
 1. **bdot10k**: does the powiat index (`BDOT10k_powiaty`) carry a download link per powiat?
 2. **kimpzp**: is there a WFS next to the WMS, and what does the WMS answer at a parcel in the Reguły plan area?
 3. **isok**: which WFS, WMS or ATOM services does the INSPIRE page list, and do they answer GetCapabilities?

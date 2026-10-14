@@ -176,7 +176,7 @@ def import_manual_cmd(
 
 @app.command("discover-followup")
 def discover_followup_cmd(
-    out: Annotated[Path, typer.Option(help="Report directory")] = REPO_ROOT / "data" / "discovery",
+    out: Annotated[Path | None, typer.Option(help="Report directory (default: <data dir>/discovery)")] = None,
 ) -> None:
     """Ask the open questions for bdot10k, kimpzp, isok and ru, with a verdict for each. Run from Poland."""
     settings = get_settings()
@@ -190,10 +190,15 @@ def discover_followup_cmd(
         retries=1,
     ) as client:
         report = followup.run(client)
-    out.mkdir(parents=True, exist_ok=True)
-    target = out / f"followup-{datetime.now(UTC):%Y-%m-%dT%H%M}.md"
-    target.write_text(report, encoding="utf-8")
-    console.print(report)
+    console.print(report)  # first: a failed save must never lose the report
+    folder = out or settings.data_dir / "discovery"
+    target = folder / f"followup-{datetime.now(UTC):%Y-%m-%dT%H%M}.md"
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        target.write_text(report, encoding="utf-8")
+    except OSError as exc:
+        console.print(f"Report could not be saved to {target}: {exc}. Copy it from the output above.")
+        return
     console.print(f"Saved: {target}")
 
 
