@@ -253,6 +253,27 @@ available columns, which settles the names.
   shows no date. Station coordinates come from the tile geometry (quantised, roughly metres at high zoom).
 - Not done: clipping to the AOI.
 
+## The AOI: `dclh aoi build` (12.10.2026 run on the real PRG and OSM snapshots)
+
+- Builds `data/aoi/aoi.geojson` (WGS84) and replaces the `aoi` row (EPSG:2180, one MultiPolygon, 187,923 km²
+  against 322,508 km² for the PRG country polygon). Martin serves it as `tiles/aoi`.
+- The Vistula is **not** one way in OSM. The name `Wisła` matches about 50 `waterway=river` ways: the stem, parallel
+  channels, loops round weirs and stubs. `main_stem` takes the path between the two free ends that are farthest apart,
+  so side channels and stubs cannot cut the country. The stem is 1,013 km long. Stream ways named `Wisła` are excluded.
+- Result, share of each voivodeship inside the AOI: 100% for wielkopolskie, łódzkie, dolnośląskie, lubuskie, opolskie,
+  zachodniopomorskie and świętokrzyskie; 87% śląskie; 85% pomorskie; 64% kujawsko-pomorskie; 33% mazowieckie;
+  22% małopolskie; 1% lubelskie; 0% podkarpackie, warmińsko-mazurskie and podlaskie.
+  Checked points: Bielsko-Biała, Żywiec, Lublin, Praga, Elbląg, Malbork, Tarnów and the south bank of Kraków are out;
+  Cieszyn, Kraków north of the river, Warsaw's left bank, Gdańsk, Bydgoszcz and Łódź are in.
+- **Open for the owner:** Toruń (18.60 E, 53.01 N) is out. The river bends west there (through Fordon) and the split
+  follows that bend, so Toruń's centre falls on the south bank. Decide whether that is right; the AOI can be edited.
+- **Martin returned empty tiles after the first load.** `tiles/aoi` gave 204 from zoom 5 up, although PostGIS returned
+  the feature for the same tile. A restart of `martin` fixed it. The cause is not confirmed (most likely its cached
+  table metadata from startup, when the table was empty). Until it is understood, restart Martin after a first load
+  of `aoi`, `substations` or `lines`: `docker compose -f infra/docker-compose.yml restart martin`.
+- Tests: `tests/unit/test_aoi_build.py` (main stem with a loop, a stub and shuffled, reversed ways; the PBF reader on a
+  synthetic extract; GeoJSON round trip; voivodeship shares; the DB row replace, which needs PostGIS).
+
 ## Phase 1.5: `dclh search` (code on fixtures; not yet run live)
 
 - `dclh search <powiat TERYT> [--write]` (`search.py`): grid-first seed (110 kV line 3 km / GPZ 5 km / node 25 km,

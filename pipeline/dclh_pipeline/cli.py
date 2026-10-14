@@ -344,6 +344,48 @@ def load_grid_cmd() -> None:
     )
 
 
+aoi_app = typer.Typer(help="Area of interest (brief 2.1)", no_args_is_help=True)
+app.add_typer(aoi_app, name="aoi")
+
+
+@aoi_app.command("build")
+def aoi_build_cmd() -> None:
+    """Build the AOI from the saved PRG and OSM snapshots, write data/aoi/aoi.geojson and load the database.
+
+    Needs the saved `prg` and `osm_power` snapshots (`dclh fetch`). Prints the share of each voivodeship
+    inside the AOI, as a plausibility check. Needs the database.
+    """
+    from dclh_pipeline import aoi_build
+    from dclh_pipeline.db import session_scope
+    from dclh_pipeline.sources.prg import PrgConnector
+
+    settings = get_settings()
+    config = load_sources()
+    store = SnapshotStore(settings.raw_dir)
+    prg_snapshot = store.latest("prg")
+    osm_snapshot = store.latest("osm_power")
+    if prg_snapshot is None or osm_snapshot is None:
+        raise typer.BadParameter(
+            "need saved 'prg' and 'osm_power' snapshots; run `dclh fetch` for both first"
+        )
+    prg = PrgConnector(config.get("prg")).parse(prg_snapshot)
+    vistula = aoi_build.read_vistula(osm_snapshot.path)
+    aoi = aoi_build.build(aoi_build.country_geometry(prg), vistula)
+    out = REPO_ROOT / "data" / "aoi" / "aoi.geojson"
+    aoi_build.write_geojson(aoi, out)
+    with session_scope() as session:
+        aoi_build.load_aoi(
+            session,
+            aoi,
+            note=f"PRG {prg_snapshot.fetched_at:%Y-%m-%d}, OSM {osm_snapshot.fetched_at:%Y-%m-%d}",
+        )
+    console.print(f"AOI {aoi.area / 1e6:,.0f} km² · written to {out}")
+    table = Table("voivodeship", "inside AOI")
+    for name, share in aoi_build.voivodeship_shares(aoi, prg):
+        table.add_row(name, f"{share:.0%}")
+    console.print(table)
+
+
 @app.command("enqueue")
 def enqueue_cmd(
     kind: str,
