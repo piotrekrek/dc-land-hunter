@@ -22,6 +22,7 @@ from dclh_pipeline.settings import REPO_ROOT, get_settings
 from dclh_pipeline.snapshots import SnapshotStore
 from dclh_pipeline.sources.base import Source
 from dclh_pipeline.sources.egib import EgibConnector
+from dclh_pipeline.sources.gdos import GdosConnector
 from dclh_pipeline.sources.manual import MANUAL_CAPACITY, MANUAL_POINTS
 from dclh_pipeline.sources.osm_power import OsmPowerConnector, summarize_grid
 from dclh_pipeline.sources.prg import PrgConnector
@@ -30,7 +31,11 @@ app = typer.Typer(help="DC Land Hunter pipeline", no_args_is_help=True)
 console = Console()
 
 # Connectors that `dclh fetch` can run without the database.
-CONNECTORS: dict[str, type[Source]] = {"prg": PrgConnector, "osm_power": OsmPowerConnector}
+CONNECTORS: dict[str, type[Source]] = {
+    "prg": PrgConnector,
+    "osm_power": OsmPowerConnector,
+    "gdos": GdosConnector,
+}
 
 
 @app.callback()

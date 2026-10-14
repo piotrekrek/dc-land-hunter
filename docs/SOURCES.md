@@ -18,8 +18,25 @@ from a run on a Polish server (`data/discovery/discovery-2026-10-12T071115.json`
 
 **Verified (✓):** `prg`, `osm_power`, `osm_land`, `kimpzp`, `egib`, `uldk`, `kiug`, `gdos`, `midas`, `nid` (`nid` joined on 12.10.2026).
 
+**Follow-up run (14.10.2026, VPS, `data/discovery/followup-2026-10-14T2145.md`):**
+- `gdos` ✓ (layers confirmed on the same day): `GDOS:SpecjalneObszaryOchrony` (SOO, 871), `GDOS:ObszarySpecjalnejOchrony`
+  (OSO, 145), `GDOS:ParkiNarodowe` (46), `GDOS:Rezerwaty` (2,152). EPSG:2180, attributes `nazwa`, `kodinspire`.
+  Used for `protected_nature_pct` (Natura 2000, national park, reserve).
+- `bdot10k` ✓ download link: the powiat index layer `ms:BDOT10k_powiaty` (WFS) carries a `URL_GML` field per powiat,
+  for example `https://opendata.geoportal.gov.pl/bdot10k/schemat2021/04/0401_GML.zip` (powiat 0401; 18.6 MB for 1421).
+  Not yet used by a connector.
+- `isok` ✓ services (flood): the INSPIRE page lists 31 links; these answer GetCapabilities:
+  `https://wody.isok.gov.pl/wss/INSPIRE/INSPIRE_NZ_HY_MZPMRP_WFS` (`nz-core:HazardArea`, `nz-core:RiskZone`,
+  `nz-core:ExposedElement`, and per-level layers such as `q1`, `q10`, `q0_2`) and the ATOM feeds under
+  `https://wody.isok.gov.pl/atom_web/atom/` (for example `HY_10k`, `NZ_HY_MRP`). Which layer is the 1% zone for the
+  flood filter is still to be checked against the legend.
+- `kimpzp` ⚠: the WFS answers but lists 0 layers. The WMS point query answers at Reguły (`wektor-pow`, `plany`), but it
+  says "brak wyniku dla wskazanego obszaru" there, so it is not a usable zoning source yet.
+- `ru` ⚠: the app calls a JSON API at `https://rejestr-urbanistyczny.gov.pl/api/public/…`. The path exists (`/published/
+  territorial/tree` answers 400 "bad parameters" without the right query); the parameter names still have to be found.
+
 **Open before Phase 1 can rely on them:**
-- `bdot10k`: the OPENDATA page returns 404; the WFS offers only one layer. Find the current download URL.
+- `bdot10k`: the OPENDATA page still returns 404, but the per-powiat `URL_GML` link above works. The connector should use it.
 - `ru`, `enea`, `energa`, `tauron`: the browser capture now runs (60, 18, 1 and 15 data requests). The recorded
   calls still have to be inspected to pick the real data endpoint. `energa` shows only 1 request.
 - `enea`: the probe points at `www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce` and answers. The page is
