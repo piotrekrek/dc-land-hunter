@@ -59,7 +59,16 @@ describe("SiteList", () => {
   });
 
   it("offers more results when the page is not complete, and asks for the next offset", async () => {
-    const fetchSpy = mockFetch({ "/api/sites": { total: 80, offset: 0, limit: 50, items: [site({})] } });
+    // The second page must hold a different site; the same id twice would render duplicate React keys.
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const offset = Number(new URL(url, "http://localhost").searchParams.get("offset") ?? 0);
+      const items = [site({ site_id: offset === 0 ? "site-a" : "site-b" })];
+      return new Response(JSON.stringify({ total: 80, offset, limit: 50, items }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
     renderWithProviders(<SiteList />);
     const more = await screen.findByRole("button", { name: /Pokaż więcej \(1 z 80\)/ });
     await userEvent.click(more);
