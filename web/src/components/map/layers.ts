@@ -111,8 +111,19 @@ export const LAYER_GROUPS: LayerGroup[] = [
   { id: "substations", label: "Stacje (GPZ, węzły)", defaultOn: true, layerIds: ["substations-circle"] },
 ];
 
+/**
+ * The dark basemap paints buildings (fill rgb(10,10,10)) almost the colour of the ground, so they are invisible.
+ * Lift them to a readable grey. No-op when the style has no `building` layer (e.g. the fallback style).
+ */
+export function brightenBuildings(map: MapLibreMap) {
+  if (!map.getLayer("building")) return;
+  map.setPaintProperty("building", "fill-color", "#2b313a");
+  map.setPaintProperty("building", "fill-outline-color", "#5b6573");
+}
+
 /** (Re)adds sources and layers; call after every `style.load` because `setStyle` removes them. */
 export function addGridLayers(map: MapLibreMap, visible: Record<string, boolean>) {
+  brightenBuildings(map);
   for (const [id, spec] of Object.entries(SOURCES)) {
     if (!map.getSource(id)) map.addSource(id, spec);
   }
