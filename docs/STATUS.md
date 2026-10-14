@@ -2,6 +2,15 @@
 
 Last updated: 14.10.2026 · Phase 1.5 pilot run on the VPS (powiat 1421); earlier: Phase 0 done except source verification; Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
 
+## Protected areas: `gdos` connector (14.10.2026, code and tests)
+
+- `sources/gdos.py` fetches the four GDOŚ WFS layers (Natura 2000 SOO and OSO, national parks, reserves) into one zip
+  snapshot, with the same paging and truncation checks as PRG. `dclh fetch gdos` saves and parses it.
+- `dclh search` now needs a saved `gdos` snapshot (like `prg` and `osm_power`) and feeds it as `protected_nature`, so the
+  hard filter `protected_nature_pct` (threshold 20%) acts. Before, that filter never ran.
+- Not yet run live: the first `dclh fetch gdos` on the VPS (about 3,200 features). The expected counts are in the module
+  docstring. Next: fetch, then `dclh search 1421 --write` and compare the "Excluded by hard filters" count (was 0).
+
 ## Phase 1.5: pilot powiat on the VPS (14.10.2026)
 
 `dclh search 1421 --write` (pruszkowski) ran end to end on the VPS and wrote 315 sites, so the app's list now has real rows.

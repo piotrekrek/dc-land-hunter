@@ -19,11 +19,13 @@ from sqlalchemy.orm import Session
 from dclh_pipeline.config import load_scoring, load_sources
 from dclh_pipeline.db.models import JobRow, SearchRunRow
 from dclh_pipeline.http import PoliteClient
-from dclh_pipeline.model.features import SiteLayers, build_grid_index
+from dclh_pipeline.model.features import GeomIndex, Layer, SiteLayers, build_grid_index
+from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.search import SearchResult, run_search
 from dclh_pipeline.settings import Settings, get_settings
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
 from dclh_pipeline.sources.egib import EgibConnector
+from dclh_pipeline.sources.gdos import GdosConnector
 from dclh_pipeline.sources.osm_power import OsmPowerConnector, to_grid
 from dclh_pipeline.sources.prg import PrgConnector
 
@@ -51,10 +53,12 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
     store = SnapshotStore(settings.raw_dir)
 
     prg_snapshot, osm_snapshot = store.latest("prg"), store.latest("osm_power")
-    for name, snap in (("prg", prg_snapshot), ("osm_power", osm_snapshot)):
+    gdos_snapshot = store.latest("gdos")
+    # gdos is required too: without it the protected-area exclusion would silently never apply.
+    for name, snap in (("prg", prg_snapshot), ("osm_power", osm_snapshot), ("gdos", gdos_snapshot)):
         if snap is None:
             raise ValueError(f"no saved snapshot of {name!r}; run `dclh fetch {name}` first")
-    assert prg_snapshot is not None and osm_snapshot is not None
+    assert prg_snapshot is not None and osm_snapshot is not None and gdos_snapshot is not None
 
     admin = PrgConnector(config.get("prg")).parse(prg_snapshot)
     units = admin[
@@ -66,6 +70,13 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
 
     substations, lines = to_grid(OsmPowerConnector(config.get("osm_power")).parse(osm_snapshot))
     grid = build_grid_index(substations, lines, as_of=osm_snapshot.fetched_at, source_id="osm_power")
+    protected = GdosConnector(config.get("gdos")).parse(gdos_snapshot)
+    protected_layer = Layer(
+        source_id="gdos",
+        index=GeomIndex(protected.geometry),
+        as_of=gdos_snapshot.fetched_at,
+        confidence=Confidence.VERIFIED,
+    )
 
     with PoliteClient(
         user_agent=settings.user_agent,
@@ -78,7 +89,13 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
             connector = EgibConnector(config.get("egib"), bboxes=tiles)
             return connector.parse(connector.fetch(client, store))
 
-        result = run_search(area, SiteLayers(grid=grid), cfg, fetch_parcels, parcels_as_of=None)
+        result = run_search(
+            area,
+            SiteLayers(grid=grid, constraints={"protected_nature": protected_layer}),
+            cfg,
+            fetch_parcels,
+            parcels_as_of=None,
+        )
     return PowiatSearch(
         teryt=str(units.iloc[0]["teryt"]),
         name=str(units.iloc[0]["name"]),
