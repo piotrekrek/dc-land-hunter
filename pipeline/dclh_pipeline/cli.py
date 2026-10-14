@@ -261,70 +261,30 @@ def fetch_egib_cmd(
 def search_cmd(
     powiat: Annotated[str, typer.Argument(help="Powiat TERYT code, e.g. 1421 (pruszkowski)")],
     write: Annotated[
-        bool, typer.Option("--write", help="Replace the sites table with this run (needs the database)")
+        bool, typer.Option("--write", help="Replace this powiat's sites with this run (needs the database)")
     ] = False,
 ) -> None:
     """Search one powiat: grid seed, EGiB parcels, clusters, scores. Run from Poland.
 
     Needs saved snapshots of `prg` and `osm_power` (`dclh fetch prg`, `dclh fetch osm_power`). Parcels are
     downloaded now. Prints the funnel counts and timings so a first run also measures the cost (R7).
+    The nightly `plan_searches` job runs the same search for several powiats.
     """
-    from dclh_pipeline.model.features import SiteLayers, build_grid_index
-    from dclh_pipeline.search import run_search
-    from dclh_pipeline.sources.osm_power import to_grid
+    from dclh_pipeline.db import session_scope
+    from dclh_pipeline.powiat_search import record_attempt, search_powiat
 
-    settings = get_settings()
-    if settings.contact_email.endswith(".invalid"):
-        raise typer.BadParameter("set DCLH_CONTACT_EMAIL first (it goes into the User-Agent)")
-    config = load_sources()
-    cfg = load_scoring()
-    store = SnapshotStore(settings.raw_dir)
-
-    prg_snapshot, osm_snapshot = store.latest("prg"), store.latest("osm_power")
-    for name, snap in (("prg", prg_snapshot), ("osm_power", osm_snapshot)):
-        if snap is None:
-            raise typer.BadParameter(f"no saved snapshot of {name!r}; run `dclh fetch {name}` first")
-    assert prg_snapshot is not None and osm_snapshot is not None
-
-    admin = PrgConnector(config.get("prg")).parse(prg_snapshot)
-    units = admin[
-        (admin["level"] == "powiat") & (admin["teryt"].astype(str).str.lstrip("0") == powiat.lstrip("0"))
-    ]
-    if units.empty:
-        raise typer.BadParameter(f"no powiat with TERYT {powiat!r} in the PRG snapshot")
-    area = units.geometry.iloc[0]
-    console.print(f"powiat {units.iloc[0]['teryt']} {units.iloc[0]['name']} · {area.area / 1e6:,.0f} km²")
-
-    substations, lines = to_grid(OsmPowerConnector(config.get("osm_power")).parse(osm_snapshot))
-    grid = build_grid_index(substations, lines, as_of=osm_snapshot.fetched_at, source_id="osm_power")
-    console.print(f"grid: {len(substations)} substations, {len(lines)} lines (all Poland)")
-
-    egib_spec = config.get("egib")
-    egib_as_of = None
-
-    with PoliteClient(
-        user_agent=settings.user_agent,
-        rate_limit_per_s=config.defaults.rate_limit_per_s,
-        timeout_s=config.defaults.timeout_s,
-        retries=2,
-    ) as client:
-
-        def fetch_parcels(tiles):  # type: ignore[no-untyped-def]
-            nonlocal egib_as_of
-            connector = EgibConnector(egib_spec, bboxes=tiles)
-            snapshot = connector.fetch(client, store)
-            egib_as_of = snapshot.fetched_at
-            return connector.parse(snapshot)
-
-        result = run_search(area, SiteLayers(grid=grid), cfg, fetch_parcels, parcels_as_of=None)
-
-    for label, value in result.report.lines():
+    try:
+        found = search_powiat(powiat, get_settings())
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    console.print(f"powiat {found.teryt} {found.name}")
+    for label, value in found.result.report.lines():
         console.print(f"{label:<44} {value:>10}")
     console.print(
         f"peak memory {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024:.0f} MB"
         "  (layers still missing: zoning, constraints, housing, DSO/PSE data)"
     )
-    top = sorted(result.scored, key=lambda s: -s.score.score)[:10]
+    top = sorted(found.result.scored, key=lambda s: -s.score.score)[:10]
     for item in top:
         console.print(
             f"{item.site.site_id} {item.site.area_ha:6.1f} ha {item.score.score:5.1f} pkt"
@@ -333,12 +293,15 @@ def search_cmd(
     if write:
         from datetime import UTC, datetime
 
-        from dclh_pipeline.db import session_scope
         from dclh_pipeline.scoring.run import write_sites
 
+        now = datetime.now(UTC)
         with session_scope() as session:
-            count = write_sites(session, result.scored, scored_at=datetime.now(UTC))
-        console.print(f"wrote {count} sites")
+            count = write_sites(session, found.result.scored, scored_at=found.scored_at, powiat=found.teryt)
+            record_attempt(
+                session, found.teryt, ok=True, at=now, sites=count, seconds=round(found.seconds, 1)
+            )
+        console.print(f"wrote {count} sites for powiat {found.teryt}")
 
 
 @app.command("load-grid")

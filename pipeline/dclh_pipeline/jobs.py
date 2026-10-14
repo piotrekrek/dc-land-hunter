@@ -17,10 +17,21 @@ from sqlalchemy.orm import Session
 
 from dclh_pipeline.config import SourceSpec, load_sources
 from dclh_pipeline.db import session_scope
-from dclh_pipeline.db.models import JobRow, RunRow, SourceRow
+from dclh_pipeline.db.models import JobRow, RunRow, SearchRunRow, SourceRow
 from dclh_pipeline.discovery import discover, save_report
 from dclh_pipeline.http import PoliteClient
+from dclh_pipeline.powiat_search import (
+    next_window_end,
+    pick_powiats,
+    powiats_from_prg,
+    queued_powiats,
+    record_attempt,
+    search_powiat,
+    window_closed,
+)
+from dclh_pipeline.scoring.run import write_sites
 from dclh_pipeline.settings import get_settings
+from dclh_pipeline.snapshots import SnapshotStore
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +72,57 @@ def _job_discover(session: Session, payload: dict[str, Any]) -> dict[str, Any]:
     return {"report": str(json_path), "status_counts": counts}
 
 
-HANDLERS: dict[str, JobHandler] = {"discover": _job_discover}
+def _job_search(session: Session, payload: dict[str, Any]) -> dict[str, Any]:
+    """Search one powiat and replace its sites. A failed attempt is recorded, so the planner moves on."""
+    teryt = str(payload["powiat"])
+    now = datetime.now(UTC)
+    if window_closed(payload, now):
+        return {"powiat": teryt, "skipped": "after the night window closed"}
+    try:
+        found = search_powiat(teryt)
+    except Exception as exc:
+        # The job's own session is rolled back on failure, so the attempt is recorded in a session of its own.
+        with session_scope() as attempt:
+            record_attempt(attempt, teryt, ok=False, at=now, error=str(exc)[:500])
+        raise
+    count = write_sites(session, found.result.scored, scored_at=found.scored_at, powiat=teryt)
+    record_attempt(session, teryt, ok=True, at=now, sites=count, seconds=round(found.seconds, 1))
+    report = found.result.report
+    return {
+        "powiat": teryt,
+        "name": found.name,
+        "sites": count,
+        "scored": report.scored,
+        "excluded": report.excluded,
+        "parcels_fetched": report.parcels_fetched,
+        "seconds": round(found.seconds, 1),
+    }
+
+
+def _job_plan_searches(session: Session, payload: dict[str, Any]) -> dict[str, Any]:
+    """Queue the powiats attempted longest ago, each with a deadline at the end of the night window."""
+    limit = int(payload.get("limit", 8))
+    now = datetime.now(UTC)
+    deadline = next_window_end(now, hour=int(payload.get("window_end_hour", 5)))
+    snapshot = SnapshotStore(get_settings().raw_dir).latest("prg")
+    if snapshot is None:
+        raise ValueError("no saved snapshot of 'prg'; run `dclh fetch prg` first (it lists the powiats)")
+    busy = queued_powiats(session)
+    teryts = [t for t in powiats_from_prg(snapshot) if t not in busy]
+    last = {row.teryt: row.last_attempt_at for row in session.scalars(select(SearchRunRow))}
+    chosen = pick_powiats(teryts, last, limit)
+    for teryt in chosen:
+        enqueue(
+            session, "search", {"powiat": teryt, "not_after": deadline.isoformat()}, requested_by="planner"
+        )
+    return {"queued": chosen, "not_after": deadline.isoformat(), "already_queued": sorted(busy)}
+
+
+HANDLERS: dict[str, JobHandler] = {
+    "discover": _job_discover,
+    "search": _job_search,
+    "plan_searches": _job_plan_searches,
+}
 
 
 def enqueue(
