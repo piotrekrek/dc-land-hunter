@@ -197,7 +197,7 @@ describe("MapView click popups", () => {
   it("prefers a station over a line under the same click", () => {
     h.features = [
       {
-        layer: { id: "lines" },
+        layer: { id: "lines-110" },
         properties: { voltage: 110000 },
         geometry: { type: "LineString" },
       },
@@ -211,7 +211,7 @@ describe("MapView click popups", () => {
   it("opens a line popup at the click position", () => {
     h.features = [
       {
-        layer: { id: "lines" },
+        layer: { id: "lines-400" },
         properties: { voltage: 400000 },
         geometry: { type: "LineString" },
       },
