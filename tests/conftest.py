@@ -25,6 +25,21 @@ class FakeClock:
         self.now += seconds
 
 
+def pytest_terminal_summary(terminalreporter: pytest.TerminalReporter) -> None:
+    """Say loudly when the database tests were skipped: auth, db, sites_db and grid_load are untested without it."""
+    skipped = [
+        r
+        for r in terminalreporter.stats.get("skipped", [])
+        if "no database at" in str(getattr(r, "longrepr", ""))
+    ]
+    if skipped:
+        terminalreporter.write_sep(
+            "!",
+            f"{len(skipped)} database tests SKIPPED (no PostGIS at DATABASE_URL); CI runs them",
+            yellow=True,
+        )
+
+
 @pytest.fixture
 def fake_clock() -> FakeClock:
     return FakeClock()

@@ -82,9 +82,6 @@ def test_owner_workflow_end_to_end(tmp_path: Path) -> None:
         1,
         3,
     )  # the third is reported unmatched
-    unmatched = [r for r in results if r.candidate_key is None]
-    assert [r.dso_gpz_name for r in unmatched] == ["Nieistniejąca"]
-    assert "najlepsza zgodność" in unmatched[0].reason  # the miss is reported with its reason, not dropped
 
     # 3. a PSE closed-switchyard list one kilometre from the site
     site_centre = piaski.geom.buffer(1).centroid

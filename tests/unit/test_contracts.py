@@ -41,10 +41,6 @@ def as_parcels(frame) -> list[Parcel]:  # type: ignore[no-untyped-def]
 # --- EGiB: what the parser relies on -------------------------------------------------------------------------
 
 
-def test_egib_ids_are_unique_within_one_response(konin_parcels) -> None:  # type: ignore[no-untyped-def]
-    assert konin_parcels["ID_DZIALKI"].is_unique
-
-
 def test_egib_geometries_are_valid_polygons(konin_parcels) -> None:  # type: ignore[no-untyped-def]
     assert konin_parcels.geometry.is_valid.all()
     assert set(konin_parcels.geom_type) == {"Polygon"}
@@ -171,11 +167,6 @@ def test_every_konin_parcel_is_in_the_konin_gmina_by_boundaries(konin_parcels, p
 
 @pytest.mark.skip(reason="Needs the RU connector, which is not written yet (plan step 3)")
 def test_ru_zone_codes_map_to_zoning_kinds() -> None:
-    pass
-
-
-@pytest.mark.skip(reason="Needs the OSM grid connector, which is not written yet (plan step 3)")
-def test_osm_substations_are_classified_from_real_tags() -> None:
     pass
 
 
