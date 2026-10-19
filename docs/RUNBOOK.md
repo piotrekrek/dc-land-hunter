@@ -189,7 +189,7 @@ Check the log after each run. A failed run prints the reason and exits non-zero.
 
 `dclh discover` only says a source is reachable. `dclh discover-followup` asks the next question for the sources that
 block the hard filters and the zoning layer, and prints a verdict for each (it needs `DCLH_CONTACT_EMAIL`, which the
-containers take from the VPS `.env`):
+containers take from the VPS `infra/.env`):
 
 ```bash
 cd ~/dc-land-hunter
@@ -260,7 +260,7 @@ The script refuses to run on a dirty tree or on any branch other than `main`, fa
 of local changes, do not stash them blindly: look at `git diff`, move anything worth keeping into a branch
 on your own machine and open a pull request, then `git checkout -- .` on the VPS.
 
-Hard-refresh the browser afterwards (Ctrl+Shift+R). `.env` exists only on the VPS and is not in git.
+Hard-refresh the browser afterwards (Ctrl+Shift+R). `infra/.env` exists only on the VPS and is not in git.
 
 Snapshot manifests (`data/raw/<source>/manifest.jsonl`) store paths relative to the data folder, and the
 compose file bind-mounts the repo's `data/raw` at `/data/raw`. The host and the containers therefore share
