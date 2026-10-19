@@ -13,7 +13,7 @@ from dclh_pipeline.model.gpz_match import (
     match_summary,
     normalise_name,
 )
-from dclh_pipeline.model.grid import SubstationClass
+from dclh_pipeline.model.grid import Dso, SubstationClass
 
 
 def _cand(key: int, name: str) -> GpzCandidate:
@@ -91,18 +91,26 @@ def test_match_summary_counts_methods_and_rate() -> None:
         min_score=88,
     )
     summary = match_summary(results)
-    assert summary == {"total": 3, "matched": 2, "manual": 1, "fuzzy": 1, "rate": pytest.approx(2 / 3)}
+    assert summary == {
+        "total": 3,
+        "matched": 2,
+        "manual": 1,
+        "published": 0,
+        "fuzzy": 1,
+        "rate": pytest.approx(2 / 3),
+    }
     assert match_summary([])["rate"] == 0.0
 
 
-def test_only_named_110kv_gpzs_are_candidates() -> None:
+def test_named_110kv_gpzs_and_nodes_are_candidates() -> None:
     subs = [
         Substation(1, SubstationClass.GPZ_110_SN, (110_000, 15_000), Point(0, 0), name="Piaski"),
         Substation(2, SubstationClass.GPZ_110_SN, (110_000, 15_000), Point(1, 0), name=None),
         Substation(3, SubstationClass.NODE_220_400, (400_000,), Point(2, 0), name="Węzeł"),
         Substation(4, SubstationClass.OTHER, (110_000,), Point(3, 0), name="Słup"),
     ]
-    assert [c.key for c in gpz_candidates(subs)] == [1]
+    # a DSO GPZ can sit inside a PSE station (Energa's "Dunowo"), so named nodes count too
+    assert [c.key for c in gpz_candidates(subs)] == [1, 3]
 
 
 def test_numbers_in_a_name_must_be_identical() -> None:
@@ -138,3 +146,50 @@ def test_manual_mapping_may_target_an_unnamed_or_unclassified_station() -> None:
     assert (result.candidate_key, result.method) == (42, "manual")
     with pytest.raises(ValueError, match="not a known substation"):
         match_gpz_names("enea", ["Żabno"], named, manual={normalise_name("Żabno"): 43}, manual_targets={42})
+
+
+def test_osm_voltage_specs_prefixes_and_sections_are_not_part_of_the_name() -> None:
+    # names as they appear in OSM and in the Energa / PSE lists (live data, 19.10.2026)
+    assert normalise_name("Stacja elektroenergetyczna 110/15kV „GPZ Gdańsk Chełm”") == "gdansk chelm"
+    assert normalise_name('Stacja elektroenergetyczna "Dunowo" 400/220/110 kV') == "dunowo"
+    assert normalise_name("Stacja elektroenergetyczna 110/30/20/6kV GPZ „Będzin”") == "bedzin"
+    assert normalise_name("Stacja 110kV Duszniki") == "duszniki"
+    assert normalise_name("Baczyna Systemowa") == normalise_name(
+        "Stacja elektroenergetyczna 400/220/110 kV Baczyna"
+    )
+    assert normalise_name("Kutno sekcja 2") == "kutno"
+    assert normalise_name("Lindów 3") == "lindow 3"  # a plain number stays: it names another station
+
+
+def test_trailing_roman_numeral_equals_the_digit() -> None:
+    assert normalise_name("Stacja elektroenergetyczna 110/15kV „GPZ Gdańsk II”") == normalise_name("Gdańsk 2")
+    assert normalise_name("Olsztyn I") == "olsztyn 1"
+    assert normalise_name("I") == "i"  # a lone letter is a name, not a number
+
+
+def test_wind_farm_station_is_not_the_dso_gpz() -> None:
+    # "GPO" is a wind farm's own station: it must not tie with (or stand in for) the DSO's GPZ of that town
+    candidates = [_cand(1, "Stacja 110/15kV Tychowo"), _cand(2, "Stacja 110kV GPO Tychowo")]
+    (result,) = match_gpz_names("energa", ["Tychowo"], candidates, min_score=90)
+    assert result.candidate_key == 1
+
+
+def test_a_dso_name_never_matches_a_station_of_another_dso() -> None:
+    candidates = [
+        GpzCandidate(1, "Bojanowo", Point(0, 0), Dso.ENEA),
+        GpzCandidate(2, "Bojanowo", Point(200_000, 0), Dso.ENERGA),
+        GpzCandidate(3, "Dunowo", Point(400_000, 0), Dso.PSE),
+        GpzCandidate(4, "Piaski", Point(600_000, 0), None),
+    ]
+    results = match_gpz_names("energa", ["Bojanowo", "Dunowo", "Piaski"], candidates, min_score=90)
+    assert [r.candidate_key for r in results] == [2, 3, 4]  # PSE and untagged stations stay candidates
+    # PSE lists are not a DSO: no operator filter
+    (pse,) = match_gpz_names("pse_closed", ["Bojanowo"], candidates[:1], min_score=90)
+    assert pse.candidate_key == 1
+
+
+def test_one_station_keeps_only_its_best_name() -> None:
+    candidates = [_cand(1, "GPZ Ostróda Wschód")]
+    results = match_gpz_names("energa", ["Ostrów Wschód", "Ostróda Wschód"], candidates, min_score=85)
+    assert [(r.candidate_key, r.method) for r in results] == [(None, "none"), (1, "fuzzy")]
+    assert results[0].reason == "stacja OSM przypisana lepiej pasującej nazwie"

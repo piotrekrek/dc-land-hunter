@@ -39,7 +39,8 @@ grid:
   powered_brownfield_bonus: 15
   published_gpz_km: 5                       # Phase 3: DSO headroom counts for a GPZ this close
   closed_switchyard_km: 3                   # Phase 3: a closed PSE switchyard this close counts
-  gpz_match_min_score: 88                   # Phase 3: fuzzy GPZ name match threshold (0-100)
+  gpz_match_min_score: 90                   # Phase 3: fuzzy GPZ name match threshold (0-100); 88 let
+                                            # "Ostrowite" match "Ostrowiec" on live data (19.10.2026)
 
 zoning: {mpzp_production: 100, plan_ogolny_SG: 80, procedure_in_progress: 50, unknown: 30, other: 0}
 

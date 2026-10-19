@@ -15,6 +15,7 @@ from dclh_pipeline.config import load_sources
 from dclh_pipeline.snapshots import SnapshotStore
 from dclh_pipeline.sources.manual import (
     EneaCapacity,
+    PseAvailPoints,
     PseClosedPoints,
     load_gpz_mapping,
     read_table,
@@ -187,9 +188,9 @@ def test_points_outside_poland_are_rejected(tmp_path: Path) -> None:
         source.parse(source.store_file(_store(tmp_path)))
 
 
-def test_points_need_coordinates(tmp_path: Path) -> None:
-    file = _write(tmp_path / "closed.csv", "name,as_of\nA,2026-10-01\n")
-    source = PseClosedPoints(_spec("pse_closed"), file)
+def test_planned_stations_need_coordinates(tmp_path: Path) -> None:
+    file = _write(tmp_path / "avail.csv", "name,as_of\nA,2026-10-01\n")
+    source = PseAvailPoints(_spec("pse_avail"), file)
     with pytest.raises(ValueError, match="needs x_2180 \\+ y_2180, or lat \\+ lon"):
         source.parse(source.store_file(_store(tmp_path)))
 

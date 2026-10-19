@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from dclh_pipeline.config import load_scoring, load_sources
 from dclh_pipeline.db.models import JobRow, SearchRunRow
+from dclh_pipeline.grid_capacity import load_grid_capacity
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.model.features import GeomIndex, Layer, SiteLayers, build_grid_index
 from dclh_pipeline.model.provenance import Confidence
@@ -46,6 +47,8 @@ class PowiatSearch:
 
 def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
     """Search one powiat. Needs saved `prg`, `osm_power` and `gdos` snapshots. Does not write to the DB.
+
+    DSO capacity and the PSE lists are used when a good snapshot exists (`grid_capacity.py`).
 
     The powiat's flood zones (`isok`) and residential buildings (`bdot10k`) are downloaded now, like the
     parcels. A failed download fails the search: without them the flood and housing filters would silently
@@ -77,6 +80,8 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
 
     substations, lines = to_grid(OsmPowerConnector(config.get("osm_power")).parse(osm_snapshot))
     grid = build_grid_index(substations, lines, as_of=osm_snapshot.fetched_at, source_id="osm_power")
+    # DSO capacity and PSE lists: optional; a source never fetched or imported stays missing in the scores.
+    grid_capacity = load_grid_capacity(store, config, substations, cfg)
     protected = GdosConnector(config.get("gdos")).parse(gdos_snapshot)
     protected_layer = Layer(
         source_id="gdos",
@@ -125,6 +130,10 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
                 grid=grid,
                 residential=housing_layer,
                 constraints={"protected_nature": protected_layer, "flood_10_or_1": flood_layer},
+                capacity=grid_capacity.capacity,
+                pse_closed=grid_capacity.pse_closed,
+                pse_odb=grid_capacity.pse_odb,
+                pse_planned=grid_capacity.pse_planned,
             ),
             cfg,
             fetch_parcels,

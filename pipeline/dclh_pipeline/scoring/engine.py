@@ -243,7 +243,7 @@ def _grid_items(f: SiteFeatures, cfg: ScoringConfig, est_mw: float | None) -> li
             lambda mw: (
                 (
                     g.published_gpz_headroom_bonus,
-                    f"OSD publikuje {_n(mw)} MW dostępnej mocy odbiorczej (SN) w GPZ. To sygnał rezerwy, nie odpowiedź dla 60 MW.",
+                    f"OSD publikuje {_n(mw)} MW dostępnej mocy odbiorczej w GPZ lub jego grupie. To sygnał rezerwy, nie odpowiedź dla 60 MW.",
                 )
                 if mw > 0
                 else (0.0, "OSD publikuje brak wolnej mocy odbiorczej w pobliskim GPZ.")
