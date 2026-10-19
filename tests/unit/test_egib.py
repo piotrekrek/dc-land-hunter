@@ -125,3 +125,22 @@ def test_the_bundle_is_the_snapshot_and_pages_are_objects_not_manifest_lines(
     assert snapshot.path.suffix == ".json"
     assert len(store.history("egib")) == 1  # one fetch, one manifest line
     assert len(list((tmp_path / "egib" / "objects").rglob("*.gml"))) == 2
+
+
+def test_a_refetch_that_differs_only_by_the_response_timestamp_stores_no_new_pages(
+    tmp_path: Path, make_client: Callable[..., PoliteClient]
+) -> None:
+    store = SnapshotStore(tmp_path)
+    connector = EgibConnector(spec(), bboxes=[(500_100, 500_100, 500_900, 500_900)], page_size=2)
+    page1, page2 = read("tile_a_page1.gml"), read("tile_a_page2.gml")
+    stamped = page1.replace(
+        b"<wfs:FeatureCollection", b'<wfs:FeatureCollection timeStamp="2030-01-01T00:00:00"', 1
+    )
+    assert stamped != page1  # the test really changes the bytes the server sends
+    with make_client(serve({(TILE_A, 0): page1, (TILE_A, 2): page2})) as client:
+        connector.fetch(client, store)
+    objects = list((tmp_path / "egib" / "objects").rglob("*.gml"))
+    with make_client(serve({(TILE_A, 0): stamped, (TILE_A, 2): page2})) as client:
+        connector.fetch(client, store)
+    assert list((tmp_path / "egib" / "objects").rglob("*.gml")) == objects
+    assert len(store.history("egib")) == 2  # both fetches still recorded
