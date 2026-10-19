@@ -33,7 +33,7 @@ The phase plan is in `docs/PLAN.md` and the current state is in `docs/STATUS.md`
 
 - Production runs on the owner's VPS, repo checkout at `/home/piotr/dc-land-hunter` (user `piotr`).
 - Deploy: `cd ~/dc-land-hunter && git pull && docker compose -f infra/docker-compose.yml up --build -d`, then hard-refresh the browser.
-- The `.env` file lives only on the VPS (not in git). Never overwrite it.
+- The Compose settings file is `infra/.env` (the one `infra/docker-compose.yml` reads). It lives only on the VPS, not in git. Never overwrite it. Local dev without Docker uses a root `.env` (copied from `.env.example`), which the VPS does not have.
 
 ## 0. How to work on this project
 
