@@ -465,6 +465,61 @@ def load_grid_cmd() -> None:
     )
 
 
+@app.command("load-admin")
+def load_admin_cmd() -> None:
+    """Load the saved PRG boundaries (voivodeships, powiats, gminas) into `admin_units`.
+
+    Parses the latest `prg` snapshot (no download; run `dclh fetch prg` first) and replaces the table in one
+    transaction. Needs the database.
+    """
+    from dclh_pipeline.admin_units import load_admin_units
+    from dclh_pipeline.db import session_scope
+
+    settings = get_settings()
+    snapshot = SnapshotStore(settings.raw_dir).latest("prg")
+    if snapshot is None:
+        raise typer.BadParameter("no saved snapshot of 'prg'; run `dclh fetch prg` first")
+    prg = PrgConnector(load_sources().get("prg")).parse(snapshot)
+    with session_scope() as session:
+        written = load_admin_units(session, prg)
+    for level, count in written.items():
+        console.print(f"{level:<12} {count:>6}")
+    console.print(f"PRG snapshot of {snapshot.fetched_at:%Y-%m-%d}")
+
+
+@app.command("grid-counts")
+def grid_counts_cmd() -> None:
+    """Count the loaded substations per voivodeship (Phase 1 plausibility check).
+
+    Needs `dclh load-grid` and `dclh load-admin` to have run. Read-only.
+    """
+    from dclh_pipeline.admin_units import substation_counts
+    from dclh_pipeline.db import session_scope
+
+    with session_scope() as session:
+        try:
+            counts = substation_counts(session)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+    classes = ("GPZ_110_SN", "NODE_220_400", "UNKNOWN_VOLTAGE")
+    dsos = sorted({d for c in counts for d in c.by_dso})
+    table = Table("TERYT", "voivodeship", *classes, *(f"GPZ {d}" for d in dsos))
+    for c in counts:
+        table.add_row(
+            c.teryt or "",
+            c.name,
+            *(str(c.by_class[k]) for k in classes),
+            *(str(c.by_dso[d]) for d in dsos),
+        )
+    table.add_row(
+        "",
+        "total",
+        *(str(sum(c.by_class[k] for c in counts)) for k in classes),
+        *(str(sum(c.by_dso[d] for c in counts)) for d in dsos),
+    )
+    console.print(table)
+
+
 aoi_app = typer.Typer(help="Area of interest (brief 2.1)", no_args_is_help=True)
 app.add_typer(aoi_app, name="aoi")
 

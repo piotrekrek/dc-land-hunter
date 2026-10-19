@@ -25,7 +25,7 @@ ambiguous names (Sławno, Pomorska, Ostrów, Bojanowo, Kalisz Pomorski), then re
   The baseline for comparison is the 19.10.2026 run above (315 sites, all "Bliskość sieci", 22 not excluded).
   `pse_avail` (planned stations) still needs its ~24 stations geocoded by hand.
 
-Last updated: 19.10.2026 · Phase 3 live DSO/PSE data and GPZ match report (search re-run pending); earlier: Flood (`isok`) and housing (`bdot10k`) connectors, pilot rerun; earlier: source verification round 2 (20 of 23 MVP sources ✓, Enea manual-only); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
+Last updated: 19.10.2026 · Phase 1 closed (admin_units loaded, substation counts per voivodeship); Phase 3 live DSO/PSE data and GPZ match report (search re-run pending); earlier: Flood (`isok`) and housing (`bdot10k`) connectors, pilot rerun; earlier: source verification round 2 (20 of 23 MVP sources ✓, Enea manual-only); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
 
 ## Flood and housing hard filters: `isok` and `bdot10k` connectors (19.10.2026, run on the VPS)
 
@@ -67,6 +67,54 @@ centre (394–456 m away) are among them. The golden-set coordinates are still u
 Reading the numbers: Pruszków is suburban, so almost every 10 ha+ cluster of farm parcels has a house within 100 m.
 The 100 m threshold (`config/scoring.yaml`) is the owner's call; with it, 22 sites survive. The top ten by score are
 all excluded.
+
+
+## Phase 1 close-out (19.10.2026, on the VPS)
+
+Phase 1 is finished: both acceptance items pass on live data.
+- `dclh load-admin` loads the PRG snapshot of 12.10.2026 into `admin_units`: 16 voivodeships, 380 powiats, 2,479 gminas,
+  parent TERYT from the code prefix. TERYT lengths were checked on the real snapshot (2 / 4 / 7 digits, no duplicates).
+- `dclh grid-counts` (read-only) counts the loaded substations per voivodeship, by class and, for GPZs, by DSO. A station
+  on a shared border is counted once.
+- Tests: `tests/unit/test_admin_units.py` (parents, Polygon → MultiPolygon, reload replaces, bad TERYT keeps the old rows,
+  wrong CRS refused, border and outside-Poland stations, counts need `admin_units`).
+
+| TERYT | Voivodeship | GPZ 110/SN | Node 220/400 | Unknown voltage | GPZ by DSO tag |
+|---|---|---:|---:|---:|---|
+| 02 | dolnośląskie | 145 | 11 | 2,132 | Tauron 120, Energa 1, none 24 |
+| 04 | kujawsko-pomorskie | 77 | 6 | 559 | Energa 40, Enea 7, none 30 |
+| 06 | lubelskie | 47 | 6 | 827 | PGE 27, none 20 |
+| 08 | lubuskie | 52 | 5 | 337 | Enea 33, none 19 |
+| 10 | łódzkie | 87 | 9 | 1,016 | PGE 45, Energa 9, Tauron 1, none 32 |
+| 12 | małopolskie | 137 | 7 | 124 | Tauron 124, PGE 2, none 11 |
+| 14 | mazowieckie | 183 | 21 | 774 | PGE 72, Stoen 45, Energa 29, none 37 |
+| 16 | opolskie | 62 | 5 | 296 | Tauron 54, none 8 |
+| 18 | podkarpackie | 51 | 5 | 422 | PGE 24, Tauron 6, none 21 |
+| 20 | podlaskie | 50 | 2 | 370 | PGE 45, none 5 |
+| 22 | pomorskie | 106 | 9 | 1,069 | Energa 69, none 37 |
+| 24 | śląskie | 222 | 23 | 1,135 | Tauron 206, none 16 |
+| 26 | świętokrzyskie | 58 | 5 | 132 | PGE 51, Tauron 1, none 6 |
+| 28 | warmińsko-mazurskie | 72 | 5 | 336 | Energa 46, PGE 11, none 15 |
+| 30 | wielkopolskie | 152 | 10 | 896 | Enea 49, Energa 39, none 64 |
+| 32 | zachodniopomorskie | 92 | 10 | 912 | Enea 31, Energa 7, PSE 1, none 53 |
+| | outside Poland | 1 | 5 | 125 | none 1 |
+| | **total** | **1,594** | **144** | **11,462** | Tauron 512, PGE 277, Energa 240, Enea 120, Stoen 45, PSE 1, none 399 |
+
+Plausibility:
+- **220/400 kV nodes:** 107 of the 144 carry the PSE operator tag. PSE reports 110 extra-high-voltage stations
+  ("Inwestycje sieciowe PSE", 03.2024). The other 37 are power-plant and industrial switchyards (23 foreign or untagged)
+  and DSO stations with a 220 kV side (14).
+- **GPZs:** Tauron-tagged GPZs (512) match the 513 GPZs in Tauron's load-capacity API (`docs/SOURCES.md`). No published
+  GPZ count was found for Enea, Energa or PGE. Their tagged counts are lower bounds: 399 GPZs (25%) have no DSO in the
+  `operator` tag, most in Enea and Energa territory (wielkopolskie 64, zachodniopomorskie 53). The territory-polygon
+  fallback for those is now a Phase 3 task.
+- **Distribution:** śląskie, mazowieckie, wielkopolskie and dolnośląskie lead; lubuskie, opolskie and podlaskie trail.
+  That matches population and industry.
+- **Unknown voltage (11,462):** stations without a readable voltage tag, mostly small MV/LV transformer stations (only
+  1,246 have a name, 911 a DSO). They are on the map at confidence `missing`. Search seeds and scoring do not use them.
+
+Moved out of Phase 1 (see `docs/PLAN.md`): `osm_land` and the `buildings` table to Phase 2; the DSO territory fallback and
+the count of independent circuits to Phase 3. Still open for the owner: Toruń is outside the AOI (see "The AOI" below).
 
 ## Source verification round 2 (19.10.2026, from the VPS)
 
