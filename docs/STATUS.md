@@ -68,6 +68,8 @@ Replay with the fix (same snapshots):
 | · GDOŚ | 9 | 9 |
 | Not excluded | 22 | 161 |
 
+Live rerun on the VPS with this branch (`dclh search 1421 --write`, 19.10.2026): 355 sites written, 194 excluded, same as the replay. The first attempt stopped on the OSM memory guard (745 MB free, 800 MB wanted) and wrote nothing.
+
 Reguły after the fix: `.562/2`–`.562/4` form an 18.1 ha site (a home inside, 11.9 ha clear), not excluded, rank 75
 of 161. `.564/2` is in a 41.1 ha site (33.1 ha clear), rank 19 of 161 (top 12%). The 69.8 ha site is still out, for
 flood. Two small Reguły sites stay excluded for housing (1.4 and 2.4 ha clear). `.408` is still not scored (1 ha lot
