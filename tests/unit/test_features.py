@@ -175,7 +175,7 @@ def test_zoning_takes_the_zone_covering_most_of_the_site() -> None:
             (ZoningKind.MPZP_PRODUCTION, box(50, -100, 600, 600)),  # most of the site
         ),
     )
-    fact = zoning_fact(SITE, zones, None)
+    fact = zoning_fact(SITE, (zones,), None)
     assert fact is not None
     assert fact.value is ZoningKind.MPZP_PRODUCTION
     assert fact.confidence is Confidence.VERIFIED
@@ -186,20 +186,20 @@ def test_a_zone_that_only_touches_or_slivers_the_site_does_not_decide_the_zoning
     production = ZoningLayer(
         "ru", None, ((ZoningKind.MPZP_PRODUCTION, box(-500, 0, 0, 400)),)
     )  # shares an edge
-    touching = zoning_fact(SITE, production, None)
+    touching = zoning_fact(SITE, (production,), None)
     assert touching is not None
     assert touching.value is ZoningKind.UNKNOWN
     assert touching.confidence is Confidence.MISSING
     sliver = ZoningLayer("ru", None, ((ZoningKind.MPZP_PRODUCTION, box(-500, 0, 0.5, 400)),))  # 0.5 m overlap
-    assert zoning_fact(SITE, sliver, None).value is ZoningKind.UNKNOWN  # type: ignore[union-attr]
+    assert zoning_fact(SITE, (sliver,), None).value is ZoningKind.UNKNOWN  # type: ignore[union-attr]
     covering = ZoningLayer("ru", None, ((ZoningKind.MPZP_PRODUCTION, box(-500, 0, 300, 400)),))  # most of it
-    assert zoning_fact(SITE, covering, None).value is ZoningKind.MPZP_PRODUCTION  # type: ignore[union-attr]
+    assert zoning_fact(SITE, (covering,), None).value is ZoningKind.MPZP_PRODUCTION  # type: ignore[union-attr]
 
 
 def test_industrial_area_without_plan_is_unknown_not_bad() -> None:
     industrial = layer([box(400, 400, 900, 900)], source_id="osm_land")
     no_plan = ZoningLayer("ru", None, ())
-    fact = zoning_fact(SITE, no_plan, industrial)
+    fact = zoning_fact(SITE, (no_plan,), industrial)
     assert fact is not None
     assert fact.value is ZoningKind.UNKNOWN
     assert fact.confidence is Confidence.ESTIMATED
@@ -207,14 +207,14 @@ def test_industrial_area_without_plan_is_unknown_not_bad() -> None:
 
 
 def test_loaded_register_without_any_plan_is_unknown_with_missing_confidence() -> None:
-    fact = zoning_fact(SITE, ZoningLayer("ru", None, ()), None)
+    fact = zoning_fact(SITE, (ZoningLayer("ru", None, ()),), None)
     assert fact is not None
     assert fact.value is ZoningKind.UNKNOWN
     assert fact.confidence is Confidence.MISSING
 
 
 def test_zoning_is_missing_when_no_planning_layer_is_loaded() -> None:
-    assert zoning_fact(SITE, None, None) is None
+    assert zoning_fact(SITE, (), None) is None
 
 
 # --- constraints and residential distance ---------------------------------------------------------------------------
@@ -252,13 +252,29 @@ def test_residential_distance_in_metres() -> None:
 # --- assembly -------------------------------------------------------------------------------------------------------
 
 
+def test_the_first_layer_with_a_zone_decides_even_when_a_later_one_scores_higher() -> None:
+    # An MPZP in force (KIMPZP) outranks the plan ogólny, whatever the plan ogólny says.
+    mpzp = ZoningLayer("kimpzp", None, ((ZoningKind.OTHER, SITE),), Confidence.ESTIMATED)
+    pog = ZoningLayer("ru_pog", None, ((ZoningKind.PLAN_OGOLNY_SG, SITE),))
+    fact = zoning_fact(SITE, (mpzp, pog), None)
+    assert fact is not None
+    assert (fact.value, fact.source_id, fact.confidence) == (ZoningKind.OTHER, "kimpzp", Confidence.ESTIMATED)
+
+
+def test_an_empty_first_layer_falls_through_to_the_next() -> None:
+    pog = ZoningLayer("ru_pog", None, ((ZoningKind.PLAN_OGOLNY_SG, SITE),))
+    fact = zoning_fact(SITE, (ZoningLayer("kimpzp", None, ()), pog), None)
+    assert fact is not None
+    assert (fact.value, fact.source_id) == (ZoningKind.PLAN_OGOLNY_SG, "ru_pog")
+
+
 def test_build_site_features_from_cluster_and_layers() -> None:
     site = cluster_sites(
         [Parcel("p1", "z1", box(0, 0, 500, 500)), Parcel("p2", "z1", box(500, 0, 700, 500))]
     )[0]
     grid = build_grid_index([sub(1, 1_000, 250, SubstationClass.GPZ_110_SN)], [line(10, 1_300)])
     layers = SiteLayers(
-        grid=grid, zoning=ZoningLayer("ru", None, ((ZoningKind.PLAN_OGOLNY_SG, box(-10, -10, 800, 600)),))
+        grid=grid, zoning=(ZoningLayer("ru", None, ((ZoningKind.PLAN_OGOLNY_SG, box(-10, -10, 800, 600)),)),)
     )
 
     features = build_site_features(site, layers, CFG, parcels_as_of=None)

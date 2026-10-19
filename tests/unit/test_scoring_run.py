@@ -36,7 +36,7 @@ def layers() -> SiteLayers:
     zoning = ZoningLayer(
         "ru", None, ((ZoningKind.PLAN_OGOLNY_SG, box(X0 - 50, Y0 - 50, X0 + 900, Y0 + 500)),)
     )
-    return SiteLayers(grid=grid, zoning=zoning)
+    return SiteLayers(grid=grid, zoning=(zoning,))
 
 
 def test_scores_every_site_and_keeps_excluded_ones_sorted_by_id() -> None:

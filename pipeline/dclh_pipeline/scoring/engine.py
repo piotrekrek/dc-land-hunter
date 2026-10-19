@@ -317,7 +317,7 @@ def _grid_items(f: SiteFeatures, cfg: ScoringConfig, est_mw: float | None) -> li
 
 _ZONING_LABEL = {
     ZoningKind.MPZP_PRODUCTION: "MPZP z przeznaczeniem produkcyjno-usługowym",
-    ZoningKind.PLAN_OGOLNY_SG: "plan ogólny: strefa gospodarcza (SG)",
+    ZoningKind.PLAN_OGOLNY_SG: "plan ogólny: strefa gospodarcza (SP)",
     ZoningKind.PROCEDURE_IN_PROGRESS: "procedura planistyczna w toku",
     ZoningKind.UNKNOWN: "brak planu w rejestrze (nieznane, nie złe)",
     ZoningKind.OTHER: "inne przeznaczenie",

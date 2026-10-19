@@ -1,7 +1,9 @@
 # Live samples: source verification round 2 (19.10.2026, VPS in Poland)
 
-Raw responses saved while confirming the open sources in `docs/SOURCES.md`. Only `isok_nz_fluvial_1.gml` is read by a test so far (`tests/unit/test_isok.py`); the rest are
-here so the first connector for each source can be tested against a real payload.
+Raw responses saved while confirming the open sources in `docs/SOURCES.md`. Read by tests: `isok_nz_fluvial_1.gml`
+(`tests/unit/test_isok.py`), `ru_pog_strefa_bbox_1421.gml` and `ru_mpzp_akt_1.gml` (`tests/unit/test_ru.py`) and
+`kimpzp_gfi_warszawa_sluzewiec.xml` (`tests/unit/test_kimpzp.py`). The rest are here so the first connector for each
+source can be tested against a real payload.
 
 | File | Source | Request |
 |---|---|---|

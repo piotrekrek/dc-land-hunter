@@ -16,21 +16,26 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from dclh_pipeline.config import load_scoring, load_sources
+from dclh_pipeline.config import SourcesConfig, load_scoring, load_sources
 from dclh_pipeline.db.models import JobRow, SearchRunRow
 from dclh_pipeline.grid_capacity import load_grid_capacity
 from dclh_pipeline.http import PoliteClient
-from dclh_pipeline.model.features import GeomIndex, Layer, SiteLayers, build_grid_index
+from dclh_pipeline.model.features import GeomIndex, Layer, SiteLayers, ZoningLayer, build_grid_index
 from dclh_pipeline.model.provenance import Confidence
+from dclh_pipeline.model.sites import Site
+from dclh_pipeline.model.zoning import mpzp_outline_kind, plan_ogolny_kind
 from dclh_pipeline.search import SearchResult, run_search
 from dclh_pipeline.settings import Settings, get_settings
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
 from dclh_pipeline.sources.bdot10k import Bdot10kConnector
-from dclh_pipeline.sources.egib import EgibConnector
+from dclh_pipeline.sources.egib import BBox, EgibConnector
 from dclh_pipeline.sources.gdos import GdosConnector
 from dclh_pipeline.sources.isok import IsokConnector
+from dclh_pipeline.sources.kimpzp import KimpzpConnector, site_points
+from dclh_pipeline.sources.kimpzp import zoning_layer as kimpzp_zoning_layer
 from dclh_pipeline.sources.osm_power import OsmPowerConnector, to_grid
 from dclh_pipeline.sources.prg import PrgConnector
+from dclh_pipeline.sources.ru import RuMpzpConnector, RuPlanOgolnyConnector
 
 WARSAW = ZoneInfo("Europe/Warsaw")
 EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
@@ -50,9 +55,11 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
 
     DSO capacity and the PSE lists are used when a good snapshot exists (`grid_capacity.py`).
 
-    The powiat's flood zones (`isok`) and residential buildings (`bdot10k`) are downloaded now, like the
-    parcels. A failed download fails the search: without them the flood and housing filters would silently
-    not apply, and the nightly planner retries the powiat later.
+    The powiat's flood zones (`isok`), residential buildings (`bdot10k`) and RU plans (`ru`: MPZP outlines and
+    plan ogólny zones) are downloaded now, like the parcels. A failed download fails the search: without them
+    the flood and housing filters would silently not apply and zoning would read "unknown", and the nightly
+    planner retries the powiat later. KIMPZP is asked per kept site; a gmina server that does not answer
+    leaves that point without a plan.
     """
     started = time.monotonic()
     settings = settings or get_settings()
@@ -120,6 +127,16 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
             confidence=Confidence.VERIFIED,
         )
 
+        zoning = _ru_zoning_layers(config, client, store, tuple(area.bounds))
+
+        def sample_zoning(sites: list[Site]) -> tuple[ZoningLayer, dict[str, int]]:
+            connector = KimpzpConnector(config.get("kimpzp"), points=site_points(sites))
+            snapshot = connector.fetch(client, store)
+            answers = connector.parse(snapshot)
+            store.mark_good(snapshot)
+            counts = {str(k): int(v) for k, v in answers["status"].value_counts().items()}
+            return kimpzp_zoning_layer(sites, answers, snapshot.fetched_at), counts
+
         def fetch_parcels(tiles):  # type: ignore[no-untyped-def]
             connector = EgibConnector(config.get("egib"), bboxes=tiles)
             return connector.parse(connector.fetch(client, store))
@@ -128,6 +145,7 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
             area,
             SiteLayers(
                 grid=grid,
+                zoning=zoning,
                 residential=housing_layer,
                 constraints={"protected_nature": protected_layer, "flood_10_or_1": flood_layer},
                 capacity=grid_capacity.capacity,
@@ -138,6 +156,7 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
             cfg,
             fetch_parcels,
             parcels_as_of=None,
+            sample_zoning=sample_zoning,
         )
     return PowiatSearch(
         teryt=str(units.iloc[0]["teryt"]),
@@ -146,6 +165,33 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
         scored_at=datetime.now(UTC),
         seconds=time.monotonic() - started,
     )
+
+
+def _ru_zoning_layers(
+    config: SourcesConfig, client: PoliteClient, store: SnapshotStore, bbox: BBox
+) -> tuple[ZoningLayer, ...]:
+    """The RU zoning layers of one bbox, in order of precedence: MPZP procedures, then plan ogólny zones.
+
+    An MPZP outline in force has no designations, so it does not decide the zoning (KIMPZP does, ahead of
+    these layers). Plan ogólny drafts count only as a procedure for a strefa gospodarcza
+    (`plan_ogolny_kind`).
+    """
+    mpzp = RuMpzpConnector(config.get("ru"), bbox=bbox)
+    pog = RuPlanOgolnyConnector(config.get("ru"), bbox=bbox)
+    layers = []
+    for connector in (mpzp, pog):
+        snapshot = connector.fetch(client, store)
+        table = connector.parse(snapshot)
+        store.mark_good(snapshot)
+        if connector is pog:
+            kinds = [
+                plan_ogolny_kind(z, s) for z, s in zip(table["zone_href"], table["status_href"], strict=True)
+            ]
+        else:
+            kinds = [mpzp_outline_kind(s) for s in table["status_href"]]
+        zones = tuple((k, g) for k, g in zip(kinds, table.geometry, strict=True) if k is not None)
+        layers.append(ZoningLayer("ru", snapshot.fetched_at, zones))
+    return tuple(layers)
 
 
 def record_attempt(
