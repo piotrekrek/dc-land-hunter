@@ -1,6 +1,38 @@
 # Status
 
-Last updated: 19.10.2026 · Source verification round 2 (20 of 23 MVP sources ✓, Enea manual-only); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
+Last updated: 19.10.2026 · Flood (`isok`) and housing (`bdot10k`) connectors, pilot rerun; earlier: source verification round 2 (20 of 23 MVP sources ✓, Enea manual-only); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
+
+## Flood and housing hard filters: `isok` and `bdot10k` connectors (19.10.2026, run on the VPS)
+
+- `sources/isok.py` fetches the ISOK `wms_nz-core:NZ.Fluvial` zones with `loo_ql_probabilityofoccurrence = 0.01`
+  (Q1%, including the levee-breach scenario) for the powiat bbox, pages with `startIndex`, checks `numberMatched`,
+  swaps the northing-first axes and clips the zones to the bbox. It fails if no zone touches the bbox (wrong axes).
+  The 10% zones are not fetched: they lie inside the 1% extent. The 0.2% zones (a penalty) are not fetched yet.
+- `sources/bdot10k.py` looks up `URL_GML` for the powiat in `ms:BDOT10k_powiaty`, downloads the zip (only from
+  `opendata.geoportal.gov.pl`, only that powiat's file) and keeps `OT_BUBD_A` buildings with
+  `funkcjaOgolnaBudynku = "budynki mieszkalne"` that are not `zniszczony` (buildings under construction count).
+- `dclh search` (and the nightly `search` job) download both for the powiat at run time, like the parcels, and feed
+  them as `flood_10_or_1` and `residential` (confidence `verified`). A failed download fails the search rather than
+  scoring without the filters. Neither is in `dclh fetch` (both need a powiat).
+- Layer sizes for 1421: 6 Q1% zones (9.1 km² of the 246 km² powiat; maps valid to 21.12.2025, second cycle);
+  43,015 residential buildings (of 60,434). Download: ISOK 3.4 MB zip, BDOT10k 18.6 MB.
+
+`dclh search 1421 --write` rerun (same funnel as 14.10.2026; 315 sites written):
+
+| Measure | 14.10.2026 | 19.10.2026 |
+|---|---|---|
+| Scored sites | 315 | 315 |
+| **Excluded by hard filters** | 0 | **293** |
+| · housing within 100 m (`residential_within_m`) | – | 286 (199 for this reason only) |
+| · flood zone 10% or 1% (`flood_10_or_1_pct`) | – | 85 (6 only) |
+| · Natura 2000 / park / reserve over 20% (`protected_nature_pct_over`) | – | 9 |
+| Not excluded | 315 | 22 |
+| EGiB download | 1,300 s | 513 s |
+| Peak memory | 703 MB | 747 MB |
+
+Reading the numbers: Pruszków is suburban, so almost every 10 ha+ cluster of farm parcels has a house within 100 m.
+The 100 m threshold (`config/scoring.yaml`) is the owner's call; with it, 22 sites survive. The top ten by score are
+all excluded.
 
 ## Source verification round 2 (19.10.2026, from the VPS)
 
@@ -10,8 +42,7 @@ Docs, probe config and fixtures only. No connector code changed.
 - **20 ✓, 1 ⚠, 2 manual.** Newly confirmed: `bdot10k`, `ru`, `isok`, `pse_closed`, `pse_odb`, `pse_avail`, `energa`,
   `tauron`, `psi`, `heat`. Still ⚠: `uke` (lead only). `enea` is manual CSV only (owner decision 19.10.2026): its Power BI map covers MV/LV only and Enea has no statutory load-capacity PDF; its art. 7 ust. 8l PDFs list about 82 load entries at 110 kV (queue signal, hard to parse).
 - Hard filters now have verified data: flood = ISOK `NZ.Fluvial` with probability 0.01; housing = BDOT10k
-  `OT_BUBD_A` with `funkcjaOgolnaBudynku = "budynki mieszkalne"`. Neither is loaded by a connector yet, so
-  "Excluded by hard filters" stays at the gdos-only value.
+  `OT_BUBD_A` with `funkcjaOgolnaBudynku = "budynki mieszkalne"`. Both are now loaded (section above).
 - Zoning: RU WFS gives plan ogólny zones (`symbol`, e.g. SG) and MPZP **outlines** only. MPZP designations come from
   KIMPZP GetFeatureInfo (WMS 1.1.1 only), point by point and in a different format per gmina.
 - Grid: Tauron has a JSON API per GPZ (513 GPZs). Energa publishes a statutory PDF per group of 110 kV nodes. PSE's
@@ -29,8 +60,8 @@ Docs, probe config and fixtures only. No connector code changed.
   snapshot, with the same paging and truncation checks as PRG. `dclh fetch gdos` saves and parses it.
 - `dclh search` now needs a saved `gdos` snapshot (like `prg` and `osm_power`) and feeds it as `protected_nature`, so the
   hard filter `protected_nature_pct` (threshold 20%) acts. Before, that filter never ran.
-- Fetched on the VPS on 14.10.2026 (snapshot in `data/raw/gdos`, 26 MB). Not yet recorded: the "Excluded by hard
-  filters" count from `dclh search 1421 --write` after the fetch (was 0 before).
+- Fetched on the VPS on 14.10.2026 (snapshot in `data/raw/gdos`, 26 MB). In the 19.10.2026 rerun of 1421 it
+  excludes 9 sites (see the flood and housing section).
 
 ## Phase 1.5: pilot powiat on the VPS (14.10.2026)
 
