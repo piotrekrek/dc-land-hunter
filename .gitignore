@@ -19,6 +19,7 @@ tests/e2e/playwright-report/
 # Data: raw snapshots are large and re-fetchable
 data/raw/
 data/cache/
+data/reports/
 !data/raw/.gitkeep
 
 # Secrets and local config
