@@ -39,6 +39,9 @@ BBox = tuple[float, float, float, float]  # xmin, ymin, xmax, ymax in EPSG:2180
 _RETURNED = re.compile(rb'numberReturned="(\d+)"')
 _MATCHED = re.compile(rb'numberMatched="(\d+)"')
 _EXCEPTION_TEXT = re.compile(rb"<ows:ExceptionText>(.*?)</ows:ExceptionText>", re.S)
+# The server stamps every response with the time it was produced. Left in, identical parcels hash
+# differently on each fetch and every page is stored again (about 20% of stored pages on 19.10.2026).
+_TIMESTAMP = re.compile(rb'\s+timeStamp="[^"]*"')
 
 
 def tile_bbox(bbox: BBox, size_m: float = TILE_M) -> list[BBox]:
@@ -116,7 +119,7 @@ class EgibConnector(Source):
             params = getfeature_params(tile, start=start, count=self.page_size)
             response = client.get(self.url, params=params)
             response.raise_for_status()
-            body = response.content
+            body = _TIMESTAMP.sub(b"", response.content, count=1)  # the parser never reads it; see _TIMESTAMP
             _raise_if_exception(body)
             returned = _count(_RETURNED, body)
             matched = _count(_MATCHED, body)
