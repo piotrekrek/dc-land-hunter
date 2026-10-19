@@ -506,17 +506,18 @@ def _penalty_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
             missing_upside=0.0,
         )
 
-    lo, hi = RESIDENTIAL_PENALTY_BAND_M
+    # Below 100 m the hard filter decides on the clear area; a site it keeps is penalised like one at 100-300 m.
+    _, hi = RESIDENTIAL_PENALTY_BAND_M
     return [
         share("pen_flood_02", "Strefa zalewowa 0,2%", f.flood_0_2_pct, p.flood_0_2pct, 0.0, "{v}% terenu w strefie zagrożenia powodziowego 0,2%.", "Teren poza strefą 0,2%.", "mapy zagrożenia powodziowego"),
         flag("pen_landscape", "Park krajobrazowy / OChK", f.landscape_park_or_ochk, p.landscape_park_or_ochk, "Teren w parku krajobrazowym lub obszarze chronionego krajobrazu.", "Poza parkami krajobrazowymi i OChK.", "formy ochrony przyrody"),
         share("pen_mining_terrain", "Teren górniczy", f.mining_terrain_pct, p.mining_terrain, 0.0, "{v}% terenu w terenie górniczym.", "Poza terenami górniczymi.", "tereny górnicze"),
         share("pen_soil_iii", "Gleby klasy III", f.soil_class_iii_pct, p.soil_class_III_pct_over_30, SOIL_III_PENALTY_THRESHOLD_PCT, "{v}% terenu to gleby klasy III (próg 30%).", "Mało gleb klasy III.", "klasy gleb"),
         _scored(
-            "pen_residential", "penalty", "Zabudowa mieszkaniowa 100–300 m", f.residential_min_m, 0.0,
+            "pen_residential", "penalty", "Zabudowa mieszkaniowa do 300 m", f.residential_min_m, 0.0,
             lambda m: (
-                (-p.residential_100_300m, f"Zabudowa mieszkaniowa w odległości {_n(m, 0)} m (strefa {_n(lo, 0)}–{_n(hi, 0)} m): ryzyko sprzeciwu mieszkańców.")
-                if lo <= m < hi
+                (-p.residential_100_300m, f"Zabudowa mieszkaniowa w odległości {_n(m, 0)} m (poniżej {_n(hi, 0)} m): ryzyko sprzeciwu mieszkańców.")
+                if m < hi
                 else (0.0, f"Najbliższa zabudowa mieszkaniowa: {_n(m, 0)} m.")
             ),
             "zabudowa mieszkaniowa", missing_upside=0.0,
@@ -568,13 +569,18 @@ def evaluate_hard_filters(f: SiteFeatures, cfg: ScoringConfig) -> tuple[list[Exc
         heritage is not None,
         "obiekt w rejestrze zabytków" if heritage and heritage.value else None,
     )
+    # Housing too close: excluded when less than `ha_min` of the site lies `threshold_m` or more from every
+    # residential building. Distance from the edge alone would exclude a large site for one house at its fence.
     min_m = hf["residential_within_m"].threshold_m or 100.0
-    res = f.residential_min_m
+    clear = f.residential_clear_ha
+    near_m = f.residential_min_m
     record(
         "residential_within_m",
-        res is not None,
-        f"zabudowa mieszkaniowa w odległości {_n(res.value, 0)} m (< {_n(min_m, 0)} m)"
-        if res and res.value < min_m
+        clear is not None,
+        f"zabudowa mieszkaniowa: tylko {_n(clear.value)} ha terenu dalej niż {_n(min_m, 0)} m od budynków "
+        f"mieszkalnych (< {_n(ha_min, 0)} ha)"
+        + (f"; najbliższy budynek {_n(near_m.value, 0)} m" if near_m else "")
+        if clear and clear.value < ha_min
         else None,
     )
     return triggered, known

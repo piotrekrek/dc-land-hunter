@@ -98,3 +98,27 @@ def test_oversized_cluster_is_cut_into_pieces_of_about_the_maximum() -> None:
 def test_cluster_under_the_maximum_is_left_alone() -> None:
     sites = cluster_sites([Parcel("1", None, square(0, 0, side=500))], max_site_ha=80.0)
     assert len(sites) == 1 and "split_cluster" not in sites[0].flags
+
+
+def test_split_does_not_leave_a_contiguous_block_in_pieces_under_the_minimum() -> None:
+    # Pruszków, obręb Reguły: three touching 4.3 ha parcels fell into different 80 ha grid cells, and the pieces
+    # (4.3 ha and 8.8 ha) were dropped as under 10 ha. Here: 30 touching 3 ha strips (90 ha), cut by 894 m
+    # cells into 27 + 27 + 27 + 9 ha; the 9 ha tail must join its neighbour.
+    strip = [Parcel(str(i), None, box(i * 100, 0, i * 100 + 100, 300)) for i in range(30)]
+    unmerged = cluster_sites(strip, max_site_ha=80.0)
+    assert min(s.area_ha for s in unmerged) == pytest.approx(9.0)  # the bug, without min_piece_ha
+    pieces = cluster_sites(strip, max_site_ha=80.0, min_piece_ha=10.0)
+    assert sorted(round(s.area_ha) for s in pieces) == [27, 27, 36]
+    assert sorted(int(pid) for s in pieces for pid in s.parcel_ids) == list(range(30))
+    assert all("split_cluster" in s.flags for s in pieces)
+    assert cluster_sites(strip, max_site_ha=80.0, min_piece_ha=10.0) == pieces  # deterministic
+
+
+def test_min_piece_ha_never_merges_separate_clusters() -> None:
+    # Only pieces of one cut cluster are merged: a small cluster on its own stays small.
+    sites = cluster_sites(
+        [Parcel("big", None, square(0, 0, side=1_000)), Parcel("small", None, square(2_000, 0, side=200))],
+        max_site_ha=80.0,
+        min_piece_ha=10.0,
+    )
+    assert ("small",) in [s.parcel_ids for s in sites]

@@ -106,22 +106,52 @@ def test_small_lots_do_not_chain_into_one_site() -> None:
 
 
 def test_flood_and_housing_layers_trigger_their_hard_filters() -> None:
-    # The layers `dclh search` now loads from isok and bdot10k: a flood zone over the site and a house 50 m away.
+    # The layers `dclh search` loads from isok and bdot10k: a flood zone over the site, and a terrace of houses
+    # across the middle of the 800 x 400 m site that leaves two 7.6 ha strips clear of the 100 m zone.
     from dclh_pipeline.model.features import GeomIndex, Layer
     from dclh_pipeline.model.provenance import Confidence
 
     flood = Layer("isok", GeomIndex([box(X0, Y0, X0 + 100, Y0 + 100)]), confidence=Confidence.VERIFIED)
-    house = Layer(
-        "bdot10k", GeomIndex([box(X0 + 850, Y0, X0 + 860, Y0 + 10)]), confidence=Confidence.VERIFIED
+    houses = Layer(
+        "bdot10k", GeomIndex([box(X0 - 10, Y0 + 195, X0 + 810, Y0 + 205)]), confidence=Confidence.VERIFIED
     )
-    layers = SiteLayers(grid=grid(), residential=house, constraints={"flood_10_or_1": flood})
+    layers = SiteLayers(grid=grid(), residential=houses, constraints={"flood_10_or_1": flood})
     result = run_search(AREA, layers, CFG, lambda tiles: parcels())
     (site,) = result.scored
     assert site.score.excluded and result.report.excluded == 1
     assert {e.key for e in site.score.exclusions} == {"flood_10_or_1_pct", "residential_within_m"}
     assert site.features.residential_min_m is not None
     assert site.features.residential_min_m.source_id == "bdot10k"
-    assert site.features.residential_min_m.value == pytest.approx(50.0)
+    assert site.features.residential_min_m.value == pytest.approx(0.0)
+    assert site.features.residential_clear_ha is not None
+    assert site.features.residential_clear_ha.value == pytest.approx(7.6)
+
+
+def test_a_house_next_to_a_large_site_does_not_exclude_it() -> None:
+    # Pruszków, obręb Reguły: 30-70 ha sites were excluded because one house stood 1-17 m from the edge.
+    from dclh_pipeline.model.features import GeomIndex, Layer
+    from dclh_pipeline.model.provenance import Confidence
+
+    house = Layer(
+        "bdot10k", GeomIndex([box(X0 + 802, Y0, X0 + 812, Y0 + 10)]), confidence=Confidence.VERIFIED
+    )
+    result = run_search(AREA, SiteLayers(grid=grid(), residential=house), CFG, lambda tiles: parcels())
+    (site,) = result.scored
+    assert not site.score.excluded
+    assert (
+        site.features.residential_min_m is not None
+        and site.features.residential_min_m.value == pytest.approx(2.0)
+    )
+    assert any(i.key == "pen_residential" and i.points < 0 for i in site.score.items)
+
+
+def test_split_pieces_under_the_minimum_join_a_neighbour_in_the_search() -> None:
+    # 30 touching 3 ha strips (90 ha) are cut into 80 ha cells; the 9 ha tail must not be dropped.
+    rows = [(f"s{i}", box(X0 + i * 100, Y0, X0 + i * 100 + 100, Y0 + 300)) for i in range(30)]
+    frame = gpd.GeoDataFrame({"parcel_id": [r[0] for r in rows]}, geometry=[r[1] for r in rows], crs=2180)
+    result = run_search(AREA, SiteLayers(grid=grid()), CFG, lambda tiles: frame)
+    assert sorted(pid for s in result.scored for pid in s.site.parcel_ids) == sorted(r[0] for r in rows)
+    assert result.report.clusters_below_min_area == 0
 
 
 def test_loaded_layers_with_nothing_near_give_real_values_not_missing() -> None:
