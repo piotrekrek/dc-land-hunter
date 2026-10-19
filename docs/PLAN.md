@@ -3,7 +3,7 @@
 This plan turns `PROJECT_BRIEF.md` into phases with concrete tasks, acceptance checks and risks.
 It is a living document: update it when a phase finishes or the plan changes.
 
-Last updated: 19.10.2026 (source verification round 2); 12.10.2026 (plan review: vertical slice gate, grid-first seed, owner count in scope; Phase 3 code on fixtures, acceptance pending live data).
+Last updated: 19.10.2026 (Phase 1 closed; source verification round 2); 12.10.2026 (plan review: vertical slice gate, grid-first seed, owner count in scope; Phase 3 code on fixtures, acceptance pending live data).
 
 **Status words used in checklists:** `[x]` = verified on live data; `[f]` = done on fixtures/test data only; `[ ]` = not done.
 A phase is finished only when its acceptance check passes on live data.
@@ -45,17 +45,19 @@ Acceptance: `docker compose up` starts everything; CI green; every MVP source ha
 
 ## Phase 1: Base and grid layers
 
+**Finished 19.10.2026.** Acceptance met on live data: the per-voivodeship counts are in STATUS.md ("Phase 1 close-out"),
+and the AOI tests pass. Toruń (out of the AOI by the river-split rule) is an open owner decision, not a Phase 1 blocker.
+
 Tasks:
-- `prg` connector: voivodeship, powiat and gmina boundaries with TERYT → `admin_units`.
-- `osm_power` and `osm_land` connectors: download the Geofabrik `poland-latest.osm.pbf` (with ETag/size check), extract with pyosmium into substations, lines, generators, landuse and buildings.
-- AOI builder (`dclh aoi build`): country polygon from PRG, Vistula main stem from OSM (`waterway=river` + `name=Wisła`, longest connected chain), extended upstream to the border, split, keep the western/northern part. Write `data/aoi/aoi.geojson`.
+- [x] `prg` connector: voivodeship, powiat and gmina boundaries with TERYT → `admin_units` (`dclh load-admin`: 16 / 380 / 2,479 units).
+- [x] `osm_power` connector: download the Geofabrik `poland-latest.osm.pbf` (with ETag/size check), extract with pyosmium into substations, lines and generators. (`osm_land`, for landuse and buildings, moved to Phase 2.)
+- [x] AOI builder (`dclh aoi build`): country polygon from PRG, Vistula main stem from OSM (`waterway=river` + `name=Wisła`, longest connected chain), extended upstream to the border, split, keep the western/northern part. Write `data/aoi/aoi.geojson`.
   - Unit tests: Warsaw left bank, Kraków north bank, Katowice, Łódź, Poznań, Gdańsk-Wrzeszcz (west of the Vistula) are in; Bielsko-Biała, Lublin, Białystok and Warsaw Praga are out.
-- Grid model: classify substations (`GPZ_110_SN`, `NODE_220_400`, `OTHER`, `UNKNOWN_VOLTAGE`), derive DSO from the `operator` tag with a territory polygon fallback, lines by voltage, and a count of independent circuits.
-- `bdot10k` connector: residential buildings (per powiat ATOM/WFS), cached.
-- Tables: `admin_units`, `substations`, `lines`, `buildings`, `users`, `settings`.
-- Martin layers for the AOI, lines by voltage and substations by class. Map toggles.
-- Sources page (Źródła danych) live from the `sources` and `runs` tables. "Uruchom teraz" creates a job.
-- Docs: substation counts per voivodeship compared with plausibility references (PSE and DSO annual reports).
+- [x] Grid model: classify substations (`GPZ_110_SN`, `NODE_220_400`, `OTHER`, `UNKNOWN_VOLTAGE`), derive DSO from the `operator` tag, lines by voltage. (The DSO territory-polygon fallback and the count of independent circuits moved to Phase 3.)
+- [x] Tables: `admin_units`, `substations`, `lines`, `buildings`, `users`, `settings` (migration 0002; `buildings` is still empty, see Phase 2).
+- [x] Martin layers for the AOI, lines by voltage and substations by class. Map toggles.
+- [x] Sources page (Źródła danych) live from the `sources` and `runs` tables. "Uruchom teraz" creates a job (admin only, after login).
+- [x] Docs: substation counts per voivodeship compared with plausibility references (`dclh grid-counts`; PSE 107 tagged nodes vs 110 published stations, Tauron 512 OSM GPZs vs 513 in its API).
 
 Acceptance: plausible substation counts are documented and AOI tests pass.
 
@@ -64,7 +66,7 @@ Acceptance: plausible substation counts are documented and AOI tests pass.
 Goal: prove the whole chain on real data for one powiat before widening any layer. Phase 3 live work does not continue until this passes.
 
 Tasks:
-- [x] Real AOI (`dclh aoi build`) loaded on the VPS (about 188,000 km²). PRG admin units are not loaded into the database.
+- [x] Real AOI (`dclh aoi build`) loaded on the VPS (about 188,000 km²). PRG admin units loaded on 19.10.2026 (`dclh load-admin`).
 - [x] OSM power layers loaded (13,200 substations, 16,105 lines).
 - [x] `dclh search <teryt>` chains: seeds → grid pre-filter → EGiB parcels → cluster → constraints → score → write sites. Missing layers stay `missing`, never zero.
 - [ ] Pilot powiat: the one containing Reguły (Pruszków). Check whether the Hillwood site appears and where it ranks.
@@ -78,6 +80,8 @@ Acceptance: one powiat runs end to end on the VPS; the sites list in the app sho
 Tasks:
 - `ru` connector: MPZP designations (P, PU, P/U, U/P, E, infrastructure) and plan ogólny SG zones from the APP GML. Zone codes are checked against the APP schema. `kimpzp` WMS GetFeatureInfo fallback, sampled per candidate.
 - Fallback zones from OSM and BDOT10k industrial areas (`zoning=unknown`). Powered-brownfield detection.
+- `osm_land` connector (moved from Phase 1, 19.10.2026): landuse and buildings from the same Geofabrik extract. Feeds the fallback zones above and the tile skip for built-up areas in `dclh search`.
+- `buildings` table (moved from Phase 1, 19.10.2026): residential buildings from BDOT10k (per powiat), cached, so the housing distance does not need a live request per search.
 - **Grid-first seed** (decision 12.10.2026, runs next to the zoning seed): candidate land is every parcel cluster of at least `ha_min` inside the grid buffers (110 kV line ≤ 3 km, GPZ ≤ 5 km, node ≤ 25 km), whether or not a plan exists. Un-zoned or unplanned land gets `zoning=unknown` (30 points, `missing` or `estimated` confidence) and a flag "wymaga zmiany planu"; it can rank but never above a comparable site with production zoning. Seeds are merged by parcel id so a site found twice is scored once, and the seed(s) that found it are stored.
 - Re-run the seeds after 30.11.2026, when the Rejestr Urbanistyczny is complete.
 - Grid pre-filter (3 km line / 5 km GPZ / 25 km node, configurable).
@@ -100,6 +104,8 @@ Tasks:
 - [x] Grid confidence badges: Opublikowana moc / Bliskość sieci / Brak danych (list and card, from Phase 2).
 - [~] OSM power connector (`osm_power`): written and tested on a generated file; first real run on the VPS. Brings substation names and operators.
 - [x] GPZ match report (`dclh gpz-report`, the match rate per source) and `dclh search` loading these layers; run on the VPS 19.10.2026 (results in `docs/STATUS.md`).
+- [ ] DSO territory-polygon fallback (moved from Phase 1, 19.10.2026): 399 of 1,594 OSM GPZs have no DSO in their `operator` tag.
+- [ ] Count of independent 110 kV circuits per station (moved from Phase 1, 19.10.2026): `lines.circuits` is still empty.
 
 Acceptance: at least 70% of GPZs in Enea and Energa areas are matched to published capacity (or the reason is documented), and scores use them.
 
