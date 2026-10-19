@@ -1,6 +1,27 @@
 # Status
 
-Last updated: 14.10.2026 · Phase 1.5 pilot run on the VPS (powiat 1421); earlier: Phase 0 done except source verification; Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
+Last updated: 19.10.2026 · Source verification round 2 (20 of 23 MVP sources ✓, Enea manual-only); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
+
+## Source verification round 2 (19.10.2026, from the VPS)
+
+Details and request recipes: `docs/SOURCES.md` ("Current state"). Samples: `tests/fixtures/live/source-verification-2026-10-19/`.
+Docs, probe config and fixtures only. No connector code changed.
+
+- **20 ✓, 1 ⚠, 2 manual.** Newly confirmed: `bdot10k`, `ru`, `isok`, `pse_closed`, `pse_odb`, `pse_avail`, `energa`,
+  `tauron`, `psi`, `heat`. Still ⚠: `uke` (lead only). `enea` is manual CSV only (owner decision 19.10.2026): its Power BI map covers MV/LV only and Enea has no statutory load-capacity PDF; its art. 7 ust. 8l PDFs list about 82 load entries at 110 kV (queue signal, hard to parse).
+- Hard filters now have verified data: flood = ISOK `NZ.Fluvial` with probability 0.01; housing = BDOT10k
+  `OT_BUBD_A` with `funkcjaOgolnaBudynku = "budynki mieszkalne"`. Neither is loaded by a connector yet, so
+  "Excluded by hard filters" stays at the gdos-only value.
+- Zoning: RU WFS gives plan ogólny zones (`symbol`, e.g. SG) and MPZP **outlines** only. MPZP designations come from
+  KIMPZP GetFeatureInfo (WMS 1.1.1 only), point by point and in a different format per gmina.
+- Grid: Tauron has a JSON API per GPZ (513 GPZs). Energa publishes a statutory PDF per group of 110 kV nodes. PSE's
+  art. 7 ust. 8l list is an XLSX with 33 load (ODB) projects, mostly data centres. Enea's map is Power BI and covers
+  MV/LV only.
+- Axis order differs per service: ISOK and RU answer northing-first in EPSG:2180, BDOT10k is easting-first.
+- `dclh discover-followup` reported the KIMPZP WFS as "available" although it lists 0 layers (wrong verdict text, not
+  fixed here). It also missed the RU route modules; the RU WFS addresses were found in the browser instead.
+- Decisions for the owner: (1) Tauron terms before a scheduled connector; (2) the PSE and DSO 8l lists name applicants.
+  The plan is to store station, MW, type and status only.
 
 ## Protected areas: `gdos` connector (14.10.2026, code and tests)
 
@@ -8,8 +29,8 @@ Last updated: 14.10.2026 · Phase 1.5 pilot run on the VPS (powiat 1421); earlie
   snapshot, with the same paging and truncation checks as PRG. `dclh fetch gdos` saves and parses it.
 - `dclh search` now needs a saved `gdos` snapshot (like `prg` and `osm_power`) and feeds it as `protected_nature`, so the
   hard filter `protected_nature_pct` (threshold 20%) acts. Before, that filter never ran.
-- Not yet run live: the first `dclh fetch gdos` on the VPS (about 3,200 features). The expected counts are in the module
-  docstring. Next: fetch, then `dclh search 1421 --write` and compare the "Excluded by hard filters" count (was 0).
+- Fetched on the VPS on 14.10.2026 (snapshot in `data/raw/gdos`, 26 MB). Not yet recorded: the "Excluded by hard
+  filters" count from `dclh search 1421 --write` after the fetch (was 0 before).
 
 ## Phase 1.5: pilot powiat on the VPS (14.10.2026)
 

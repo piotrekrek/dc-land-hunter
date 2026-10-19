@@ -1,0 +1,1216 @@
+{
+  "started_at": "2026-10-19T10:02:50.108031+00:00",
+  "finished_at": "2026-10-19T10:04:12.491189+00:00",
+  "user_agent": "DCLandHunter/0.1 (+mailto:<contact email redacted>)",
+  "ran_from": "VPS (owner's Polish-IP machine)",
+  "sources": [
+    {
+      "source_id": "prg",
+      "name": "GUGiK PRG – granice administracyjne",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "ogc",
+          "url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WFS/AdministrativeBoundaries",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/xml; charset=UTF-8",
+          "final_url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WFS/AdministrativeBoundaries?service=WFS&request=GetCapabilities&version=2.0.0",
+          "redirect_status": null,
+          "elapsed_ms": 1182,
+          "size_bytes": 76474,
+          "details": {
+            "root": "WFS_Capabilities",
+            "version": "2.0.0",
+            "title": "Usługa pobierania Państwowego Rejestru Granic - jednostki administracyjne",
+            "layer_count": 52,
+            "layers": [
+              "ms:W12_Przystan_morska",
+              "ms:W11_Port_morski",
+              "ms:W10_Reda",
+              "ms:W09_Pas_techniczny",
+              "ms:W08_Pas_ochronny",
+              "ms:W07_Pas_nadbrzezny",
+              "ms:W06_Morskie_linie_brzegowe",
+              "ms:W05_Strefa_przylegla",
+              "ms:W04_Wylaczna_strefa_ekonomiczna",
+              "ms:W03_Morskie_wody_wewnetrzne",
+              "ms:W02_Morze_terytorialne_RP",
+              "ms:W01_Linia_podstawowa_morza_terytorialnego",
+              "ms:U11_Urzad_zeglugi_srodladowej",
+              "ms:U10_Urzad_morski",
+              "ms:U09_Regionalny_zarzad_gospodarki_wodnej_PGWWP",
+              "ms:U08_Zarzad_zlewni_PGWWP",
+              "ms:U07_Regionalna_dyrekcja_lasow_panstwowych",
+              "ms:U06_Nadlesnictwo",
+              "ms:U05_Izba_administracji_skarbowej",
+              "ms:U04_Urzad_celno-skarbowy",
+              "ms:U03_Wyspecjalizowany_urzad_skarbowy",
+              "ms:U02_Urzad_skarbowy",
+              "ms:U01_Archiwum_panstwowe",
+              "ms:K13_Obszar_dzialania_szefa_obrony_cywilnej_gminy",
+              "ms:K12_Obszar_dzialania_szefa_obrony_cywilnej_powiatu",
+              "ms:K11_Obszar_dzialania_szefa_obrony_cywilnej_wojewodztwa",
+              "ms:K10_Dywizjon_strazy_granicznej",
+              "ms:K09_Placowka_strazy_granicznej",
+              "ms:K08_Oddzial_strazy_granicznej",
+              "ms:K07_Komenda_powiatowa_strazy_pozarnej",
+              "ms:K06_Komenda_wojewodzka_strazy_pozarnej",
+              "ms:K05_Komisariat_policji",
+              "ms:K04_Komenda_rejonowa_policji",
+              "ms:K03_Komenda_stoleczna_policji",
+              "ms:K02_Komenda_powiatowa_policji",
+              "ms:K01_Komenda_wojewodzka_policji",
+              "ms:P03_Prokuratura_rejonowa",
+              "ms:P02_Prokuratura_okregowa",
+              "ms:P01_Prokuratura_regionalna",
+              "ms:S04_Wojewodzki_sad_administracyjny",
+              "ms:S03_Sad_rejonowy",
+              "ms:S02_Sad_okregowy",
+              "ms:S01_Sad_apelacyjny",
+              "ms:R02_Granice_obwodow_spisowych",
+              "ms:R01_Granice_rejonow_statystycznych",
+              "ms:A06_Granice_obrebow_ewidencyjnych",
+              "ms:A05_Granice_jednostek_ewidencyjnych",
+              "ms:A04_Granice_miast",
+              "ms:A03_Granice_gmin",
+              "ms:A02_Granice_powiatow",
+              "ms:A01_Granice_wojewodztw",
+              "ms:A00_Granice_panstwa"
+            ]
+          },
+          "error": null
+        },
+        {
+          "kind": "http",
+          "url": "https://opendata.geoportal.gov.pl/prg/granice/00_jednostki_administracyjne.zip",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/octet-stream",
+          "final_url": "https://opendata.geoportal.gov.pl/prg/granice/00_jednostki_administracyjne.zip",
+          "redirect_status": null,
+          "elapsed_ms": 1227,
+          "size_bytes": 377419459,
+          "details": {},
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "osm_power",
+      "name": "OpenStreetMap – sieć elektroenergetyczna (Geofabrik)",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "http",
+          "url": "https://download.geofabrik.de/europe/poland-latest.osm.pbf",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/octet-stream",
+          "final_url": "https://download.geofabrik.de/europe/poland-261018.osm.pbf",
+          "redirect_status": 307,
+          "elapsed_ms": 1104,
+          "size_bytes": 2109922738,
+          "details": {
+            "last-modified": "Sun, 18 Oct 2026 23:54:39 GMT",
+            "etag": "\"7dc2ddb2-65e261ed79e2e\"",
+            "accept-ranges": "bytes"
+          },
+          "error": null
+        },
+        {
+          "kind": "http",
+          "url": "https://download.geofabrik.de/europe/poland-latest.osm.pbf.md5",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/plain",
+          "final_url": "https://download.geofabrik.de/europe/poland-latest.osm.pbf.md5",
+          "redirect_status": null,
+          "elapsed_ms": 1726,
+          "size_bytes": 56,
+          "details": {
+            "preview": "7c64c676d0983d09183c9f111bdc2f5b  poland-latest.osm.pbf\n"
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "osm_land",
+      "name": "OpenStreetMap – użytkowanie terenu i budynki (Geofabrik)",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "http",
+          "url": "https://download.geofabrik.de/europe/poland-latest.osm.pbf",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/octet-stream",
+          "final_url": "https://download.geofabrik.de/europe/poland-261018.osm.pbf",
+          "redirect_status": 307,
+          "elapsed_ms": 272,
+          "size_bytes": 2109922738,
+          "details": {
+            "last-modified": "Sun, 18 Oct 2026 23:54:39 GMT",
+            "etag": "\"7dc2ddb2-65e261ed79e2e\"",
+            "accept-ranges": "bytes"
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "bdot10k",
+      "name": "GUGiK BDOT10k",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "ogc",
+          "url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/BDOT/WFS/PobieranieBDOT10k",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/xml; charset=UTF-8",
+          "final_url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/BDOT/WFS/PobieranieBDOT10k?service=WFS&request=GetCapabilities&version=2.0.0",
+          "redirect_status": null,
+          "elapsed_ms": 186,
+          "size_bytes": 15236,
+          "details": {
+            "root": "WFS_Capabilities",
+            "version": "2.0.0",
+            "title": "Usługa WFS pobierania danych BDOT10k",
+            "layer_count": 1,
+            "layers": [
+              "ms:BDOT10k_powiaty"
+            ]
+          },
+          "error": null
+        },
+        {
+          "kind": "http",
+          "url": "https://opendata.geoportal.gov.pl/bdot10k/schemat2021/14/1421_GML.zip",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/octet-stream",
+          "final_url": "https://opendata.geoportal.gov.pl/bdot10k/schemat2021/14/1421_GML.zip",
+          "redirect_status": null,
+          "elapsed_ms": 85,
+          "size_bytes": 18652257,
+          "details": {},
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "ru",
+      "name": "Rejestr Urbanistyczny",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "ogc",
+          "url": "https://rejestr-urbanistyczny.gov.pl/uslugi-sieciowe/app-pog/wfs",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/xml",
+          "final_url": "https://rejestr-urbanistyczny.gov.pl/uslugi-sieciowe/app-pog/wfs?service=WFS&request=GetCapabilities&version=2.0.0",
+          "redirect_status": null,
+          "elapsed_ms": 1040,
+          "size_bytes": 108483,
+          "details": {
+            "root": "WFS_Capabilities",
+            "version": "2.0.0",
+            "title": "Usługa pobierania dla planów ogólnych gmin – Rejestr Urbanistyczny",
+            "count_default": "10",
+            "layer_count": 6,
+            "layers": [
+              "app-pog:AktPlanowaniaPrzestrzennego",
+              "app-pog:DokumentFormalny",
+              "app-pog:ObszarStandardowDostepnosciInfrastrukturySpolecznej",
+              "app-pog:ObszarUzupelnieniaZabudowy",
+              "app-pog:ObszarZabudowySrodmiejskiej",
+              "app-pog:StrefaPlanistyczna"
+            ]
+          },
+          "error": null
+        },
+        {
+          "kind": "ogc",
+          "url": "https://rejestr-urbanistyczny.gov.pl/uslugi-sieciowe/app-mpzp/wfs",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/xml",
+          "final_url": "https://rejestr-urbanistyczny.gov.pl/uslugi-sieciowe/app-mpzp/wfs?service=WFS&request=GetCapabilities&version=2.0.0",
+          "redirect_status": null,
+          "elapsed_ms": 994,
+          "size_bytes": 105394,
+          "details": {
+            "root": "WFS_Capabilities",
+            "version": "2.0.0",
+            "title": "Usługa pobierania miejscowych planów zagospodarowania przestrzennego – Rejestr Urbanistyczny",
+            "count_default": "100",
+            "layer_count": 3,
+            "layers": [
+              "app-mpzp:AktPlanowaniaPrzestrzennego",
+              "app-mpzp:DokumentFormalny",
+              "app-mpzp:RysunekAktuPlanowaniaPrzestrzennego"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": "Rejestr niekompletny do 30.11.2026 – brak planu oznacza 'nieznane', nie 'złe'."
+    },
+    {
+      "source_id": "kimpzp",
+      "name": "KIMPZP – Krajowa Integracja MPZP",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "ogc",
+          "url": "https://mapy.geoportal.gov.pl/wss/ext/KrajowaIntegracjaMiejscowychPlanowZagospodarowaniaPrzestrzennego",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/xml",
+          "final_url": "https://mapy.geoportal.gov.pl/wss/ext/KrajowaIntegracjaMiejscowychPlanowZagospodarowaniaPrzestrzennego?service=WMS&request=GetCapabilities&version=1.3.0",
+          "redirect_status": null,
+          "elapsed_ms": 33,
+          "size_bytes": 23800,
+          "details": {
+            "root": "WMS_Capabilities",
+            "version": "1.3.0",
+            "title": "Krajowa Integracja Miejscowych Planów Zagospodarowania Przestrzennego",
+            "feature_info_formats": [
+              "application/vnd.ogc.gml",
+              "text/html",
+              "text/plain"
+            ],
+            "layer_count": 9,
+            "layers": [
+              "plany",
+              "plany_granice",
+              "raster",
+              "wektor-str",
+              "wektor-lzb",
+              "wektor-pow",
+              "wektor-lin",
+              "wektor-pkt",
+              "granice"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "egib",
+      "name": "EGiB – zbiorcza usługa WFS działek",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "ogc",
+          "url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/EGIB/WFS/UslugaZbiorcza",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/xml; charset=UTF-8",
+          "final_url": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/EGIB/WFS/UslugaZbiorcza?service=WFS&request=GetCapabilities&version=2.0.0",
+          "redirect_status": null,
+          "elapsed_ms": 1221,
+          "size_bytes": 17111,
+          "details": {
+            "root": "WFS_Capabilities",
+            "version": "2.0.0",
+            "title": "Zbiorcza usługa EGiB",
+            "count_default": "1000",
+            "layer_count": 2,
+            "layers": [
+              "ms:dzialki",
+              "ms:budynki"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "uldk",
+      "name": "ULDK – Usługa Lokalizacji Działek Katastralnych",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "http",
+          "url": "https://uldk.gugik.gov.pl/?request=GetParcelByXY&xy=637500,486500,2180&result=teryt,voivodeship,county,commune",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/plain; charset=UTF-8",
+          "final_url": "https://uldk.gugik.gov.pl/?request=GetParcelByXY&xy=637500,486500,2180&result=teryt,voivodeship,county,commune",
+          "redirect_status": null,
+          "elapsed_ms": 1113,
+          "size_bytes": 65,
+          "details": {
+            "preview": "0\n146510_8.0502.55|mazowieckie|powiat Warszawa|Warszawa (miasto)\n"
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "kiug",
+      "name": "KIUG – użytki gruntowe i klasy bonitacyjne",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "ogc",
+          "url": "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaUzytkowGruntowych",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/xml",
+          "final_url": "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaUzytkowGruntowych?service=WMS&request=GetCapabilities&version=1.3.0",
+          "redirect_status": null,
+          "elapsed_ms": 1033,
+          "size_bytes": 15273,
+          "details": {
+            "root": "WMS_Capabilities",
+            "version": "1.3.0",
+            "title": "Krajowa Integracja Użytków Gruntowych",
+            "feature_info_formats": [
+              "text/html",
+              "text/xml"
+            ],
+            "layer_count": 4,
+            "layers": [
+              "powiaty",
+              "uzytki",
+              "kontury",
+              "klasouzytki"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "gdos",
+      "name": "GDOŚ Geoserwis – formy ochrony przyrody",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "ogc",
+          "url": "https://sdi.gdos.gov.pl/wfs",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/xml",
+          "final_url": "https://sdi.gdos.gov.pl/wfs?service=WFS&request=GetCapabilities&version=2.0.0",
+          "redirect_status": null,
+          "elapsed_ms": 1015,
+          "size_bytes": 85917,
+          "details": {
+            "root": "WFS_Capabilities",
+            "version": "2.0.0",
+            "title": "Usługa pobierania (Web Feature Service) Generalnej Dyrekcji Ochrony Środowiska",
+            "count_default": "1000000",
+            "layer_count": 23,
+            "layers": [
+              "GDOS:ElektrownieWiatrowe",
+              "GDOS:korytarzeEkologiczne",
+              "GDOS:Mezoregiony",
+              "GDOS:ObszarySpecjalnejOchrony",
+              "GDOS:N2kKonsultowanePtasiePowiekszenie",
+              "GDOS:N2kKonsultowanePtasieZmniejszenie",
+              "GDOS:N2kProponowanePtasiePowiekszenie",
+              "GDOS:N2kProponowanePtasieZmniejszenie",
+              "GDOS:SpecjalneObszaryOchrony",
+              "GDOS:N2kKonsultowaneSiedliskowePowiekszenie",
+              "GDOS:N2kKonsultowaneSiedliskoweZmniejszenie",
+              "GDOS:N2kProponowaneSiedliskowePowiekszenie",
+              "GDOS:N2kProponowaneSiedliskoweZmniejszenie",
+              "GDOS:ObszaryChronionegoKrajobrazu",
+              "GDOS:ramsar",
+              "GDOS:ParkiKrajobrazowe",
+              "GDOS:ParkiNarodowe",
+              "GDOS:PomnikiPrzyrodyPowierzchniowe",
+              "GDOS:PomnikiPrzyrodyPunktowe",
+              "GDOS:Rezerwaty",
+              "GDOS:StanowiskaDokumentacyjne",
+              "GDOS:UzytkiEkologiczne",
+              "GDOS:ZespolyPrzyrodniczoKrajobrazowe"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "isok",
+      "name": "ISOK – mapy zagrożenia powodziowego",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "ogc",
+          "url": "https://wody.isok.gov.pl/wss/INSPIRE/INSPIRE_HY_10k_2019_WFS",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/xml",
+          "final_url": "https://wody.isok.gov.pl/wss/INSPIRE/INSPIRE_HY_10k_2019_WFS?service=WFS&request=GetCapabilities&version=2.0.0",
+          "redirect_status": null,
+          "elapsed_ms": 1059,
+          "size_bytes": 144089,
+          "details": {
+            "root": "WFS_Capabilities",
+            "version": "2.0.0",
+            "title": "Polska usługa pobierania INSPIRE dla tematu Hydrografia (MPHP10k)",
+            "count_default": "10000",
+            "layer_count": 20,
+            "layers": [
+              "hy-p:Crossing",
+              "wms_nz-core:NZ.ExposedElement",
+              "wms_nz-core:NZ.ExposedElement_BP",
+              "wms_nz-core:NZ.ExposedElement_h0_2",
+              "wms_nz-core:NZ.ExposedElement_h1",
+              "wms_nz-core:NZ.ExposedElement_q0_2",
+              "wms_nz-core:NZ.ExposedElement_q1",
+              "wms_nz-core:NZ.ExposedElement_q10",
+              "wms_nz-core:NZ.ExposedElement_hWZ",
+              "wms_nz-core:NZ.ExposedElement_qWZ",
+              "hy-n:HydroNode",
+              "wms_nz-core:NZ.ArtificialWaterBearingInfrastructure",
+              "wms_nz-core:NZ.SeaWater",
+              "wms_nz-core:NZ.Fluvial",
+              "hy-p:RiverBasin",
+              "hy-p:StandingWater",
+              "wms_nz-core:NZ.RiskZone",
+              "hy-p:Watercourse",
+              "hy-n:WatercourseLink",
+              "hy-p:DrainageBasin"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "midas",
+      "name": "PIG-PIB MIDAS – obszary i tereny górnicze",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "arcgis",
+          "url": "https://cbdgmapa.pgi.gov.pl/arcgis/rest/services",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/json; charset=UTF-8",
+          "final_url": "https://cbdgmapa.pgi.gov.pl/arcgis/rest/services?f=json",
+          "redirect_status": null,
+          "elapsed_ms": 1872,
+          "size_bytes": 355,
+          "details": {
+            "current_version": 11.1,
+            "folders": [
+              "3D",
+              "admin_geo",
+              "geofizyka",
+              "geoinz",
+              "geomorze",
+              "geosrodowisko",
+              "geotermia",
+              "geozagrozenia",
+              "gp",
+              "historia",
+              "Hosted",
+              "hydrogeologia",
+              "inspire",
+              "kartografia",
+              "mapa_topo",
+              "surowce_mineralne",
+              "teren",
+              "test",
+              "Utilities",
+              "waterprotect",
+              "web_mercator"
+            ],
+            "services": [
+              "analizy_pkt_bad (MapServer)",
+              "cbdg_bloki_k (MapServer)",
+              "cbdg_otwory_web (FeatureServer)",
+              "cbdg_otwory_web (MapServer)",
+              "cbdg_otwory (MapServer)",
+              "jaskinie (MapServer)",
+              "konc_obsz_przetarg (MapServer)",
+              "mapy_seryjne_pig (MapServer)",
+              "mgsp50k_skorowidz (MapServer)",
+              "midas_wod_podz (MapServer)",
+              "midas (MapServer)",
+              "prg (MapServer)",
+              "regiony_geograf (MapServer)",
+              "skorowidze (MapServer)",
+              "3D/mgpbk1000k_webm (MapServer)",
+              "3D/smgt10k_3d (MapServer)",
+              "3D/tatry3d (MapServer)",
+              "admin_geo/urzedy_geol_ed (FeatureServer)",
+              "admin_geo/urzedy_geol_ed (MapServer)",
+              "admin_geo/urzedy_geol (MapServer)",
+              "geofizyka/geofiz_doku_zasiegi (MapServer)",
+              "geofizyka/geofiz_sge_pkt (MapServer)",
+              "geofizyka/grawimetria (MapServer)",
+              "geofizyka/magnetotelluryka (MapServer)",
+              "geofizyka/magnetyka (MapServer)",
+              "geofizyka/profile_2d_3d (MapServer)",
+              "geoinz/agi_mapy (MapServer)",
+              "geoinz/agi (MapServer)",
+              "geoinz/atlas_gi_otwory (MapServer)",
+              "geoinz/geofizykainzynierska (MapServer)",
+              "geoinz/geoinz_wfm (MapServer)",
+              "geoinz/geoinz_wfs (MapServer)",
+              "geoinz/gi_dk (MapServer)",
+              "geoinz/mgip500k (MapServer)",
+              "geoinz/MgiP50k (MapServer)",
+              "geoinz/pmgip300k (MapServer)",
+              "geoinz/smgip50k (MapServer)",
+              "geomorze/batymetria (MapServer)",
+              "geomorze/gm_atlasgeoch (MapServer)",
+              "geomorze/gm_atlaslito (MapServer)",
+              "geomorze/gm_folk (MapServer)",
+              "geomorze/gm_odkryta (MapServer)",
+              "geomorze/gm_punkty (MapServer)",
+              "geomorze/gm_shepard (MapServer)",
+              "geomorze/gm_skorowidz (MapServer)",
+              "geomorze/neptun_geoecho (FeatureServer)",
+              "geomorze/neptun_geoecho (MapServer)",
+              "geosrodowisko/atlas_geochem (MapServer)",
+              "geosrodowisko/geochem_atl_polska_wl (MapServer)",
+              "geosrodowisko/geochem_atl_reg_arch_wl (MapServer)",
+              "geosrodowisko/geochem_atl_reg_wl (MapServer)",
+              "geosrodowisko/geochem_atl_szczegolowe_wl (MapServer)",
+              "geosrodowisko/geochemia_pkt_wl (MapServer)",
+              "geosrodowisko/geostanowiska_prd (FeatureServer)",
+              "geosrodowisko/geostanowiska_prd (MapServer)",
+              "geosrodowisko/geostanowiska (FeatureServer)",
+              "geosrodowisko/geostanowiska (MapServer)",
+              "geosrodowisko/haldy (MapServer)",
+              "geosrodowisko/moek (MapServer)",
+              "geosrodowisko/obszary_zweryfikowane (MapServer)"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "nid",
+      "name": "NID – rejestr zabytków i stanowiska archeologiczne",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "http",
+          "url": "https://api.dane.gov.pl/1.4/datasets?q=rejestr%20zabytk%C3%B3w%20nieruchomych&per_page=5",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/vnd.api+json",
+          "final_url": "https://api.dane.gov.pl/1.4/datasets?q=rejestr%20zabytk%C3%B3w%20nieruchomych&per_page=5",
+          "redirect_status": null,
+          "elapsed_ms": 1218,
+          "size_bytes": 13458,
+          "details": {
+            "json_keys": [
+              "data",
+              "jsonapi",
+              "links",
+              "meta"
+            ]
+          },
+          "error": null
+        },
+        {
+          "kind": "page",
+          "url": "https://mapy.zabytek.gov.pl/",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html; charset=utf-8",
+          "final_url": "https://mapy.zabytek.gov.pl/nid/",
+          "redirect_status": 302,
+          "elapsed_ms": 1686,
+          "size_bytes": 708306,
+          "details": {
+            "title": "NID | Portal mapowy",
+            "endpoint_candidates": [
+              "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/WMTS/1.0.0/WMTSCapabilities.xml",
+              "https://usluga2.zabytek.gov.pl/AZP/wms",
+              "http://www.bing.com/api/maps/mapcontrol?callback=_callbackForBingMaps&",
+              "http://studio.hexagongeospatial.com/AppStudioApi/api/maps/"
+            ],
+            "keyword_links": [],
+            "scripts_scanned": [
+              "https://mapy.zabytek.gov.pl/nid/Compositor.WebClient.ashx?p=%2fnid%2fMapWithRibbon.aspx&e=pl-PL.release.js&t=639064021771609916",
+              "https://mapy.zabytek.gov.pl/nid/CRSNames.WebClient.ashx?t=637716086560000000",
+              "https://mapy.zabytek.gov.pl/nid/MarkersNames.WebClient.ashx",
+              "https://mapy.zabytek.gov.pl/nid/AnnotationNames.WebClient.ashx",
+              "https://mapy.zabytek.gov.pl/nid/WebResource.axd?d=WT2-Cc3VU1x8GQrbIQGkzZpgDb9yqvTc_eaiK9u933-eukbty8HbBjdDqDYEJ3zFhatN4Loq0WUxe0dDFZydC5No23HptmVmIL5oblej5662IhW1QDOkVFCErEnaciTgmT16Ow2&t=637654679520000000"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "pse_closed",
+      "name": "PSE – zamknięte rozdzielnie (brak warunków przyłączenia)",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "http",
+          "url": "https://www.pse.pl/documents/20182/51490/20260204_Lista_rozdzielni-brak_mozliwosci_przylaczenia.xlsx",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+          "final_url": "https://www.pse.pl/documents/20182/51490/20260204_Lista_rozdzielni-brak_mozliwosci_przylaczenia.xlsx",
+          "redirect_status": null,
+          "elapsed_ms": 1241,
+          "size_bytes": 16074,
+          "details": {
+            "last-modified": "Wed, 04 Feb 2026 09:26:46 GMT"
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "pse_odb",
+      "name": "PSE – wykaz podmiotów ubiegających się o przyłączenie (art. 7 ust. 8l PE)",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://www.pse.pl/obszary-dzialalnosci/krajowy-system-elektroenergetyczny/wykaz-obiektow-planowanych-do-przylaczenia",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html;charset=UTF-8",
+          "final_url": "https://www.pse.pl/obszary-dzialalnosci/krajowy-system-elektroenergetyczny/wykaz-obiektow-planowanych-do-przylaczenia",
+          "redirect_status": null,
+          "elapsed_ms": 1111,
+          "size_bytes": 75523,
+          "details": {
+            "title": "Wykaz Podmiotów ubiegających się o przyłączenie - PSE",
+            "endpoint_candidates": [
+              "https://www.pse.pl/documents/20182/51490/Informacje_publikowane_zgodnie_z_Art_7_ust_8l_ustawy_PE_stan_na_31_08_2026.pdf",
+              "https://www.pse.pl/documents/20182/51490/Wykaz_wstepnych_warunkow_przylaczenia_morskich_farm_wiatrowych.pdf",
+              "https://www.pse.pl/documents/20182/51490/20260204_Lista_rozdzielni-brak_mozliwosci_przylaczenia.pdf",
+              "http://www.pse.pl/documents/20182/51490/20250904_Lista_rozdzielni-brak_mozliwosci_przylaczenia.pdf",
+              "https://www.pse.pl/documents/20182/51490/20250813_Lista_rozdzielni-brak_mozliwosci_przylaczenia.pdf",
+              "https://www.pse.pl/documents/20182/51490/Jednolity_zbior_zasad_przylaczania_PTPiREE_PSE.pdf",
+              "https://www.pse.pl/documents/20182/51490/WZIP_OSD_2026_06_30_OSP_2026_08_31.pdf",
+              "https://www.pse.pl/documents/20182/51490/Informacje_publikowane_zgodnie_z_Art_7_ust_8l_ustawy_PE_stan_na_31_08_2026.xlsx",
+              "https://www.pse.pl/documents/20182/51490/20260204_Lista_rozdzielni-brak_mozliwosci_przylaczenia.xlsx",
+              "http://www.pse.pl/documents/20182/51490/20250904_Lista_rozdzielni-brak_mozliwosci_przylaczenia.xlsx",
+              "http://www.pse.pl/documents/20182/51490/20250813_Lista_rozdzielni-brak_mozliwosci_przylaczenia.xlsx",
+              "https://www.pse.pl/api/jsonws/invoke"
+            ],
+            "keyword_links": [
+              {
+                "url": "https://www.pse.pl/documents/20182/51490/Informacje_publikowane_zgodnie_z_Art_7_ust_8l_ustawy_PE_stan_na_31_08_2026.pdf",
+                "text": "Informacje zgodnie z Art. 7 ust. 8l pkt 1, 3 i 4 ustawy Prawo Energetyczne"
+              },
+              {
+                "url": "https://www.pse.pl/documents/20182/51490/20260204_Lista_rozdzielni-brak_mozliwosci_przylaczenia.pdf",
+                "text": "Wykaz rozdzielni na stacjach bez możliwości przyłączenia nowych obiektów"
+              },
+              {
+                "url": "http://www.pse.pl/documents/20182/51490/20250904_Lista_rozdzielni-brak_mozliwosci_przylaczenia.pdf",
+                "text": "2025-09-04"
+              },
+              {
+                "url": "https://www.pse.pl/documents/20182/51490/20250813_Lista_rozdzielni-brak_mozliwosci_przylaczenia.pdf",
+                "text": "2025-08-13"
+              },
+              {
+                "url": "https://www.pse.pl/documents/20182/51490/Informacje_publikowane_zgodnie_z_Art_7_ust_8l_ustawy_PE_stan_na_31_08_2026.xlsx",
+                "text": "Informacje zgodnie z Art. 7 ust. 8l pkt 1, 3 i 4 ustawy Prawo Energetyczne"
+              },
+              {
+                "url": "https://www.pse.pl/documents/20182/51490/20260204_Lista_rozdzielni-brak_mozliwosci_przylaczenia.xlsx",
+                "text": "Wykaz rozdzielni na stacjach bez możliwości przyłączenia nowych obiektów"
+              },
+              {
+                "url": "http://www.pse.pl/documents/20182/51490/20250904_Lista_rozdzielni-brak_mozliwosci_przylaczenia.xlsx",
+                "text": "2025-09-04"
+              },
+              {
+                "url": "http://www.pse.pl/documents/20182/51490/20250813_Lista_rozdzielni-brak_mozliwosci_przylaczenia.xlsx",
+                "text": "2025-08-13"
+              }
+            ],
+            "scripts_scanned": [
+              "https://www.pse.pl/html/js/barebone.jsp?safeargs=62726f7773657249643d6f74686572267468656d6549643d707365696e7445726e65745f5741525f707365696e7445726e65747468656d6526636f6c6f72536368656d6549643d3031266d696e6966696572547970653d6a73266d696e696669657242756e646c6549643d6a6176617363726970742e62617265626f6e652e66696c6573266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630363539303030",
+              "https://www.pse.pl/html/portlet/dynamic_data_lists/js/main.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630363539303030",
+              "https://www.pse.pl/html/portlet/dynamic_data_mapping/js/main.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630363539303030",
+              "https://www.pse.pl/pse-intErnet-theme/js/jquery-2.2.2.min.js",
+              "https://www.pse.pl/pse-intErnet-theme/js/jquery.nicescroll.js",
+              "https://www.pse.pl/pse-intErnet-theme/js/theme.js",
+              "https://www.pse.pl/pse-intErnet-theme/js/jquery.nav.js",
+              "https://www.pse.pl/menu-portlet/js/main.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630363430303030"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "pse_avail",
+      "name": "PSE – raport o dostępnych mocach przyłączeniowych",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://www.pse.pl/obszary-dzialalnosci/krajowy-system-elektroenergetyczny/informacja-o-dostepnosci-mocy-przylaczeniowej",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html;charset=UTF-8",
+          "final_url": "https://www.pse.pl/obszary-dzialalnosci/krajowy-system-elektroenergetyczny/informacja-o-dostepnosci-mocy-przylaczeniowej",
+          "redirect_status": null,
+          "elapsed_ms": 1132,
+          "size_bytes": 71049,
+          "details": {
+            "title": "Informacja o dostępności mocy przyłączeniowej - PSE",
+            "endpoint_candidates": [
+              "https://www.pse.pl/documents/20182/51490/informacja_o_dostepnosci_mocy_przylaczeniowej_do_sieci_przesylowej.pdf/81835e70-c6bb-4ed1-8154-1959a45b44f1?safeargs=646f776e6c6f61643d74727565",
+              "https://www.pse.pl/api/jsonws/invoke"
+            ],
+            "keyword_links": [
+              {
+                "url": "https://www.pse.pl/obszary-dzialalnosci/krajowy-system-elektroenergetyczny/informacja-o-dostepnosci-mocy-przylaczeniowej",
+                "text": "Informacja o dostępności mocy przyłączeniowej"
+              },
+              {
+                "url": "javascript:_56_INSTANCE_l7I5RlEGObp2_printPage();",
+                "text": "Drukuj Informacja o dostępności mocy przyłączeniowej do sieci przesyłowej"
+              },
+              {
+                "url": "https://www.pse.pl/obszary-dzialalnosci/krajowy-system-elektroenergetyczny/informacja-o-dostepnosci-mocy-przylaczeniowej?safeargs=705f617574683d386535356775593826705f705f69643d35365f494e5354414e43455f6c374935526c45474f62703226705f705f6c6966656379636c653d3126705f705f73746174653d6578636c757369766526705f705f6d6f64653d7669657726705f705f636f6c5f69643d636f6c756d6e2d3226705f705f636f6c5f636f756e743d31265f35365f494e5354414e43455f6c374935526c45474f6270325f746172676574457874656e73696f6e3d646f63265f35365f494e5354414e43455f6c374935526c45474f6270325f67726f757049643d3230313832265f35365f494e5354414e43455f6c374935526c45474f6270325f61727469636c6549643d313732353536265f35365f494e5354414e43455f6c374935526c45474f6270325f7374727574735f616374696f6e3d2532466a6f75726e616c5f636f6e74656e742532466578706f72745f61727469636c65",
+                "text": "Konwertuj Informacja o dostępności mocy przyłączeniowej do sieci przesyłowej do DOC"
+              },
+              {
+                "url": "https://www.pse.pl/obszary-dzialalnosci/krajowy-system-elektroenergetyczny/informacja-o-dostepnosci-mocy-przylaczeniowej?safeargs=705f617574683d386535356775593826705f705f69643d35365f494e5354414e43455f6c374935526c45474f62703226705f705f6c6966656379636c653d3126705f705f73746174653d6578636c757369766526705f705f6d6f64653d7669657726705f705f636f6c5f69643d636f6c756d6e2d3226705f705f636f6c5f636f756e743d31265f35365f494e5354414e43455f6c374935526c45474f6270325f746172676574457874656e73696f6e3d706466265f35365f494e5354414e43455f6c374935526c45474f6270325f67726f757049643d3230313832265f35365f494e5354414e43455f6c374935526c45474f6270325f61727469636c6549643d313732353536265f35365f494e5354414e43455f6c374935526c45474f6270325f7374727574735f616374696f6e3d2532466a6f75726e616c5f636f6e74656e742532466578706f72745f61727469636c65",
+                "text": "Konwertuj Informacja o dostępności mocy przyłączeniowej do sieci przesyłowej do PDF (otwiera nowe okno)"
+              },
+              {
+                "url": "https://www.pse.pl/documents/20182/51490/informacja_o_dostepnosci_mocy_przylaczeniowej_do_sieci_przesylowej.pdf/81835e70-c6bb-4ed1-8154-1959a45b44f1?safeargs=646f776e6c6f61643d74727565",
+                "text": "Informacja o dostępności mocy przyłączeniowej do sieci przesyłowej"
+              }
+            ],
+            "scripts_scanned": [
+              "https://www.pse.pl/html/js/barebone.jsp?safeargs=62726f7773657249643d6f74686572267468656d6549643d707365696e7445726e65745f5741525f707365696e7445726e65747468656d6526636f6c6f72536368656d6549643d3031266d696e6966696572547970653d6a73266d696e696669657242756e646c6549643d6a6176617363726970742e62617265626f6e652e66696c6573266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630363539303030",
+              "https://www.pse.pl/html/portlet/dynamic_data_lists/js/main.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630363539303030",
+              "https://www.pse.pl/html/portlet/dynamic_data_mapping/js/main.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630363539303030",
+              "https://www.pse.pl/pse-intErnet-theme/js/jquery-2.2.2.min.js",
+              "https://www.pse.pl/pse-intErnet-theme/js/jquery.nicescroll.js",
+              "https://www.pse.pl/pse-intErnet-theme/js/theme.js",
+              "https://www.pse.pl/pse-intErnet-theme/js/jquery.nav.js",
+              "https://www.pse.pl/menu-portlet/js/main.js?safeargs=62726f7773657249643d6f74686572266d696e6966696572547970653d6a73266c616e677561676549643d706c5f504c26623d3632303426743d31373931323630363430303030"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "enea",
+      "name": "Enea Operator – mapa dostępnych mocy dla odbiorców",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html; charset=utf-8",
+          "final_url": "https://www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce",
+          "redirect_status": null,
+          "elapsed_ms": 1427,
+          "size_bytes": 305915,
+          "details": {
+            "title": "Dostępne moce odbiorcze | Enea Operator",
+            "endpoint_candidates": [
+              "https://www.operator.enea.pl/sites/operator/files/2025-06/broszura_prosument_final.pdf"
+            ],
+            "keyword_links": [
+              {
+                "url": "https://www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce",
+                "text": "Dostępne moce odbiorcze"
+              },
+              {
+                "url": "https://portalodbiorcy.operator.enea.pl/",
+                "text": "Portal Odbiorcy"
+              }
+            ],
+            "scripts_scanned": [
+              "https://www.operator.enea.pl/sites/operator/files/languages/pl_J0KhowzRngstzzbQjeh4NlOjL7FXsv9-lHiG0tRssYQ.js?tmw6i1",
+              "https://www.operator.enea.pl/sites/default/files/dist/assets/accordion-CelKjhnx.js?tmw6i1",
+              "https://www.operator.enea.pl/sites/default/files/dist/assets/dialog--header-CJOE7KFz.js?tmw6i1",
+              "https://www.operator.enea.pl/sites/default/files/dist/assets/formatted-text-iqAav0Fg.js?tmw6i1",
+              "https://www.operator.enea.pl/sites/default/files/dist/assets/header-hgYbn11p.js?tmw6i1",
+              "https://www.operator.enea.pl/sites/default/files/dist/assets/menu--buttons-DlFcoBrN.js?tmw6i1",
+              "https://www.operator.enea.pl/sites/default/files/dist/assets/menu--footer-CDmR6c2v.js?tmw6i1",
+              "https://www.operator.enea.pl/sites/default/files/dist/assets/menu--link-D4nEaNqK.js?tmw6i1"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "energa",
+      "name": "Energa-Operator – dostępne moce odbiorcze",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://energa-operator.pl/przylaczenie-do-sieci/informacje-o-stanie-przylaczen",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html;charset=UTF-8",
+          "final_url": "https://energa-operator.pl/przylaczenie-do-sieci/informacje-o-stanie-przylaczen",
+          "redirect_status": null,
+          "elapsed_ms": 3049,
+          "size_bytes": 28448,
+          "details": {
+            "title": "Informacje o stanie przyłączeń w sieci | Przyłączenie do sieci | Energa-Operator S.A.SzukajZamknij wyszukiwarkęZamknij menuSzukajZamknij wyszukiwarkęPokaż podmenuPokaż podmenuPokaż podmenuPowrótOtwórz stronęPowrótOtwórz stronęPowrótOtwórz stronęTrójkąt z wykrzyknikiemTelefonlinkedinfacebookinstagramvimeoyoutube",
+            "endpoint_candidates": [
+              "https://cdn-netpr.pl/file/mediakit/3063623/15/jednolity_zbior_zasad_ptpiree_pse.pdf",
+              "https://cdn-netpr.pl/file/mediakit/3063617/fa/2026_08_31_pusop_wnioski_i_odmowy_eop.pdf",
+              "https://cdn-netpr.pl/file/mediakit/3063619/5c/informacja_o_wartosci_lacznej_dostepnej_odbiorczej_mocy_przylaczeniowej_31_08_2026.pdf",
+              "https://cdn-netpr.pl/file/mediakit/3063621/4a/informacja_o_wartosci_lacznej_dostepnej_wytworczej_mocy_przylaczeniowej_31_08_2026.pdf"
+            ],
+            "keyword_links": [
+              {
+                "url": "https://cdn-netpr.pl/file/mediakit/3063623/15/jednolity_zbior_zasad_ptpiree_pse.pdf",
+                "text": "Jednolity zbiór zasad opisujący procedury, przepisy oraz terminy przy rozpatrywaniu wniosków o przyłączenie do sieci ele"
+              },
+              {
+                "url": "https://cdn-netpr.pl/file/mediakit/3063617/fa/2026_08_31_pusop_wnioski_i_odmowy_eop.pdf",
+                "text": "Informacja o: (i) podmiotach ubiegających się o przyłączenie instalacji, urządzeń lub sieci; (ii) złożonych wnioskach o "
+              },
+              {
+                "url": "https://cdn-netpr.pl/file/mediakit/3063619/5c/informacja_o_wartosci_lacznej_dostepnej_odbiorczej_mocy_przylaczeniowej_31_08_2026.pdf",
+                "text": "Informacja o wartości łącznej dostępnej odbiorczej mocy przyłączeniowej w sieci Energa-Operator S.A. o napięciu znamiono"
+              },
+              {
+                "url": "https://cdn-netpr.pl/file/mediakit/3063621/4a/informacja_o_wartosci_lacznej_dostepnej_wytworczej_mocy_przylaczeniowej_31_08_2026.pdf",
+                "text": "Informacja o wartości łącznej dostępnej wytwórczej mocy przyłączeniowej w sieci Energa-Operator S.A. o napięciu znamiono"
+              }
+            ],
+            "scripts_scanned": []
+          },
+          "error": null
+        }
+      ],
+      "notes": "PDF na stronie 'Informacje o stanie przyłączeń' (stan na 31.08.2026); link prowadzi do CDN z przekierowaniem."
+    },
+    {
+      "source_id": "tauron",
+      "name": "Tauron Dystrybucja – dostepnemoce.pl",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://dostepnemoce.tauron-dystrybucja.pl/",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html; charset=UTF-8",
+          "final_url": "https://dostepnemoce.tauron-dystrybucja.pl/",
+          "redirect_status": null,
+          "elapsed_ms": 1135,
+          "size_bytes": 113317,
+          "details": {
+            "title": "Strona główna - Tauron Dystrybucja | Portal dla Klienta biznesowego",
+            "endpoint_candidates": [
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-content/uploads/2026/09/raport_case-study_gmina_ujazd_wersja_finalna.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/C21.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/B11.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/A21.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/B21.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/C22a.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/B22.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/A22.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/C22b.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/C23.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/B23.pdf",
+              "https://dostepnemoce.pl/wp-content/uploads/taryfy/A23.pdf"
+            ],
+            "keyword_links": [
+              {
+                "url": "https://dostepnemoce.tauron-dystrybucja.pl/",
+                "text": ""
+              },
+              {
+                "url": "https://dostepnemoce.tauron-dystrybucja.pl/#mapa",
+                "text": "Zobacz, gdzie mamy planowaną dostępną moc"
+              },
+              {
+                "url": "https://dostepnemoce.tauron-dystrybucja.pl/wp-content/uploads/2026/09/raport_case-study_gmina_ujazd_wersja_finalna.pdf",
+                "text": "pobierz raport"
+              },
+              {
+                "url": "https://www.tauron-dystrybucja.pl/przylaczenie-do-sieci/wniosek-online/srednie-napiecie",
+                "text": "Obiekt produkcyjno-usługowy W zakładach przemysłowych i usługowych kluczowa jest ciągłość dostaw energii i odpowiednia m"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/C21.pdf",
+                "text": "GRUPA TARYFOWA C21"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/B11.pdf",
+                "text": "GRUPA TARYFOWA B11"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/A21.pdf",
+                "text": "GRUPA TARYFOWA A21"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/B21.pdf",
+                "text": "GRUPA TARYFOWA B21"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/C22a.pdf",
+                "text": "GRUPA TARYFOWA C22a"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/B22.pdf",
+                "text": "GRUPA TARYFOWA B22"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/A22.pdf",
+                "text": "GRUPA TARYFOWA A22"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/C22b.pdf",
+                "text": "GRUPA TARYFOWA C22b"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/C23.pdf",
+                "text": "GRUPA TARYFOWA C23"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/B23.pdf",
+                "text": "GRUPA TARYFOWA B23"
+              },
+              {
+                "url": "https://dostepnemoce.pl/wp-content/uploads/taryfy/A23.pdf",
+                "text": "GRUPA TARYFOWA A23"
+              }
+            ],
+            "scripts_scanned": [
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-includes/js/jquery/jquery.min.js?ver=3.7.1",
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1",
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-includes/js/dist/hooks.min.js?ver=f0f188028580e8dc1255",
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-includes/js/dist/i18n.min.js?ver=1dfe7db3940c23ea9216",
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-content/plugins/contact-form-7/includes/swv/js/index.js?ver=6.2.2",
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-content/plugins/contact-form-7/includes/js/index.js?ver=6.2.2",
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-content/themes/flatsome/inc/extensions/flatsome-live-search/flatsome-live-search.js?ver=3.19.7",
+              "https://dostepnemoce.tauron-dystrybucja.pl/wp-includes/js/hoverIntent.min.js?ver=1.10.2"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "dso_portals",
+      "name": "Nowe portale mocy OSD (nowelizacja 2026)",
+      "plan": "v2",
+      "status": "not_checked",
+      "probes": [],
+      "notes": null
+    },
+    {
+      "source_id": "uke",
+      "name": "UKE – infrastruktura telekomunikacyjna",
+      "plan": "mvp",
+      "status": "partial",
+      "probes": [
+        {
+          "kind": "page",
+          "url": "https://www.uke.gov.pl/",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "text/html; charset=utf-8",
+          "final_url": "https://www.uke.gov.pl/",
+          "redirect_status": null,
+          "elapsed_ms": 1091,
+          "size_bytes": 32214,
+          "details": {
+            "title": "Urząd Komunikacji Elektronicznej",
+            "endpoint_candidates": [
+              "https://www.uke.gov.pl/szablony/uke/images/favicon/manifest.json",
+              "https://uke.gov.pl/download/gfx/uke/pl/defaultstronaopisowa/211/1/1/standardy_ochrony_maloletnich.pdf",
+              "https://vimeo.com/api/v2/video/",
+              "https://vzaar.com/api/videos/",
+              "https://player.vimeo.com/api/player.js"
+            ],
+            "keyword_links": [
+              {
+                "url": "https://www.uke.gov.pl/mapaserwisu/",
+                "text": "Mapa Serwisu"
+              }
+            ],
+            "scripts_scanned": [
+              "https://www.uke.gov.pl/gfx/uke/_thumbs/uke__1788346293_ono.js",
+              "https://www.uke.gov.pl/_Incapsula_Resource?SWJIYLWA=719d34d31c8e3a6e6fffd425f7e032f3&ns=2&cb=535556096"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": "Właściwa usługa (WMS/eksport) do ustalenia w discovery."
+    },
+    {
+      "source_id": "psi",
+      "name": "Polska Strefa Inwestycji – mapa pomocy regionalnej",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "http",
+          "url": "https://api.sejm.gov.pl/eli/acts/DU/2021/2422",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/json",
+          "final_url": "https://api.sejm.gov.pl/eli/acts/DU/2021/2422",
+          "redirect_status": null,
+          "elapsed_ms": 1051,
+          "size_bytes": 2073,
+          "details": {
+            "json_keys": [
+              "ELI",
+              "address",
+              "announcementDate",
+              "authorizedBody",
+              "changeDate",
+              "directives",
+              "displayAddress",
+              "entryIntoForce",
+              "expirationDate",
+              "inForce",
+              "keywords",
+              "keywordsNames",
+              "obligated",
+              "pos",
+              "previousTitle",
+              "prints",
+              "promulgation",
+              "publisher",
+              "references",
+              "releasedBy",
+              "status",
+              "textHTML",
+              "textPDF",
+              "texts",
+              "title",
+              "type",
+              "volume",
+              "year"
+            ]
+          },
+          "error": null
+        }
+      ],
+      "notes": "Tabela statyczna przygotowana ręcznie z rozporządzenia: data/manual/psi_aid.csv."
+    },
+    {
+      "source_id": "kowr",
+      "name": "KOWR – oferty nieruchomości rolnych",
+      "plan": "manual",
+      "status": "not_checked",
+      "probes": [],
+      "notes": "Tylko link i ręczny import CSV wg szablonu data/manual/invest_offers_template.csv."
+    },
+    {
+      "source_id": "invest_offers",
+      "name": "Oferty inwestycyjne gmin / SSE / COI",
+      "plan": "mvp",
+      "status": "not_checked",
+      "probes": [],
+      "notes": "Ręczny import CSV wg szablonu data/manual/invest_offers_template.csv."
+    },
+    {
+      "source_id": "heat",
+      "name": "Sieci ciepłownicze (proxy – koncesje URE)",
+      "plan": "mvp",
+      "status": "verified",
+      "probes": [
+        {
+          "kind": "http",
+          "url": "https://api.ure.gov.pl/api/ConcessionOtherFuel?rodzajKoncesji=PCC",
+          "outcome": "ok",
+          "status_code": 200,
+          "content_type": "application/json; charset=utf-8",
+          "final_url": "https://api.ure.gov.pl/api/ConcessionOtherFuel?rodzajKoncesji=PCC",
+          "redirect_status": null,
+          "elapsed_ms": 1128,
+          "size_bytes": 197120,
+          "details": {
+            "json_keys": "list"
+          },
+          "error": null
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "bazaoos",
+      "name": "GDOŚ – Baza OOŚ (decyzje środowiskowe)",
+      "plan": "manual",
+      "status": "not_checked",
+      "probes": [],
+      "notes": null
+    },
+    {
+      "source_id": "ekw",
+      "name": "Księgi wieczyste (EKW)",
+      "plan": "manual",
+      "status": "not_checked",
+      "probes": [],
+      "notes": null
+    },
+    {
+      "source_id": "bip",
+      "name": "BIP gmin",
+      "plan": "v2",
+      "status": "not_checked",
+      "probes": [],
+      "notes": null
+    }
+  ]
+}

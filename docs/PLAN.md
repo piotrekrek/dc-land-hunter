@@ -3,7 +3,7 @@
 This plan turns `PROJECT_BRIEF.md` into phases with concrete tasks, acceptance checks and risks.
 It is a living document: update it when a phase finishes or the plan changes.
 
-Last updated: 12.10.2026 (plan review: vertical slice gate, grid-first seed, owner count in scope; Phase 3 code on fixtures, acceptance pending live data).
+Last updated: 19.10.2026 (source verification round 2); 12.10.2026 (plan review: vertical slice gate, grid-first seed, owner count in scope; Phase 3 code on fixtures, acceptance pending live data).
 
 **Status words used in checklists:** `[x]` = verified on live data; `[f]` = done on fixtures/test data only; `[ ]` = not done.
 A phase is finished only when its acceptance check passes on live data.
@@ -38,7 +38,7 @@ Tasks:
 - [x] Web: Polish app shell (nav for all 8 screens, placeholder pages), MapLibre map centred on the AOI, Polish number and date formatters, light and dark themes.
 - [x] Docker Compose: `db` (PostGIS 16-3.4), `martin`, `api`, `web` (Caddy serving the static build and proxying `/api` and `/tiles`), `worker` (supercronic).
 - [x] CI: ruff, mypy, pytest, eslint, tsc, vitest, image builds, compose smoke test with Playwright.
-- [ ] **Run `dclh discover` from a machine in Poland** and record ✓/⚠/✗ per source in `docs/SOURCES.md` (blocked: see risk R1).
+- [x] **Run `dclh discover` from a machine in Poland** and record ✓/⚠/✗ per source in `docs/SOURCES.md` (19.10.2026: 20 ✓, 1 ⚠ `uke`; `enea` manual CSV only by owner decision).
 - [ ] Research golden-set coordinates (Hillwood Reguły, Tauron Jaworzno, Bełchatów/Domiechowice, CGE Konin, Data4 Jawczyce, Atman Duchnice, Switch Mory) and verify them on Geoportal.
 
 Acceptance: `docker compose up` starts everything; CI green; every MVP source has a verified status.
