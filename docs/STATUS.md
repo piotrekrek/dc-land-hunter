@@ -1,6 +1,73 @@
 # Status
+## Phase 3 live data: DSO and PSE loaded, GPZ match report (19.10.2026, VPS)
 
-Last updated: 19.10.2026 · Phase 1 closed (admin_units loaded, substation counts per voivodeship); Source verification round 2 (20 of 23 MVP sources ✓, Enea manual-only); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
+- Connectors on live data: `dclh fetch tauron` (513 GPZs, locations published, 100% matched by location) and
+  `dclh fetch energa` (PDF of 31.08.2026, 48 groups, 396 stations). `dclh import-manual pse_closed` (37 rows, 33 stations) and
+  `dclh import-manual pse_odb` (ODB only, 24 stations; the applicant column is not stored).
+- `dclh gpz-report` (CSV under `data/reports/`, not committed):
+
+| Source | Matched | Rate | Method |
+|---|---|---|---|
+| Energa (acceptance ≥ 70%) | 274 / 396 | 69% | fuzzy name match, score ≥ 90 |
+| PSE closed switchyards | 32 / 33 | 97% | fuzzy, on OSM 220/400 kV nodes |
+| PSE ODB | 18 / 24 | 75% | fuzzy, on OSM 220/400 kV nodes |
+| Tauron | 513 / 513 | 100% | published location |
+
+Energa misses 122 names. Most are below the threshold ("najlepsza zgodność" 60–89) or are ambiguous between
+two OSM stations of the same name. Energa at 69% is just under the 70% acceptance line; the gap is documented,
+not forced with guessed mappings. Next step: add reviewed lines to `data/manual/gpz_mapping.csv` for the
+ambiguous names (Sławno, Pomorska, Ostrów, Bojanowo, Kalisz Pomorski), then re-run the report.
+- Matching fixes made on the live names: OSM voltage specs ("110/15kV") and "SE"/"RPZ"/"Systemowa" prefixes
+  removed, roman numerals equal digits, busbar sections folded, a DSO's name does not match another DSO's
+  station, and one OSM station keeps only its best name. Threshold raised 88 → 90 (88 let "Ostrowite" match
+  "Ostrowiec").
+- **Not done:** `dclh search 1421 --write` has not been run with these layers, so the score changes are not yet measured.
+  The baseline for comparison is the 19.10.2026 run above (315 sites, all "Bliskość sieci", 22 not excluded).
+  `pse_avail` (planned stations) still needs its ~24 stations geocoded by hand.
+
+Last updated: 19.10.2026 · Phase 1 closed (admin_units loaded, substation counts per voivodeship); Phase 3 live DSO/PSE data and GPZ match report (search re-run pending); earlier: Flood (`isok`) and housing (`bdot10k`) connectors, pilot rerun; earlier: source verification round 2 (20 of 23 MVP sources ✓, Enea manual-only); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
+
+## Flood and housing hard filters: `isok` and `bdot10k` connectors (19.10.2026, run on the VPS)
+
+- `sources/isok.py` fetches the ISOK `wms_nz-core:NZ.Fluvial` zones with `loo_ql_probabilityofoccurrence = 0.01`
+  (Q1%, including the levee-breach scenario) for the powiat bbox, pages with `startIndex`, checks `numberMatched`,
+  swaps the northing-first axes and clips the zones to the bbox. It fails if no zone touches the bbox (wrong axes).
+  The 10% zones are not fetched: they lie inside the 1% extent. The 0.2% zones (a penalty) are not fetched yet.
+- `sources/bdot10k.py` looks up `URL_GML` for the powiat in `ms:BDOT10k_powiaty`, downloads the zip (only from
+  `opendata.geoportal.gov.pl`, only that powiat's file) and keeps `OT_BUBD_A` buildings with
+  `funkcjaOgolnaBudynku = "budynki mieszkalne"` that are not `zniszczony` (buildings under construction count).
+- `dclh search` (and the nightly `search` job) download both for the powiat at run time, like the parcels, and feed
+  them as `flood_10_or_1` and `residential` (confidence `verified`). A failed download fails the search rather than
+  scoring without the filters. Neither is in `dclh fetch` (both need a powiat).
+- Layer sizes for 1421: 6 Q1% zones (9.1 km² of the 246 km² powiat; maps valid to 21.12.2025, second cycle);
+  43,015 residential buildings (of 60,434). Download: ISOK 3.4 MB zip, BDOT10k 18.6 MB.
+
+`dclh search 1421 --write` rerun (same funnel as 14.10.2026; 315 sites written):
+
+| Measure | 14.10.2026 | 19.10.2026 |
+|---|---|---|
+| Scored sites | 315 | 315 |
+| **Excluded by hard filters** | 0 | **293** |
+| · housing within 100 m (`residential_within_m`) | – | 286 (199 for this reason only) |
+| · flood zone 10% or 1% (`flood_10_or_1_pct`) | – | 85 (6 only) |
+| · Natura 2000 / park / reserve over 20% (`protected_nature_pct_over`) | – | 9 |
+| Not excluded | 315 | 22 |
+| EGiB download | 1,300 s | 513 s |
+| Peak memory | 703 MB | 747 MB |
+
+Flood vs housing among the 293: 199 housing only, 6 flood only, 79 both; the other 9 include the GDOŚ filter.
+Removing the flood filter would bring back 6 sites; removing the housing filter would bring back 199.
+
+Hillwood / Reguły: none of the three candidate parcels in `tests/golden/sites.yaml` (obręb 0013: `.408`, `.409`,
+`.562/2`) is in any scored site, so the Hillwood plot is not among the 315 (not checked why: too small after the
+1 ha lot cut, or outside the seed). Six scored sites contain other parcels of obręb 0013 Reguły; all six are excluded
+by housing (nearest residential building 0–17 m), two of them also by flood. The three sites nearest the Reguły village
+centre (394–456 m away) are among them. The golden-set coordinates are still unverified.
+
+Reading the numbers: Pruszków is suburban, so almost every 10 ha+ cluster of farm parcels has a house within 100 m.
+The 100 m threshold (`config/scoring.yaml`) is the owner's call; with it, 22 sites survive. The top ten by score are
+all excluded.
+
 
 ## Phase 1 close-out (19.10.2026, on the VPS)
 
@@ -57,8 +124,7 @@ Docs, probe config and fixtures only. No connector code changed.
 - **20 ✓, 1 ⚠, 2 manual.** Newly confirmed: `bdot10k`, `ru`, `isok`, `pse_closed`, `pse_odb`, `pse_avail`, `energa`,
   `tauron`, `psi`, `heat`. Still ⚠: `uke` (lead only). `enea` is manual CSV only (owner decision 19.10.2026): its Power BI map covers MV/LV only and Enea has no statutory load-capacity PDF; its art. 7 ust. 8l PDFs list about 82 load entries at 110 kV (queue signal, hard to parse).
 - Hard filters now have verified data: flood = ISOK `NZ.Fluvial` with probability 0.01; housing = BDOT10k
-  `OT_BUBD_A` with `funkcjaOgolnaBudynku = "budynki mieszkalne"`. Neither is loaded by a connector yet, so
-  "Excluded by hard filters" stays at the gdos-only value.
+  `OT_BUBD_A` with `funkcjaOgolnaBudynku = "budynki mieszkalne"`. Both are now loaded (section above).
 - Zoning: RU WFS gives plan ogólny zones (`symbol`, e.g. SG) and MPZP **outlines** only. MPZP designations come from
   KIMPZP GetFeatureInfo (WMS 1.1.1 only), point by point and in a different format per gmina.
 - Grid: Tauron has a JSON API per GPZ (513 GPZs). Energa publishes a statutory PDF per group of 110 kV nodes. PSE's
@@ -76,8 +142,8 @@ Docs, probe config and fixtures only. No connector code changed.
   snapshot, with the same paging and truncation checks as PRG. `dclh fetch gdos` saves and parses it.
 - `dclh search` now needs a saved `gdos` snapshot (like `prg` and `osm_power`) and feeds it as `protected_nature`, so the
   hard filter `protected_nature_pct` (threshold 20%) acts. Before, that filter never ran.
-- Fetched on the VPS on 14.10.2026 (snapshot in `data/raw/gdos`, 26 MB). Not yet recorded: the "Excluded by hard
-  filters" count from `dclh search 1421 --write` after the fetch (was 0 before).
+- Fetched on the VPS on 14.10.2026 (snapshot in `data/raw/gdos`, 26 MB). In the 19.10.2026 rerun of 1421 it
+  excludes 9 sites (see the flood and housing section).
 
 ## Phase 1.5: pilot powiat on the VPS (14.10.2026)
 

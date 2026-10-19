@@ -67,9 +67,16 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pyt
 cd web && pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ```
 
-Database tests (`tests/unit/test_db.py`) run when `DATABASE_URL` reaches a PostGIS database and are
-skipped otherwise. **They downgrade and re-create the schema**, so point them at a scratch database, never
-at one with real data.
+Database tests (`migrated_db` in `tests/conftest.py`) **downgrade and re-create the schema**, so they never
+use `DATABASE_URL`. They run only when `DCLH_TEST_DATABASE_URL` is set and are skipped otherwise. The run
+aborts (exit 3) if that database's name does not end in `_test` or its `sites` table has rows. Use a
+throwaway container, never the compose `db` service (on the VPS it is production):
+
+```bash
+docker run -d --rm --name dclh-test-pg -e POSTGRES_USER=dclh -e POSTGRES_PASSWORD=dclh -e POSTGRES_DB=dclh_test -p 127.0.0.1:55439:5432 postgis/postgis:16-3.4
+DCLH_TEST_DATABASE_URL=postgresql+psycopg://dclh:dclh@127.0.0.1:55439/dclh_test uv run pytest
+docker rm -f dclh-test-pg
+```
 
 End-to-end smoke tests (Playwright, against the running stack):
 
@@ -117,21 +124,46 @@ uv run alembic -c api/alembic.ini revision -m "add substations"   # then edit th
 4. Run it through `run_source()`, which handles failure, fallback to the last good snapshot and the
    `SOURCE_FAILURE` event.
 
-## Grid capacity files (Phase 3, manual import)
+## Grid capacity: DSO and PSE data (Phase 3)
 
-Enea, Energa, Tauron and the PSE lists have no verified data endpoint yet (see `docs/SOURCES.md`). Until one is
-verified, save the published file as CSV or XLSX with the canonical columns (`data/manual/README.md`), then:
+Tauron and Energa have connectors (endpoints verified 19.10.2026, `docs/SOURCES.md`). Run them from the VPS:
 
 ```bash
-uv run dclh import-manual enea  data/manual/enea_2026-10.csv     # or energa, tauron
-uv run dclh import-manual pse_closed  data/manual/pse_closed_2026-10.xlsx   # or pse_odb, pse_avail
+uv run dclh fetch tauron    # 513 GPZs with MW, group and location; about 6 POST requests
+uv run dclh fetch energa    # the statutory load-capacity PDF, per group of 110 kV nodes
+```
+
+The PSE lists are monthly XLSX files on the PSE page "Wykaz obiektów planowanych do przyłączenia" (the date is in
+the file name). Download the newest ones and import them as they are:
+
+```bash
+uv run dclh import-manual pse_closed ~/20260204_Lista_rozdzielni-brak_mozliwosci_przylaczenia.xlsx
+uv run dclh import-manual pse_odb ~/Informacje_publikowane_zgodnie_z_Art_7_ust_8l_ustawy_PE_stan_na_31_08_2026.xlsx
+rm ~/Informacje_publikowane_*.xlsx   # it names applicants; only the reduced table is stored
+```
+
+`pse_odb` keeps only the `ODB` rows and only station, voltage, MW, status and dates: the applicant column is
+never read, and the snapshot is the reduced CSV, not PSE's file. Enea (owner decision) and anything else without
+a connector still go through the canonical CSV/XLSX columns (`data/manual/README.md`):
+
+```bash
+uv run dclh import-manual enea  data/manual/enea_2026-10.csv     # or energa, tauron as a fallback
+uv run dclh import-manual pse_avail  data/manual/pse_avail_2026-10.csv   # planned stations, with coordinates
 ```
 
 The command checks every row first and stores a snapshot under `data/raw/<source>/` only if all are valid (the
 original file stays where it is). A bad row fails the whole import and prints its row number; nothing is stored,
-so fix the file and run it again. The GPZ names in the
-DSO file are matched to OSM substations by name: a fuzzy match needs a score of at least `grid.gpz_match_min_score`
-(88) and a clear winner. Put any other match in `data/manual/gpz_mapping.csv` (it always wins).
+so fix the file and run it again.
+
+`dclh search` uses the newest good snapshot of each of these sources; a source never loaded stays "brak danych".
+Tauron gives locations. Energa and Enea GPZ names are matched to OSM GPZs, and the PSE stations to OSM 220/400 kV
+nodes, by name: a fuzzy match needs a score of at least `grid.gpz_match_min_score` (90), a clear winner and no
+station of another DSO. Check the result, and put any other match in `data/manual/gpz_mapping.csv` (it always
+wins; it is copied into the image, so rebuild after editing it):
+
+```bash
+uv run dclh gpz-report   # match rate per source; CSV of every name and its reason under data/reports/
+```
 
 ## OSM power grid (substations and lines)
 

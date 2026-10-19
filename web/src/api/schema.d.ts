@@ -301,7 +301,7 @@ export interface components {
             closed_switchyard_km: number;
             /**
              * Gpz Match Min Score
-             * @default 88
+             * @default 90
              */
             gpz_match_min_score: number;
         };

@@ -22,10 +22,12 @@ from dclh_pipeline.settings import REPO_ROOT, get_settings
 from dclh_pipeline.snapshots import SnapshotStore
 from dclh_pipeline.sources.base import Source
 from dclh_pipeline.sources.egib import EgibConnector
+from dclh_pipeline.sources.energa import EnergaConnector
 from dclh_pipeline.sources.gdos import GdosConnector
 from dclh_pipeline.sources.manual import MANUAL_CAPACITY, MANUAL_POINTS
 from dclh_pipeline.sources.osm_power import OsmPowerConnector, summarize_grid
 from dclh_pipeline.sources.prg import PrgConnector
+from dclh_pipeline.sources.tauron import TauronConnector
 
 app = typer.Typer(help="DC Land Hunter pipeline", no_args_is_help=True)
 console = Console()
@@ -35,6 +37,8 @@ CONNECTORS: dict[str, type[Source]] = {
     "prg": PrgConnector,
     "osm_power": OsmPowerConnector,
     "gdos": GdosConnector,
+    "tauron": TauronConnector,
+    "energa": EnergaConnector,
 }
 
 
@@ -179,6 +183,62 @@ def import_manual_cmd(
     console.print(f"validated {len(table)} rows · columns {list(table.columns)}")
 
 
+@app.command("gpz-report")
+def gpz_report_cmd(
+    out: Annotated[Path | None, typer.Option(help="CSV with every row (default: <data dir>/reports)")] = None,
+) -> None:
+    """Match the saved DSO capacity lists and PSE station lists to OSM and print the match rate per source.
+
+    Uses the newest good snapshot of each source and of `osm_power` (parsing it takes a few minutes).
+    The CSV lists every name with its OSM station or the reason it stayed unmatched.
+    """
+    import csv
+
+    from dclh_pipeline.config import load_scoring
+    from dclh_pipeline.grid_capacity import load_grid_capacity
+    from dclh_pipeline.model.gpz_match import match_summary
+    from dclh_pipeline.sources.osm_power import to_grid
+
+    settings = get_settings()
+    config = load_sources()
+    store = SnapshotStore(settings.raw_dir)
+    osm_snapshot = store.latest_good("osm_power") or store.latest("osm_power")
+    if osm_snapshot is None:
+        raise typer.BadParameter("no saved snapshot of 'osm_power'; run `dclh fetch osm_power` first")
+    substations, _ = to_grid(OsmPowerConnector(config.get("osm_power")).parse(osm_snapshot))
+    loaded = load_grid_capacity(store, config, substations, load_scoring())
+    if not loaded.results:
+        raise typer.BadParameter("no DSO or PSE snapshot to match; fetch or import one first")
+    names = {s.osm_id: s.name or "" for s in substations}
+    for source_id in sorted({r.dso for r in loaded.results}):
+        summary = match_summary([r for r in loaded.results if r.dso == source_id])
+        snapshot = loaded.snapshots[source_id]
+        console.print(
+            f"{source_id:<11} {summary['matched']:>4} / {summary['total']:<4} matched "
+            f"({summary['rate']:.0%}; fuzzy {summary['fuzzy']}, manual {summary['manual']}, "
+            f"published location {summary['published']}) · snapshot {snapshot.fetched_at:%d.%m.%Y}"
+        )
+    target = out or settings.data_dir / "reports" / f"gpz_match_{datetime.now(UTC):%Y-%m-%d}.csv"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("w", encoding="utf-8", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["source", "name", "method", "score", "osm_id", "osm_name", "reason"])
+        for r in loaded.results:
+            key = r.candidate_key
+            writer.writerow(
+                [
+                    r.dso,
+                    r.dso_gpz_name,
+                    r.method,
+                    f"{r.score:.0f}",
+                    key or "",
+                    names.get(key, "") if key else "",
+                    r.reason,
+                ]
+            )
+    console.print(f"Report: {target}")
+
+
 @app.command("discover-followup")
 def discover_followup_cmd(
     out: Annotated[Path | None, typer.Option(help="Report directory (default: <data dir>/discovery)")] = None,
@@ -292,7 +352,7 @@ def search_cmd(
         console.print(f"{label:<44} {value:>10}")
     console.print(
         f"peak memory {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024:.0f} MB"
-        "  (layers still missing: zoning, constraints, housing, DSO/PSE data)"
+        "  (layers still missing: zoning, flood 0.2%, mining, forest, soil, heritage)"
     )
     top = sorted(found.result.scored, key=lambda s: -s.score.score)[:10]
     for item in top:

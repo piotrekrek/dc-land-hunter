@@ -98,14 +98,14 @@ Acceptance: a full AOI run completes, the golden-set report is produced and the 
 ## Phase 3: Grid capacity and PSE data
 
 Tasks:
-- [~] `enea`, `energa` and `tauron` connectors, each following discovery's fallback order: JSON endpoint → Playwright → manual CSV. **Manual CSV done** (`dclh import-manual`). JSON endpoint and Playwright wait for a verified endpoint (none in the 10.10.2026 discovery).
+- [x] `energa` and `tauron` connectors on live data (19.10.2026): Tauron JSON search endpoint (513 GPZs with locations), Energa statutory PDF (396 stations in 48 groups of 110 kV nodes). `enea` stays manual CSV by owner decision. Manual CSV (`dclh import-manual`) remains the fallback for all three.
 - [x] GPZ name matching (rapidfuzz) plus `data/manual/gpz_mapping.csv`, with the match score stored. Matching needs OSM substation names (Phase 1 OSM connector).
-- [~] `pse_closed` (XLSX), `pse_odb` (PDF, pdfplumber), `pse_avail` (PDF) parsers with saved fixtures. **XLSX/CSV point lists done** through the manual import. PDF parsing waits for a real file.
+- [x] `pse_closed` and `pse_odb` (both XLSX as published) through `dclh import-manual`, located on OSM 220/400 kV nodes by name; the art. 7 ust. 8l applicant column is never stored. `pse_avail` (planned stations, PDF): [ ] still to geocode by hand into `data/manual/` (canonical CSV with coordinates).
 - [x] Grid confidence badges: Opublikowana moc / Bliskość sieci / Brak danych (list and card, from Phase 2).
 - [~] OSM power connector (`osm_power`): written and tested on a generated file; first real run on the VPS. Brings substation names and operators.
+- [x] GPZ match report (`dclh gpz-report`, the match rate per source) and `dclh search` loading these layers; run on the VPS 19.10.2026 (results in `docs/STATUS.md`).
 - [ ] DSO territory-polygon fallback (moved from Phase 1, 19.10.2026): 399 of 1,594 OSM GPZs have no DSO in their `operator` tag.
 - [ ] Count of independent 110 kV circuits per station (moved from Phase 1, 19.10.2026): `lines.circuits` is still empty.
-- [ ] GPZ match report (the match rate per DSO) and a `dclh score` run that loads these layers. Both need the real OSM extract and real files on the VPS.
 
 Acceptance: at least 70% of GPZs in Enea and Energa areas are matched to published capacity (or the reason is documented), and scores use them.
 

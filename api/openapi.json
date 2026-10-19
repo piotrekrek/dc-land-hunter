@@ -678,7 +678,7 @@
             "maximum": 100.0,
             "minimum": 0.0,
             "title": "Gpz Match Min Score",
-            "default": 88.0
+            "default": 90.0
           }
         },
         "additionalProperties": false,

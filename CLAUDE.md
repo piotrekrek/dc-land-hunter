@@ -8,7 +8,8 @@ The phase plan is in `docs/PLAN.md` and the current state is in `docs/STATUS.md`
 - Python 3.12, managed with `uv` as one workspace (root `pyproject.toml`). Run `uv sync` once.
 - Fast checks before every commit:
   - `uv run ruff check . && uv run ruff format --check . && uv run mypy`
-  - `uv run pytest`
+  - `uv run pytest` (database tests skip unless `DCLH_TEST_DATABASE_URL` names a throwaway `*_test` database;
+    never point it at the compose `db`. See `docs/RUNBOOK.md`)
   - `cd web && pnpm lint && pnpm typecheck && pnpm test`
 - Everything runs locally with `docker compose -f infra/docker-compose.yml up --build` (see `docs/RUNBOOK.md`).
 - All geometry work happens in EPSG:2180 (PUWG 1992). Store WGS84 (EPSG:4326) only for display and tiles.

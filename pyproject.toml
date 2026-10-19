@@ -63,6 +63,6 @@ ignore_missing_imports = true
 testpaths = ["tests/unit"]
 addopts = "-ra --strict-markers"
 markers = [
-    "db: needs a PostGIS database at DATABASE_URL (skipped when unreachable)",
+    "db: needs a PostGIS test database at DCLH_TEST_DATABASE_URL (skipped when unset or unreachable)",
     "live: hits real external services (never in CI; run from Poland)",
 ]

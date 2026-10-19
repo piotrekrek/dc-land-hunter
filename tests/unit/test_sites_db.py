@@ -4,41 +4,21 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from datetime import UTC, datetime
-from pathlib import Path
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy import text
 
 from dclh_api.main import create_app
 from dclh_api.security import current_user
 from dclh_pipeline.db import session_scope
 from dclh_pipeline.db.models import UserRow
 from dclh_pipeline.scoring.run import score_candidates, write_sites
-from dclh_pipeline.settings import get_settings
 from tests.unit.test_scoring_run import CFG, layers, parcel_sites
 
-pytestmark = pytest.mark.db
+pytestmark = [pytest.mark.db, pytest.mark.usefixtures("migrated_db")]
 
-ALEMBIC_INI = Path(__file__).parents[2] / "api" / "alembic.ini"
 SCORED_AT = datetime(2026, 10, 10, 6, 0, tzinfo=UTC)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def migrated_db() -> Iterator[None]:
-    url = get_settings().database_url
-    try:
-        with create_engine(url, connect_args={"connect_timeout": 2}).connect() as conn:
-            conn.execute(text("SELECT 1"))
-    except OperationalError:
-        pytest.skip(f"no database at {url}")
-    cfg = Config(str(ALEMBIC_INI))
-    command.downgrade(cfg, "base")
-    command.upgrade(cfg, "head")
-    yield
 
 
 @pytest.fixture

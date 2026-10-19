@@ -2,25 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from pathlib import Path
 
 import geopandas as gpd
 import osmium
 import pytest
-from alembic import command
-from alembic.config import Config
 from osmium.osm.mutable import Node, Way
 from shapely.geometry import LineString, MultiPolygon, Polygon, box
-from sqlalchemy import create_engine, text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy import text
 
 from dclh_pipeline import aoi_build
 from dclh_pipeline.db import session_scope
 from dclh_pipeline.model.aoi import lonlat_to_2180
-from dclh_pipeline.settings import get_settings
-
-ALEMBIC_INI = Path(__file__).parents[2] / "api" / "alembic.ini"
 
 
 def _line(*pts: tuple[float, float]) -> LineString:
@@ -126,20 +119,6 @@ def test_write_geojson_stores_wgs84_and_reads_back(tmp_path: Path) -> None:
     back = gpd.read_file(out)
     assert back.crs.to_epsg() == 4326
     assert back.to_crs(2180).geometry.iloc[0].area == pytest.approx(aoi.area, rel=1e-6)
-
-
-@pytest.fixture(scope="module")
-def migrated_db() -> Iterator[None]:
-    url = get_settings().database_url
-    try:
-        with create_engine(url, connect_args={"connect_timeout": 2}).connect() as conn:
-            conn.execute(text("SELECT 1"))
-    except OperationalError:
-        pytest.skip(f"no database at {url}")
-    cfg = Config(str(ALEMBIC_INI))
-    command.downgrade(cfg, "base")
-    command.upgrade(cfg, "head")
-    yield
 
 
 @pytest.mark.db
