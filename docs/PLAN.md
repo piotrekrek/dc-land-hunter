@@ -38,7 +38,7 @@ Tasks:
 - [x] Web: Polish app shell (nav for all 8 screens, placeholder pages), MapLibre map centred on the AOI, Polish number and date formatters, light and dark themes.
 - [x] Docker Compose: `db` (PostGIS 16-3.4), `martin`, `api`, `web` (Caddy serving the static build and proxying `/api` and `/tiles`), `worker` (supercronic).
 - [x] CI: ruff, mypy, pytest, eslint, tsc, vitest, image builds, compose smoke test with Playwright.
-- [x] **Run `dclh discover` from a machine in Poland** and record ✓/⚠/✗ per source in `docs/SOURCES.md` (19.10.2026: 20 ✓, 2 ⚠ `enea`, `uke`).
+- [x] **Run `dclh discover` from a machine in Poland** and record ✓/⚠/✗ per source in `docs/SOURCES.md` (19.10.2026: 20 ✓, 1 ⚠ `uke`; `enea` manual CSV only by owner decision).
 - [ ] Research golden-set coordinates (Hillwood Reguły, Tauron Jaworzno, Bełchatów/Domiechowice, CGE Konin, Data4 Jawczyce, Atman Duchnice, Switch Mory) and verify them on Geoportal.
 
 Acceptance: `docker compose up` starts everything; CI green; every MVP source has a verified status.

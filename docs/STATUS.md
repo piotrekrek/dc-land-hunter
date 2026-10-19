@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 19.10.2026 · Source verification round 2 (20 of 23 MVP sources ✓); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
+Last updated: 19.10.2026 · Source verification round 2 (20 of 23 MVP sources ✓, Enea manual-only); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
 
 ## Source verification round 2 (19.10.2026, from the VPS)
 
 Details and request recipes: `docs/SOURCES.md` ("Current state"). Samples: `tests/fixtures/live/source-verification-2026-10-19/`.
 Docs, probe config and fixtures only. No connector code changed.
 
-- **20 ✓, 2 ⚠, 1 manual.** Newly confirmed: `bdot10k`, `ru`, `isok`, `pse_closed`, `pse_odb`, `pse_avail`, `energa`,
-  `tauron`, `psi`, `heat`. Still ⚠: `enea` (owner decision) and `uke` (lead only).
+- **20 ✓, 1 ⚠, 2 manual.** Newly confirmed: `bdot10k`, `ru`, `isok`, `pse_closed`, `pse_odb`, `pse_avail`, `energa`,
+  `tauron`, `psi`, `heat`. Still ⚠: `uke` (lead only). `enea` is manual CSV only (owner decision 19.10.2026): its Power BI map covers MV/LV only and Enea has no statutory load-capacity PDF; its art. 7 ust. 8l PDFs list about 82 load entries at 110 kV (queue signal, hard to parse).
 - Hard filters now have verified data: flood = ISOK `NZ.Fluvial` with probability 0.01; housing = BDOT10k
   `OT_BUBD_A` with `funkcjaOgolnaBudynku = "budynki mieszkalne"`. Neither is loaded by a connector yet, so
   "Excluded by hard filters" stays at the gdos-only value.
@@ -20,8 +20,8 @@ Docs, probe config and fixtures only. No connector code changed.
 - Axis order differs per service: ISOK and RU answer northing-first in EPSG:2180, BDOT10k is easting-first.
 - `dclh discover-followup` reported the KIMPZP WFS as "available" although it lists 0 layers (wrong verdict text, not
   fixed here). It also missed the RU route modules; the RU WFS addresses were found in the browser instead.
-- Decisions for the owner: (1) Enea: manual CSV only, or look for an Enea statutory PDF first; (2) Tauron terms
-  before a scheduled connector; (3) the PSE 8l list names applicants. The plan is to store station, MW, type and status only.
+- Decisions for the owner: (1) Tauron terms before a scheduled connector; (2) the PSE and DSO 8l lists name applicants.
+  The plan is to store station, MW, type and status only.
 
 ## Protected areas: `gdos` connector (14.10.2026, code and tests)
 

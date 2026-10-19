@@ -190,12 +190,13 @@ sources:
   - id: enea
     name: Enea Operator – mapa dostępnych mocy dla odbiorców
     used_for: Dostępna moc odbiorcza SN/nN (sygnał, nie odpowiedź dla 60 MW)
-    plan: mvp
-    cadence: weekly
+    plan: manual
+    cadence: none
     core: false
     licence_expected: "Informacja publiczna OSD (sprawdzić regulamin)"
-    probes:
-      - {kind: page, url: "https://www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce", keywords: ["dostępnych mocy", "mapa", "moc przyłączeniow", "odbiorc"]}
+    notes: "Tylko ręczny import CSV (dclh import-manual enea), decyzja właściciela 19.10.2026. Mapa to raport Power BI, wartości tylko dla SN/nN, nie dla II grupy (110 kV)."
+    manual_url: "https://www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce"
+    probes: []
 
   - id: energa
     name: Energa-Operator – dostępne moce odbiorcze

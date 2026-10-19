@@ -13,10 +13,10 @@ browser for the sources whose data sits behind a form or in a file. Raw samples:
 | Status | Count | Sources |
 |---|---|---|
 | ✓ | 20 | `prg`, `osm_power`, `osm_land`, `bdot10k`, `ru`, `kimpzp`, `egib`, `uldk`, `kiug`, `gdos`, `isok`, `midas`, `nid`, `pse_closed`, `pse_odb`, `pse_avail`, `energa`, `tauron`, `psi`, `heat` |
-| ⚠ | 2 | `enea` (decision needed, see below), `uke` (lead only) |
-| – | 1 | `invest_offers`: manual CSV import by design |
+| ⚠ | 1 | `uke` (lead only) |
+| – | 2 | `invest_offers`: manual CSV import by design; `enea`: manual CSV only (owner decision 19.10.2026) |
 
-`kowr` is manual-only (decision of 12.10.2026). The generated table below still shows ⚠ for `pse_odb`, `pse_avail`,
+`kowr` (12.10.2026) and `enea` (19.10.2026) are manual-only by owner decision. The generated table below still shows ⚠ for `pse_odb`, `pse_avail`,
 `energa` and `tauron`: a `page` probe can only show that the page answers. Those four were confirmed by downloading the
 file or calling the endpoint, as described here.
 
@@ -79,11 +79,19 @@ file or calling the endpoint, as described here.
   stations** with MW (e.g. WYP Wypędy 200, MKA Legnica 1000, ZER Poznań 500, GNA Konin 500, DZO Toruń 1000; 24 rows),
   given by region name, not coordinates. pdfplumber reads the table cleanly. Geocode the ~24 stations by hand
   into `data/manual/` (estimated confidence).
-- **`enea` ⚠, needs an owner decision.** "Mapa Dostępnych Mocy Przyłączeniowych" is a public Power BI report
-  (`app.powerbi.com/view?r=…`). It has no file and no stable API. Its own disclaimer says the values are for **MV/LV end users and
-  do not apply to connection group II** (110 kV), which is the group for a 60 MW site. Recommendation: keep Enea as a manual CSV
-  signal only (already supported by `dclh import-manual enea`), and look for an Energa-style statutory PDF from Enea
-  (see open questions).
+- **`enea` – manual CSV only (owner decision 19.10.2026).** "Mapa Dostępnych Mocy Przyłączeniowych" is a public Power BI
+  report (`app.powerbi.com/view?r=…`), with no file or stable API. Its own disclaimer says the values are for **MV/LV end
+  users and do not apply to connection group II** (110 kV), the group for a 60 MW site. So Enea stays a weak signal,
+  typed in by hand with `dclh import-manual enea`. No probe and no connector.
+  Checked on 19.10.2026: Enea publishes **no statutory load-capacity document** like Energa's. Its pages
+  `…/przylaczenie-do-sieci/informacje-o-przylaczeniach`, `…/dostepne-moce` and `…/przylaczone-i-dostepne-moce-oze`
+  link only Power BI reports and these files:
+  - **Art. 7 ust. 8l list**, two PDFs, stan na 31.08.2026: `https://www.operator.enea.pl/media/5086/wspolny-wykaz-informacje-niejawnev-czesc-1pdf.pdf`
+    and `…/media/5089/wspolny-wykaz-informacje-niejawne-czesc-2pdf.pdf` (about 22 MB each, 57 pages each). It contains about 82
+    load (`ODB`) entries at 110 kV, with the station or line, MW and status. This is a queue signal like the PSE list, but the
+    PDF text extracts badly (rotated and wrapped cells), so it needs a table parser before use. The same rule applies:
+    it names applicants and sometimes their addresses, so do not store them.
+  - `…/media/3193/wykaz-gpz.pdf`: GPZs under the MV generation-connection criteria (generation only, not loads).
 
 ### Bonus layers
 
@@ -121,7 +129,7 @@ Run: 2026-10-19 10:02 UTC · from: VPS (owner's Polish-IP machine)
 | ✓ | `pse_closed` PSE – zamknięte rozdzielnie (brak warunków przyłączenia) | mvp | http: ok · 200 |
 | ⚠ | `pse_odb` PSE – wykaz podmiotów ubiegających się o przyłączenie (art. 7 ust. 8l PE) | mvp | page: ok · 200 · 12 endpoint candidates |
 | ⚠ | `pse_avail` PSE – raport o dostępnych mocach przyłączeniowych | mvp | page: ok · 200 · 2 endpoint candidates |
-| ⚠ | `enea` Enea Operator – mapa dostępnych mocy dla odbiorców | mvp | page: ok · 200 · 1 endpoint candidates |
+| – | `enea` Enea Operator – mapa dostępnych mocy dla odbiorców | manual | – |
 | ⚠ | `energa` Energa-Operator – dostępne moce odbiorcze | mvp | page: ok · 200 · 4 endpoint candidates |
 | ⚠ | `tauron` Tauron Dystrybucja – dostepnemoce.pl | mvp | page: ok · 200 · 12 endpoint candidates |
 | – | `dso_portals` Nowe portale mocy OSD (nowelizacja 2026) | v2 | – |
@@ -167,7 +175,7 @@ Fallback order for interactive maps (brief): JSON endpoint → Playwright → ma
 | ✓ | `pse_closed` | page: `https://www.pse.pl/` | XLSX (page to find) | Informacja publiczna PSE | Manual download into `data/manual/` |
 | ✓ | `pse_odb` | page: `https://www.pse.pl/` | PDF (page to find) | Informacja publiczna PSE | Claude API table extraction (flag); manual CSV |
 | ✓ | `pse_avail` | page: `https://www.pse.pl/` | Monthly PDF (page to find) | Informacja publiczna PSE | Claude API table extraction (flag); manual CSV |
-| ⚠ | `enea` | page: `https://www.enea-operator.pl/`<br>browser: `https://www.enea-operator.pl/` | Interactive map → JSON? (to find) | Informacja publiczna OSD (sprawdzić regulamin) | Playwright capture → manual CSV |
+| – | `enea` | page: `https://www.enea-operator.pl/`<br>browser: `https://www.enea-operator.pl/` | Interactive map → JSON? (to find) | Informacja publiczna OSD (sprawdzić regulamin) | Playwright capture → manual CSV |
 | ✓ | `energa` | page: `https://energa-operator.pl/`<br>browser: `https://energa-operator.pl/` | Unknown: existence to confirm | Informacja publiczna OSD (sprawdzić regulamin) | Playwright capture → manual CSV |
 | ✓ | `tauron` | page: `https://dostepnemoce.pl/`<br>browser: `https://dostepnemoce.pl/` | Interactive map (to find) | Informacja publiczna OSD (sprawdzić regulamin) | Playwright capture → manual CSV |
 | ⚠ | `uke` | page: `https://www.uke.gov.pl/` | WMS / export (to find) | Do ustalenia | None: connectivity uses city distance only |
@@ -181,6 +189,7 @@ Fallback order for interactive maps (brief): JSON endpoint → Playwright → ma
 | Source | Plan | Name | Link |
 |---|---|---|---|
 | `dso_portals` | v2 | Nowe portale mocy OSD (nowelizacja 2026) | – |
+| `enea` | manual | Enea Operator – mapa dostępnych mocy dla odbiorców (Power BI, SN/nN) | `https://www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce` |
 | `bazaoos` | manual | GDOŚ – Baza OOŚ (decyzje środowiskowe) | `https://bazaoos.gdos.gov.pl/` |
 | `ekw` | manual | Księgi wieczyste (EKW) | `https://przegladarka-ekw.ms.gov.pl/` |
 | `bip` | v2 | BIP gmin | – |
@@ -200,8 +209,10 @@ Fallback order for interactive maps (brief): JSON endpoint → Playwright → ma
 - **ru**: confirm the `SG` symbol on a real plan ogólny with a strefa gospodarcza (none in the 1421 sample). Re-run
   after 30.11.2026, when the register is complete.
 - **isok**: the third-cycle flood maps (the samples end 21.12.2025); check `validityperiod_end` on each refresh.
-- **enea / tauron / PGE Dystrybucja**: the 2026 amendment obliges every DSO to publish load capacity like Energa's PDF.
-  Find each one's document. PGE (Łódź, centre) published nothing for loads before.
+- **tauron / PGE Dystrybucja**: look for a statutory load-capacity document like Energa's. Enea has none (checked
+  19.10.2026). PGE (Łódź, centre) published nothing for loads before.
+- **DSO art. 7 ust. 8l lists** (Enea PDFs, likely also Tauron and PGE): a 110 kV load queue signal; needs a PDF table
+  parser and must drop applicant names.
 - **tauron**: read the site's terms before a scheduled connector; keep to the server's rate limit.
 - **uke**: probe `pitmap.uke.gov.pl` WMS for SIIS nodes.
 - **psi**: build `data/manual/psi_aid.csv` (subregion → gmina) from Dz.U. 2021 poz. 2422.
