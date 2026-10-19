@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import re
 import tempfile
 import zipfile
@@ -36,17 +37,29 @@ from dclh_pipeline.snapshots import Snapshot, SnapshotStore
 from dclh_pipeline.sources.base import Source
 from dclh_pipeline.sources.egib import BBox
 
+log = logging.getLogger(__name__)
+
 BASE_URL = "https://rejestr-urbanistyczny.gov.pl/uslugi-sieciowe"
 EPSG = 2180
 SRS = "urn:ogc:def:crs:EPSG::2180"
 PAGE_SIZE = 10  # the server's CountDefault; it never returns more per request
 MAX_PAGES = 2000
+MAX_SKIPPED = 20  # broken features skipped per layer and bbox before the fetch fails instead
 # A fixed member date, so identical pages make an identical zip and the store keeps one object.
 _ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 
 _NUMBER_MATCHED = re.compile(rb'numberMatched="(\d+|unknown)"')
 _NUMBER_RETURNED = re.compile(rb'numberReturned="(\d+)"')
 _TIMESTAMP = re.compile(rb'\s+timeStamp="[^"]*"')
+
+
+def _counts(body: bytes) -> tuple[int, int]:
+    """(numberMatched, numberReturned) of one answer."""
+    m = _NUMBER_MATCHED.search(body[:4000])
+    if m is None or m.group(1) == b"unknown":
+        raise ValueError("RU: the response has no numberMatched; cannot check it is complete")
+    r = _NUMBER_RETURNED.search(body[:4000])
+    return int(m.group(1)), int(r.group(1)) if r else 0
 
 
 def getfeature_params(layer: str, bbox: BBox, *, start: int, count: int) -> dict[str, str | int]:
@@ -86,36 +99,64 @@ class _RuWfs(Source):
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             _write(archive, "request.json", json.dumps({"layer": self.layer, "bbox": self.bbox}).encode())
-            start, matched = 0, None
-            for page in range(MAX_PAGES):
-                resp = client.get(
-                    self.url,
-                    params=getfeature_params(self.layer, self.bbox, start=start, count=self.page_size),
-                )
-                resp.raise_for_status()
-                body = _TIMESTAMP.sub(b"", resp.content, count=1)
-                if b"ExceptionReport" in body[:2000]:
-                    raise ValueError(f"RU WFS returned an exception: {body[:500]!r}")
-                m = _NUMBER_MATCHED.search(body[:4000])
-                if m is None or m.group(1) == b"unknown":
-                    raise ValueError("RU: the response has no numberMatched; cannot check it is complete")
-                matched = int(m.group(1))
-                r = _NUMBER_RETURNED.search(body[:4000])
-                returned = int(r.group(1)) if r else 0
+            start, got, matched, written = 0, 0, None, 0
+            skipped: list[int] = []
+
+            def keep(body: bytes) -> int:
+                nonlocal matched, got, written
+                matched, returned = _counts(body)
                 if returned:
-                    _write(archive, f"page_{page:04d}.gml", body)
-                start += returned
-                if returned == 0 or start >= matched:
+                    _write(archive, f"page_{written:05d}.gml", body)
+                    written += 1
+                    got += returned
+                return returned
+
+            for _ in range(MAX_PAGES):
+                body = self._page(client, start, self.page_size)
+                if body is not None:
+                    returned = keep(body)
+                    start += returned
+                    if returned == 0 or start >= (matched or 0):
+                        break
+                    continue
+                # The server refuses a whole page when one feature on it is broken (19.10.2026: one MPZP
+                # outline in the 1421 bbox). Ask that page one feature at a time; skip only the broken ones.
+                for i in range(start, start + self.page_size):
+                    one = self._page(client, i, 1)
+                    if one is None:
+                        skipped.append(i)
+                    else:
+                        keep(one)
+                if matched is None or len(skipped) > MAX_SKIPPED:
+                    raise ValueError(
+                        f"RU: the server refused {len(skipped)} features of {self.layer} for bbox {self.bbox}"
+                    )
+                start += self.page_size
+                if start >= matched:
                     break
             else:
                 raise ValueError(f"RU: more than {MAX_PAGES} pages of {self.layer} for bbox {self.bbox}")
-            if start < matched:
+            if matched is None or got + len(skipped) < matched:
                 raise ValueError(
-                    f"RU: got {start} of {matched} features of {self.layer}; the response is incomplete"
+                    f"RU: got {got} of {matched} features of {self.layer}; the response is incomplete"
                 )
+            if skipped:
+                log.warning("RU: skipped %d broken features of %s at %s", len(skipped), self.layer, skipped)
+                _write(archive, "skipped.json", json.dumps(skipped).encode())
         return store.save(
             self.id, buffer.getvalue(), suffix=".zip", url=self.url, content_type="application/zip"
         )
+
+    def _page(self, client: PoliteClient, start: int, count: int) -> bytes | None:
+        """One answer without its timestamp, or None when the server refuses it (400 "Invalid request")."""
+        resp = client.get(self.url, params=getfeature_params(self.layer, self.bbox, start=start, count=count))
+        if resp.status_code == 400:
+            return None
+        resp.raise_for_status()
+        body = _TIMESTAMP.sub(b"", resp.content, count=1)
+        if b"ExceptionReport" in body[:2000]:
+            raise ValueError(f"RU WFS returned an exception: {body[:500]!r}")
+        return body
 
     def parse(self, snapshot: Snapshot) -> gpd.GeoDataFrame:
         with zipfile.ZipFile(snapshot.path) as archive:

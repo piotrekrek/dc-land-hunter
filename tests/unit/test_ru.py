@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import re
+import zipfile
 from collections.abc import Callable
 from pathlib import Path
 
@@ -166,3 +168,43 @@ def test_a_snapshot_of_one_layer_is_not_parsed_as_the_other(
     )
     with pytest.raises(ValueError, match="not app-mpzp"):
         RuMpzpConnector(SPEC, bbox=BBOX).parse(snapshot)
+
+
+def refusing(pages: dict[tuple[int, int], bytes]) -> Callable[[httpx.Request], httpx.Response]:
+    """Answers (startIndex, count) from `pages`; anything else gets the server's 400 "Invalid request"."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        key = (int(request.url.params["startIndex"]), int(request.url.params["count"]))
+        if key in pages:
+            return httpx.Response(200, content=pages[key])
+        return httpx.Response(400, content=b"<ows:ExceptionReport>Invalid request</ows:ExceptionReport>")
+
+    return handler
+
+
+def test_a_broken_feature_is_skipped_and_the_rest_of_its_page_kept(
+    tmp_path: Path, make_client: ClientFactory
+) -> None:
+    # Live 19.10.2026: one MPZP outline in the 1421 bbox makes the server refuse every page that holds it.
+    zones = [sp_zone(i, 621_000 + 600 * i, 471_000, 500) for i in range(13)]
+    pages = {(0, 10): page(zones[:10], 13)}  # (10, 10) is refused
+    for i in (10, 12):  # index 11 is the broken one
+        pages[(i, 1)] = page([zones[i]], 13)
+    for i in range(13, 20):
+        pages[(i, 1)] = page([], 13)
+    connector = RuPlanOgolnyConnector(SPEC, bbox=BBOX)
+    snapshot = connector.fetch(make_client(refusing(pages)), SnapshotStore(tmp_path))
+    table = connector.parse(snapshot)
+    assert len(table) == 12
+    assert "1POG-11SP" not in set(table["local_id"])
+    with zipfile.ZipFile(snapshot.path) as archive:
+        assert json.loads(archive.read("skipped.json")) == [11]
+
+
+def test_a_server_that_refuses_everything_fails_instead_of_returning_an_empty_layer(
+    tmp_path: Path, make_client: ClientFactory
+) -> None:
+    with pytest.raises(ValueError, match="refused 10 features"):
+        RuMpzpConnector(SPEC, bbox=BBOX).fetch(make_client(refusing({})), SnapshotStore(tmp_path))
