@@ -62,7 +62,7 @@ sources:
     licence_expected: "Otwarte dane GUGiK"
     probes:
       - {kind: ogc, service: WFS, url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/BDOT/WFS/PobieranieBDOT10k"}
-      - {kind: page, url: "https://opendata.geoportal.gov.pl/bdot10k/", keywords: ["shp", "gml", "pobier"]}
+      - {kind: http, method: HEAD, url: "https://opendata.geoportal.gov.pl/bdot10k/schemat2021/14/1421_GML.zip"}
 
   - id: ru
     name: Rejestr Urbanistyczny
@@ -73,8 +73,8 @@ sources:
     licence_expected: "Do ustalenia (dane publiczne, APP)"
     notes: "Rejestr niekompletny do 30.11.2026 – brak planu oznacza 'nieznane', nie 'złe'."
     probes:
-      - {kind: page, url: "https://rejestr-urbanistyczny.gov.pl/", keywords: ["wfs", "wms", "csw", "usług", "api", "pobier"]}
-      - {kind: browser, url: "https://rejestr-urbanistyczny.gov.pl/", actions: [{action: fill, selector: "input[type=search], input[type=text]", value: "Warszawa"}, {action: press, selector: "input[type=search], input[type=text]", value: "Enter"}]}
+      - {kind: ogc, service: WFS, url: "https://rejestr-urbanistyczny.gov.pl/uslugi-sieciowe/app-pog/wfs"}
+      - {kind: ogc, service: WFS, url: "https://rejestr-urbanistyczny.gov.pl/uslugi-sieciowe/app-mpzp/wfs"}
 
   - id: kimpzp
     name: KIMPZP – Krajowa Integracja MPZP
@@ -134,7 +134,7 @@ sources:
     core: true
     licence_expected: "Dane publiczne PGW Wody Polskie"
     probes:
-      - {kind: page, url: "https://wody.isok.gov.pl/", keywords: ["wfs", "wms", "atom", "usług", "pobier"]}
+      - {kind: ogc, service: WFS, url: "https://wody.isok.gov.pl/wss/INSPIRE/INSPIRE_HY_10k_2019_WFS"}
 
   - id: midas
     name: PIG-PIB MIDAS – obszary i tereny górnicze
@@ -165,17 +165,17 @@ sources:
     core: false
     licence_expected: "Informacja publiczna PSE"
     probes:
-      - {kind: page, url: "https://www.pse.pl/", keywords: ["rozdzielni", "zamknięt", "brak możliwości", "warunk"]}
+      - {kind: http, method: HEAD, url: "https://www.pse.pl/documents/20182/51490/20260204_Lista_rozdzielni-brak_mozliwosci_przylaczenia.xlsx"}
 
   - id: pse_odb
-    name: PSE – wykaz wydanych warunków przyłączenia (odbiorcy)
+    name: PSE – wykaz podmiotów ubiegających się o przyłączenie (art. 7 ust. 8l PE)
     used_for: Wpisy ODB jako sygnał popytu; diff miesięczny
     plan: mvp
     cadence: monthly
     core: false
     licence_expected: "Informacja publiczna PSE"
     probes:
-      - {kind: page, url: "https://www.pse.pl/", keywords: ["wydanych warunk", "warunki przyłączenia", "wykaz", "odbior"]}
+      - {kind: page, url: "https://www.pse.pl/obszary-dzialalnosci/krajowy-system-elektroenergetyczny/wykaz-obiektow-planowanych-do-przylaczenia", keywords: ["8l", "xlsx", "rozdzielni"]}
 
   - id: pse_avail
     name: PSE – raport o dostępnych mocach przyłączeniowych
@@ -185,42 +185,39 @@ sources:
     core: false
     licence_expected: "Informacja publiczna PSE"
     probes:
-      - {kind: page, url: "https://www.pse.pl/", keywords: ["dostępn", "moc przyłączeniow", "informacja o wartości"]}
+      - {kind: page, url: "https://www.pse.pl/obszary-dzialalnosci/krajowy-system-elektroenergetyczny/informacja-o-dostepnosci-mocy-przylaczeniowej", keywords: ["dostępności mocy", "pdf"]}
 
   - id: enea
     name: Enea Operator – mapa dostępnych mocy dla odbiorców
-    used_for: Dostępna moc odbiorcza SN per GPZ (sygnał, nie odpowiedź dla 60 MW)
+    used_for: Dostępna moc odbiorcza SN/nN (sygnał, nie odpowiedź dla 60 MW)
     plan: mvp
     cadence: weekly
     core: false
     licence_expected: "Informacja publiczna OSD (sprawdzić regulamin)"
     probes:
       - {kind: page, url: "https://www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce", keywords: ["dostępnych mocy", "mapa", "moc przyłączeniow", "odbiorc"]}
-      - {kind: browser, url: "https://www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce", actions: [{action: fill, selector: "input[type=search], input[type=text]", value: "Warszawa"}, {action: press, selector: "input[type=search], input[type=text]", value: "Enter"}]}
 
   - id: energa
     name: Energa-Operator – dostępne moce odbiorcze
-    used_for: Dostępna moc odbiorcza SN per GPZ
+    used_for: Dostępna moc odbiorcza per grupa węzłów 110 kV (PDF ustawowy, stan kwartalny)
     plan: mvp
-    cadence: weekly
+    cadence: monthly
     core: false
     licence_expected: "Informacja publiczna OSD (sprawdzić regulamin)"
-    notes: "Istnienie i format do potwierdzenia."
+    notes: "PDF na stronie 'Informacje o stanie przyłączeń' (stan na 31.08.2026); link prowadzi do CDN z przekierowaniem."
     probes:
-      - {kind: page, url: "https://energa-operator.pl/", keywords: ["dostępn", "moc przyłączeniow", "mapa", "odbiorc"]}
-      - {kind: browser, url: "https://energa-operator.pl/"}
+      - {kind: page, url: "https://energa-operator.pl/przylaczenie-do-sieci/informacje-o-stanie-przylaczen", keywords: ["odbiorczej mocy", "pdf"]}
 
   - id: tauron
     name: Tauron Dystrybucja – dostepnemoce.pl
-    used_for: Planowane moce 2027–2028 („kierunkowe”), wydane warunki
+    used_for: Dostępna moc odbiorcza per GPZ (MW, z grupą i współrzędnymi), 2026–2031
     plan: mvp
     cadence: weekly
     core: false
     licence_expected: "Informacja publiczna OSD (sprawdzić regulamin)"
     probes:
-      - {kind: page, url: "https://dostepnemoce.pl/", keywords: ["moc", "mapa", "warunk"]}
-      - {kind: browser, url: "https://dostepnemoce.pl/"}
-      - {kind: http, method: GET, url: "https://dostepnemoce.tauron-dystrybucja.pl/wp-json/tauron-connector/v1/map/sources"}
+      # Data: POST /wp-json/tauron-connector/v1/gpz/search (JSON body; see docs/SOURCES.md). The probe only checks the site.
+      - {kind: page, url: "https://dostepnemoce.tauron-dystrybucja.pl/", keywords: ["moc", "mapa", "GPZ"]}
 
   - id: dso_portals
     name: Nowe portale mocy OSD (nowelizacja 2026)
@@ -250,7 +247,8 @@ sources:
     licence_expected: "Akt prawny (rozporządzenie) – domena publiczna"
     notes: "Tabela statyczna przygotowana ręcznie z rozporządzenia: data/manual/psi_aid.csv."
     probes:
-      - {kind: page, url: "https://www.gov.pl/web/fundusze-regiony/polska-strefa-inwestycji", keywords: ["mapa pomocy", "intensywno", "rozporządzeni"]}
+      # Rozporządzenie RM z 14.12.2021 w sprawie mapy pomocy regionalnej na lata 2022–2027 (Dz.U. 2021 poz. 2422).
+      - {kind: http, method: GET, url: "https://api.sejm.gov.pl/eli/acts/DU/2021/2422"}
 
   - id: kowr
     name: KOWR – oferty nieruchomości rolnych
@@ -280,7 +278,8 @@ sources:
     core: false
     licence_expected: "Informacja publiczna URE"
     probes:
-      - {kind: page, url: "https://bip.ure.gov.pl/", keywords: ["koncesj", "ciepł", "wykaz", "rejestr"]}
+      # Rejestr koncesji URE (rejestry.ure.gov.pl); PCC = przesyłanie i dystrybucja ciepła.
+      - {kind: http, method: GET, url: "https://api.ure.gov.pl/api/ConcessionOtherFuel?rodzajKoncesji=PCC"}
 
   - id: bazaoos
     name: GDOŚ – Baza OOŚ (decyzje środowiskowe)

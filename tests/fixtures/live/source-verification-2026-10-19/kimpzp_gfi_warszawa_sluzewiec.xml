@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GetFeatureInfo_Result>
+  <ROWSET name="MPZP_PRZEZNACZENIE_TERENU" >
+    <ROW num="1">
+      <INTEN_ZAB>0,6</INTEN_ZAB>
+      <MAX_WYS>16</MAX_WYS>
+      <FUN_NAZWA>usługi oświaty</FUN_NAZWA>
+      <FUN_SYMB>3k U-O/US</FUN_SYMB>
+      <DZIELNICA>null</DZIELNICA>
+      <NAZWA_PLAN>Służewiec Przemysłowy w rej. Cybernetyki cz I</NAZWA_PLAN>
+      <WWW>../dane/plany/4.16.html</WWW>
+    </ROW>
+    <ROW num="2">
+      <INTEN_ZAB> </INTEN_ZAB>
+      <MAX_WYS> </MAX_WYS>
+      <FUN_NAZWA>droga dojazdowa</FUN_NAZWA>
+      <FUN_SYMB>2 KDD</FUN_SYMB>
+      <DZIELNICA>null</DZIELNICA>
+      <NAZWA_PLAN>Służewiec Przemysłowy w rej. Cybernetyki cz I</NAZWA_PLAN>
+      <WWW>../dane/plany/4.16.html</WWW>
+    </ROW>
+  </ROWSET>
+  <ROWSET name="MPZP_PRZEZNACZENIE_TERENU" >
+    <ROW num="1">
+      <INTEN_ZAB>0,6</INTEN_ZAB>
+      <MAX_WYS>16</MAX_WYS>
+      <FUN_NAZWA>usługi oświaty</FUN_NAZWA>
+      <FUN_SYMB>3k U-O/US</FUN_SYMB>
+      <DZIELNICA>null</DZIELNICA>
+      <NAZWA_PLAN>Służewiec Przemysłowy w rej. Cybernetyki cz I</NAZWA_PLAN>
+      <WWW>../dane/plany/4.16.html</WWW>
+    </ROW>
+    <ROW num="2">
+      <INTEN_ZAB> </INTEN_ZAB>
+      <MAX_WYS> </MAX_WYS>
+      <FUN_NAZWA>droga dojazdowa</FUN_NAZWA>
+      <FUN_SYMB>2 KDD</FUN_SYMB>
+      <DZIELNICA>null</DZIELNICA>
+      <NAZWA_PLAN>Służewiec Przemysłowy w rej. Cybernetyki cz I</NAZWA_PLAN>
+      <WWW>../dane/plany/4.16.html</WWW>
+    </ROW>
+  </ROWSET>
+</GetFeatureInfo_Result>

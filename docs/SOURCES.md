@@ -4,85 +4,132 @@ Status of every source in `config/sources.yaml` (brief section 4). Each MVP sour
 status in Phase 0: ✓ verified, ⚠ reachable but the data endpoint still needs confirming (or some probes
 failed), ✗ unreachable, ⏳ not yet checked.
 
-## Current state (run of 12.10.2026, 07:11 UTC, from the owner's VPS in Poland)
+## Current state (19.10.2026, from the owner's VPS in Poland)
 
-Phase 0 verification is done for all 23 automated MVP sources (`kowr` became manual-only): each has a status
-from a run on a Polish server (`data/discovery/discovery-2026-10-12T071115.json`, the detailed report).
+Round 2 of the verification: `dclh discover-followup` (`data/discovery/followup-2026-10-19T0948.md`), a full
+`dclh discover` with corrected probes (`data/discovery/discovery-2026-10-19T100250.json`), and requests by hand and in a
+browser for the sources whose data sits behind a form or in a file. Raw samples: `tests/fixtures/live/source-verification-2026-10-19/`.
 
-| Status | Count | Meaning |
+| Status | Count | Sources |
 |---|---|---|
-| ✓ | 11 | Verified: a data endpoint answered with real capabilities (WFS/WMS/ArcGIS) or a downloadable file |
-| ⚠ | 12 | Reachable, but the data endpoint is not confirmed yet (candidate links only, or a 404) |
-| ✗ | 0 | None. `kowr` (bot-protection challenge) is now manual-only |
-| – | 1 | `invest_offers`: manual CSV import by design, no probe |
+| ✓ | 20 | `prg`, `osm_power`, `osm_land`, `bdot10k`, `ru`, `kimpzp`, `egib`, `uldk`, `kiug`, `gdos`, `isok`, `midas`, `nid`, `pse_closed`, `pse_odb`, `pse_avail`, `energa`, `tauron`, `psi`, `heat` |
+| ⚠ | 2 | `enea` (decision needed, see below), `uke` (lead only) |
+| – | 1 | `invest_offers`: manual CSV import by design |
 
-**Verified (✓):** `prg`, `osm_power`, `osm_land`, `kimpzp`, `egib`, `uldk`, `kiug`, `gdos`, `midas`, `nid` (`nid` joined on 12.10.2026).
+`kowr` is manual-only (decision of 12.10.2026). The generated table below still shows ⚠ for `pse_odb`, `pse_avail`,
+`energa` and `tauron`: a `page` probe can only show that the page answers. Those four were confirmed by downloading the
+file or calling the endpoint, as described here.
 
-**Follow-up run (14.10.2026, VPS, `data/discovery/followup-2026-10-14T2145.md`):**
-- `gdos` ✓ (layers confirmed on the same day): `GDOS:SpecjalneObszaryOchrony` (SOO, 871), `GDOS:ObszarySpecjalnejOchrony`
-  (OSO, 145), `GDOS:ParkiNarodowe` (46), `GDOS:Rezerwaty` (2,152). EPSG:2180, attributes `nazwa`, `kodinspire`.
-  Used for `protected_nature_pct` (Natura 2000, national park, reserve). **Paging is refused** by this server ("Cannot do
-  natural order without a primary key"), so each layer is fetched in one request (about 30 MB for SOO; numberMatched
-  is checked).
-- `bdot10k` ✓ download link: the powiat index layer `ms:BDOT10k_powiaty` (WFS) carries a `URL_GML` field per powiat,
-  for example `https://opendata.geoportal.gov.pl/bdot10k/schemat2021/04/0401_GML.zip` (powiat 0401; 18.6 MB for 1421).
-  Not yet used by a connector.
-- `isok` ✓ services (flood): the INSPIRE page lists 31 links; these answer GetCapabilities:
-  `https://wody.isok.gov.pl/wss/INSPIRE/INSPIRE_NZ_HY_MZPMRP_WFS` (`nz-core:HazardArea`, `nz-core:RiskZone`,
-  `nz-core:ExposedElement`, and per-level layers such as `q1`, `q10`, `q0_2`) and the ATOM feeds under
-  `https://wody.isok.gov.pl/atom_web/atom/` (for example `HY_10k`, `NZ_HY_MRP`). Which layer is the 1% zone for the
-  flood filter is still to be checked against the legend.
-- `kimpzp` ⚠: the WFS answers but lists 0 layers. The WMS point query answers at Reguły (`wektor-pow`, `plany`), but it
-  says "brak wyniku dla wskazanego obszaru" there, so it is not a usable zoning source yet.
-- `ru` ⚠: the app calls a JSON API at `https://rejestr-urbanistyczny.gov.pl/api/public/…`. The path exists (`/published/
-  territorial/tree` answers 400 "bad parameters" without the right query); the parameter names still have to be found.
+### Hard filters and zoning
 
-**Open before Phase 1 can rely on them:**
-- `bdot10k`: the OPENDATA page still returns 404, but the per-powiat `URL_GML` link above works. The connector should use it.
-- `ru`, `enea`, `energa`, `tauron`: the browser capture now runs (60, 18, 1 and 15 data requests). The recorded
-  calls still have to be inspected to pick the real data endpoint. `energa` shows only 1 request.
-- `enea`: the probe points at `www.operator.enea.pl/przylaczenie-do-sieci/dostepne-moce` and answers. The page is
-  renewables-oriented and county-level, so check it against the GPZ-level signal the brief assumes.
-- `tauron`: `dostepnemoce.pl` redirects to `dostepnemoce.tauron-dystrybucja.pl` (a different domain; confirm it is
-  the real site). The guessed `/wp-json/tauron-connector/v1/map/sources` returns 404.
-- `uke` and `isok`, `pse_*`, `psi`, `heat`: candidate links were found in pages; each still needs its real
-  data file or service confirmed.
-- `kowr`: bot protection. Decided on 12.10.2026: manual-only (link plus manual CSV import), no automation.
+- **`isok` ✓ flood.** Use the flat layer `wms_nz-core:NZ.Fluvial` on
+  `https://wody.isok.gov.pl/wss/INSPIRE/INSPIRE_HY_10k_2019_WFS` (6,744 zones in Poland). Attributes:
+  `loo_ql_probabilityofoccurrence` (0.1 / 0.01 / 0.002), `loo_ql_returnperiod`, `loo_qualitativelikelihood`,
+  `validityperiod_end`. **The 1% zone is `probabilityofoccurrence = 0.01`** (3,966 zones). This includes the scenario
+  "całkowite zniszczenie wału przy przepływie Q 1%" (levee breach), which the filter should treat as 1% as well. bbox, FES filter and
+  paging (`startIndex`) work. Ask for `srsName=urn:ogc:def:crs:EPSG::2180`. The answer then has **northing-first**
+  coordinates (unlike EGiB). Zones are whole river reaches: 13 zones near Warsaw took 22 MB, so fetch per powiat bbox
+  with the 0.01 filter, not the whole country. The nested INSPIRE layer `nz-core:HazardArea` on the
+  `…_NZ_HY_MZPMRP_WFS` service fails with a server NullPointerException when a bbox is given. Do not use it.
+  `validityperiod_end` is 21.12.2025 on the samples, which is the second-cycle maps. Watch for the new cycle.
+- **`bdot10k` ✓ housing.** Per-powiat zip from `URL_GML` in `ms:BDOT10k_powiaty`
+  (`https://opendata.geoportal.gov.pl/bdot10k/schemat2021/<woj>/<teryt>_GML.zip`, 18.6 MB for 1421). Buildings are in
+  `…__OT_BUBD_A.xml` (60,434 in 1421), EPSG:2180, **easting-first**. Residential = `funkcjaOgolnaBudynku = "budynki
+  mieszkalne"` (43,085 in 1421). Also use `kategoriaIstnienia` and skip `zniszczony`. `funkcjaSzczegolowaBudynku`
+  separates `budynek jednorodzinny` / `wielorodzinny` / `dom letniskowy`.
+- **`ru` ✓ zoning** (addresses from the RU "Usługi sieciowe" page):
+  - `https://rejestr-urbanistyczny.gov.pl/uslugi-sieciowe/app-pog/wfs`: `app-pog:StrefaPlanistyczna` (506,565 plan
+    ogólny zones). The fields `symbol` (e.g. `SJ`, `SU`, `SI`; `SG` for strefa gospodarcza) and `oznaczenie` are
+    readable with pyogrio. EPSG:2180, northing-first. **CountDefault is 10** (10 features per request), so query by
+    bbox per candidate area: 679 zones around Pruszków. A FES filter on `nazwa` returned 0, so filter on the client.
+  - `…/app-mpzp/wfs`: `app-mpzp:AktPlanowaniaPrzestrzennego` = **MPZP outlines only** (3,951; 97 around Pruszków),
+    no designations (P, PU…). They tell "a plan exists here", not what it allows.
+  - JSON: `POST https://rejestr-urbanistyczny.gov.pl/api/public/published/query` (criteria `parcelIdentifier`,
+    `tercCodeList`, `plansGroup`). It works over plain HTTP. Reguły parcel `142104_2.0013.562/2` has no published MPZP.
+- **`kimpzp` ✓ MPZP designations, point queries only.** WMS GetFeatureInfo works with **version 1.1.1, `srs=EPSG:4326`,
+  lon/lat bbox**. With 1.3.0 every point answers "brak serwisu dla wskazanego obszaru". In Warsaw it returns plan name
+  and `FUN_SYMB` (e.g. `3k U-O/US`, `2 KDD`). Each gmina's server answers in its own format (Warsaw: XML with
+  `MPZP_PRZEZNACZENIE_TERENU` rows), so the parser must tolerate several layouts. The KIMPZP WFS lists 0 layers.
+  The 14.10 follow-up verdict "WFS available" was wrong: it should say 0 layers. At Reguły the answer is "brak wyniku"
+  (no vector plan there).
+
+### Grid (DSO and PSE)
+
+- **`tauron` ✓.** `POST https://dostepnemoce.tauron-dystrybucja.pl/wp-json/tauron-connector/v1/gpz/search`, JSON body
+  `{"layer_type":"odbiorcy","criteria":{"minimum_mw":0,"year_from":2026,"year_to":2026,"province":""},"page":{"offset":0,"limit":100}}`.
+  It works from the VPS **without a WordPress nonce or cookie**. 513 GPZs for loads, each with `gpz_code`, `name`,
+  `group_name` (GPZs that share capacity), `value_mw` and `lat`/`lng`. Years 2026–2031. The server rate-limits (429,
+  `Retry-After`, code `API_RATE_LIMITED`). robots.txt allows all. The site's terms are not yet read.
+- **`energa` ✓.** Since the 30.04.2026 amendment, Energa publishes "Informacja o wartości łącznej dostępnej odbiorczej mocy
+  przyłączeniowej" as a PDF (16 pages, stan na 31.08.2026) on
+  `https://energa-operator.pl/przylaczenie-do-sieci/informacje-o-stanie-przylaczen` (the link redirects to a signed CDN URL).
+  Capacity is given **per group of coherent 110 kV nodes** (named GPZ lists per group), with a 5-year horizon. This is
+  the 110 kV-level signal the brief wanted. pdfplumber extracts the tables (398 rows).
+- **`pse_closed` ✓.** `https://www.pse.pl/documents/20182/51490/20260204_Lista_rozdzielni-brak_mozliwosci_przylaczenia.xlsx`
+  (stan na 4.02.2026): columns `ZKO PSE`, `Symbol stacji`, `Nazwa stacji`, `Rozdzielnia`, `Liczba dostępnych miejsc
+  przyłączenia`. The file name carries the date. Find the newest one on the page linked by the `pse_odb` probe.
+- **`pse_odb` ✓, an XLSX, not a PDF.** The art. 7 ust. 8l PE list:
+  `https://www.pse.pl/documents/20182/51490/Informacje_publikowane_zgodnie_z_Art_7_ust_8l_ustawy_PE_stan_na_31_08_2026.xlsx`
+  (monthly, the date is in the name). 886 rows for the PSE network. `Rodzaj instalacji = ODB` gives **33 load projects, mostly data
+  centres** (e.g. 100 MW at Mikułowa 110 kV, 150 MW Warszawa, 800 MW Krzemienica), with station, voltage, MW and
+  status/dates. This is a competitor and queue signal. **The column "Nazwa podmiotu ubiegającego się o przyłączenie"
+  names the applicant. Do not store it** (it can be a person; brief 9.6). Keep station, voltage, type, MW, status and dates only.
+- **`pse_avail` ✓ PDF.** `informacja_o_dostepnosci_mocy_przylaczeniowej_do_sieci_przesylowej.pdf` on
+  `…/informacja-o-dostepnosci-mocy-przylaczeniowej`. Existing stations have 0 MW for loads. Page 12 lists **planned load
+  stations** with MW (e.g. WYP Wypędy 200, MKA Legnica 1000, ZER Poznań 500, GNA Konin 500, DZO Toruń 1000; 24 rows),
+  given by region name, not coordinates. pdfplumber reads the table cleanly. Geocode the ~24 stations by hand
+  into `data/manual/` (estimated confidence).
+- **`enea` ⚠, needs an owner decision.** "Mapa Dostępnych Mocy Przyłączeniowych" is a public Power BI report
+  (`app.powerbi.com/view?r=…`). It has no file and no stable API. Its own disclaimer says the values are for **MV/LV end users and
+  do not apply to connection group II** (110 kV), which is the group for a 60 MW site. Recommendation: keep Enea as a manual CSV
+  signal only (already supported by `dclh import-manual enea`), and look for an Energa-style statutory PDF from Enea
+  (see open questions).
+
+### Bonus layers
+
+- **`heat` ✓.** URE concession register JSON: `https://api.ure.gov.pl/api/ConcessionOtherFuel?rodzajKoncesji=PCC`
+  (344 heat transmission/distribution licences, with `miejscowosc` and `wojewodztwo`). It is a town-level proxy for "district
+  heating exists here". Store the town and licence type only (the rows carry addresses and tax ids).
+- **`psi` ✓.** Rozporządzenie RM z 14.12.2021 w sprawie mapy pomocy regionalnej na lata 2022–2027 (Dz.U. 2021 poz.
+  2422), in force (ELI API). `data/manual/psi_aid.csv` does **not exist yet**. The map is per NUTS-3 subregion, not per gmina,
+  so the CSV needs a subregion → gmina join.
+- **`uke` ⚠ lead only.** UKE's PIT map portal (`pitmap.uke.gov.pl`) reportedly serves public WMS layers for SIIS
+  nodes, collocations and lines without login (existing/planned infrastructure needs login). Not yet probed.
 
 Unverified endpoints are not used by any connector until they are confirmed in this file.
 
 ## Generated discovery table
 
 <!-- discovery:begin -->
-Run: 2026-10-12 07:11 UTC · from: VPS (owner's Polish-IP machine)
+Run: 2026-10-19 10:02 UTC · from: VPS (owner's Polish-IP machine)
 
 | Status | Source | Plan | Probes |
 |---|---|---|---|
 | ✓ | `prg` GUGiK PRG – granice administracyjne | mvp | ogc: ok · 200 · 2.0.0 · 52 layers<br>http: ok · 200 |
 | ✓ | `osm_power` OpenStreetMap – sieć elektroenergetyczna (Geofabrik) | mvp | http: ok · 200<br>http: ok · 200 |
 | ✓ | `osm_land` OpenStreetMap – użytkowanie terenu i budynki (Geofabrik) | mvp | http: ok · 200 |
-| ⚠ | `bdot10k` GUGiK BDOT10k | mvp | ogc: ok · 200 · 2.0.0 · 1 layers<br>page: failed · 404 |
-| ⚠ | `ru` Rejestr Urbanistyczny | mvp | page: ok · 200 · 1 endpoint candidates<br>browser: ok · 60 data requests |
+| ✓ | `bdot10k` GUGiK BDOT10k | mvp | ogc: ok · 200 · 2.0.0 · 1 layers<br>http: ok · 200 |
+| ✓ | `ru` Rejestr Urbanistyczny | mvp | ogc: ok · 200 · 2.0.0 · 6 layers · CountDefault 10<br>ogc: ok · 200 · 2.0.0 · 3 layers · CountDefault 100 |
 | ✓ | `kimpzp` KIMPZP – Krajowa Integracja MPZP | mvp | ogc: ok · 200 · 1.3.0 · 9 layers |
 | ✓ | `egib` EGiB – zbiorcza usługa WFS działek | mvp | ogc: ok · 200 · 2.0.0 · 2 layers · CountDefault 1000 |
 | ✓ | `uldk` ULDK – Usługa Lokalizacji Działek Katastralnych | mvp | http: ok · 200 |
 | ✓ | `kiug` KIUG – użytki gruntowe i klasy bonitacyjne | mvp | ogc: ok · 200 · 1.3.0 · 4 layers |
 | ✓ | `gdos` GDOŚ Geoserwis – formy ochrony przyrody | mvp | ogc: ok · 200 · 2.0.0 · 23 layers · CountDefault 1000000 |
-| ⚠ | `isok` ISOK – mapy zagrożenia powodziowego | mvp | page: ok · 200 · 1 endpoint candidates |
+| ✓ | `isok` ISOK – mapy zagrożenia powodziowego | mvp | ogc: ok · 200 · 2.0.0 · 20 layers · CountDefault 10000 |
 | ✓ | `midas` PIG-PIB MIDAS – obszary i tereny górnicze | mvp | arcgis: ok · 200 |
 | ✓ | `nid` NID – rejestr zabytków i stanowiska archeologiczne | mvp | http: ok · 200<br>page: ok · 200 · 4 endpoint candidates |
-| ⚠ | `pse_closed` PSE – zamknięte rozdzielnie (brak warunków przyłączenia) | mvp | page: ok · 200 · 3 endpoint candidates |
-| ⚠ | `pse_odb` PSE – wykaz wydanych warunków przyłączenia (odbiorcy) | mvp | page: ok · 200 · 3 endpoint candidates |
-| ⚠ | `pse_avail` PSE – raport o dostępnych mocach przyłączeniowych | mvp | page: ok · 200 · 3 endpoint candidates |
-| ⚠ | `enea` Enea Operator – mapa dostępnych mocy dla odbiorców | mvp | page: ok · 200 · 1 endpoint candidates<br>browser: ok · 18 data requests |
-| ⚠ | `energa` Energa-Operator – dostępne moce odbiorcze | mvp | page: ok · 200 · 0 endpoint candidates<br>browser: ok · 1 data requests |
-| ⚠ | `tauron` Tauron Dystrybucja – dostepnemoce.pl | mvp | page: ok · 200 · 12 endpoint candidates<br>browser: ok · 15 data requests<br>http: failed · 404 |
+| ✓ | `pse_closed` PSE – zamknięte rozdzielnie (brak warunków przyłączenia) | mvp | http: ok · 200 |
+| ⚠ | `pse_odb` PSE – wykaz podmiotów ubiegających się o przyłączenie (art. 7 ust. 8l PE) | mvp | page: ok · 200 · 12 endpoint candidates |
+| ⚠ | `pse_avail` PSE – raport o dostępnych mocach przyłączeniowych | mvp | page: ok · 200 · 2 endpoint candidates |
+| ⚠ | `enea` Enea Operator – mapa dostępnych mocy dla odbiorców | mvp | page: ok · 200 · 1 endpoint candidates |
+| ⚠ | `energa` Energa-Operator – dostępne moce odbiorcze | mvp | page: ok · 200 · 4 endpoint candidates |
+| ⚠ | `tauron` Tauron Dystrybucja – dostepnemoce.pl | mvp | page: ok · 200 · 12 endpoint candidates |
 | – | `dso_portals` Nowe portale mocy OSD (nowelizacja 2026) | v2 | – |
 | ⚠ | `uke` UKE – infrastruktura telekomunikacyjna | mvp | page: ok · 200 · 5 endpoint candidates |
-| ⚠ | `psi` Polska Strefa Inwestycji – mapa pomocy regionalnej | mvp | page: ok · 200 · 38 endpoint candidates |
-| ✗ | `kowr` KOWR – oferty nieruchomości rolnych | mvp | page: failed · 200 · strona ochrony antybotowej (challenge), nie treść |
+| ✓ | `psi` Polska Strefa Inwestycji – mapa pomocy regionalnej | mvp | http: ok · 200 |
+| – | `kowr` KOWR – oferty nieruchomości rolnych | manual | – |
 | – | `invest_offers` Oferty inwestycyjne gmin / SSE / COI | mvp | – |
-| ⚠ | `heat` Sieci ciepłownicze (proxy – koncesje URE) | mvp | page: ok · 200 · 1 endpoint candidates |
+| ✓ | `heat` Sieci ciepłownicze (proxy – koncesje URE) | mvp | http: ok · 200 |
 | – | `bazaoos` GDOŚ – Baza OOŚ (decyzje środowiskowe) | manual | – |
 | – | `ekw` Księgi wieczyste (EKW) | manual | – |
 | – | `bip` BIP gmin | v2 | – |
@@ -91,48 +138,43 @@ Run: 2026-10-12 07:11 UTC · from: VPS (owner's Polish-IP machine)
 
 | Source | Status | Z | Na | Uwaga |
 |---|---|---|---|---|
-| `osm_power` | 307 | https://download.geofabrik.de/europe/poland-latest.osm.pbf | https://download.geofabrik.de/europe/poland-261011.osm.pbf | ta sama domena |
-| `osm_land` | 307 | https://download.geofabrik.de/europe/poland-latest.osm.pbf | https://download.geofabrik.de/europe/poland-261011.osm.pbf | ta sama domena |
-| `isok` | 307 | https://wody.isok.gov.pl/ | https://wody.isok.gov.pl/index.html | ta sama domena |
+| `osm_power` | 307 | https://download.geofabrik.de/europe/poland-latest.osm.pbf | https://download.geofabrik.de/europe/poland-261018.osm.pbf | ta sama domena |
+| `osm_land` | 307 | https://download.geofabrik.de/europe/poland-latest.osm.pbf | https://download.geofabrik.de/europe/poland-261018.osm.pbf | ta sama domena |
 | `nid` | 302 | https://mapy.zabytek.gov.pl/ | https://mapy.zabytek.gov.pl/nid/ | ta sama domena |
-| `pse_closed` | 301 | https://www.pse.pl/ | https://www.pse.pl/home | ta sama domena |
-| `pse_odb` | 301 | https://www.pse.pl/ | https://www.pse.pl/home | ta sama domena |
-| `pse_avail` | 301 | https://www.pse.pl/ | https://www.pse.pl/home | ta sama domena |
-| `tauron` | 301 | https://dostepnemoce.pl/ | https://dostepnemoce.tauron-dystrybucja.pl/ | **inna domena**: sprawdzić, czy to nie strona parkingowa |
-| `psi` | 301 | https://www.gov.pl/web/fundusze-regiony/polska-strefa-inwestycji | https://www.gov.pl/ | ta sama domena |
 <!-- discovery:end -->
 
 ## MVP sources: candidate endpoints, format, licence, fallback
 
-All endpoints below are **candidates from desk research** (October 2026) and are probed by `dclh discover`.
+The endpoints in this table are the **October 2026 desk-research candidates**. The status column shows the result of
+19.10.2026. The confirmed endpoints are in "Current state" above and in `config/sources.yaml`.
 Fallback order for interactive maps (brief): JSON endpoint → Playwright → manual CSV import.
 
 | Status | Source | Candidate endpoints (probes) | Format | Licence (expected, to confirm) | Fallback |
 |---|---|---|---|---|---|
-| ⏳ | `prg` | ogc: `https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WFS/AdministrativeBoundaries`<br>http: `https://opendata.geoportal.gov.pl/prg/granice/00_jednostki_administracyjne.zip` | WFS (GML); bulk ZIP (SHP) | Otwarte dane GUGiK (bez opłat, art. 40a Pgik) | Bulk ZIP from opendata.geoportal.gov.pl; manual download |
-| ⏳ | `osm_power` (core) | http: `https://download.geofabrik.de/europe/poland-latest.osm.pbf`<br>http: `https://download.geofabrik.de/europe/poland-latest.osm.pbf.md5` | .osm.pbf (~2 GB) | ODbL 1.0 (© OpenStreetMap contributors) | Previous snapshot; another Geofabrik-compatible mirror |
-| ⏳ | `osm_land` | http: `https://download.geofabrik.de/europe/poland-latest.osm.pbf` | .osm.pbf | ODbL 1.0 (© OpenStreetMap contributors) | Previous snapshot |
-| ⏳ | `bdot10k` | ogc: `https://mapy.geoportal.gov.pl/wss/service/PZGIK/BDOT/WFS/PobieranieBDOT10k`<br>page: `https://opendata.geoportal.gov.pl/bdot10k/` | Per-powiat ZIP (GML/SHP); WFS | Otwarte dane GUGiK | OSM buildings and landuse (lower confidence) |
-| ⏳ | `ru` (core) | page: `https://rejestr-urbanistyczny.gov.pl/`<br>browser: `https://rejestr-urbanistyczny.gov.pl/` | WFS/WMS/CSW, APP GML (endpoint to find) | Do ustalenia (dane publiczne, APP) | KIMPZP GetFeatureInfo; missing plan = `unknown` |
-| ⏳ | `kimpzp` | ogc: `https://mapy.geoportal.gov.pl/wss/ext/KrajowaIntegracjaMiejscowychPlanowZagospodarowaniaPrzestrzennego` | WMS (often raster) + GetFeatureInfo | Otwarte dane GUGiK | None: zoning stays `unknown` |
-| ⏳ | `egib` (core) | ogc: `https://mapy.geoportal.gov.pl/wss/service/PZGIK/EGIB/WFS/UslugaZbiorcza` | WFS 2.0 GML, EPSG:2180 | Otwarte dane GUGiK (geometria działek) | ULDK per parcel (slow); county WFS services |
-| ⏳ | `uldk` | http: `https://uldk.gugik.gov.pl/?request=GetParcelByXY&xy=637500,486500,2180&result=teryt,voivodeship,county,commune` | Plain text / WKT | Otwarte dane GUGiK | EGiB WFS by bbox |
-| ⏳ | `kiug` | ogc: `https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaUzytkowGruntowych` | WMS GetFeatureInfo | Otwarte dane GUGiK | BDOT10k/OSM forest; soil class `missing` |
-| ⏳ | `gdos` (core) | ogc: `https://sdi.gdos.gov.pl/wfs` | WFS (GML) | Dane publiczne GDOŚ | GDOŚ SHP downloads; WMS for display only |
-| ⏳ | `isok` (core) | page: `https://wody.isok.gov.pl/` | WFS 2.0 / ATOM (endpoint to find) | Dane publiczne PGW Wody Polskie | ATOM bulk download per river basin |
-| ⏳ | `midas` | arcgis: `https://cbdgmapa.pgi.gov.pl/arcgis/rest/services`<br>page: `https://cbdgmapa.pgi.gov.pl/` | ArcGIS REST / WFS (to confirm) | Dane publiczne PIG-PIB | CBDG SHP downloads |
-| ⏳ | `nid` | http: `https://api.dane.gov.pl/1.4/datasets?q=rejestr%20zabytk%C3%B3w%20nieruchomych&per_page=5`<br>page: `https://mapy.zabytek.gov.pl/` | WMS/WFS; CSV on dane.gov.pl | Dane publiczne NID / dane.gov.pl | CSV + geocoding by address/TERYT |
-| ⏳ | `pse_closed` | page: `https://www.pse.pl/` | XLSX (page to find) | Informacja publiczna PSE | Manual download into `data/manual/` |
-| ⏳ | `pse_odb` | page: `https://www.pse.pl/` | PDF (page to find) | Informacja publiczna PSE | Claude API table extraction (flag); manual CSV |
-| ⏳ | `pse_avail` | page: `https://www.pse.pl/` | Monthly PDF (page to find) | Informacja publiczna PSE | Claude API table extraction (flag); manual CSV |
-| ⏳ | `enea` | page: `https://www.enea-operator.pl/`<br>browser: `https://www.enea-operator.pl/` | Interactive map → JSON? (to find) | Informacja publiczna OSD (sprawdzić regulamin) | Playwright capture → manual CSV |
-| ⏳ | `energa` | page: `https://energa-operator.pl/`<br>browser: `https://energa-operator.pl/` | Unknown: existence to confirm | Informacja publiczna OSD (sprawdzić regulamin) | Playwright capture → manual CSV |
-| ⏳ | `tauron` | page: `https://dostepnemoce.pl/`<br>browser: `https://dostepnemoce.pl/` | Interactive map (to find) | Informacja publiczna OSD (sprawdzić regulamin) | Playwright capture → manual CSV |
-| ⏳ | `uke` | page: `https://www.uke.gov.pl/` | WMS / export (to find) | Do ustalenia | None: connectivity uses city distance only |
-| ⏳ | `psi` | page: `https://www.gov.pl/web/fundusze-regiony/polska-strefa-inwestycji` | Regulation text → static CSV | Akt prawny (rozporządzenie) – domena publiczna | n/a (static, prepared by hand) |
-| ⏳ | `kowr` | page: `https://nieruchomoscikowr.gov.pl/` | HTML listings | Sprawdzić regulamin i robots.txt przed automatyzacją | Manual CSV import if terms forbid scraping |
-| ⏳ | `invest_offers` | – | Manual CSV (template) | – | n/a |
-| ⏳ | `heat` | page: `https://bip.ure.gov.pl/` | URE concession list (XLSX/PDF on BIP) | Informacja publiczna URE | Hand-made list of towns with district heating |
+| ✓ | `prg` | ogc: `https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WFS/AdministrativeBoundaries`<br>http: `https://opendata.geoportal.gov.pl/prg/granice/00_jednostki_administracyjne.zip` | WFS (GML); bulk ZIP (SHP) | Otwarte dane GUGiK (bez opłat, art. 40a Pgik) | Bulk ZIP from opendata.geoportal.gov.pl; manual download |
+| ✓ | `osm_power` (core) | http: `https://download.geofabrik.de/europe/poland-latest.osm.pbf`<br>http: `https://download.geofabrik.de/europe/poland-latest.osm.pbf.md5` | .osm.pbf (~2 GB) | ODbL 1.0 (© OpenStreetMap contributors) | Previous snapshot; another Geofabrik-compatible mirror |
+| ✓ | `osm_land` | http: `https://download.geofabrik.de/europe/poland-latest.osm.pbf` | .osm.pbf | ODbL 1.0 (© OpenStreetMap contributors) | Previous snapshot |
+| ✓ | `bdot10k` | ogc: `https://mapy.geoportal.gov.pl/wss/service/PZGIK/BDOT/WFS/PobieranieBDOT10k`<br>page: `https://opendata.geoportal.gov.pl/bdot10k/` | Per-powiat ZIP (GML/SHP); WFS | Otwarte dane GUGiK | OSM buildings and landuse (lower confidence) |
+| ✓ | `ru` (core) | page: `https://rejestr-urbanistyczny.gov.pl/`<br>browser: `https://rejestr-urbanistyczny.gov.pl/` | WFS/WMS/CSW, APP GML (endpoint to find) | Do ustalenia (dane publiczne, APP) | KIMPZP GetFeatureInfo; missing plan = `unknown` |
+| ✓ | `kimpzp` | ogc: `https://mapy.geoportal.gov.pl/wss/ext/KrajowaIntegracjaMiejscowychPlanowZagospodarowaniaPrzestrzennego` | WMS (often raster) + GetFeatureInfo | Otwarte dane GUGiK | None: zoning stays `unknown` |
+| ✓ | `egib` (core) | ogc: `https://mapy.geoportal.gov.pl/wss/service/PZGIK/EGIB/WFS/UslugaZbiorcza` | WFS 2.0 GML, EPSG:2180 | Otwarte dane GUGiK (geometria działek) | ULDK per parcel (slow); county WFS services |
+| ✓ | `uldk` | http: `https://uldk.gugik.gov.pl/?request=GetParcelByXY&xy=637500,486500,2180&result=teryt,voivodeship,county,commune` | Plain text / WKT | Otwarte dane GUGiK | EGiB WFS by bbox |
+| ✓ | `kiug` | ogc: `https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaUzytkowGruntowych` | WMS GetFeatureInfo | Otwarte dane GUGiK | BDOT10k/OSM forest; soil class `missing` |
+| ✓ | `gdos` (core) | ogc: `https://sdi.gdos.gov.pl/wfs` | WFS (GML) | Dane publiczne GDOŚ | GDOŚ SHP downloads; WMS for display only |
+| ✓ | `isok` (core) | page: `https://wody.isok.gov.pl/` | WFS 2.0 / ATOM (endpoint to find) | Dane publiczne PGW Wody Polskie | ATOM bulk download per river basin |
+| ✓ | `midas` | arcgis: `https://cbdgmapa.pgi.gov.pl/arcgis/rest/services`<br>page: `https://cbdgmapa.pgi.gov.pl/` | ArcGIS REST / WFS (to confirm) | Dane publiczne PIG-PIB | CBDG SHP downloads |
+| ✓ | `nid` | http: `https://api.dane.gov.pl/1.4/datasets?q=rejestr%20zabytk%C3%B3w%20nieruchomych&per_page=5`<br>page: `https://mapy.zabytek.gov.pl/` | WMS/WFS; CSV on dane.gov.pl | Dane publiczne NID / dane.gov.pl | CSV + geocoding by address/TERYT |
+| ✓ | `pse_closed` | page: `https://www.pse.pl/` | XLSX (page to find) | Informacja publiczna PSE | Manual download into `data/manual/` |
+| ✓ | `pse_odb` | page: `https://www.pse.pl/` | PDF (page to find) | Informacja publiczna PSE | Claude API table extraction (flag); manual CSV |
+| ✓ | `pse_avail` | page: `https://www.pse.pl/` | Monthly PDF (page to find) | Informacja publiczna PSE | Claude API table extraction (flag); manual CSV |
+| ⚠ | `enea` | page: `https://www.enea-operator.pl/`<br>browser: `https://www.enea-operator.pl/` | Interactive map → JSON? (to find) | Informacja publiczna OSD (sprawdzić regulamin) | Playwright capture → manual CSV |
+| ✓ | `energa` | page: `https://energa-operator.pl/`<br>browser: `https://energa-operator.pl/` | Unknown: existence to confirm | Informacja publiczna OSD (sprawdzić regulamin) | Playwright capture → manual CSV |
+| ✓ | `tauron` | page: `https://dostepnemoce.pl/`<br>browser: `https://dostepnemoce.pl/` | Interactive map (to find) | Informacja publiczna OSD (sprawdzić regulamin) | Playwright capture → manual CSV |
+| ⚠ | `uke` | page: `https://www.uke.gov.pl/` | WMS / export (to find) | Do ustalenia | None: connectivity uses city distance only |
+| ✓ | `psi` | page: `https://www.gov.pl/web/fundusze-regiony/polska-strefa-inwestycji` | Regulation text → static CSV | Akt prawny (rozporządzenie) – domena publiczna | n/a (static, prepared by hand) |
+| – | `kowr` | page: `https://nieruchomoscikowr.gov.pl/` | HTML listings | Sprawdzić regulamin i robots.txt przed automatyzacją | Manual CSV import if terms forbid scraping |
+| – | `invest_offers` | – | Manual CSV (template) | – | n/a |
+| ✓ | `heat` | page: `https://bip.ure.gov.pl/` | URE concession list (XLSX/PDF on BIP) | Informacja publiczna URE | Hand-made list of towns with district heating |
 
 ## Not automated (v2 or link only)
 
@@ -153,14 +195,14 @@ Fallback order for interactive maps (brief): JSON endpoint → Playwright → ma
   Phase 1 connectors.
 - Never automate a source marked "manual"; ask the owner before automating anything new.
 
-## Open questions per source (to resolve during verification)
+## Open questions per source
 
-- **ru**: actual WFS/CSW endpoint and the APP zone codes for SG and production designations.
-- **isok**: WFS 2.0 vs ATOM; layer names for the 10%, 1% and 0.2% hazard zones.
-- **midas**: which service exposes obszary/tereny górnicze as vectors.
-- **pse_closed / pse_odb / pse_avail**: exact pages and file naming (monthly cadence).
-- **enea / energa / tauron**: JSON endpoints behind the maps; terms of use; whether Energa publishes
-  load capacity at all.
-- **uke**: which public dataset gives telecom node locations.
+- **ru**: confirm the `SG` symbol on a real plan ogólny with a strefa gospodarcza (none in the 1421 sample). Re-run
+  after 30.11.2026, when the register is complete.
+- **isok**: the third-cycle flood maps (the samples end 21.12.2025); check `validityperiod_end` on each refresh.
+- **enea / tauron / PGE Dystrybucja**: the 2026 amendment obliges every DSO to publish load capacity like Energa's PDF.
+  Find each one's document. PGE (Łódź, centre) published nothing for loads before.
+- **tauron**: read the site's terms before a scheduled connector; keep to the server's rate limit.
+- **uke**: probe `pitmap.uke.gov.pl` WMS for SIIS nodes.
+- **psi**: build `data/manual/psi_aid.csv` (subregion → gmina) from Dz.U. 2021 poz. 2422.
 - **kowr**: manual-only (owner decision 12.10.2026); no scraping.
-- **heat**: whether URE publishes concession holders as a machine-readable list.
