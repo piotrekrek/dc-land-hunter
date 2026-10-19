@@ -74,6 +74,7 @@ class SiteFeatures:
     soil_class_iii_pct: Fact[float] | None = None
     on_heritage_register: Fact[bool] | None = None
     residential_min_m: Fact[float] | None = None  # distance to the nearest residential building
+    residential_clear_ha: Fact[float] | None = None  # largest part of the site beyond the housing threshold
     landscape_park_or_ochk: Fact[bool] | None = None
     gas_pipeline_zone: Fact[bool] | None = None
     airport_ols: Fact[bool] | None = None
