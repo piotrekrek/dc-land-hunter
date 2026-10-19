@@ -127,18 +127,22 @@ Total used: 27 GB of 29 GB.
 | `~/.local/share/claude` | 781 MB | Old versions only | Claude CLI installs. |
 | `/var/cache/apt`, `/var/lib/apt` | 0.7 GB | Yes, with sudo | Package caches. |
 
-### Root cause: EGiB snapshots never deduplicate
+### Root cause: EGiB re-downloads the same tiles on every run
 
-- The WFS response is GML that includes a `timeStamp` attribute (for example `timeStamp="2026-10-15T02:32:19"`). Identical parcels therefore produce different bytes on each request, so the content hash differs and every page is stored again. The dedup in `snapshots.py` only helps when the bytes match.
+Measured on the 38 EGiB bundles (19.10.2026):
+
+- The bundles reference 10,429 distinct 1 km tiles, but 24,671 tile downloads. Most tiles were fetched again in later runs (the most repeated tile was fetched 10 times). Every run downloads its tiles again; there is no tile cache.
+- Each download is stored as new objects. The WFS response carries a `timeStamp` attribute, so even identical tiles hash differently. Stripping it cuts the distinct pages from 24,800 to 19,522 (about 20%). The rest of the duplication is re-downloading, not the timestamp.
 - Nothing ever deletes old objects. There is no retention or prune code in `pipeline/dclh_pipeline`.
 - The nightly search adds 8 powiats a night, so the store grew by roughly 5,000 objects a day from 15.10.2026 (pilot run was 14.10).
 
-Fixes to consider (not done yet):
+Fixes:
 
-1. Strip the response timestamp before hashing EGiB pages, so identical data dedups (the single biggest saving; needs a test with a fixture page).
-2. A retention rule for `egib` objects that no longer appear in any manifest line marked good, plus a `dclh` command to prune them.
-3. Remove the stale `raw/` in the `dclh-data` volume after confirming nothing reads it.
-4. Prune Docker: unused images and build cache.
+1. Done (PR #46, branch `fix/egib-dedup-timestamp`): strip the response `timeStamp` before storing EGiB pages. Stops the timestamp-only duplicates for new fetches; existing objects are unchanged.
+2. Not done, needs a decision: reuse tiles already fetched recently instead of downloading them again. This is the bigger saving (about 58% of tile downloads were repeats) but it trades freshness for cost, so `as_of` rules need to be agreed.
+3. Not done: a retention rule for `egib` objects that no longer appear in any manifest line marked good, plus a `dclh` command to prune them.
+4. Remove the stale `raw/` in the `dclh-data` volume after confirming nothing reads it.
+5. Prune Docker: unused images and build cache.
 
 ## 7. Operations quick reference
 
