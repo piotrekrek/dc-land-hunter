@@ -31,7 +31,7 @@ def full_features(**overrides: object) -> SiteFeatures:
         dist_heat_network_km=F(2.0), psi_aid_pts=F(3.0), dist_res_cluster_km=F(5.0), env_decision_found=F(True),
         public_seller=F(True), protected_nature_pct=F(0.0), flood_10_or_1_pct=F(0.0), flood_0_2_pct=F(0.0),
         mining_area_pct=F(0.0), mining_terrain_pct=F(0.0), forest_pct=F(0.0), soil_class_i_ii_pct=F(0.0),
-        soil_class_iii_pct=F(0.0), on_heritage_register=F(False), residential_min_m=F(800.0),
+        soil_class_iii_pct=F(0.0), on_heritage_register=F(False), residential_min_m=F(800.0), residential_clear_ha=F(20.0),
         landscape_park_or_ochk=F(False), gas_pipeline_zone=F(False), airport_ols=F(False),
     )  # fmt: skip
     return replace(base, **overrides)  # type: ignore[arg-type]
@@ -226,6 +226,14 @@ def test_penalties_reduce_the_score() -> None:
     assert item(s, "pen_residential").explanation_pl.startswith("Zabudowa mieszkaniowa w odległości 200 m")
 
 
+def test_housing_closer_than_100_m_is_penalised_when_the_site_is_not_excluded() -> None:
+    # A house on the edge of a site with 20 ha clear of housing: not excluded, but residents are a risk.
+    s = score_site(full_features(residential_min_m=F(3.0)), CFG)
+    assert not s.excluded
+    assert item(s, "pen_residential").points == -10
+    assert item(s, "pen_residential").explanation_pl.startswith("Zabudowa mieszkaniowa w odległości 3 m")
+
+
 def test_soil_class_iii_threshold() -> None:
     assert item(score_site(full_features(soil_class_iii_pct=F(30.0)), CFG), "pen_soil_iii").points == 0
     assert item(score_site(full_features(soil_class_iii_pct=F(31.0)), CFG), "pen_soil_iii").points == -8
@@ -244,7 +252,11 @@ def test_soil_class_iii_threshold() -> None:
         (dict(forest_pct=F(31.0)), "forest_pct_over", "las"),
         (dict(soil_class_i_ii_pct=F(31.0)), "soil_class_I_II_pct_over", "gleby klas I–II"),
         (dict(on_heritage_register=F(True)), "heritage_register", "rejestrze zabytków"),
-        (dict(residential_min_m=F(99.0)), "residential_within_m", "zabudowa mieszkaniowa"),
+        (
+            dict(residential_min_m=F(5.0), residential_clear_ha=F(9.5)),
+            "residential_within_m",
+            "zabudowa mieszkaniowa",
+        ),
     ],
 )
 def test_each_hard_filter_excludes_with_a_reason(
@@ -265,6 +277,7 @@ def test_each_hard_filter_excludes_with_a_reason(
         dict(forest_pct=F(30.0)),
         dict(soil_class_i_ii_pct=F(30.0)),
         dict(residential_min_m=F(100.0)),
+        dict(residential_min_m=F(0.0), residential_clear_ha=F(10.0)),  # a house on the edge, 10 ha clear
     ],
 )
 def test_thresholds_are_inclusive_on_the_safe_side(override: dict[str, object]) -> None:
@@ -412,6 +425,7 @@ def random_features(draw: st.DrawFn) -> SiteFeatures:
         mining_area_pct=draw(_opt_pct), mining_terrain_pct=draw(_opt_pct), forest_pct=draw(_opt_pct),
         soil_class_i_ii_pct=draw(_opt_pct), soil_class_iii_pct=draw(_opt_pct), on_heritage_register=draw(_opt_bool),
         residential_min_m=draw(st.one_of(st.none(), st.floats(0.0, 3000.0).map(F))),
+        residential_clear_ha=draw(st.one_of(st.none(), st.floats(0.0, 500.0).map(F))),
         landscape_park_or_ochk=draw(_opt_bool), gas_pipeline_zone=draw(_opt_bool), airport_ols=draw(_opt_bool),
     )  # fmt: skip
 

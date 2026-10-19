@@ -136,7 +136,12 @@ def run_search(
         Parcel(str(pid), None, geom)
         for pid, geom in zip(big_enough["parcel_id"], big_enough.geometry, strict=True)
     ]
-    sites = cluster_sites(parcels, mw_per_ha=cfg.target.mw_per_ha, max_site_ha=cfg.target.large_site_split_ha)
+    sites = cluster_sites(
+        parcels,
+        mw_per_ha=cfg.target.mw_per_ha,
+        max_site_ha=cfg.target.large_site_split_ha,
+        min_piece_ha=cfg.target.ha_min,
+    )
     report.clusters = len(sites)
     big = [replace(s, flags=[*s.flags, "seed_grid"]) for s in sites if s.area_ha >= cfg.target.ha_min]
     report.clusters_below_min_area = len(sites) - len(big)

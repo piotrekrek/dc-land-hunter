@@ -337,6 +337,24 @@ def residential_fact(site: BaseGeometry, residential: Layer | None) -> Fact[floa
     return _fact(distance, residential.source_id, residential.as_of, residential.confidence)
 
 
+def residential_clear_fact(
+    site: BaseGeometry, residential: Layer | None, threshold_m: float
+) -> Fact[float] | None:
+    """Hectares of the largest connected part of the site at least `threshold_m` from housing (BDOT10k).
+
+    Buildings inside the site count too (a farmhouse on the plot is someone's home). Edge distance alone
+    would exclude a 70 ha site for one house 2 m past its fence, so the hard filter asks whether the campus
+    still fits.
+    """
+    if residential is None:
+        return None
+    near = residential.index.within_m(site, threshold_m)
+    clear = site.difference(unary_union([g.buffer(threshold_m) for g in near])) if near else site
+    parts = getattr(clear, "geoms", [clear])
+    largest_ha = max((p.area for p in parts), default=0.0) / 10_000
+    return _fact(largest_ha, residential.source_id, residential.as_of, residential.confidence)
+
+
 def published_headroom_fact(
     site: BaseGeometry, layer: GpzCapacityLayer, cfg: ScoringConfig
 ) -> Fact[float] | None:
@@ -420,5 +438,8 @@ def build_site_features(
     features["dist_pse_planned_station_km"] = nearest_point_km_fact(site.geom, layers.pse_planned)
     features["zoning"] = zoning_fact(site.geom, layers.zoning, layers.industrial)
     features["residential_min_m"] = residential_fact(site.geom, layers.residential)
+    features["residential_clear_ha"] = residential_clear_fact(
+        site.geom, layers.residential, cfg.hard_filters["residential_within_m"].threshold_m or 100.0
+    )
     features.update(constraint_facts(site.geom, layers.constraints))
     return SiteFeatures(**features)

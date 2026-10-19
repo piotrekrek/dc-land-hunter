@@ -25,7 +25,53 @@ ambiguous names (Sławno, Pomorska, Ostrów, Bojanowo, Kalisz Pomorski), then re
   The baseline for comparison is the 19.10.2026 run above (315 sites, all "Bliskość sieci", 22 not excluded).
   `pse_avail` (planned stations) still needs its ~24 stations geocoded by hand.
 
-Last updated: 19.10.2026 · Phase 3 live DSO/PSE data and GPZ match report (search re-run pending); earlier: Flood (`isok`) and housing (`bdot10k`) connectors, pilot rerun; earlier: source verification round 2 (20 of 23 MVP sources ✓, Enea manual-only); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
+Last updated: 19.10.2026 · Housing filter and cluster split fixed (Reguły investigation); Phase 3 live DSO/PSE data and GPZ match report (search re-run pending); earlier: Flood (`isok`) and housing (`bdot10k`) connectors, pilot rerun; earlier: source verification round 2 (20 of 23 MVP sources ✓, Enea manual-only); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
+
+## Housing filter and cluster split: why Reguły was excluded (19.10.2026)
+
+The 19.10.2026 run of `dclh search 1421 --write` (section below) excluded 293 of 315 sites, all six sites in obręb
+0013 Reguły among them, and no golden parcel reached a scored site. Replayed offline from the same snapshots
+(identical funnel: 315 scored, 293 excluded) and checked:
+
+- **(a) Which buildings trigger it.** Real homes, not a data fault. Of 43,015 residential buildings in the powiat,
+  94% are `budynek jednorodzinny`, 3% `wielorodzinny`, 1% `dom letniskowy`; 99.1% are in use. Only 24 are tagged
+  together with `budynek gospodarczy` (farm outbuildings are a separate function and do not pass the filter). 159 of the 286 housing-excluded sites have a home inside the cluster
+  (median 1, max 195: town fringes); the other 127 have one 0–100 m outside the edge.
+- **(b) How distance was measured.** From the site edge to the nearest building; a building inside the site is 0 m.
+  That is the fault: a 69.8 ha Reguły site was excluded for one house 2.3 m past its boundary although 57.9 ha of it
+  lie more than 100 m from every home. Of the 199 sites excluded by housing alone, 127 still have a connected
+  part of 10 ha or more beyond 100 m from any home.
+- **(c) Threshold.** 100 m is fine and unchanged. The brief's deal killer is "housing too close" to the data centre,
+  which on a 30–70 ha site can stand 100 m+ from the fence.
+- **(d) Golden parcels.** `.409` (0.22 ha) falls under the 1 ha lot cut, which leaves `.408` (1.77 ha) on its own.
+  `.562/2`, `.562/3` and `.562/4` touch each other (13.1 ha together), but the 80 ha grid cut put them in different
+  cells: one piece of 4.3 ha and one of 8.75 ha, both dropped as under 10 ha. `.564/2` was in a 35.6 ha site,
+  excluded for a house 1.2 m away. The cut dropped 546 pieces (2,044 ha) under 10 ha across the powiat.
+
+**Fix** (PR "Housing filter: clear area, not edge distance; keep split pieces of 10 ha+"):
+
+- New fact `residential_clear_ha`: the largest connected part of the site 100 m or more from every residential
+  building (buildings inside count). `residential_within_m` excludes a site when that is under `target.ha_min`
+  (10 ha). `residential_min_m` stays for display; the 10-point penalty now applies to any kept site with a home
+  under 300 m (it was 100–300 m, and under 100 m was always excluded).
+- After the 80 ha cut, a piece under 10 ha joins the smallest piece it touches. Separate clusters never merge.
+
+Replay with the fix (same snapshots):
+
+| Measure | Before | After |
+|---|---|---|
+| Clusters / under 10 ha | 1,239 / 924 | 825 / 470 |
+| Scored sites | 315 | 355 |
+| Excluded | 293 | 194 |
+| · housing (only) | 286 (199) | 111 (83) |
+| · flood (only) | 85 (6) | 102 (75) |
+| · GDOŚ | 9 | 9 |
+| Not excluded | 22 | 161 |
+
+Reguły after the fix: `.562/2`–`.562/4` form an 18.1 ha site (a home inside, 11.9 ha clear), not excluded, rank 75
+of 161. `.564/2` is in a 41.1 ha site (33.1 ha clear), rank 19 of 161 (top 12%). The 69.8 ha site is still out, for
+flood. Two small Reguły sites stay excluded for housing (1.4 and 2.4 ha clear). `.408` is still not scored (1 ha lot
+cut). The golden expectation (top 20%) is met by the `.564/2` site; the golden coordinates are still unverified.
 
 ## Flood and housing hard filters: `isok` and `bdot10k` connectors (19.10.2026, run on the VPS)
 

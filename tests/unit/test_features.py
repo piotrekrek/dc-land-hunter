@@ -21,6 +21,7 @@ from dclh_pipeline.model.features import (
     overlap_pct,
     passes_grid_prefilter,
     powered_brownfield,
+    residential_clear_fact,
     residential_fact,
     zoning_fact,
 )
@@ -249,6 +250,20 @@ def test_residential_distance_in_metres() -> None:
     assert residential_fact(SITE, None) is None
 
 
+def test_residential_clear_area_is_the_largest_part_far_enough_from_housing() -> None:
+    # A house 1 m outside a corner of the 25 ha site: the site edge is 1 m away, but most of it is clear.
+    corner = residential_clear_fact(SITE, layer([box(501, 501, 511, 511)], "bdot10k"), 100.0)
+    assert corner is not None and 23.0 < corner.value < 25.0
+    assert corner.source_id == "bdot10k"
+    # A terrace across the middle (y 245..255): two 500 x 145 m strips stay clear, 7.25 ha each.
+    middle = residential_clear_fact(SITE, layer([box(-10, 245, 510, 255)]), 100.0)
+    assert middle is not None and middle.value == pytest.approx(7.25)
+    # Nothing within the threshold: the whole site is clear.
+    far = residential_clear_fact(SITE, layer([box(700, 0, 710, 10)]), 100.0)
+    assert far is not None and far.value == pytest.approx(25.0)
+    assert residential_clear_fact(SITE, None, 100.0) is None
+
+
 # --- assembly -------------------------------------------------------------------------------------------------------
 
 
@@ -272,6 +287,7 @@ def test_build_site_features_from_cluster_and_layers() -> None:
     )  # site spans x 0..700
     assert features.dist_node_220_400_km is None  # no node layer loaded: missing
     assert features.residential_min_m is None
+    assert features.residential_clear_ha is None
     assert features.flood_10_or_1_pct is None
 
 

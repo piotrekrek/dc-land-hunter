@@ -94,17 +94,51 @@ def _split_by_grid(group: list[Parcel], max_site_ha: float, gap_m: float) -> lis
     return pieces
 
 
+def _merge_small_pieces(pieces: list[list[Parcel]], min_piece_ha: float, gap_m: float) -> list[list[Parcel]]:
+    """Join each piece under `min_piece_ha` to the smallest piece it touches, smallest first.
+
+    The grid cut ignores parcel shapes, so a contiguous block can fall into two cells as two pieces that are
+    each under the minimum and get dropped (Pruszków, obręb Reguły). Pieces of one cluster always touch
+    another piece unless the cluster is a single piece.
+    """
+    pieces = [list(p) for p in pieces]
+
+    def ha(piece: list[Parcel]) -> float:
+        return float(sum(p.geom.area for p in piece)) / 10_000
+
+    def key(i: int) -> tuple[float, list[str]]:
+        return ha(pieces[i]), sorted(p.parcel_id for p in pieces[i])
+
+    while True:
+        for i in sorted((i for i in range(len(pieces)) if ha(pieces[i]) < min_piece_ha), key=key):
+            geom = union_all([p.geom for p in pieces[i]])
+            touching = [
+                j
+                for j in range(len(pieces))
+                if j != i and geom.distance(union_all([p.geom for p in pieces[j]])) <= gap_m
+            ]
+            if touching:
+                j = min(touching, key=key)
+                pieces[j].extend(pieces[i])
+                del pieces[i]
+                break
+        else:
+            return pieces
+
+
 def cluster_sites(
     parcels: Iterable[Parcel],
     *,
     gap_m: float = GAP_M,
     mw_per_ha: float = DEFAULT_MW_PER_HA,
     max_site_ha: float | None = None,
+    min_piece_ha: float | None = None,
 ) -> list[Site]:
     """Cluster parcels into sites, per zone. Parcels with no zone are clustered among themselves.
 
     With `max_site_ha`, a cluster larger than that is cut into pieces of about that size
-    (flag `split_cluster`).
+    (flag `split_cluster`). With `min_piece_ha`, a piece of a cut cluster smaller than that joins a
+    neighbouring piece instead of being left too small to score.
     Without zoning, adjacency alone chains a whole town into one cluster, so the search always sets it.
 
     The result is sorted by `site_id` so repeated runs give the same order.
@@ -120,7 +154,10 @@ def cluster_sites(
         for members in _components(geoms, gap_m):
             group = [zone_parcels[i] for i in members]
             if max_site_ha is not None and sum(p.geom.area for p in group) / 10_000 > max_site_ha:
-                groups.extend((piece, True) for piece in _split_by_grid(group, max_site_ha, gap_m))
+                pieces = _split_by_grid(group, max_site_ha, gap_m)
+                if min_piece_ha is not None:
+                    pieces = _merge_small_pieces(pieces, min_piece_ha, gap_m)
+                groups.extend((piece, True) for piece in pieces)
             else:
                 groups.append((group, False))
         for group, was_split in groups:

@@ -1,7 +1,8 @@
 """GUGiK BDOT10k: residential buildings of one powiat, for the distance-to-housing filter.
 
-Feeds `residential_min_m` (hard filter `residential_within_m`, penalty `residential_100_300m`). Verified
-19.10.2026 (docs/SOURCES.md): the WFS layer `ms:BDOT10k_powiaty` gives each powiat's zip in `URL_GML`
+Feeds `residential_min_m` and `residential_clear_ha` (hard filter `residential_within_m`, penalty
+`residential_100_300m`). Verified 19.10.2026 (docs/SOURCES.md): the WFS layer `ms:BDOT10k_powiaty` gives
+each powiat's zip in `URL_GML`
 (`https://opendata.geoportal.gov.pl/bdot10k/schemat2021/14/1421_GML.zip`, 18.6 MB). Buildings are in the
 member `…__OT_BUBD_A.xml`, EPSG:2180, easting-first. Residential means `funkcjaOgolnaBudynku = "budynki
 mieszkalne"`; buildings with `kategoriaIstnienia = "zniszczony"` (ruins) are left out. Buildings under
