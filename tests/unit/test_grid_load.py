@@ -2,40 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from datetime import UTC, datetime
-from pathlib import Path
 
 import geopandas as gpd
 import pytest
-from alembic import command
-from alembic.config import Config
 from shapely.geometry import LineString, Point
-from sqlalchemy import create_engine, text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy import text
 
 from dclh_pipeline.db import session_scope
 from dclh_pipeline.grid_load import load_grid
-from dclh_pipeline.settings import get_settings
 
-pytestmark = pytest.mark.db
+pytestmark = [pytest.mark.db, pytest.mark.usefixtures("migrated_db")]
 
-ALEMBIC_INI = Path(__file__).parents[2] / "api" / "alembic.ini"
 AS_OF = datetime(2026, 10, 12, tzinfo=UTC)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def migrated_db() -> Iterator[None]:
-    url = get_settings().database_url
-    try:
-        with create_engine(url, connect_args={"connect_timeout": 2}).connect() as conn:
-            conn.execute(text("SELECT 1"))
-    except OperationalError:
-        pytest.skip(f"no database at {url}")
-    cfg = Config(str(ALEMBIC_INI))
-    command.downgrade(cfg, "base")
-    command.upgrade(cfg, "head")
-    yield
 
 
 def table(rows: list[tuple[str, int, str, str, str, object]]) -> gpd.GeoDataFrame:

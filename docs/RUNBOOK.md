@@ -67,9 +67,16 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pyt
 cd web && pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ```
 
-Database tests (`tests/unit/test_db.py`) run when `DATABASE_URL` reaches a PostGIS database and are
-skipped otherwise. **They downgrade and re-create the schema**, so point them at a scratch database, never
-at one with real data.
+Database tests (`migrated_db` in `tests/conftest.py`) **downgrade and re-create the schema**, so they never
+use `DATABASE_URL`. They run only when `DCLH_TEST_DATABASE_URL` is set and are skipped otherwise. The run
+aborts (exit 3) if that database's name does not end in `_test` or its `sites` table has rows. Use a
+throwaway container, never the compose `db` service (on the VPS it is production):
+
+```bash
+docker run -d --rm --name dclh-test-pg -e POSTGRES_USER=dclh -e POSTGRES_PASSWORD=dclh -e POSTGRES_DB=dclh_test -p 127.0.0.1:55439:5432 postgis/postgis:16-3.4
+DCLH_TEST_DATABASE_URL=postgresql+psycopg://dclh:dclh@127.0.0.1:55439/dclh_test uv run pytest
+docker rm -f dclh-test-pg
+```
 
 End-to-end smoke tests (Playwright, against the running stack):
 

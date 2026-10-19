@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy import text
 
 from dclh_api.main import create_app
 from dclh_pipeline.config import load_sources
@@ -19,23 +15,7 @@ from dclh_pipeline.db.models import JobRow, RunRow, SourceRow
 from dclh_pipeline.jobs import claim_next, enqueue, execute, sync_sources
 from dclh_pipeline.settings import get_settings
 
-pytestmark = pytest.mark.db
-
-ALEMBIC_INI = Path(__file__).parents[2] / "api" / "alembic.ini"
-
-
-@pytest.fixture(scope="module", autouse=True)
-def migrated_db() -> Iterator[None]:
-    url = get_settings().database_url
-    try:
-        with create_engine(url, connect_args={"connect_timeout": 2}).connect() as conn:
-            conn.execute(text("SELECT 1"))
-    except OperationalError:
-        pytest.skip(f"no database at {url}")
-    cfg = Config(str(ALEMBIC_INI))
-    command.downgrade(cfg, "base")
-    command.upgrade(cfg, "head")
-    yield
+pytestmark = [pytest.mark.db, pytest.mark.usefixtures("migrated_db")]
 
 
 def test_health_ok_with_postgis() -> None:
@@ -119,7 +99,6 @@ def test_sources_endpoint_reads_db_state() -> None:
 
 
 def test_phase1_tables_and_map_views() -> None:
-    from sqlalchemy import text
 
     from dclh_pipeline.db import get_engine
 
