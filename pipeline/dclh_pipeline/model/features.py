@@ -126,11 +126,12 @@ class GridIndex:
 
 @dataclass(frozen=True)
 class ZoningLayer:
-    """Planning zones (RU: MPZP and plan ogólny), each already mapped to a `ZoningKind`."""
+    """Planning zones from one source (KIMPZP, RU MPZP or RU plan ogólny), each mapped to a `ZoningKind`."""
 
     source_id: str
     as_of: datetime | None
     zones: tuple[tuple[ZoningKind, BaseGeometry], ...]
+    confidence: Confidence = Confidence.VERIFIED
 
 
 @dataclass(frozen=True)
@@ -270,16 +271,18 @@ def powered_brownfield(site: BaseGeometry, industrial: Layer | None, grid: GridI
 
 
 def zoning_fact(
-    site: BaseGeometry, zoning: ZoningLayer | None, industrial: Layer | None
+    site: BaseGeometry, zoning: Sequence[ZoningLayer], industrial: Layer | None
 ) -> Fact[ZoningKind] | None:
-    """The zone covering most of the site; else an industrial area as `unknown`; else `unknown`, missing.
+    """The zone covering most of the site in the first layer that has one; else an industrial area as
+    `unknown`; else `unknown`, missing.
 
+    `zoning` is in order of precedence (an MPZP in force before a procedure, both before the plan ogólny).
     Returns None only when no planning layer is loaded at all. A loaded register without a plan is
     "unknown", not "bad" (brief 3, R3), so it is never counted as a known plan.
     """
-    if zoning is not None:
+    for layer in zoning:
         best: tuple[float, ZoningKind] | None = None
-        for kind, zone in zoning.zones:
+        for kind, zone in layer.zones:
             if not zone.intersects(site):
                 continue
             overlap = zone.intersection(site).area
@@ -288,12 +291,11 @@ def zoning_fact(
             if best is None or overlap > best[0]:
                 best = (overlap, kind)
         if best is not None:
-            return _fact(best[1], zoning.source_id, zoning.as_of, Confidence.VERIFIED)
+            return _fact(best[1], layer.source_id, layer.as_of, layer.confidence)
     if industrial is not None and industrial.index.intersecting(site):
         return _fact(ZoningKind.UNKNOWN, industrial.source_id, industrial.as_of, Confidence.ESTIMATED)
-    if zoning is not None:
-        source = zoning.source_id
-        return _fact(ZoningKind.UNKNOWN, source, zoning.as_of, Confidence.MISSING)
+    if zoning:
+        return _fact(ZoningKind.UNKNOWN, zoning[0].source_id, zoning[0].as_of, Confidence.MISSING)
     return None
 
 
@@ -404,7 +406,7 @@ class SiteLayers:
     """Everything a site's features come from. A None layer means "not loaded", so its facts are missing."""
 
     grid: GridIndex | None = None
-    zoning: ZoningLayer | None = None
+    zoning: tuple[ZoningLayer, ...] = ()  # in order of precedence, see `zoning_fact`
     industrial: Layer | None = None  # OSM / BDOT10k industrial and brownfield areas
     residential: Layer | None = None  # residential buildings
     constraints: dict[str, Layer] = field(default_factory=dict)

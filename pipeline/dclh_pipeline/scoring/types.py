@@ -11,7 +11,8 @@ from dclh_pipeline.model.provenance import Confidence
 
 class ZoningKind(StrEnum):
     MPZP_PRODUCTION = "mpzp_production"  # MPZP with P, PU, P/U, U/P (also E or technical infrastructure)
-    PLAN_OGOLNY_SG = "plan_ogolny_SG"  # plan ogólny, "strefa gospodarcza"
+    # plan ogólny, "strefa gospodarcza". Its APP symbol is SP; the name predates the check on real data.
+    PLAN_OGOLNY_SG = "plan_ogolny_SG"
     PROCEDURE_IN_PROGRESS = "procedure_in_progress"
     UNKNOWN = "unknown"  # no plan found: unknown, not bad (the Rejestr Urbanistyczny is incomplete)
     OTHER = "other"

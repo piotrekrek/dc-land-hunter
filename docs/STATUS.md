@@ -25,7 +25,54 @@ ambiguous names (Sławno, Pomorska, Ostrów, Bojanowo, Kalisz Pomorski), then re
   The baseline for comparison is the 19.10.2026 run above (315 sites, all "Bliskość sieci", 22 not excluded).
   `pse_avail` (planned stations) still needs its ~24 stations geocoded by hand.
 
-Last updated: 19.10.2026 · Phase 1 closed (admin_units loaded, substation counts per voivodeship); Housing filter and cluster split fixed (Reguły investigation); Phase 3 live DSO/PSE data and GPZ match report (search re-run pending); earlier: Flood (`isok`) and housing (`bdot10k`) connectors, pilot rerun; earlier: source verification round 2 (20 of 23 MVP sources ✓, Enea manual-only); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
+Last updated: 19.10.2026 · Phase 1 closed (admin_units loaded, substation counts per voivodeship); Zoning layer (`ru`, `kimpzp`), 1421 rerun (writes 315 sites); Phase 3 live DSO/PSE data and GPZ match report; earlier: Flood (`isok`) and housing (`bdot10k`) connectors, pilot rerun; earlier: source verification round 2 (20 of 23 MVP sources ✓, Enea manual-only); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
+
+## Zoning layer: `ru` and `kimpzp` connectors (19.10.2026, run on the VPS)
+
+- `sources/ru.py` pages the RU WFS over the powiat bbox: `app-pog:StrefaPlanistyczna` (plan ogólny zones) and
+  `app-mpzp:AktPlanowaniaPrzestrzennego` (MPZP outlines, no designations). 10 features per request (the server's
+  limit), `startIndex` paging, `numberMatched` check, northing-first axes checked. The zone type and plan status are
+  xlinks, read via GDAL's `GML_ATTRIBUTES_TO_OGR_FIELDS`. The server refuses (400) any page that holds a broken
+  feature; the connector then asks that page one by one and skips only the refused features (logged, kept in
+  `skipped.json`; it fails above 20). In 1421 one MPZP outline is broken and skipped.
+- `sources/kimpzp.py` asks WMS 1.1.1 GetFeatureInfo at up to 3 points per site (middle, then each half), **only for
+  the sites the hard filters keep**, and keeps every raw answer in the snapshot. It reads Warsaw's XML rows
+  (`FUN_SYMB`), GeoServer tables, ESRI `FIELDS` and "brak wyniku"/"brak serwisu". Anything else is "unparsed". A gmina
+  server that fails leaves that point without a plan; it does not fail the search.
+- **Correction: the strefa gospodarcza is `SP`, not `SG`** (`nazwa = …/strefaGospodarcza`). The zoning model reads the
+  zone type, not the symbol. The UI label now says "(SP)"; the config key `plan_ogolny_SG` keeps its name.
+- Mapping (`model/zoning.py`): MPZP P / PU / P-U / U-P / E / IT → production (area numbers like `3k U-O/US` are read).
+  Plan ogólny in force: SP → `plan_ogolny_SG` (80), other zones → `other`. Plan ogólny draft: SP → `procedure_in_progress`
+  (50), other draft zones are ignored (not binding). MPZP outline in procedure → `procedure_in_progress`; in force →
+  ignored (no designation; KIMPZP has to say what it allows).
+- Precedence, first layer with a zone covering ≥1% of the site wins: KIMPZP designation (`estimated`, point samples) >
+  RU MPZP procedure > RU plan ogólny (`verified`). No plan anywhere stays `unknown` (30%, `missing`).
+
+Layers for 1421 (bbox of the powiat): 52 MPZP outlines (42 in force, 10 in procedure; 1 more skipped as broken) and
+1,149 plan ogólny zones, **all drafts** (`elaboration`), of which 49 SP. KIMPZP: 66 points at the 22 kept sites, all
+"no plan" (gminas answer "brak wyniku dla wskazanego obszaru" or an empty GeoServer page). RU fetch about 2.5 min, KIMPZP 68 s.
+
+`dclh search 1421 --write` rerun (branch code, same 315 sites and the same 293 exclusions):
+
+| Zoning of the 315 sites | Before | After |
+|---|---|---|
+| `unknown`, no source (`missing`) | 315 | 0 |
+| `unknown`, register loaded but no plan (`missing`) | – | 310 |
+| `procedure_in_progress` from RU (`verified`) | – | 5 (1 not excluded) |
+| MPZP production / plan ogólny SP in force | – | 0 |
+
+- Score change: +5.0 points for those 5 sites (zoning 7.5 → 12.5 of 25), completeness 0.314 → 0.343. The other 310
+  sites are unchanged (unknown scores the same 30% as before, now with a source).
+- The one kept site that changed is `site-87f9a89cc8ea` (10.6 ha, Ożarów Mazowiecki): 52.9 → 57.9, now first among
+  the 22 kept sites (it was third). The two top-scored sites of the powiat (`site-26997a0277e7` 61.6,
+  `site-fb36cfdca6bf` 60.6) are procedure sites but excluded by the hard filters.
+- Zoning confidence among the 22 kept sites: 21 `missing`, 1 `verified`. Zoning is still mostly unknown in 1421,
+  because no plan ogólny there is in force yet and KIMPZP has no vector plan at any kept site.
+- Not done: the zoning seed (search inside SP zones far from the grid); plan ogólny drafts of other zones as a
+  negative signal; a flag for "MPZP in force, designation unknown". **Rerun after 30.11.2026**, when the Rejestr
+  Urbanistyczny must be complete and plans ogólne come into force. The nightly job runs the old code until this
+  branch is merged and deployed.
+
 
 ## Housing filter and cluster split: why Reguły was excluded (19.10.2026)
 
@@ -174,7 +221,7 @@ Docs, probe config and fixtures only. No connector code changed.
   `tauron`, `psi`, `heat`. Still ⚠: `uke` (lead only). `enea` is manual CSV only (owner decision 19.10.2026): its Power BI map covers MV/LV only and Enea has no statutory load-capacity PDF; its art. 7 ust. 8l PDFs list about 82 load entries at 110 kV (queue signal, hard to parse).
 - Hard filters now have verified data: flood = ISOK `NZ.Fluvial` with probability 0.01; housing = BDOT10k
   `OT_BUBD_A` with `funkcjaOgolnaBudynku = "budynki mieszkalne"`. Both are now loaded (section above).
-- Zoning: RU WFS gives plan ogólny zones (`symbol`, e.g. SG) and MPZP **outlines** only. MPZP designations come from
+- Zoning: RU WFS gives plan ogólny zones (`symbol`; the strefa gospodarcza is SP, see the zoning section) and MPZP **outlines** only. MPZP designations come from
   KIMPZP GetFeatureInfo (WMS 1.1.1 only), point by point and in a different format per gmina.
 - Grid: Tauron has a JSON API per GPZ (513 GPZs). Energa publishes a statutory PDF per group of 110 kV nodes. PSE's
   art. 7 ust. 8l list is an XLSX with 33 load (ODB) projects, mostly data centres. Enea's map is Power BI and covers

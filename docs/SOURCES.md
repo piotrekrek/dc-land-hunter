@@ -39,17 +39,28 @@ file or calling the endpoint, as described here.
   separates `budynek jednorodzinny` / `wielorodzinny` / `dom letniskowy`.
 - **`ru` ✓ zoning** (addresses from the RU "Usługi sieciowe" page):
   - `https://rejestr-urbanistyczny.gov.pl/uslugi-sieciowe/app-pog/wfs`: `app-pog:StrefaPlanistyczna` (506,565 plan
-    ogólny zones). The fields `symbol` (e.g. `SJ`, `SU`, `SI`; `SG` for strefa gospodarcza) and `oznaczenie` are
-    readable with pyogrio. EPSG:2180, northing-first. **CountDefault is 10** (10 features per request), so query by
-    bbox per candidate area: 679 zones around Pruszków. A FES filter on `nazwa` returned 0, so filter on the client.
+    ogólny zones). The fields `symbol` (e.g. `SJ`, `SU`, `SI`) and `oznaczenie` are readable with pyogrio. EPSG:2180,
+    northing-first. **CountDefault is 10** (at most 10 features per request whatever `count` asks), but `startIndex`
+    paging works: the 679 zones around Pruszków take 68 requests (46 s). A FES filter on `nazwa` returned 0, so filter on the client.
+    **Correction (19.10.2026, `ru` connector): the strefa gospodarcza is symbol `SP`, not `SG`.** Its `nazwa` is the
+    xlink `…/codelist/RodzajStrefyPlanistycznejKod/strefaGospodarcza` (title "strefa gospodarcza"). Around Pruszków:
+    54 SP zones, 0 SG. The connector reads `nazwa`, not the symbol. GDAL exposes the xlinks as `nazwa_href` and
+    `status_href` with the open option `GML_ATTRIBUTES_TO_OGR_FIELDS=YES`. `status` is the INSPIRE
+    `ProcessStepGeneralValue`: `legalForce` (in force), `elaboration` ("w opracowaniu"), `adoption` ("w trakcie
+    przyjmowania"). Every zone around Pruszków is still `elaboration` (475) or `adoption` (204): no plan ogólny there
+    is in force yet.
   - `…/app-mpzp/wfs`: `app-mpzp:AktPlanowaniaPrzestrzennego` = **MPZP outlines only** (3,951; 97 around Pruszków),
-    no designations (P, PU…). They tell "a plan exists here", not what it allows.
+    no designations (P, PU…). They tell "a plan exists here", not what it allows. Their `status` (same code list)
+    marks plans in procedure: around Pruszków 67 `legalForce`, 9 `elaboration`, 1 `adoption` in the first 77.
   - JSON: `POST https://rejestr-urbanistyczny.gov.pl/api/public/published/query` (criteria `parcelIdentifier`,
     `tercCodeList`, `plansGroup`). It works over plain HTTP. Reguły parcel `142104_2.0013.562/2` has no published MPZP.
 - **`kimpzp` ✓ MPZP designations, point queries only.** WMS GetFeatureInfo works with **version 1.1.1, `srs=EPSG:4326`,
   lon/lat bbox**. With 1.3.0 every point answers "brak serwisu dla wskazanego obszaru". In Warsaw it returns plan name
   and `FUN_SYMB` (e.g. `3k U-O/US`, `2 KDD`). Each gmina's server answers in its own format (Warsaw: XML with
-  `MPZP_PRZEZNACZENIE_TERENU` rows), so the parser must tolerate several layouts. The KIMPZP WFS lists 0 layers.
+  `MPZP_PRZEZNACZENIE_TERENU` rows), so the parser must tolerate several layouts. Seen on 19.10.2026 at 34 candidate
+  sites in powiat 1421: "<gmina>: brak wyniku dla wskazanego obszaru" (Brwinów, Nadarzyn, Michałowice, Raszyn,
+  Pruszków, Podkowa Leśna, Ożarów Mazowiecki, Lesznowola, Żabia Wola) and, twice, an empty GeoServer HTML page
+  (`table.featureInfo`, no rows). **No site in 1421 got a designation.** The KIMPZP WFS lists 0 layers.
   The 14.10 follow-up verdict "WFS available" was wrong: it should say 0 layers. At Reguły the answer is "brak wyniku"
   (no vector plan there).
 

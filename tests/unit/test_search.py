@@ -166,3 +166,38 @@ def test_loaded_layers_with_nothing_near_give_real_values_not_missing() -> None:
     (site,) = run_search(AREA, layers, CFG, lambda tiles: parcels()).scored
     assert not site.score.excluded
     assert site.features.flood_10_or_1_pct is not None and site.features.flood_10_or_1_pct.value == 0.0
+
+
+def test_kimpzp_samples_only_kept_sites_and_outranks_the_register() -> None:
+    from dclh_pipeline.model.features import GeomIndex, Layer, ZoningLayer
+    from dclh_pipeline.model.provenance import Confidence
+    from dclh_pipeline.scoring.types import ZoningKind
+
+    pog = ZoningLayer("ru", None, ((ZoningKind.PLAN_OGOLNY_SG, box(X0 - 100, Y0 - 100, X0 + 900, Y0 + 500)),))
+    asked: list[list[str]] = []
+
+    def sample(sites):  # type: ignore[no-untyped-def]
+        asked.append([s.site_id for s in sites])
+        zones = tuple((ZoningKind.MPZP_PRODUCTION, s.geom) for s in sites)
+        return ZoningLayer("kimpzp", None, zones, Confidence.ESTIMATED), {"plan": 3}
+
+    result = run_search(
+        AREA, SiteLayers(grid=grid(), zoning=(pog,)), CFG, lambda t: parcels(), sample_zoning=sample
+    )
+    (site,) = result.scored
+    assert asked == [[site.site.site_id]]
+    assert site.features.zoning is not None
+    assert (site.features.zoning.value, site.features.zoning.source_id) == (
+        ZoningKind.MPZP_PRODUCTION,
+        "kimpzp",
+    )
+    assert result.report.kimpzp_answers == {"plan": 3}
+    assert result.report.zoning == {"mpzp_production": 1}
+
+    # An excluded site is not sampled: its zoning comes from the register alone.
+    asked.clear()
+    flood = Layer("isok", GeomIndex([box(X0, Y0, X0 + 100, Y0 + 100)]), confidence=Confidence.VERIFIED)
+    layers = SiteLayers(grid=grid(), zoning=(pog,), constraints={"flood_10_or_1": flood})
+    (excluded,) = run_search(AREA, layers, CFG, lambda t: parcels(), sample_zoning=sample).scored
+    assert excluded.score.excluded and asked == []
+    assert excluded.features.zoning is not None and excluded.features.zoning.source_id == "ru"
