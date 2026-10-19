@@ -1,6 +1,6 @@
 # Live samples: source verification round 2 (19.10.2026, VPS in Poland)
 
-Raw responses saved while confirming the open sources in `docs/SOURCES.md`. No connector reads them yet; they are
+Raw responses saved while confirming the open sources in `docs/SOURCES.md`. Only `isok_nz_fluvial_1.gml` is read by a test so far (`tests/unit/test_isok.py`); the rest are
 here so the first connector for each source can be tested against a real payload.
 
 | File | Source | Request |
