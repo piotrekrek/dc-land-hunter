@@ -4,14 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select, text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy import select
 
 from dclh_api.main import create_app
 from dclh_api.security import LoginThrottle, login_throttle
@@ -28,9 +24,7 @@ from dclh_pipeline.auth import (
 )
 from dclh_pipeline.db import session_scope
 from dclh_pipeline.db.models import JobRow, SessionRow
-from dclh_pipeline.settings import get_settings
 
-ALEMBIC_INI = Path(__file__).parents[2] / "api" / "alembic.ini"
 PASSWORD = "correct horse battery"
 
 
@@ -80,16 +74,7 @@ def test_login_throttle_does_not_keep_unused_or_expired_keys() -> None:
 
 
 @pytest.fixture(scope="module")
-def db() -> Iterator[None]:
-    url = get_settings().database_url
-    try:
-        with create_engine(url, connect_args={"connect_timeout": 2}).connect() as conn:
-            conn.execute(text("SELECT 1"))
-    except OperationalError:
-        pytest.skip(f"no database at {url}")
-    cfg = Config(str(ALEMBIC_INI))
-    command.downgrade(cfg, "base")
-    command.upgrade(cfg, "head")
+def db(migrated_db: None) -> Iterator[None]:
     with session_scope() as s:
         create_user(s, "Admin@Example.org", PASSWORD, role="admin")
         create_user(s, "member@example.org", PASSWORD)
