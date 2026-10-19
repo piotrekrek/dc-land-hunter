@@ -117,21 +117,46 @@ uv run alembic -c api/alembic.ini revision -m "add substations"   # then edit th
 4. Run it through `run_source()`, which handles failure, fallback to the last good snapshot and the
    `SOURCE_FAILURE` event.
 
-## Grid capacity files (Phase 3, manual import)
+## Grid capacity: DSO and PSE data (Phase 3)
 
-Enea, Energa, Tauron and the PSE lists have no verified data endpoint yet (see `docs/SOURCES.md`). Until one is
-verified, save the published file as CSV or XLSX with the canonical columns (`data/manual/README.md`), then:
+Tauron and Energa have connectors (endpoints verified 19.10.2026, `docs/SOURCES.md`). Run them from the VPS:
 
 ```bash
-uv run dclh import-manual enea  data/manual/enea_2026-10.csv     # or energa, tauron
-uv run dclh import-manual pse_closed  data/manual/pse_closed_2026-10.xlsx   # or pse_odb, pse_avail
+uv run dclh fetch tauron    # 513 GPZs with MW, group and location; about 6 POST requests
+uv run dclh fetch energa    # the statutory load-capacity PDF, per group of 110 kV nodes
+```
+
+The PSE lists are monthly XLSX files on the PSE page "Wykaz obiektów planowanych do przyłączenia" (the date is in
+the file name). Download the newest ones and import them as they are:
+
+```bash
+uv run dclh import-manual pse_closed ~/20260204_Lista_rozdzielni-brak_mozliwosci_przylaczenia.xlsx
+uv run dclh import-manual pse_odb ~/Informacje_publikowane_zgodnie_z_Art_7_ust_8l_ustawy_PE_stan_na_31_08_2026.xlsx
+rm ~/Informacje_publikowane_*.xlsx   # it names applicants; only the reduced table is stored
+```
+
+`pse_odb` keeps only the `ODB` rows and only station, voltage, MW, status and dates: the applicant column is
+never read, and the snapshot is the reduced CSV, not PSE's file. Enea (owner decision) and anything else without
+a connector still go through the canonical CSV/XLSX columns (`data/manual/README.md`):
+
+```bash
+uv run dclh import-manual enea  data/manual/enea_2026-10.csv     # or energa, tauron as a fallback
+uv run dclh import-manual pse_avail  data/manual/pse_avail_2026-10.csv   # planned stations, with coordinates
 ```
 
 The command checks every row first and stores a snapshot under `data/raw/<source>/` only if all are valid (the
 original file stays where it is). A bad row fails the whole import and prints its row number; nothing is stored,
-so fix the file and run it again. The GPZ names in the
-DSO file are matched to OSM substations by name: a fuzzy match needs a score of at least `grid.gpz_match_min_score`
-(88) and a clear winner. Put any other match in `data/manual/gpz_mapping.csv` (it always wins).
+so fix the file and run it again.
+
+`dclh search` uses the newest good snapshot of each of these sources; a source never loaded stays "brak danych".
+Tauron gives locations. Energa and Enea GPZ names are matched to OSM GPZs, and the PSE stations to OSM 220/400 kV
+nodes, by name: a fuzzy match needs a score of at least `grid.gpz_match_min_score` (90), a clear winner and no
+station of another DSO. Check the result, and put any other match in `data/manual/gpz_mapping.csv` (it always
+wins; it is copied into the image, so rebuild after editing it):
+
+```bash
+uv run dclh gpz-report   # match rate per source; CSV of every name and its reason under data/reports/
+```
 
 ## OSM power grid (substations and lines)
 

@@ -59,21 +59,29 @@ file or calling the endpoint, as described here.
   `{"layer_type":"odbiorcy","criteria":{"minimum_mw":0,"year_from":2026,"year_to":2026,"province":""},"page":{"offset":0,"limit":100}}`.
   It works from the VPS **without a WordPress nonce or cookie**. 513 GPZs for loads, each with `gpz_code`, `name`,
   `group_name` (GPZs that share capacity), `value_mw` and `lat`/`lng`. Years 2026–2031. The server rate-limits (429,
-  `Retry-After`, code `API_RATE_LIMITED`). robots.txt allows all. The site's terms are not yet read.
+  `Retry-After`, code `API_RATE_LIMITED`). robots.txt allows all. **Terms read 19.10.2026:** the portal has no terms
+  page of its own; the Tauron service rules (`tauron-dystrybucja.pl/regulamin-swiadczenia-uslug`, §11) only forbid
+  overloading their systems, and the map says the data are "orientacyjne" (indicative). Nothing forbids automated
+  reading, so the `tauron` connector (`sources/tauron.py`, `dclh fetch tauron`) reads it politely (about 6 requests).
 - **`energa` ✓.** Since the 30.04.2026 amendment, Energa publishes "Informacja o wartości łącznej dostępnej odbiorczej mocy
   przyłączeniowej" as a PDF (16 pages, stan na 31.08.2026) on
   `https://energa-operator.pl/przylaczenie-do-sieci/informacje-o-stanie-przylaczen` (the link redirects to a signed CDN URL).
   Capacity is given **per group of coherent 110 kV nodes** (named GPZ lists per group), with a 5-year horizon. This is
-  the 110 kV-level signal the brief wanted. pdfplumber extracts the tables (398 rows).
+  the 110 kV-level signal the brief wanted. pdfplumber extracts the tables. The `energa` connector
+  (`sources/energa.py`, `dclh fetch energa`) reads Tabela 2.1 (stations per group, 2026 model) and Tabela 2.3 (MW per
+  group): 48 groups, 401 stations (396 after merging busbar sections) on 19.10.2026.
 - **`pse_closed` ✓.** `https://www.pse.pl/documents/20182/51490/20260204_Lista_rozdzielni-brak_mozliwosci_przylaczenia.xlsx`
   (stan na 4.02.2026): columns `ZKO PSE`, `Symbol stacji`, `Nazwa stacji`, `Rozdzielnia`, `Liczba dostępnych miejsc
   przyłączenia`. The file name carries the date. Find the newest one on the page linked by the `pse_odb` probe.
+  `dclh import-manual pse_closed <file.xlsx>` reads PSE's file as it is (`sources/pse.py`): 37 switchyards at 33
+  stations. The tables below the first one list planned switchyards by plan number only and are skipped.
 - **`pse_odb` ✓, an XLSX, not a PDF.** The art. 7 ust. 8l PE list:
   `https://www.pse.pl/documents/20182/51490/Informacje_publikowane_zgodnie_z_Art_7_ust_8l_ustawy_PE_stan_na_31_08_2026.xlsx`
   (monthly, the date is in the name). 886 rows for the PSE network. `Rodzaj instalacji = ODB` gives **33 load projects, mostly data
   centres** (e.g. 100 MW at Mikułowa 110 kV, 150 MW Warszawa, 800 MW Krzemienica), with station, voltage, MW and
   status/dates. This is a competitor and queue signal. **The column "Nazwa podmiotu ubiegającego się o przyłączenie"
   names the applicant. Do not store it** (it can be a person; brief 9.6). Keep station, voltage, type, MW, status and dates only.
+  `dclh import-manual pse_odb <file.xlsx>` does exactly that and stores the reduced CSV, never PSE's file.
 - **`pse_avail` ✓ PDF.** `informacja_o_dostepnosci_mocy_przylaczeniowej_do_sieci_przesylowej.pdf` on
   `…/informacja-o-dostepnosci-mocy-przylaczeniowej`. Existing stations have 0 MW for loads. Page 12 lists **planned load
   stations** with MW (e.g. WYP Wypędy 200, MKA Legnica 1000, ZER Poznań 500, GNA Konin 500, DZO Toruń 1000; 24 rows),

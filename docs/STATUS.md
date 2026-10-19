@@ -1,6 +1,31 @@
 # Status
+## Phase 3 live data: DSO and PSE loaded, GPZ match report (19.10.2026, VPS)
 
-Last updated: 19.10.2026 · Flood (`isok`) and housing (`bdot10k`) connectors, pilot rerun; earlier: source verification round 2 (20 of 23 MVP sources ✓, Enea manual-only); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
+- Connectors on live data: `dclh fetch tauron` (513 GPZs, locations published, 100% matched by location) and
+  `dclh fetch energa` (PDF of 31.08.2026, 48 groups, 396 stations). `dclh import-manual pse_closed` (37 rows, 33 stations) and
+  `dclh import-manual pse_odb` (ODB only, 24 stations; the applicant column is not stored).
+- `dclh gpz-report` (CSV under `data/reports/`, not committed):
+
+| Source | Matched | Rate | Method |
+|---|---|---|---|
+| Energa (acceptance ≥ 70%) | 274 / 396 | 69% | fuzzy name match, score ≥ 90 |
+| PSE closed switchyards | 32 / 33 | 97% | fuzzy, on OSM 220/400 kV nodes |
+| PSE ODB | 18 / 24 | 75% | fuzzy, on OSM 220/400 kV nodes |
+| Tauron | 513 / 513 | 100% | published location |
+
+Energa misses 122 names. Most are below the threshold ("najlepsza zgodność" 60–89) or are ambiguous between
+two OSM stations of the same name. Energa at 69% is just under the 70% acceptance line; the gap is documented,
+not forced with guessed mappings. Next step: add reviewed lines to `data/manual/gpz_mapping.csv` for the
+ambiguous names (Sławno, Pomorska, Ostrów, Bojanowo, Kalisz Pomorski), then re-run the report.
+- Matching fixes made on the live names: OSM voltage specs ("110/15kV") and "SE"/"RPZ"/"Systemowa" prefixes
+  removed, roman numerals equal digits, busbar sections folded, a DSO's name does not match another DSO's
+  station, and one OSM station keeps only its best name. Threshold raised 88 → 90 (88 let "Ostrowite" match
+  "Ostrowiec").
+- **Not done:** `dclh search 1421 --write` has not been run with these layers, so the score changes are not yet measured.
+  The baseline for comparison is the 19.10.2026 run above (315 sites, all "Bliskość sieci", 22 not excluded).
+  `pse_avail` (planned stations) still needs its ~24 stations geocoded by hand.
+
+Last updated: 19.10.2026 · Phase 3 live DSO/PSE data and GPZ match report (search re-run pending); earlier: Flood (`isok`) and housing (`bdot10k`) connectors, pilot rerun; earlier: source verification round 2 (20 of 23 MVP sources ✓, Enea manual-only); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
 
 ## Flood and housing hard filters: `isok` and `bdot10k` connectors (19.10.2026, run on the VPS)
 
