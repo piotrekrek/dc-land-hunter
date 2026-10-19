@@ -30,6 +30,15 @@ Last updated: 19.10.2026 · Flood (`isok`) and housing (`bdot10k`) connectors, p
 | EGiB download | 1,300 s | 513 s |
 | Peak memory | 703 MB | 747 MB |
 
+Flood vs housing among the 293: 199 housing only, 6 flood only, 79 both; the other 9 include the GDOŚ filter.
+Removing the flood filter would bring back 6 sites; removing the housing filter would bring back 199.
+
+Hillwood / Reguły: none of the three candidate parcels in `tests/golden/sites.yaml` (obręb 0013: `.408`, `.409`,
+`.562/2`) is in any scored site, so the Hillwood plot is not among the 315 (not checked why: too small after the
+1 ha lot cut, or outside the seed). Six scored sites contain other parcels of obręb 0013 Reguły; all six are excluded
+by housing (nearest residential building 0–17 m), two of them also by flood. The three sites nearest the Reguły village
+centre (394–456 m away) are among them. The golden-set coordinates are still unverified.
+
 Reading the numbers: Pruszków is suburban, so almost every 10 ha+ cluster of farm parcels has a house within 100 m.
 The 100 m threshold (`config/scoring.yaml`) is the owner's call; with it, 22 sites survive. The top ten by score are
 all excluded.
