@@ -13,6 +13,10 @@ DSO capacity (`enea`, `energa`, `tauron`), one DSO per file, columns:
 
 PSE point lists (`pse_closed`, `pse_odb`, `pse_avail`), columns:
     name, as_of, and either x_2180 + y_2180 (metres, EPSG:2180) or lat + lon (WGS84)
+    `pse_closed` and `pse_odb` also take PSE's own XLSX as published (`sources/pse.py`). Those lists have no
+    coordinates: the rows keep an empty geometry and are located by station name later. What is stored is
+    the reduced table (as CSV), never PSE's file, so the applicant names in the art. 7 ust. 8l list are not
+    kept anywhere.
 
 Headers are matched case-insensitively with spaces turned into underscores. Rows that break a rule fail
 the whole import with the row number, so a partly-read file never reaches the scores.
@@ -39,6 +43,7 @@ from dclh_pipeline.model.grid import parse_osm_ref
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
 from dclh_pipeline.sources.base import Source
 from dclh_pipeline.sources.prg import EPSG, POLAND_BOUNDS
+from dclh_pipeline.sources.pse import read_pse_closed, read_pse_odb
 
 CAPACITY_COLUMNS = ("dso", "gpz_name", "published_mw", "as_of")
 POINT_COLUMNS = ("name", "as_of")
@@ -182,30 +187,53 @@ class ManualPointsSource(ManualFileSource):
     """A PSE list of points (closed switchyards, ODB entries, planned stations) from a file."""
 
     id: ClassVar[str]
+    # True for lists whose stations can be found by name (they exist in OSM): rows may lack coordinates.
+    locate_by_name: ClassVar[bool] = False
+
+    def native(self, path: Path) -> pd.DataFrame | None:
+        """PSE's own published file turned into canonical rows, or None when `path` is not such a file."""
+        return None
+
+    def store_file(self, store: SnapshotStore) -> Snapshot:
+        """Store PSE's own file as the reduced canonical CSV; any other file as it is."""
+        table = self.native(self.path)
+        if table is None:
+            return super().store_file(store)
+        content = _as_text(table).to_csv(index=False)
+        return store.save(self.id, content.encode("utf-8"), suffix=".csv", url=f"manual:{self.path.name}")
 
     def parse(self, snapshot: Snapshot) -> gpd.GeoDataFrame:
-        raw = read_table(snapshot.path)
+        native = self.native(snapshot.path)
+        raw = read_table(snapshot.path) if native is None else _as_text(native)
         _require(raw, POINT_COLUMNS, f"{self.id} point file")
         has_xy = {"x_2180", "y_2180"} <= set(raw.columns)
         has_ll = {"lat", "lon"} <= set(raw.columns)
-        if not (has_xy or has_ll):
+        if not (has_xy or has_ll or self.locate_by_name):
             raise ValueError(
                 f"{self.id} point file: needs x_2180 + y_2180, or lat + lon; found {list(raw.columns)}"
             )
         names: list[str] = []
         dates: list[pd.Timestamp] = []
-        geoms: list[Point] = []
+        geoms: list[Point | None] = []
         for i, rec in enumerate(raw.to_dict("records")):
             name = str(rec["name"])
             if not name:
                 raise _row_error(i, "name is empty")
+            names.append(name)
+            dates.append(_parse_date(str(rec["as_of"]), i))
+            if not (has_xy or has_ll):
+                geoms.append(None)  # located by name later (model/capacity.locate_points)
+                continue
             x, y = _coordinates(rec, has_xy, i)
             if not _inside_poland(x, y):
                 raise _row_error(i, f"point ({x:.0f}, {y:.0f}) lies outside Poland; check the coordinates")
-            names.append(name)
-            dates.append(_parse_date(str(rec["as_of"]), i))
             geoms.append(Point(x, y))
         return gpd.GeoDataFrame({"name": names, "as_of": dates}, geometry=geoms, crs=f"EPSG:{EPSG}")
+
+
+def _as_text(table: pd.DataFrame) -> pd.DataFrame:
+    """A native table in the form `read_table` gives: every cell as text, dates as YYYY-MM-DD."""
+    return table.assign(as_of=table["as_of"].dt.strftime("%Y-%m-%d")).astype(str)
 
 
 def _coordinates(rec: Mapping[Any, Any], has_xy: bool, row: int) -> tuple[float, float]:
@@ -245,10 +273,18 @@ class TauronCapacity(ManualCapacitySource):
 
 class PseClosedPoints(ManualPointsSource):
     id = "pse_closed"
+    locate_by_name = True
+
+    def native(self, path: Path) -> pd.DataFrame | None:
+        return read_pse_closed(path)
 
 
 class PseOdbPoints(ManualPointsSource):
     id = "pse_odb"
+    locate_by_name = True
+
+    def native(self, path: Path) -> pd.DataFrame | None:
+        return read_pse_odb(path)
 
 
 class PseAvailPoints(ManualPointsSource):

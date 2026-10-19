@@ -26,17 +26,31 @@ from rapidfuzz import fuzz, process
 from shapely.geometry import Point
 
 from dclh_pipeline.model.features import Substation
-from dclh_pipeline.model.grid import SubstationClass
+from dclh_pipeline.model.grid import Dso, SubstationClass, derive_operator
+
+_DSO_IDS = frozenset(d.value for d in Dso if d is not Dso.PSE)
 
 # A second candidate this close to the best one makes the match ambiguous, unless it is the same station.
 AMBIGUITY_MARGIN = 2.0
 # Tied stations closer than this are taken to be one station mapped twice in OSM.
 SAME_STATION_RADIUS_M = 500.0
 
+# Voltage specs, as OSM writes them inside names: "110/15kV", "400/220/110 kV", "220kV", or "110/15" alone.
+# They must go before the digit rule below, or "Stacja 110/15kV Kutno" would never match "Kutno".
+_VOLTAGE = re.compile(r"\b\d{1,3}(?:\s*/\s*\d{1,3})*\s*kv\b|\b(?:400|220|110)(?:\s*/\s*\d{1,3})+\b")
 # Words that name the kind of object, not the place: "GPZ Piaski" and "Piaski" are the same station. The
 # longest phrase comes first so that "stacja" does not eat the start of "stacja elektroenergetyczna".
-_NOISE = re.compile(r"\b(stacja elektroenergetyczna|stacja|stacji|gpz|rs|ps|110 \d{1,2}|110 kv|kv|sn)\b")
+# "SE"/"RPZ" are prefixes like "GPZ" ("GPO", a wind farm's own station, is not: it is another station);
+# "Systemowa" marks a PSE station ("Baczyna Systemowa" is OSM's
+# "Baczyna"); "sekcja 2" is a busbar section of one station (Energa lists "Kutno sekcja 1" and "sekcja 2").
+_NOISE = re.compile(
+    r"\b(stacja elektroenergetyczna|podstacja|stacja|stacji|gpz|rpz|se|rs|ps|systemowa|sekcja \d+"
+    r"|110 \d{1,2}|110 kv|kv|sn)\b"
+)
 _NON_ALNUM = re.compile(r"[^a-z0-9]+")
+# A trailing roman numeral is a number: Energa writes "Gdańsk 2" and "Olsztyn 1",
+# OSM "Gdańsk II" and "Olsztyn I".
+_ROMAN = {"i": "1", "ii": "2", "iii": "3", "iv": "4"}
 _DIGITS = re.compile(r"\d+")
 
 
@@ -47,6 +61,7 @@ class GpzCandidate:
     key: int
     name: str
     geom: Point
+    operator: Dso | None = None  # from the OSM `operator` tag; None when untagged or not a DSO/PSE
 
 
 @dataclass(frozen=True)
@@ -54,8 +69,9 @@ class MatchResult:
     dso: str
     dso_gpz_name: str
     candidate_key: int | None
-    score: float  # 0–100; 100 for a manual mapping, 0 when nothing was found
-    method: Literal["manual", "fuzzy", "none"]
+    score: float  # 0–100; 100 for a manual mapping or a published location, 0 when nothing was found
+    # "published": the DSO gives the location itself (Tauron), so no name matching is needed
+    method: Literal["manual", "fuzzy", "published", "none"]
     reason: str  # Polish, shown in the match report
 
 
@@ -66,9 +82,11 @@ def normalise_name(name: str) -> str:
     """
     folded = unicodedata.normalize("NFKD", name.replace("ł", "l").replace("Ł", "L"))
     ascii_only = "".join(ch for ch in folded if not unicodedata.combining(ch)).casefold()
-    spaced = _NON_ALNUM.sub(" ", ascii_only)
-    without_noise = _NOISE.sub(" ", spaced)
-    return " ".join(without_noise.split())
+    spaced = _NON_ALNUM.sub(" ", _VOLTAGE.sub(" ", ascii_only))
+    words = _NOISE.sub(" ", spaced).split()
+    if len(words) > 1 and words[-1] in _ROMAN:
+        words[-1] = _ROMAN[words[-1]]
+    return " ".join(words)
 
 
 def _point(sub: Substation) -> Point:
@@ -78,11 +96,20 @@ def _point(sub: Substation) -> Point:
 
 
 def gpz_candidates(substations: Iterable[Substation]) -> list[GpzCandidate]:
-    """The 110 kV GPZs that have an OSM name: the stations fuzzy matching can work with."""
+    """The named 110 kV GPZs and 220/400 kV nodes (a DSO GPZ can sit inside a PSE station, e.g. Dunowo)."""
     return [
-        GpzCandidate(sub.osm_id, sub.name, _point(sub))
+        GpzCandidate(sub.osm_id, sub.name, _point(sub), derive_operator(sub.operator))
         for sub in substations
-        if sub.cls is SubstationClass.GPZ_110_SN and sub.name
+        if sub.cls in (SubstationClass.GPZ_110_SN, SubstationClass.NODE_220_400) and sub.name
+    ]
+
+
+def node_candidates(substations: Iterable[Substation]) -> list[GpzCandidate]:
+    """The named 220/400 kV nodes: where the PSE lists' stations are looked up."""
+    return [
+        GpzCandidate(sub.osm_id, sub.name, _point(sub), derive_operator(sub.operator))
+        for sub in substations
+        if sub.cls is SubstationClass.NODE_220_400 and sub.name
     ]
 
 
@@ -98,7 +125,7 @@ def match_gpz_names(
     *,
     manual: Mapping[str, int] | None = None,
     manual_targets: Collection[int] = (),
-    min_score: float = 88.0,
+    min_score: float = 90.0,
 ) -> list[MatchResult]:
     """Match each DSO GPZ name to one candidate, or to none (kept with a reason).
 
@@ -108,6 +135,10 @@ def match_gpz_names(
     """
     manual = manual or {}
     valid_manual_keys = {c.key for c in candidates} | set(manual_targets)
+    if dso in _DSO_IDS:
+        # A DSO lists its own stations: one tagged with another DSO is a namesake elsewhere ("Bojanowo" of
+        # Enea is not Energa's). Untagged stations and PSE nodes (a GPZ inside a PSE station) stay in.
+        candidates = [c for c in candidates if c.operator in (None, Dso.PSE) or c.operator.value == dso]
     norm_candidates = [normalise_name(c.name) for c in candidates]
     results: list[MatchResult] = []
     for name in dso_names:
@@ -121,7 +152,24 @@ def match_gpz_names(
             results.append(MatchResult(dso, name, key, 100.0, "manual", "ręczne mapowanie"))
             continue
         results.append(_fuzzy(dso, name, norm, candidates, norm_candidates, min_score))
-    return results
+    return _one_name_per_station(results)
+
+
+def _one_name_per_station(results: list[MatchResult]) -> list[MatchResult]:
+    """A station claimed by several fuzzy names keeps only the best one ("Ostróda Wschód" at 100 beats
+    "Ostrów Wschód" at 89 for the same OSM station); the others become unmatched. Manual mappings are kept."""
+    best: dict[int, float] = {}
+    for r in results:
+        if r.method == "fuzzy" and r.candidate_key is not None:
+            best[r.candidate_key] = max(best.get(r.candidate_key, 0.0), r.score)
+    out: list[MatchResult] = []
+    for r in results:
+        if r.method == "fuzzy" and r.candidate_key is not None and r.score < best[r.candidate_key]:
+            r = MatchResult(
+                r.dso, r.dso_gpz_name, None, r.score, "none", "stacja OSM przypisana lepiej pasującej nazwie"
+            )
+        out.append(r)
+    return out
 
 
 def _fuzzy(
@@ -161,12 +209,14 @@ def _fuzzy(
 def match_summary(results: Sequence[MatchResult]) -> dict[str, int | float]:
     """Counts for the match report: how many DSO names were matched, by which method, and the rate."""
     total = len(results)
-    matched = sum(1 for r in results if r.candidate_key is not None)
+    matched = sum(1 for r in results if r.method != "none")
     manual = sum(1 for r in results if r.method == "manual")
+    published = sum(1 for r in results if r.method == "published")
     return {
         "total": total,
         "matched": matched,
         "manual": manual,
-        "fuzzy": matched - manual,
+        "published": published,
+        "fuzzy": matched - manual - published,
         "rate": matched / total if total else 0.0,
     }

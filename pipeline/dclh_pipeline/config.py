@@ -73,7 +73,7 @@ class GridParams(_Model):
     published_gpz_km: float = Field(default=5.0, gt=0)
     closed_switchyard_km: float = Field(default=3.0, gt=0)
     # Fuzzy GPZ name matches below this score (0–100) are not used; manual mappings always are.
-    gpz_match_min_score: float = Field(default=88.0, ge=0, le=100)
+    gpz_match_min_score: float = Field(default=90.0, ge=0, le=100)
 
     @model_validator(mode="after")
     def _ranges(self) -> GridParams:
