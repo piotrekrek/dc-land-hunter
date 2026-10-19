@@ -25,8 +25,7 @@ ambiguous names (Sławno, Pomorska, Ostrów, Bojanowo, Kalisz Pomorski), then re
   The baseline for comparison is the 19.10.2026 run above (315 sites, all "Bliskość sieci", 22 not excluded).
   `pse_avail` (planned stations) still needs its ~24 stations geocoded by hand.
 
-Last updated: 19.10.2026 · Phase 3 live DSO/PSE data and GPZ match report (search re-run pending); earlier: Flood (`isok`) and housing (`bdot10k`) connectors, pilot rerun; earlier: source verification round 2 (20 of 23 MVP sources ✓, Enea manual-only); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
-Last updated: 19.10.2026 · Zoning layer (`ru`, `kimpzp`), pilot rerun; earlier: flood (`isok`) and housing (`bdot10k`) connectors; earlier: source verification round 2 (20 of 23 MVP sources ✓, Enea manual-only); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
+Last updated: 19.10.2026 · Zoning layer (`ru`, `kimpzp`), 1421 rerun (writes 315 sites); Phase 3 live DSO/PSE data and GPZ match report; earlier: Flood (`isok`) and housing (`bdot10k`) connectors, pilot rerun; earlier: source verification round 2 (20 of 23 MVP sources ✓, Enea manual-only); earlier: Phase 1.5 pilot run on the VPS (powiat 1421); Phase 1 started; Phase 2 code done on test data; Phase 3 code done on fixtures (no live data yet)
 
 ## Zoning layer: `ru` and `kimpzp` connectors (19.10.2026, run on the VPS)
 
