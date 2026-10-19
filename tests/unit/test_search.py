@@ -103,3 +103,36 @@ def test_small_lots_do_not_chain_into_one_site() -> None:
     result = run_search(AREA, SiteLayers(grid=grid()), CFG, lambda tiles: frame)
     assert result.report.parcels_below_min == 400
     assert [s.site.parcel_ids for s in result.scored] == [("field",)]
+
+
+def test_flood_and_housing_layers_trigger_their_hard_filters() -> None:
+    # The layers `dclh search` now loads from isok and bdot10k: a flood zone over the site and a house 50 m away.
+    from dclh_pipeline.model.features import GeomIndex, Layer
+    from dclh_pipeline.model.provenance import Confidence
+
+    flood = Layer("isok", GeomIndex([box(X0, Y0, X0 + 100, Y0 + 100)]), confidence=Confidence.VERIFIED)
+    house = Layer(
+        "bdot10k", GeomIndex([box(X0 + 850, Y0, X0 + 860, Y0 + 10)]), confidence=Confidence.VERIFIED
+    )
+    layers = SiteLayers(grid=grid(), residential=house, constraints={"flood_10_or_1": flood})
+    result = run_search(AREA, layers, CFG, lambda tiles: parcels())
+    (site,) = result.scored
+    assert site.score.excluded and result.report.excluded == 1
+    assert {e.key for e in site.score.exclusions} == {"flood_10_or_1_pct", "residential_within_m"}
+    assert site.features.residential_min_m is not None
+    assert site.features.residential_min_m.source_id == "bdot10k"
+    assert site.features.residential_min_m.value == pytest.approx(50.0)
+
+
+def test_loaded_layers_with_nothing_near_give_real_values_not_missing() -> None:
+    from dclh_pipeline.model.features import GeomIndex, Layer
+
+    far = box(X0 + 18_000, Y0 + 18_000, X0 + 18_010, Y0 + 18_010)
+    layers = SiteLayers(
+        grid=grid(),
+        residential=Layer("bdot10k", GeomIndex([far])),
+        constraints={"flood_10_or_1": Layer("isok", GeomIndex([]))},
+    )
+    (site,) = run_search(AREA, layers, CFG, lambda tiles: parcels()).scored
+    assert not site.score.excluded
+    assert site.features.flood_10_or_1_pct is not None and site.features.flood_10_or_1_pct.value == 0.0

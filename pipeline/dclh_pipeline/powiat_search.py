@@ -24,8 +24,10 @@ from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.search import SearchResult, run_search
 from dclh_pipeline.settings import Settings, get_settings
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
+from dclh_pipeline.sources.bdot10k import Bdot10kConnector
 from dclh_pipeline.sources.egib import EgibConnector
 from dclh_pipeline.sources.gdos import GdosConnector
+from dclh_pipeline.sources.isok import IsokConnector
 from dclh_pipeline.sources.osm_power import OsmPowerConnector, to_grid
 from dclh_pipeline.sources.prg import PrgConnector
 
@@ -43,7 +45,12 @@ class PowiatSearch:
 
 
 def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
-    """Search one powiat. Needs saved `prg` and `osm_power` snapshots. Does not write to the DB."""
+    """Search one powiat. Needs saved `prg`, `osm_power` and `gdos` snapshots. Does not write to the DB.
+
+    The powiat's flood zones (`isok`) and residential buildings (`bdot10k`) are downloaded now, like the
+    parcels. A failed download fails the search: without them the flood and housing filters would silently
+    not apply, and the nightly planner retries the powiat later.
+    """
     started = time.monotonic()
     settings = settings or get_settings()
     if settings.contact_email.endswith(".invalid"):
@@ -84,6 +91,29 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
         timeout_s=config.defaults.timeout_s,
         retries=2,
     ) as client:
+        flood_connector = IsokConnector(config.get("isok"), bbox=tuple(area.bounds))
+        flood_snapshot = flood_connector.fetch(client, store)
+        flood = flood_connector.parse(flood_snapshot)
+        store.mark_good(flood_snapshot)
+        flood_layer = Layer(
+            source_id="isok",
+            index=GeomIndex(flood.geometry),
+            as_of=flood_snapshot.fetched_at,
+            confidence=Confidence.VERIFIED,
+        )
+        housing_connector = Bdot10kConnector(config.get("bdot10k"), teryt=teryt)
+        housing_snapshot = housing_connector.fetch(client, store)
+        housing = housing_connector.parse(housing_snapshot)
+        store.mark_good(housing_snapshot)
+        # A box can't prove the axis order: the powiat's own buildings must lie in the powiat.
+        if housing.empty or not housing.geometry.intersects(area).any():
+            raise ValueError(f"BDOT10k: no residential building of powiat {teryt} lies inside it")
+        housing_layer = Layer(
+            source_id="bdot10k",
+            index=GeomIndex(housing.geometry),
+            as_of=housing_snapshot.fetched_at,
+            confidence=Confidence.VERIFIED,
+        )
 
         def fetch_parcels(tiles):  # type: ignore[no-untyped-def]
             connector = EgibConnector(config.get("egib"), bboxes=tiles)
@@ -91,7 +121,11 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
 
         result = run_search(
             area,
-            SiteLayers(grid=grid, constraints={"protected_nature": protected_layer}),
+            SiteLayers(
+                grid=grid,
+                residential=housing_layer,
+                constraints={"protected_nature": protected_layer, "flood_10_or_1": flood_layer},
+            ),
             cfg,
             fetch_parcels,
             parcels_as_of=None,

@@ -292,7 +292,7 @@ def search_cmd(
         console.print(f"{label:<44} {value:>10}")
     console.print(
         f"peak memory {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024:.0f} MB"
-        "  (layers still missing: zoning, constraints, housing, DSO/PSE data)"
+        "  (layers still missing: zoning, flood 0.2%, mining, forest, soil, heritage, DSO/PSE data)"
     )
     top = sorted(found.result.scored, key=lambda s: -s.score.score)[:10]
     for item in top:
