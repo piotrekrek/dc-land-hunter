@@ -1,4 +1,4 @@
-import { HA_OPTIONS, MW_OPTIONS, SORT_OPTIONS, type SiteFilters } from "@/lib/sites";
+import { MW_OPTIONS, SORT_OPTIONS, type SiteFilters } from "@/lib/sites";
 
 interface Props {
   filters: SiteFilters;
@@ -22,21 +22,11 @@ export function SiteFilterBar({ filters, onChange }: Props) {
         </select>
       </label>
       <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-        Moc od
+        Szacowana moc od
         <select className={selectClass} value={filters.minMw} onChange={(e) => onChange({ ...filters, minMw: Number(e.target.value) })}>
           {MW_OPTIONS.map((mw) => (
             <option key={mw} value={mw}>
               {mw === 0 ? "dowolna" : `${mw} MW`}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-        Powierzchnia od
-        <select className={selectClass} value={filters.minHa} onChange={(e) => onChange({ ...filters, minHa: Number(e.target.value) })}>
-          {HA_OPTIONS.map((ha) => (
-            <option key={ha} value={ha}>
-              {ha === 0 ? "dowolna" : `${ha} ha`}
             </option>
           ))}
         </select>

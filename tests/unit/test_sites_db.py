@@ -82,6 +82,36 @@ def test_list_filters_by_minimum_mw_and_pages(seeded: None, client: TestClient) 
     assert page["total"] == 3 and len(page["items"]) == 1 and page["offset"] == 1
 
 
+@pytest.mark.parametrize("sorting", [{}, {"sort": "area", "order": "asc"}])
+def test_cursor_pages_skip_nothing_when_a_row_leaves_between_pages(
+    seeded: None, client: TestClient, sorting: dict[str, str]
+) -> None:
+    base = {"include_excluded": "true", **sorting}
+    expected = [
+        item["site_id"] for item in client.get("/api/sites", params={**base, "limit": 200}).json()["items"]
+    ]
+    first = client.get("/api/sites", params={**base, "limit": 1}).json()
+    assert first["next_cursor"] is not None
+    # A scoring run replaces rows between two pages: the top site disappears.
+    with session_scope() as session:
+        session.execute(
+            text("DELETE FROM sites WHERE site_id = :site_id"), {"site_id": first["items"][0]["site_id"]}
+        )
+    seen = [item["site_id"] for item in first["items"]]
+    cursor = first["next_cursor"]
+    while cursor is not None:
+        page = client.get("/api/sites", params={**base, "limit": 1, "cursor": cursor}).json()
+        seen += [item["site_id"] for item in page["items"]]
+        cursor = page["next_cursor"]
+    # With an offset the rows would shift and one site would be skipped; with a cursor none is.
+    assert seen == expected
+
+
+def test_cursor_and_offset_cannot_be_combined(seeded: None, client: TestClient) -> None:
+    cursor = client.get("/api/sites", params={"limit": 1}).json()["next_cursor"]
+    assert client.get("/api/sites", params={"cursor": cursor, "offset": 1}).status_code == 422
+
+
 def test_list_sorts_ascending_by_area(seeded: None, client: TestClient) -> None:
     body = client.get(
         "/api/sites", params={"sort": "area", "order": "asc", "include_excluded": "true"}

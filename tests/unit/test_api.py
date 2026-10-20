@@ -50,6 +50,12 @@ def test_sources_listed_from_config_without_db(client: TestClient) -> None:
     assert ekw["plan"] == "manual" and ekw["manual_url"].startswith("https://")
 
 
+def test_sites_cursor_is_checked_before_the_database(client: TestClient) -> None:
+    # Validation runs before any query, so these answer 422 even with no database.
+    assert client.get("/api/sites", params={"cursor": "!!!"}).status_code == 422
+    assert client.get("/api/sites", params={"cursor": "!!!", "offset": 50}).status_code == 422
+
+
 def test_scoring_config(client: TestClient) -> None:
     body = client.get("/api/config/scoring").json()
     assert body["weights"]["grid"] == 45
