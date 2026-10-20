@@ -1,5 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type Handler = (e?: unknown) => void;
 
@@ -18,15 +18,19 @@ const h = vi.hoisted(() => {
       content?: HTMLElement;
       removed: boolean;
     }>,
+    created: [] as Array<{ style: unknown }>,
+    layout: [] as unknown[][],
+    paint: [] as unknown[][],
   };
   return state;
 });
 
 vi.mock("maplibre-gl", () => {
   class FakeMap {
-    constructor() {
+    constructor(options: { style: unknown }) {
       h.handlers = {};
       h.once = {};
+      h.created.push(options);
     }
     on(ev: string, fn: Handler) {
       (h.handlers[ev] ??= []).push(fn);
@@ -50,8 +54,12 @@ vi.mock("maplibre-gl", () => {
     addSource() {}
     addLayer() {}
     remove() {}
-    setLayoutProperty() {}
-    setPaintProperty() {}
+    setLayoutProperty(...args: unknown[]) {
+      h.layout.push(args);
+    }
+    setPaintProperty(...args: unknown[]) {
+      h.paint.push(args);
+    }
     getCanvas() {
       return h.canvas;
     }
@@ -160,6 +168,75 @@ describe("MapView basemap fallback", () => {
     });
     vi.useRealTimers();
     expect(h.setStyle).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("MapView theme", () => {
+  const LIGHT = "https://tiles.openfreemap.org/styles/liberty";
+  const DARK = "https://tiles.openfreemap.org/styles/dark";
+  const bgOf = (style: unknown) => (style as { layers: Array<{ paint: Record<string, string> }> }).layers[0]!.paint["background-color"];
+
+  // Toggling the theme changes <html class>; the MutationObserver callback runs as a microtask.
+  const setDark = async (dark: boolean) => {
+    await act(async () => {
+      document.documentElement.classList.toggle("dark", dark);
+    });
+  };
+
+  beforeEach(() => {
+    h.setStyle = vi.fn();
+    h.resize = vi.fn();
+    h.created = [];
+    h.layout = [];
+    h.paint = [];
+  });
+
+  afterEach(async () => {
+    await setDark(false);
+  });
+
+  it("starts with the light basemap on a light page and the dark one on a dark page", () => {
+    const { unmount } = render(<MapView />);
+    expect(h.created[0]!.style).toBe(LIGHT);
+    unmount();
+    localStorage.setItem("dclh-theme", "dark");
+    render(<MapView />);
+    expect(h.created[1]!.style).toBe(DARK);
+    localStorage.removeItem("dclh-theme");
+  });
+
+  it("switches the basemap with the theme and re-adds the grid layers after each style load", async () => {
+    render(<MapView />);
+    act(() => emit("style.load"));
+    h.layout = [];
+    await setDark(true);
+    expect(h.setStyle).toHaveBeenLastCalledWith(DARK);
+    act(() => emit("style.load"));
+    // Dark only: the grid layers lighten the buildings of the dark basemap.
+    expect(h.paint.some((args) => args[0] === "building")).toBe(true);
+    expect(h.layout.some((args) => args[1] === "visibility")).toBe(true);
+
+    h.paint = [];
+    h.layout = [];
+    await setDark(false);
+    expect(h.setStyle).toHaveBeenLastCalledWith(LIGHT);
+    act(() => emit("style.load"));
+    expect(h.paint).toHaveLength(0);
+    expect(h.layout.some((args) => args[1] === "visibility")).toBe(true);
+  });
+
+  it("does not reload the style when the theme is unchanged", async () => {
+    render(<MapView />);
+    await setDark(false);
+    expect(h.setStyle).not.toHaveBeenCalled();
+  });
+
+  it("uses a fallback background in the current theme", async () => {
+    render(<MapView />);
+    act(() => emit("error", { error: new Error("style 403") }));
+    expect(bgOf(h.setStyle.mock.calls[0]![0])).toBe("#e9edf1");
+    await setDark(true);
+    expect(bgOf(h.setStyle.mock.lastCall![0])).toBe("#1b1f26");
   });
 });
 

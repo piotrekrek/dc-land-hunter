@@ -34,6 +34,14 @@ describe("App shell", () => {
     expect(screen.getByText("Faza 4")).toBeInTheDocument();
   });
 
+  it("shows a not-found page with a way back to the map for unknown addresses", async () => {
+    mockFetch({ "/api/auth/me": { email: "ala@example.org", role: "member" } });
+    renderWithProviders(<AppRoutes />, { route: "/nie-ma-takiej-strony" });
+    expect(await screen.findByRole("heading", { name: "Nie znaleziono strony" })).toBeInTheDocument();
+    expect(screen.queryByText(/Faza/)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Wróć do: Mapa i lista" })).toHaveAttribute("href", "/");
+  });
+
   it("redirects anonymous visitors to the login page", async () => {
     mockFetch({}); // /api/auth/me answers 404 -> treated as an error, so use 401 below
     vi.restoreAllMocks();
