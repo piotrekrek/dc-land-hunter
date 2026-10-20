@@ -122,8 +122,9 @@ export function brightenBuildings(map: MapLibreMap) {
 }
 
 /** (Re)adds sources and layers; call after every `style.load` because `setStyle` removes them. */
-export function addGridLayers(map: MapLibreMap, visible: Record<string, boolean>) {
-  brightenBuildings(map);
+export function addGridLayers(map: MapLibreMap, visible: Record<string, boolean>, darkBasemap = true) {
+  // Only the dark basemap needs lighter buildings; the light style already draws them light.
+  if (darkBasemap) brightenBuildings(map);
   for (const [id, spec] of Object.entries(SOURCES)) {
     if (!map.getSource(id)) map.addSource(id, spec);
   }

@@ -36,7 +36,6 @@ function SiteRow({ site, selected, onSelect }: { site: SiteSummary; selected: bo
           <span className="block font-medium">
             {formatHa(site.area_ha)} · ok. {formatMW(site.estimated_mw)}
           </span>
-          <span className="block text-xs text-muted-foreground">szacunek na podstawie powierzchni</span>
           <span className="mt-1 flex flex-wrap gap-1.5">
             <Badge variant={GRID_BADGE[site.grid_badge]}>{site.grid_badge}</Badge>
             {site.excluded && <Badge variant="bad">Wykluczona</Badge>}
@@ -50,10 +49,11 @@ function SiteRow({ site, selected, onSelect }: { site: SiteSummary; selected: bo
         </span>
       </button>
       {/* Aligned with the text column: p-3 (12) + score badge (48) + gap (12) = 72px. */}
+      {/* py-3 with -my-3 makes each link a 44px tap target without changing the row's height. */}
       <div className="flex gap-4 pb-3 pl-[72px]">
         <Link
           to={`/lokalizacje/${encodeURIComponent(site.site_id)}`}
-          className="text-sm text-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
+          className="-my-3 py-3 text-sm text-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
         >
           Więcej informacji
         </Link>
@@ -61,7 +61,7 @@ function SiteRow({ site, selected, onSelect }: { site: SiteSummary; selected: bo
           href={mapsUrl(site.lon, site.lat)}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
+          className="-my-3 py-3 text-sm text-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
         >
           Mapy Google
         </a>
@@ -121,15 +121,14 @@ export function SiteList({ selectedId = null, onSelect }: { selectedId?: string 
       )}
       {sites.data && total === 0 && (
         <EmptyState icon={MapPinned} title="Brak lokalizacji dla tych filtrów">
-          Poluźnij filtry albo poczekaj na pierwszy przebieg oceny. Dane działek pojawią się po podłączeniu źródeł
-          (Faza 2).
+          Żadna lokalizacja nie pasuje do bieżących filtrów. Poszerz filtry albo pokaż wykluczone lokalizacje.
         </EmptyState>
       )}
       {sites.data && total > 0 && (
         <PageScroll label="Wyniki" className="min-h-0 flex-1">
           <p className="px-4 pt-3 text-xs text-muted-foreground">
-            Wyników: {total}. Wynik nie jest obietnicą przyłączenia: pokazuje, jak mocno lokalizacja pasuje do profilu i
-            jakie dane jeszcze brakują.
+            Wyników: {total}. Moc to szacunek na podstawie powierzchni. Wynik nie jest obietnicą przyłączenia: pokazuje, jak
+            mocno lokalizacja pasuje do profilu i jakie dane jeszcze brakują.
           </p>
           <ul className="flex flex-col gap-1 p-2" aria-label="Ranking lokalizacji">
             {items.map((site) => (

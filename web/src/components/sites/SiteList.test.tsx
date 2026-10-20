@@ -90,6 +90,29 @@ describe("SiteList", () => {
     mockFetch({ "/api/sites": { total: 0, offset: 0, limit: 50, items: [] } });
     renderWithProviders(<SiteList onSelect={() => {}} />);
     expect(await screen.findByText("Brak lokalizacji dla tych filtrów")).toBeInTheDocument();
+    expect(screen.getByText(/Poszerz filtry albo pokaż wykluczone lokalizacje/)).toBeInTheDocument();
+    expect(screen.queryByText(/Faza/)).not.toBeInTheDocument();
+  });
+
+  it("states once, in the list header, that the power is an area-based estimate", async () => {
+    mockFetch({ "/api/sites": { total: 2, offset: 0, limit: 50, items: [site({}), site({ site_id: "site-b" })] } });
+    renderWithProviders(<SiteList onSelect={() => {}} />);
+    const rows = await screen.findAllByTestId("site-row");
+    expect(screen.getAllByText(/szacunek na podstawie powierzchni/)).toHaveLength(1);
+    expect(screen.getByText(/Moc to szacunek na podstawie powierzchni/)).toBeInTheDocument();
+    for (const row of rows) expect(within(row).queryByText(/szacunek/)).not.toBeInTheDocument();
+  });
+
+  it("gives the row links a 44px-high tap target without adding to the row height", async () => {
+    mockFetch({ "/api/sites": { total: 1, offset: 0, limit: 50, items: [site({})] } });
+    renderWithProviders(<SiteList onSelect={() => {}} />);
+    const details = await screen.findByRole("link", { name: "Więcej informacji" });
+    const maps = screen.getByRole("link", { name: "Mapy Google" });
+    // text-sm line (20px) + py-3 (12px top and bottom) = 44px; -my-3 cancels the padding in the layout.
+    for (const link of [details, maps]) {
+      expect(link.className).toMatch(/\bpy-3\b/);
+      expect(link.className).toMatch(/(^|\s)-my-3(\s|$)/);
+    }
   });
 
   it("offers more results when the page is not complete, and asks for the next offset", async () => {
