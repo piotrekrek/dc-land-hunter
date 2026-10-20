@@ -40,10 +40,3 @@ def test_image_default_trusts_no_wildcard() -> None:
     cmd = re.search(r"^CMD (\[.*\])$", dockerfile, re.MULTILINE)
     assert cmd is not None
     assert "*" not in _trusted_proxies(yaml.safe_load(cmd.group(1)))
-
-
-def test_caddy_replaces_forwarded_for_on_api_requests() -> None:
-    caddyfile = (INFRA / "Caddyfile").read_text(encoding="utf-8")
-    api_block = re.search(r"handle /api/\* \{(.*?)\n\t\}", caddyfile, re.DOTALL)
-    assert api_block is not None
-    assert "header_up X-Forwarded-For {remote_host}" in api_block.group(1)

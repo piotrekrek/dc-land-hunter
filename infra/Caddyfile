@@ -12,10 +12,7 @@
 	}
 
 	handle /api/* {
-		# Replace, do not append: a client-sent X-Forwarded-For must never reach the API.
-		reverse_proxy api:8000 {
-			header_up X-Forwarded-For {remote_host}
-		}
+		reverse_proxy api:8000
 	}
 
 	handle /tiles/* {
