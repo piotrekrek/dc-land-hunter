@@ -49,6 +49,20 @@ services:
 
   api:
     <<: *python
+    # Only Caddy (the web container, fixed address below) may set X-Forwarded-For. Trusting "*" let any client
+    # pick its own IP, which defeats the login throttles (api/dclh_api/security.py).
+    command:
+      [
+        "uvicorn",
+        "dclh_api.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--proxy-headers",
+        "--forwarded-allow-ips",
+        "172.30.0.10",
+      ]
     depends_on:
       migrate: { condition: service_completed_successfully }
     healthcheck:
@@ -96,10 +110,20 @@ services:
     volumes:
       - caddy-data:/data
       - caddy-config:/config
+    networks:
+      default:
+        ipv4_address: 172.30.0.10 # the one address the API trusts for X-Forwarded-For
     depends_on:
       api: { condition: service_healthy }
       martin: { condition: service_started }
     restart: unless-stopped
+
+# A fixed subnet, so the web container keeps the address the API trusts (see the api service).
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
 
 volumes:
   pgdata:
