@@ -45,6 +45,16 @@ jobs:
       - run: uv run mypy
       - run: uv run dclh config-check
       - run: uv run pytest
+      # The database tests skip silently without the service, so run them on their own and fail on any skip.
+      - name: Database tests must run, not skip
+        run: |
+          set -o pipefail
+          uv run pytest -m db -rs 2>&1 | tee db-tests.log
+          if grep -E '^SKIPPED|[0-9]+ skipped' db-tests.log; then
+            echo "Database tests were skipped: the PostGIS service or DCLH_TEST_DATABASE_URL is not working" >&2
+            exit 1
+          fi
+          grep -E '[0-9]+ passed' db-tests.log
 
   web:
     name: Web (eslint, tsc, vitest, build)
