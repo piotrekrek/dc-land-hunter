@@ -1,16 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
 
-import { api, ApiError, unwrap, type User } from "@/api/client";
+import { api, ApiError, setUnauthorizedHandler, unwrap, type User } from "@/api/client";
 
 interface AuthState {
   user: User | null;
   loading: boolean;
+  /** The session check failed with a server or network error: we do not know whether the user is signed in. */
+  sessionError: boolean;
+  retrySession: () => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Polish message when the last logout request failed; the user stays signed in. */
+  logoutError: string | null;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
+
+export const LOGOUT_ERROR = "Nie udało się wylogować. Pozostajesz zalogowany. Spróbuj ponownie.";
 
 export class LoginError extends Error {
   constructor(
@@ -34,6 +41,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const client = useQueryClient();
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe, staleTime: 5 * 60_000, retry: false });
 
+  // Any 401 from the API ends the session. Setting the user to null sends RequireAuth to the login page,
+  // which keeps the current path as the return address.
+  useEffect(() => {
+    setUnauthorizedHandler(() => client.setQueryData(["me"], null));
+    return () => setUnauthorizedHandler(null);
+  }, [client]);
+
   const loginMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
       const { data, error, response } = await api.POST("/api/auth/login", { body: { email, password } });
@@ -51,9 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await api.POST("/api/auth/logout");
+      const { response } = await api.POST("/api/auth/logout");
+      // 401: the server session had already ended, so the user is signed out either way.
+      if (!response.ok && response.status !== 401) throw new ApiError(LOGOUT_ERROR, response.status);
     },
-    onSettled: () => {
+    onSuccess: () => {
       client.clear();
       client.setQueryData(["me"], null);
     },
@@ -62,12 +78,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthState = {
     user: me.data ?? null,
     loading: me.isPending,
+    sessionError: me.isError,
+    retrySession: () => {
+      void me.refetch();
+    },
     login: async (email, password) => {
       await loginMutation.mutateAsync({ email, password });
     },
     logout: async () => {
-      await logoutMutation.mutateAsync();
+      try {
+        await logoutMutation.mutateAsync();
+      } catch {
+        // Shown through logoutError; the user is still signed in, so there is nothing else to do here.
+      }
     },
+    logoutError: logoutMutation.isError ? LOGOUT_ERROR : null,
   };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

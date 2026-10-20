@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, CircleAlert, MapPinned } from "lucide-react";
 import { Link, useParams } from "react-router";
 
-import { api, unwrap } from "@/api/client";
+import { api, shouldRetry, unwrap } from "@/api/client";
 import { EmptyState } from "@/components/EmptyState";
 import { mapsUrl } from "@/components/map/popup";
 import { PageScroll } from "@/components/PageScroll";
@@ -148,7 +148,7 @@ export function SiteCardPage() {
   const site = useQuery({
     queryKey: ["site", siteId],
     queryFn: () => unwrap(api.GET("/api/sites/{site_id}", { params: { path: { site_id: siteId } } })),
-    retry: (count, error) => (error as { status?: number }).status !== 404 && count < 2,
+    retry: (count, error) => shouldRetry(count, error, 2),
   });
   const notFound = (site.error as { status?: number } | null)?.status === 404;
 

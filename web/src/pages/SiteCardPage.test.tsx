@@ -107,4 +107,28 @@ describe("SiteCardPage", () => {
     renderCard("/lokalizacje/site-gone");
     expect(await screen.findByText("Nie ma takiej lokalizacji")).toBeInTheDocument();
   });
+
+  it("does not retry a 401: the expired session is reported at once", async () => {
+    const siteCalls: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const path = new URL(url, "http://localhost").pathname;
+      if (path === "/api/auth/me") {
+        return new Response(JSON.stringify({ email: "ala@example.org", role: "member" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      siteCalls.push(path);
+      return new Response(JSON.stringify({ detail: "Wymagane logowanie" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    renderCard("/lokalizacje/site-a");
+    // A retry would keep the card in "Wczytuję kartę…" for a second or more before this alert appears.
+    expect(await screen.findByRole("alert")).toHaveTextContent("Nie udało się wczytać karty lokalizacji.");
+    expect(screen.queryByText("Wczytuję kartę…")).not.toBeInTheDocument();
+    expect(siteCalls).toEqual(["/api/sites/site-a"]);
+  });
 });

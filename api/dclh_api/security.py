@@ -78,4 +78,9 @@ class LoginThrottle:
         self._failures.pop(key, None)
 
 
+# Per (email, client) block: 5 wrong passwords for one account stop further tries for 15 minutes.
 login_throttle = LoginThrottle()
+# Per client across all emails: stops password spraying from one address. Higher threshold, so a shared
+# office IP is not locked out by one person's typos.
+LOGIN_IP_MAX_FAILURES = 50
+login_ip_throttle = LoginThrottle(max_failures=LOGIN_IP_MAX_FAILURES)
