@@ -778,17 +778,6 @@
             "type": "boolean",
             "title": "Database"
           },
-          "postgis_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Postgis Version"
-          },
           "time": {
             "type": "string",
             "format": "date-time",
@@ -800,7 +789,6 @@
           "status",
           "version",
           "database",
-          "postgis_version",
           "time"
         ],
         "title": "Health"

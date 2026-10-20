@@ -49,6 +49,9 @@ services:
 
   api:
     <<: *python
+    environment:
+      <<: *python-env
+      DCLH_API_DOCS: ${DCLH_API_DOCS:-0}
     depends_on:
       migrate: { condition: service_completed_successfully }
     healthcheck:

@@ -17,6 +17,7 @@ router = APIRouter(tags=["system"])
 
 @router.get("/health", response_model=Health)
 def health(session: Annotated[Session, Depends(db_session)]) -> Health:
+    # The PostGIS version stays server-side: this endpoint is public, only the PostGIS check drives `status`.
     try:
         postgis = session.execute(text("SELECT postgis_lib_version()")).scalar_one_or_none()
         database = True
@@ -26,6 +27,5 @@ def health(session: Annotated[Session, Depends(db_session)]) -> Health:
         status="ok" if database and postgis else "degraded",
         version=__version__,
         database=database,
-        postgis_version=postgis,
         time=datetime.now(UTC),
     )

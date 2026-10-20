@@ -18,7 +18,7 @@ Open http://localhost:8080. Services:
 |---|---|---|
 | `db` | PostgreSQL 16 + PostGIS 3.5 | 5432 (host: 127.0.0.1:55432) |
 | `migrate` | `alembic upgrade head`, then exits | – |
-| `api` | FastAPI under `/api` (docs at `/api/docs`) | 8000 |
+| `api` | FastAPI under `/api` (docs at `/api/docs` only with `DCLH_API_DOCS=1`) | 8000 |
 | `worker` | Polls the `jobs` table and runs jobs one at a time | – |
 | `scheduler` | supercronic; enqueues scheduled jobs (`infra/crontab`, Europe/Warsaw) | – |
 | `martin` | Vector tiles under `/tiles` (publishes only the `tiles` schema) | 3000 |

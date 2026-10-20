@@ -12,7 +12,7 @@ vi.mock("@/components/map/MapView", () => ({ MapView: () => <div data-testid="ma
 describe("App shell", () => {
   it("renders the Polish navigation and the home view", async () => {
     mockFetch({
-      "/api/health": { status: "ok", version: "0.1.0", database: true, postgis_version: "3.4", time: "" },
+      "/api/health": { status: "ok", version: "0.1.0", database: true, time: "" },
       "/api/auth/me": { email: "ala@example.org", role: "member" },
       "/api/sites": { total: 0, offset: 0, limit: 50, items: [] },
     });
