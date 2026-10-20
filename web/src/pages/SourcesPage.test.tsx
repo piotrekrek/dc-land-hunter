@@ -2,6 +2,7 @@ import { screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { SourceOut } from "@/api/client";
+import { formatDate, formatNumber } from "@/lib/format";
 import { mockFetch, renderWithProviders } from "@/test/render";
 
 import { SourcesPage } from "./SourcesPage";
@@ -49,6 +50,51 @@ describe("SourcesPage", () => {
     mockFetch({ "/api/sources": { database: true, sources: sources.map((s) => ({ ...s, discovery_status: null })) }, "/api/auth/me": { email: "ala@example.org", role: "member" } });
     renderWithProviders(<SourcesPage />);
     expect(await screen.findByText(/dclh discover/)).toBeInTheDocument();
+  });
+
+  it("shows notes, last error and row count on the table and the mobile cards when present", async () => {
+    const withDetails = sources.map((s) =>
+      s.id === "enea"
+        ? {
+            ...s,
+            notes: "Tylko GPZ, bez mocy 110 kV",
+            state: { last_success_at: "2026-10-18T08:00:00Z", last_error: "HTTP 503", row_count: 1234, stale: false },
+          }
+        : s,
+    );
+    mockFetch({ "/api/sources": { database: true, sources: withDetails }, "/api/auth/me": { email: "ala@example.org", role: "member" } });
+    renderWithProviders(<SourcesPage />);
+    const rows = await screen.findAllByTestId("source-row");
+    const row = within(rows[1]!);
+    expect(row.getByText("Tylko GPZ, bez mocy 110 kV")).toBeInTheDocument();
+    expect(row.getByText("Ostatni błąd: HTTP 503")).toBeInTheDocument();
+    expect(row.getByText(formatNumber(1234, 0))).toBeInTheDocument();
+
+    const cards = screen.getAllByTestId("source-card");
+    const card = within(cards[1]!);
+    expect(card.getByText("Tylko GPZ, bez mocy 110 kV")).toBeInTheDocument();
+    expect(card.getByText("Ostatni błąd: HTTP 503")).toBeInTheDocument();
+    expect(card.getByText(formatNumber(1234, 0))).toBeInTheDocument();
+    expect(card.getByText(formatDate("2026-10-18T08:00:00Z"))).toBeInTheDocument();
+  });
+
+  it("omits notes and error lines and shows dashes when the API sends none", async () => {
+    mockFetch({ "/api/sources": { database: true, sources }, "/api/auth/me": { email: "ala@example.org", role: "member" } });
+    renderWithProviders(<SourcesPage />);
+    const rows = await screen.findAllByTestId("source-row");
+    expect(within(rows[0]!).queryByText(/Ostatni błąd/)).not.toBeInTheDocument();
+    expect(within(rows[0]!).getAllByText("—")).not.toHaveLength(0);
+    const cards = screen.getAllByTestId("source-card");
+    expect(within(cards[0]!).queryByText(/Ostatni błąd/)).not.toBeInTheDocument();
+    expect(within(cards[0]!).getByText("Wiersze").nextElementSibling).toHaveTextContent("—");
+    expect(within(cards[0]!).getByText("Ostatni sukces").nextElementSibling).toHaveTextContent("—");
+  });
+
+  it("exposes the summary grid as a named group", async () => {
+    mockFetch({ "/api/sources": { database: true, sources }, "/api/auth/me": { email: "ala@example.org", role: "member" } });
+    renderWithProviders(<SourcesPage />);
+    await screen.findAllByTestId("source-row");
+    expect(screen.getByRole("group", { name: "Podsumowanie źródeł MVP" })).toBeInTheDocument();
   });
 
   it("shows 'Uruchom teraz' to admins only", async () => {
