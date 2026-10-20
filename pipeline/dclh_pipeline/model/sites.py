@@ -16,8 +16,6 @@ from shapely import STRtree, union_all
 from shapely.geometry.base import BaseGeometry
 
 GAP_M = 5.0  # parcels closer than this belong to the same site
-SPLIT_SUGGESTION_HA = 80.0  # sites larger than this get a split suggestion (flag only, nothing is split)
-DEFAULT_MW_PER_HA = 6.0  # brief: 60 MW needs about 10 ha, so about 6 MW/ha
 
 
 @dataclass(frozen=True)
@@ -130,7 +128,8 @@ def cluster_sites(
     parcels: Iterable[Parcel],
     *,
     gap_m: float = GAP_M,
-    mw_per_ha: float = DEFAULT_MW_PER_HA,
+    mw_per_ha: float,
+    split_suggestion_ha: float,
     max_site_ha: float | None = None,
     min_piece_ha: float | None = None,
 ) -> list[Site]:
@@ -139,6 +138,8 @@ def cluster_sites(
     With `max_site_ha`, a cluster larger than that is cut into pieces of about that size
     (flag `split_cluster`). With `min_piece_ha`, a piece of a cut cluster smaller than that joins a
     neighbouring piece instead of being left too small to score.
+    `mw_per_ha` and `split_suggestion_ha` come from `target` in config/scoring.yaml; a site above
+    `split_suggestion_ha` gets the `needs_split_suggestion` flag.
     Without zoning, adjacency alone chains a whole town into one cluster, so the search always sets it.
 
     The result is sorted by `site_id` so repeated runs give the same order.
@@ -180,7 +181,7 @@ def cluster_sites(
                     area_ha=area_ha,
                     compactness=_compactness(geom),
                     estimated_mw=area_ha * mw_per_ha,
-                    needs_split_suggestion=area_ha > SPLIT_SUGGESTION_HA,
+                    needs_split_suggestion=area_ha > split_suggestion_ha,
                     flags=flags,
                 )
             )

@@ -153,6 +153,7 @@ def run_search(
     sites = cluster_sites(
         parcels,
         mw_per_ha=cfg.target.mw_per_ha,
+        split_suggestion_ha=cfg.target.large_site_split_ha,
         max_site_ha=cfg.target.large_site_split_ha,
         min_piece_ha=cfg.target.ha_min,
     )

@@ -16,6 +16,7 @@ from dclh_pipeline.scoring.run import score_candidates, to_jsonable
 from dclh_pipeline.scoring.types import ZoningKind
 
 CFG = load_scoring()
+TARGET_KW = {"mw_per_ha": CFG.target.mw_per_ha, "split_suggestion_ha": CFG.target.large_site_split_ha}
 X0, Y0 = 640_000.0, 490_000.0
 
 
@@ -25,7 +26,7 @@ def parcel_sites() -> list:
         Parcel("b1", "z-b", box(X0 + 2_000, Y0, X0 + 2_200, Y0 + 200)),  # 4 ha: below the minimum
         Parcel("c1", "z-c", box(X0 + 5_000, Y0, X0 + 5_600, Y0 + 250)),  # 15 ha, far from the grid
     ]
-    return cluster_sites(parcels)
+    return cluster_sites(parcels, **TARGET_KW)
 
 
 def layers() -> SiteLayers:

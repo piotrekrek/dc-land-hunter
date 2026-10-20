@@ -7,6 +7,7 @@ with nothing near a site gives a real zero or False.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -216,7 +217,13 @@ def build_grid_index(
     )
 
 
-def _fact[T](value: T, source_id: str, as_of: datetime | None, confidence: Confidence) -> Fact[T]:
+def _fact[T](value: T, source_id: str, as_of: datetime | None, confidence: Confidence) -> Fact[T] | None:
+    """A fact, or None (missing) when a geometry gave a non-finite number.
+
+    NaN would score as a real value (every comparison with it is False) and cannot be stored as JSON.
+    """
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
     return Fact(value=value, source_id=source_id, as_of=as_of, confidence=confidence)
 
 
