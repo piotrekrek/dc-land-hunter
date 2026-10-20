@@ -8,6 +8,7 @@ import {
   LINE_LAYER_IDS,
   OWN_SOURCES,
   SITE_FILL_ID,
+  STATION_LAYER_IDS,
   addGridLayers,
   setGroupVisibility,
   setSiteHighlight,
@@ -34,7 +35,7 @@ const BASEMAP_TIMEOUT_MS = 8000;
 const FOCUS_ZOOM = 15;
 
 /** Clickable layers, in priority order: a station wins over a line passing through it. */
-const CLICKABLE: string[] = ["substations-circle", ...LINE_LAYER_IDS, SITE_FILL_ID];
+const CLICKABLE: string[] = [...STATION_LAYER_IDS, ...LINE_LAYER_IDS, SITE_FILL_ID];
 /** Lines are thin, so a click within this many pixels counts as a hit. */
 const HIT_PX = 6;
 
@@ -129,7 +130,7 @@ export function MapView({
         if (picked) onSiteClickRef.current?.(picked);
         return;
       }
-      const isStation = feature.layer.id === "substations-circle";
+      const isStation = STATION_LAYER_IDS.includes(feature.layer.id);
       // A station is a point: use its own position, not where the cursor landed.
       const [lng, lat] =
         isStation && feature.geometry.type === "Point"

@@ -65,6 +65,9 @@ const SITE_TONE_EXPRESSION: ExpressionSpecification = [
 export const SITE_FILL_ID = "sites-fill";
 /** The selected site's outline, drawn on top; its filter picks one site by `site_id`. */
 export const SITE_HIGHLIGHT_ID = "sites-selected";
+/** Stations whose voltage OSM does not give: thousands of them, so they get their own checkbox. */
+export const UNKNOWN_STATIONS_ID = "substations-unknown-circle";
+export const STATION_LAYER_IDS: string[] = ["substations-circle", UNKNOWN_STATIONS_ID];
 
 export function siteHighlightFilter(siteId: string | null): FilterSpecification {
   // Site ids are never empty, so a null selection matches nothing.
@@ -147,6 +150,7 @@ const LAYERS: LayerSpecification[] = [
     type: "circle",
     source: "substations",
     "source-layer": "substations",
+    filter: ["!=", ["get", "cls"], "UNKNOWN_VOLTAGE"] satisfies FilterSpecification,
     paint: {
       "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 2, 12, 6],
       "circle-color": [
@@ -156,10 +160,21 @@ const LAYERS: LayerSpecification[] = [
         VOLTAGE_COLORS.v400,
         "GPZ_110_SN",
         VOLTAGE_COLORS.v110,
-        "UNKNOWN_VOLTAGE",
-        "#ffffff",
         "#6b7280",
       ],
+      "circle-stroke-color": "#111827",
+      "circle-stroke-width": 1,
+    },
+  },
+  {
+    id: UNKNOWN_STATIONS_ID,
+    type: "circle",
+    source: "substations",
+    "source-layer": "substations",
+    filter: ["==", ["get", "cls"], "UNKNOWN_VOLTAGE"] satisfies FilterSpecification,
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 2, 12, 6],
+      "circle-color": "#ffffff",
       "circle-stroke-color": "#111827",
       "circle-stroke-width": 1,
     },
@@ -198,6 +213,13 @@ export const LAYER_GROUPS: LayerGroup[] = [
     color: band.color,
   })),
   { id: "substations", label: "Stacje (GPZ, węzły)", defaultOn: true, layerIds: ["substations-circle"] },
+  {
+    id: "substations-unknown",
+    label: "Stacje o nieznanym napięciu",
+    defaultOn: false,
+    layerIds: [UNKNOWN_STATIONS_ID],
+    color: "#ffffff",
+  },
 ];
 
 /**

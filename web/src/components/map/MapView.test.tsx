@@ -297,6 +297,16 @@ describe("MapView click popups", () => {
     expect(h.popups[0]?.content?.textContent).toContain("GPZ Test");
   });
 
+  it("opens the station popup for an unknown-voltage station too", () => {
+    h.features = [{ ...station, layer: { id: "substations-unknown-circle" }, properties: { name: "Stacja X", cls: "UNKNOWN_VOLTAGE", osm_id: 8 } }];
+    render(<MapView />);
+    act(() => emit("style.load"));
+    act(() => emit("click", click));
+    expect(h.popups).toHaveLength(1);
+    expect(h.popups[0]?.lngLat).toEqual([18.5, 52.25]);
+    expect(h.popups[0]?.content?.textContent).toContain("Stacja X");
+  });
+
   it("prefers a station over a line under the same click", () => {
     h.features = [
       {
