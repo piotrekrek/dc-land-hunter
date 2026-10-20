@@ -1,6 +1,40 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_FILTERS, parseFilters, toParams } from "./sites";
+import { DEFAULT_FILTERS, describeFilters, isDefaultFilters, parseFilters, toParams, uniqueBySiteId } from "./sites";
+
+describe("filter summary and reset", () => {
+  it("says the defaults in one line", () => {
+    expect(describeFilters(DEFAULT_FILTERS)).toBe("Filtry domyślne: od 60 MW");
+    expect(isDefaultFilters(DEFAULT_FILTERS)).toBe(true);
+  });
+
+  it("counts sort as a change for the reset, but not for the filter line", () => {
+    const sorted = { ...DEFAULT_FILTERS, sort: "area" as const };
+    expect(describeFilters(sorted)).toBe("Filtry domyślne: od 60 MW");
+    expect(isDefaultFilters(sorted)).toBe(false);
+  });
+
+  it("names a non-default minimum area, which an old link can still set", () => {
+    expect(describeFilters({ ...DEFAULT_FILTERS, minMw: 100, minHa: 20 })).toBe("Filtry: od 100 MW, powierzchnia od 20 ha");
+  });
+
+  it("keeps the area minimum in the line while the power filter is open", () => {
+    expect(describeFilters({ ...DEFAULT_FILTERS, minMw: 0, includeExcluded: true })).toBe(
+      "Filtry: moc dowolna, powierzchnia od 10 ha, z wykluczonymi",
+    );
+  });
+});
+
+describe("uniqueBySiteId", () => {
+  it("keeps the first row of each site and the order of the rest", () => {
+    const rows = [{ site_id: "a", n: 1 }, { site_id: "b", n: 2 }, { site_id: "a", n: 3 }, { site_id: "c", n: 4 }];
+    expect(uniqueBySiteId(rows)).toEqual([
+      { site_id: "a", n: 1 },
+      { site_id: "b", n: 2 },
+      { site_id: "c", n: 4 },
+    ]);
+  });
+});
 
 describe("site filters in the URL", () => {
   it("starts from the brief's target (60 MW, 10 ha) when the URL is clean", () => {

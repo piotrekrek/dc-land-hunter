@@ -1,11 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router";
 
+import { shouldRetry } from "@/api/client";
 import { AppShell } from "@/components/layout/AppShell";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider } from "@/lib/auth";
 import { LoginPage } from "@/pages/LoginPage";
 import { HomePage } from "@/pages/HomePage";
+import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { SiteCardPage } from "@/pages/SiteCardPage";
@@ -79,10 +81,7 @@ export function AppRoutes() {
         <Route path="lokalizacje/:siteId" element={<SiteCardPage />} />
         <Route path="zrodla" element={<SourcesPage />} />
         <Route path="ustawienia" element={<SettingsPage />} />
-        <Route
-          path="*"
-          element={<PlaceholderPage title="Nie znaleziono strony" phase={0} description="Ten adres nie istnieje." bullets={["Wróć do mapy z menu."]} />}
-        />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
       </Route>
     </Routes>
@@ -90,7 +89,7 @@ export function AppRoutes() {
 }
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 60_000, refetchOnWindowFocus: false } },
+  defaultOptions: { queries: { staleTime: 60_000, refetchOnWindowFocus: false, retry: shouldRetry } },
 });
 
 export function App() {

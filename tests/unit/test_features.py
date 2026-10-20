@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import math
+
 import pytest
 from shapely.geometry import LineString, Point, box
 from shapely.geometry.base import BaseGeometry
@@ -27,7 +30,8 @@ from dclh_pipeline.model.features import (
 )
 from dclh_pipeline.model.grid import SubstationClass
 from dclh_pipeline.model.provenance import Confidence
-from dclh_pipeline.model.sites import Parcel, cluster_sites
+from dclh_pipeline.model.sites import Parcel, Site, cluster_sites
+from dclh_pipeline.scoring.run import to_jsonable
 from dclh_pipeline.scoring.types import ZoningKind
 
 CFG = load_scoring()
@@ -285,7 +289,9 @@ def test_an_empty_first_layer_falls_through_to_the_next() -> None:
 
 def test_build_site_features_from_cluster_and_layers() -> None:
     site = cluster_sites(
-        [Parcel("p1", "z1", box(0, 0, 500, 500)), Parcel("p2", "z1", box(500, 0, 700, 500))]
+        [Parcel("p1", "z1", box(0, 0, 500, 500)), Parcel("p2", "z1", box(500, 0, 700, 500))],
+        mw_per_ha=CFG.target.mw_per_ha,
+        split_suggestion_ha=CFG.target.large_site_split_ha,
     )[0]
     grid = build_grid_index([sub(1, 1_000, 250, SubstationClass.GPZ_110_SN)], [line(10, 1_300)])
     layers = SiteLayers(
@@ -308,7 +314,11 @@ def test_build_site_features_from_cluster_and_layers() -> None:
 
 
 def test_build_site_features_with_nothing_loaded_is_only_land() -> None:
-    site = cluster_sites([Parcel("p1", None, box(0, 0, 500, 500))])[0]
+    site = cluster_sites(
+        [Parcel("p1", None, box(0, 0, 500, 500))],
+        mw_per_ha=CFG.target.mw_per_ha,
+        split_suggestion_ha=CFG.target.large_site_split_ha,
+    )[0]
     features = build_site_features(site, SiteLayers(), CFG)
     assert features.zoning is None
     assert features.dist_gpz110_km is None
@@ -320,3 +330,24 @@ def test_closer_line_never_gives_a_larger_distance() -> None:
     far = grid_facts(SITE, build_grid_index([], [line(1, 3_000)]), CFG)["dist_line110_km"]
     near = grid_facts(SITE, build_grid_index([], [line(1, 1_000)]), CFG)["dist_line110_km"]
     assert far is not None and near is not None and near.value < far.value
+
+
+def test_non_finite_geometry_values_are_missing_data() -> None:
+    """A NaN area or compactness must not reach the scorer as a number: it is missing, and the JSON stays valid."""
+    site = Site(
+        site_id="site-nan",
+        zone_id="z1",
+        parcel_ids=("p1",),
+        geom=box(0, 0, 500, 500),
+        area_ha=math.nan,
+        compactness=math.nan,
+        estimated_mw=math.nan,
+        needs_split_suggestion=False,
+    )
+
+    features = build_site_features(site, SiteLayers(), CFG)
+
+    assert features.area_ha is None
+    assert features.compactness is None
+    assert features.parcel_count is not None and features.parcel_count.value == 1
+    json.dumps(to_jsonable(features), allow_nan=False)  # the sites.detail column is jsonb, which has no NaN

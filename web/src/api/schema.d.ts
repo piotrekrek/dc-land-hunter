@@ -557,6 +557,8 @@ export interface components {
             limit: number;
             /** Items */
             items: components["schemas"]["SiteSummary"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
         };
         /** SourceOut */
         SourceOut: {
@@ -859,6 +861,7 @@ export interface operations {
                 include_excluded?: boolean;
                 limit?: number;
                 offset?: number;
+                cursor?: string | null;
             };
             header?: never;
             path?: never;

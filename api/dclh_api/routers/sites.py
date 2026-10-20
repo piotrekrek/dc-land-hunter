@@ -3,19 +3,22 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import text
+from sqlalchemy import RowMapping, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from dclh_api.deps import db_session
+from dclh_api.pagination import CursorError, decode_cursor, encode_cursor
 from dclh_api.schemas import FactOut, SiteDetail, SitesPage, SiteSummary
 from dclh_api.security import current_user
 
 router = APIRouter(tags=["sites"], dependencies=[Depends(current_user)])
+logger = logging.getLogger(__name__)
 
 # Whitelisted ORDER BY columns: the query string never reaches SQL.
 SORT_COLUMNS: dict[str, str] = {
@@ -48,24 +51,48 @@ def list_sites(
     include_excluded: bool = False,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    cursor: Annotated[str | None, Query(max_length=512)] = None,
 ) -> SitesPage:
     where = "WHERE estimated_mw >= :min_mw AND area_ha >= :min_ha AND (:include_excluded OR NOT excluded)"
     params: dict[str, Any] = {"min_mw": min_mw, "min_ha": min_ha, "include_excluded": include_excluded}
     column = SORT_COLUMNS[sort]
     direction = "ASC" if order == "asc" else "DESC"
+    # Keyset: the rows strictly after the cursor's row in this order; site_id (always ascending) breaks ties.
+    # The count keeps the base filter, so `total` does not depend on the page.
+    keyset = ""
+    if cursor is not None:
+        if offset:
+            raise HTTPException(422, "Nie łącz kursora z przesunięciem (offset).")
+        try:
+            after = decode_cursor(cursor, sort, order)
+        except CursorError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        comparison = ">" if order == "asc" else "<"
+        keyset = (
+            f" AND ({column} {comparison} :cursor_value"
+            f" OR ({column} = :cursor_value AND site_id > :cursor_site_id))"
+        )
+        params |= {"cursor_value": after.value, "cursor_site_id": after.site_id}
     try:
         total = session.execute(text(f"SELECT count(*) FROM sites {where}"), params).scalar_one()
         rows = session.execute(
             text(
-                f"SELECT {_SUMMARY_COLUMNS} FROM sites {where} "
+                f"SELECT {_SUMMARY_COLUMNS} FROM sites {where}{keyset} "
                 f"ORDER BY {column} {direction}, site_id LIMIT :limit OFFSET :offset"
             ),
-            {**params, "limit": limit, "offset": offset},
+            # One extra row tells whether a next page exists without a second count.
+            {**params, "limit": limit + 1, "offset": offset},
         ).mappings()
-        items = [_summary(dict(row)) for row in rows]
+        fetched = [dict(row) for row in rows]
     except SQLAlchemyError as exc:
         raise _unavailable() from exc
-    return SitesPage(total=total, offset=offset, limit=limit, items=items)
+    page = fetched[:limit]
+    next_cursor = None
+    if len(fetched) > limit:
+        last = page[-1]
+        next_cursor = encode_cursor(sort, order, float(last[column]), last["site_id"])
+    items = [_summary(row) for row in page]
+    return SitesPage(total=total, offset=offset, limit=limit, items=items, next_cursor=next_cursor)
 
 
 def _mw_fact(row: Mapping[str, Any]) -> FactOut:
@@ -89,6 +116,18 @@ def _fact_map(features: dict[str, Any]) -> dict[str, FactOut]:
 
 @router.get("/sites/{site_id}", response_model=SiteDetail)
 def get_site(site_id: str, session: Annotated[Session, Depends(db_session)]) -> SiteDetail:
+    row = _site_row(session, site_id)
+    if row is None:
+        raise HTTPException(404, "Nie ma takiej lokalizacji.")
+    try:
+        return _site_detail(row)
+    except (KeyError, TypeError, ValueError) as exc:
+        # A row the scorer did not write as expected: log the details, never send them to the client.
+        logger.exception("Malformed sites row %s", site_id)
+        raise HTTPException(500, "Nie udało się wczytać danych tej lokalizacji.") from exc
+
+
+def _site_row(session: Session, site_id: str) -> RowMapping | None:
     try:
         row = (
             session.execute(
@@ -103,8 +142,10 @@ def get_site(site_id: str, session: Annotated[Session, Depends(db_session)]) -> 
         )
     except SQLAlchemyError as exc:
         raise _unavailable() from exc
-    if row is None:
-        raise HTTPException(404, "Nie ma takiej lokalizacji.")
+    return row
+
+
+def _site_detail(row: RowMapping) -> SiteDetail:
     detail = row["detail"]
     score = detail["score"]
     return SiteDetail(

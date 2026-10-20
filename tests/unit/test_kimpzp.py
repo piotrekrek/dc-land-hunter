@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 from shapely import box
 
-from dclh_pipeline.config import SourceSpec
+from dclh_pipeline.config import SourceSpec, load_scoring
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.sites import Parcel, cluster_sites
@@ -27,6 +27,9 @@ from dclh_pipeline.sources.kimpzp import (
     site_points,
     zoning_layer,
 )
+
+CFG = load_scoring()
+TARGET_KW = {"mw_per_ha": CFG.target.mw_per_ha, "split_suggestion_ha": CFG.target.large_site_split_ha}
 
 ClientFactory = Callable[..., PoliteClient]
 
@@ -96,7 +99,7 @@ def test_sample_points_lie_inside_the_site() -> None:
 
 
 def site_at(x0: float, y0: float):  # type: ignore[no-untyped-def]
-    return cluster_sites([Parcel(f"p{x0}", None, box(x0, y0, x0 + 400, y0 + 300))])[0]
+    return cluster_sites([Parcel(f"p{x0}", None, box(x0, y0, x0 + 400, y0 + 300))], **TARGET_KW)[0]
 
 
 def test_site_points_are_lon_lat_in_poland() -> None:

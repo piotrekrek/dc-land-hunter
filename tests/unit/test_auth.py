@@ -4,13 +4,25 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from dclh_api.deps import db_session
 from dclh_api.main import create_app
-from dclh_api.security import LoginThrottle, login_throttle
+from dclh_api.routers import auth as auth_router
+from dclh_api.security import (
+    LOGIN_IP_MAX_FAILURES,
+    LoginThrottle,
+    admin_user,
+    current_user,
+    login_ip_throttle,
+    login_throttle,
+)
 from dclh_pipeline.auth import (
     PasswordTooShortError,
     UserExistsError,
@@ -70,6 +82,41 @@ def test_login_throttle_does_not_keep_unused_or_expired_keys() -> None:
     assert t._failures == {}
 
 
+def _app_without_database(monkeypatch: pytest.MonkeyPatch) -> FastAPI:
+    """The API with the database and the logged-in user stubbed out: runs without PostGIS."""
+    app = create_app()
+    app.dependency_overrides[db_session] = lambda: MagicMock()
+    admin = SimpleNamespace(email="admin@example.org", role="admin")
+    app.dependency_overrides[current_user] = lambda: admin
+    app.dependency_overrides[admin_user] = lambda: admin
+    monkeypatch.setattr(auth_router, "authenticate", lambda *_args: None)
+    login_throttle._failures.clear()
+    login_ip_throttle._failures.clear()
+    return app
+
+
+def test_login_ip_cap_blocks_spraying_without_a_database(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = TestClient(_app_without_database(monkeypatch))
+    for i in range(LOGIN_IP_MAX_FAILURES):  # one try per email never trips the per-(email, IP) block
+        r = client.post(
+            "/api/auth/login", json={"email": f"spray{i}@example.org", "password": "wrong-password"}
+        )
+        assert r.status_code == 401, i
+    r = client.post("/api/auth/login", json={"email": "anyone@example.org", "password": "wrong-password"})
+    assert r.status_code == 429
+
+
+def test_discovery_is_refused_while_a_job_is_busy(monkeypatch: pytest.MonkeyPatch) -> None:
+    app = _app_without_database(monkeypatch)
+    busy = MagicMock()
+    busy.scalars.return_value.first.return_value = 7  # an earlier discover job is pending or running
+    app.dependency_overrides[db_session] = lambda: busy
+    r = TestClient(app).post("/api/sources/discover", json={"sources": []})
+    assert r.status_code == 409
+    assert "już trwa" in r.json()["detail"]
+    busy.add.assert_not_called()  # nothing was queued
+
+
 # --------------------------------------------------------------------------- with database
 
 
@@ -84,6 +131,7 @@ def db(migrated_db: None) -> Iterator[None]:
 @pytest.fixture
 def client(db: None) -> Iterator[TestClient]:
     login_throttle._failures.clear()
+    login_ip_throttle._failures.clear()
     with TestClient(create_app()) as c:
         yield c
 
@@ -137,6 +185,18 @@ def test_repeated_failures_are_throttled(client: TestClient) -> None:
         )
     r = client.post("/api/auth/login", json={"email": "member@example.org", "password": PASSWORD})
     assert r.status_code == 429  # even the right password is refused while blocked
+
+
+@pytest.mark.db
+def test_one_address_cannot_spray_many_emails(client: TestClient) -> None:
+    # Each email fails only once, so the per-(email, IP) block never trips; the per-IP cap must.
+    for i in range(LOGIN_IP_MAX_FAILURES):
+        r = client.post(
+            "/api/auth/login", json={"email": f"spray{i}@example.org", "password": "wrong-password"}
+        )
+        assert r.status_code == 401, i
+    r = client.post("/api/auth/login", json={"email": "member@example.org", "password": PASSWORD})
+    assert r.status_code == 429  # a known account is refused too, from the blocked address
 
 
 @pytest.mark.db
@@ -198,3 +258,30 @@ def test_run_discovery_is_admin_only_and_queues_a_job(client: TestClient) -> Non
         assert (
             job is not None and job.payload["sources"] == ["gdos"] and job.requested_by == "admin@example.org"
         )
+
+
+@pytest.mark.db
+def test_discovery_is_refused_while_one_is_pending_or_running(client: TestClient) -> None:
+    login(client, "admin@example.org")
+    with session_scope() as s:  # earlier tests leave discovery jobs queued
+        for old in s.scalars(
+            select(JobRow).where(JobRow.kind == "discover", JobRow.status.in_(("pending", "running")))
+        ):
+            old.status = "done"
+
+    first = client.post("/api/sources/discover", json={"sources": []})
+    assert first.status_code == 202
+    for status_now in ("pending", "running"):
+        with session_scope() as s:
+            job = s.get(JobRow, first.json()["id"])
+            assert job is not None
+            job.status = status_now
+        r = client.post("/api/sources/discover", json={"sources": []})
+        assert r.status_code == 409, status_now
+        assert "już trwa" in r.json()["detail"]
+
+    with session_scope() as s:
+        job = s.get(JobRow, first.json()["id"])
+        assert job is not None
+        job.status = "done"
+    assert client.post("/api/sources/discover", json={"sources": []}).status_code == 202

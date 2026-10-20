@@ -69,7 +69,9 @@ test("theme toggle switches to dark mode", async ({ page }) => {
 });
 
 
-test("admin sees 'Uruchom teraz' and can queue a check", async ({ page }) => {
+test("admin sees 'Uruchom teraz' and can queue a check", async ({ page }, testInfo) => {
+  // Discovery is one shared job: while the desktop run's job is pending, a second queue is refused (409).
+  test.skip(testInfo.project.name !== "desktop", "queues the shared discovery job once; desktop covers it");
   await page.goto("/zrodla");
   await page.getByRole("button", { name: "Uruchom teraz" }).click();
   await expect(page.getByRole("status")).toContainText("dodane do kolejki");

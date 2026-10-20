@@ -1,6 +1,7 @@
 """One scoring run: candidate sites and loaded layers → scored sites → the `sites` table (brief 5, step 5).
 
-A run replaces the whole table, so a site that disappeared from the input disappears from the list too.
+A run replaces the sites of its own powiat only (`write_sites`), so a site that disappeared from that powiat's
+input disappears from the list too, while the other powiats keep their rows.
 """
 
 from __future__ import annotations

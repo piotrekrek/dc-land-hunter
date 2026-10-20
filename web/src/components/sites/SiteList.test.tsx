@@ -90,24 +90,89 @@ describe("SiteList", () => {
     mockFetch({ "/api/sites": { total: 0, offset: 0, limit: 50, items: [] } });
     renderWithProviders(<SiteList onSelect={() => {}} />);
     expect(await screen.findByText("Brak lokalizacji dla tych filtrów")).toBeInTheDocument();
+    expect(screen.getByText(/Poszerz filtry albo pokaż wykluczone lokalizacje/)).toBeInTheDocument();
+    expect(screen.queryByText(/Faza/)).not.toBeInTheDocument();
   });
 
-  it("offers more results when the page is not complete, and asks for the next offset", async () => {
+  it("states once, in the list header, that the power is an area-based estimate", async () => {
+    mockFetch({ "/api/sites": { total: 2, offset: 0, limit: 50, items: [site({}), site({ site_id: "site-b" })] } });
+    renderWithProviders(<SiteList onSelect={() => {}} />);
+    const rows = await screen.findAllByTestId("site-row");
+    expect(screen.getAllByText(/szacunek na podstawie powierzchni/)).toHaveLength(1);
+    expect(screen.getByText(/Moc to szacunek na podstawie powierzchni/)).toBeInTheDocument();
+    for (const row of rows) expect(within(row).queryByText(/szacunek/)).not.toBeInTheDocument();
+  });
+
+  it("gives the row links a 44px-high tap target without adding to the row height", async () => {
+    mockFetch({ "/api/sites": { total: 1, offset: 0, limit: 50, items: [site({})] } });
+    renderWithProviders(<SiteList onSelect={() => {}} />);
+    const details = await screen.findByRole("link", { name: "Więcej informacji" });
+    const maps = screen.getByRole("link", { name: "Mapy Google" });
+    // text-sm line (20px) + py-3 (12px top and bottom) = 44px; -my-3 cancels the padding in the layout.
+    for (const link of [details, maps]) {
+      expect(link.className).toMatch(/\bpy-3\b/);
+      expect(link.className).toMatch(/(^|\s)-my-3(\s|$)/);
+    }
+  });
+
+  it("offers more results when the page is not complete, and asks for the next page with its cursor", async () => {
     // The second page must hold a different site; the same id twice would render duplicate React keys.
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      const offset = Number(new URL(url, "http://localhost").searchParams.get("offset") ?? 0);
-      const items = [site({ site_id: offset === 0 ? "site-a" : "site-b" })];
-      return new Response(JSON.stringify({ total: 80, offset, limit: 50, items }), {
+      const cursor = new URL(url, "http://localhost").searchParams.get("cursor");
+      const page =
+        cursor === null
+          ? { items: [site({ site_id: "site-a" })], next_cursor: "cursor-2" }
+          : { items: [site({ site_id: "site-b" })], next_cursor: null };
+      return new Response(JSON.stringify({ total: 2, offset: 0, limit: 50, ...page }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
     });
     renderWithProviders(<SiteList onSelect={() => {}} />);
-    const more = await screen.findByRole("button", { name: /Pokaż więcej \(1 z 80\)/ });
+    const more = await screen.findByRole("button", { name: /Pokaż więcej \(1 z 2\)/ });
     await userEvent.click(more);
+    expect(await screen.findAllByTestId("site-row")).toHaveLength(2);
     const urls = fetchSpy.mock.calls.map(([input]) => (typeof input === "string" ? input : (input as Request).url));
-    expect(urls.some((u) => u.includes("offset=1"))).toBe(true);
+    expect(urls.some((u) => u.includes("cursor=cursor-2"))).toBe(true);
+    expect(urls.some((u) => u.includes("offset="))).toBe(false);
+  });
+
+  it("shows a site once when two pages both list it", async () => {
+    // A scoring run between the two requests can move a site across the page boundary.
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const cursor = new URL(url, "http://localhost").searchParams.get("cursor");
+      const page =
+        cursor === null
+          ? { items: [site({ site_id: "site-a" }), site({ site_id: "site-b" })], next_cursor: "cursor-2" }
+          : { items: [site({ site_id: "site-b" }), site({ site_id: "site-c" })], next_cursor: null };
+      return new Response(JSON.stringify({ total: 3, offset: 0, limit: 50, ...page }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    renderWithProviders(<SiteList onSelect={() => {}} />);
+    await userEvent.click(await screen.findByRole("button", { name: /Pokaż więcej \(2 z 3\)/ }));
+    expect(await screen.findAllByTestId("site-row")).toHaveLength(3);
+  });
+
+  it("names the active filters and resets them to the defaults", async () => {
+    mockFetch({ "/api/sites": { total: 1, offset: 0, limit: 50, items: [site({})] } });
+    renderWithProviders(<SiteList onSelect={() => {}} />, { route: "/?minMw=100&minHa=20" });
+    expect(await screen.findByText("Filtry: od 100 MW, powierzchnia od 20 ha")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Wyczyść filtry" }));
+    expect(screen.getByText("Filtry domyślne: od 60 MW")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Wyczyść filtry" })).toBeDisabled();
+  });
+
+  it("offers one minimum-power filter and no separate area filter", async () => {
+    mockFetch({ "/api/sites": { total: 1, offset: 0, limit: 50, items: [site({})] } });
+    renderWithProviders(<SiteList onSelect={() => {}} />);
+    await screen.findAllByTestId("site-row");
+    expect(screen.getByLabelText("Szacowana moc od")).toHaveValue("60");
+    expect(screen.queryByLabelText("Powierzchnia od")).not.toBeInTheDocument();
+    expect(screen.getByText("Filtry domyślne: od 60 MW")).toBeInTheDocument();
   });
 
   it("keeps the ranked list in a scrollable region", async () => {

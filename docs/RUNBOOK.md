@@ -299,3 +299,17 @@ compose file bind-mounts the repo's `data/raw` at `/data/raw`. The host and the 
 **one** snapshot store: `uv run dclh ...` on the host and `docker compose exec worker dclh ...` see the same
 snapshots. The container user `dclh` is uid 1000, the same as the VPS owner; keep it that way or the mount
 becomes unwritable. Other runtime output (discovery reports, logs) stays in the `dclh-data` volume.
+
+## Production checklist
+
+Before the VPS serves real users, the owner confirms these in `infra/.env` on the VPS (the file is not in git, so the
+compose defaults apply to anything unset):
+
+- `POSTGRES_PASSWORD` is set to a strong value. The compose default is `dclh`, which must not reach production.
+- `DCLH_CONTACT_EMAIL` is a real address. The pipeline puts it in the User-Agent of its requests to public sources,
+  and the default is a placeholder (`.invalid`).
+- `SITE_ADDRESS` is the public domain, so Caddy serves HTTPS with its own certificate. The default `:80` is plain HTTP.
+- Port 8080 (`HTTP_PORT`) must not be reachable from the internet. The compose file publishes it on all interfaces
+  (`"${HTTP_PORT:-8080}:80"`), and Docker-published ports bypass UFW, so `ufw deny 8080` does not close it. Check
+  from outside (for example `curl -m 5 http://<vps-ip>:8080/` from another machine), then set
+  `HTTP_PORT=127.0.0.1:8080` in `infra/.env` if it answers, and recreate the web container.

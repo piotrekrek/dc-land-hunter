@@ -11,8 +11,9 @@ every missing criterion turned out best-case.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, replace
 from datetime import datetime
 
 from dclh_pipeline.config import ScoringConfig
@@ -551,13 +552,13 @@ def evaluate_hard_filters(f: SiteFeatures, cfg: ScoringConfig) -> tuple[list[Exc
 
     ha_min = cfg.target.ha_min
     area = f.area_ha
-    record(
-        "area_below_min",
-        area is not None,
-        f"za mała powierzchnia ({_n(area.value)} ha < {_n(ha_min, 0)} ha)"
-        if area and area.value < ha_min
-        else None,
-    )
+    # No area means the minimum cannot be shown to hold, so the site is excluded (missing area is not "small").
+    area_reason = None
+    if area is None:
+        area_reason = f"nieznana powierzchnia, nie da się sprawdzić minimum {_n(ha_min, 0)} ha"
+    elif area.value < ha_min:
+        area_reason = f"za mała powierzchnia ({_n(area.value, 3)} ha < {_n(ha_min, 0)} ha)"
+    record("area_below_min", area is not None, area_reason)
     over("protected_nature_pct_over", f.protected_nature_pct, "Natura 2000, park narodowy lub rezerwat")
     over("flood_10_or_1_pct", f.flood_10_or_1_pct, "strefa zalewowa 10% lub 1%")
     over("mining_area_active", f.mining_area_pct, "obszar górniczy")
@@ -593,7 +594,20 @@ def _clip(x: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, x))
 
 
-def score_site(f: SiteFeatures, cfg: ScoringConfig) -> SiteScore:
+def _without_non_finite(f: SiteFeatures) -> SiteFeatures:
+    """Non-finite numbers (NaN, inf) become missing data: they would otherwise pass every threshold as a real value."""
+    bad = {
+        fld.name
+        for fld in fields(f)
+        if (fact := getattr(f, fld.name)) is not None
+        and isinstance(fact.value, float)
+        and not math.isfinite(fact.value)
+    }
+    return replace(f, **dict.fromkeys(bad)) if bad else f
+
+
+def score_site(features: SiteFeatures, cfg: ScoringConfig) -> SiteScore:
+    f = _without_non_finite(features)
     est_mw = f.area_ha.value * cfg.target.mw_per_ha if f.area_ha else None
     large = est_mw is not None and est_mw > cfg.target.large_campus_mw
     split = f.area_ha is not None and f.area_ha.value > cfg.target.large_site_split_ha
@@ -679,6 +693,9 @@ def score_site(f: SiteFeatures, cfg: ScoringConfig) -> SiteScore:
 
     score = _clip(total + pen_total - soft, 0.0, 100.0)
     upside = _clip(upside_total + sum(d.upside_raw for d in penalties) - soft, 0.0, 100.0)
+    if f.area_ha is None:
+        # Without an area the site cannot be sized, so no upside beyond the score is claimed (it was 100 before).
+        upside = score
 
     known_flags = [it.confidence is not Confidence.MISSING for it in items] + hf_known
     completeness = sum(known_flags) / len(known_flags) if known_flags else 0.0
@@ -697,8 +714,10 @@ def score_site(f: SiteFeatures, cfg: ScoringConfig) -> SiteScore:
         )
     if split:
         flags.append("Duży teren, do podziału: sugerowana działka 10–30 ha najbliżej sieci.")
-    if est_mw is not None and est_mw < cfg.target.mw_min:
-        flags.append(f"Szacowana moc {_n(est_mw, 0)} MW jest poniżej minimum {_n(cfg.target.mw_min, 0)} MW.")
+    # The comparison uses the same one-decimal figure the text prints, so the flag never reads "60 MW < 60 MW".
+    shown_mw = None if est_mw is None else round(est_mw, 1)
+    if shown_mw is not None and shown_mw < cfg.target.mw_min:
+        flags.append(f"Szacowana moc {_n(shown_mw)} MW jest poniżej minimum {_n(cfg.target.mw_min, 0)} MW.")
 
     return SiteScore(
         score=score,

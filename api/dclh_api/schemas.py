@@ -74,6 +74,8 @@ class SitesPage(BaseModel):
     offset: int
     limit: int
     items: list[SiteSummary]
+    # Pass as `cursor` to get the next page; null on the last page. Opaque: do not parse it.
+    next_cursor: str | None = None
 
 
 class FactOut(BaseModel):
