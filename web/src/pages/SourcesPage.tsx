@@ -9,7 +9,7 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime, formatNumber } from "@/lib/format";
 
 type DiscoveryStatus = NonNullable<SourceOut["discovery_status"]>;
 
@@ -44,6 +44,22 @@ function StatusBadge({ source }: { source: SourceOut }) {
 function LastRun({ source }: { source: SourceOut }) {
   if (source.state?.stale) return <span className="text-warn">nieaktualne od {formatDate(source.state.last_success_at)}</span>;
   return <>{formatDate(source.state?.last_success_at)}</>;
+}
+
+/** Notes and the last fetch error; each line is rendered only when the API sends a value. */
+function SourceDetails({ source }: { source: SourceOut }) {
+  const error = source.state?.last_error;
+  return (
+    <>
+      {source.notes && <p className="mt-1 text-xs text-muted-foreground">{source.notes}</p>}
+      {error && <p className="mt-1 text-xs text-bad">Ostatni błąd: {error}</p>}
+    </>
+  );
+}
+
+function RowCount({ source }: { source: SourceOut }) {
+  const count = source.state?.row_count;
+  return <>{count === null || count === undefined ? "—" : formatNumber(count, 0)}</>;
 }
 
 const REFRESH_DELAYS_MS = [15_000, 45_000, 90_000];
@@ -139,7 +155,7 @@ function Summary({ sources }: { sources: SourceOut[] }) {
     { key: "unknown", n: count(null) },
   ] as const;
   return (
-    <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Podsumowanie źródeł MVP">
+    <div role="group" className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Podsumowanie źródeł MVP">
       {items.map(({ key, n }) => (
         <Card key={key} className="p-3">
           <div className="text-2xl font-semibold">{n}</div>
@@ -179,6 +195,7 @@ function SourcesBody({ sources, database }: { sources: SourceOut[]; database: bo
               <th scope="col" className="px-3 py-2 font-medium">Plan</th>
               <th scope="col" className="px-3 py-2 font-medium">Odświeżanie</th>
               <th scope="col" className="px-3 py-2 font-medium">Ostatni sukces</th>
+              <th scope="col" className="px-3 py-2 font-medium">Wiersze</th>
               <th scope="col" className="px-3 py-2 font-medium">Weryfikacja</th>
             </tr>
           </thead>
@@ -192,6 +209,7 @@ function SourcesBody({ sources, database }: { sources: SourceOut[]; database: bo
                     {s.id}
                     {s.core && <span className="ml-2 font-sans text-accent-soft-foreground">kluczowe</span>}
                   </div>
+                  <SourceDetails source={s} />
                 </td>
                 <td className="px-3 py-2.5 text-muted-foreground">{s.used_for}</td>
                 <td className="px-3 py-2.5">
@@ -205,6 +223,7 @@ function SourcesBody({ sources, database }: { sources: SourceOut[]; database: bo
                 </td>
                 <td className="px-3 py-2.5 text-muted-foreground">{CADENCE[s.cadence] ?? s.cadence}</td>
                 <td className="px-3 py-2.5 text-muted-foreground"><LastRun source={s} /></td>
+                <td className="px-3 py-2.5 text-muted-foreground"><RowCount source={s} /></td>
                 <td className="px-3 py-2.5 text-muted-foreground">{formatDateTime(s.discovery_checked_at)}</td>
               </tr>
             ))}
@@ -215,7 +234,7 @@ function SourcesBody({ sources, database }: { sources: SourceOut[]; database: bo
       {/* Mobile cards */}
       <ul className="mt-4 flex flex-col gap-2 md:hidden">
         {sources.map((s) => (
-          <li key={s.id}>
+          <li key={s.id} data-testid="source-card">
             <Card className="p-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
@@ -230,6 +249,19 @@ function SourcesBody({ sources, database }: { sources: SourceOut[]; database: bo
                 <Badge>{CADENCE[s.cadence] ?? s.cadence}</Badge>
                 {s.core && <Badge variant="accent">kluczowe</Badge>}
               </div>
+              <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                <dt className="text-muted-foreground">Ostatni sukces</dt>
+                <dd>
+                  <LastRun source={s} />
+                </dd>
+                <dt className="text-muted-foreground">Wiersze</dt>
+                <dd>
+                  <RowCount source={s} />
+                </dd>
+                <dt className="text-muted-foreground">Weryfikacja</dt>
+                <dd>{formatDateTime(s.discovery_checked_at)}</dd>
+              </dl>
+              <SourceDetails source={s} />
             </Card>
           </li>
         ))}
