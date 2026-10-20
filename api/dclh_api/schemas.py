@@ -12,7 +12,6 @@ class Health(BaseModel):
     status: Literal["ok", "degraded"]
     version: str
     database: bool
-    postgis_version: str | None
     time: datetime
 
 

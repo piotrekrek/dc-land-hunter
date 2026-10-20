@@ -49,6 +49,9 @@ services:
 
   api:
     <<: *python
+    environment:
+      <<: *python-env
+      DCLH_API_DOCS: ${DCLH_API_DOCS:-0}
     # Only Caddy (the web container, fixed address below) may set X-Forwarded-For. Trusting "*" let any client
     # pick its own IP, which defeats the login throttles (api/dclh_api/security.py).
     command:

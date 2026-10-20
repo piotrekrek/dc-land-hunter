@@ -93,6 +93,23 @@ def test_health_degrades_without_db(client: TestClient) -> None:
     body = client.get("/api/health").json()
     assert body["status"] == "degraded"
     assert body["database"] is False
+    assert "postgis_version" not in body  # public endpoint: no server versions
+
+
+def test_docs_and_schema_are_off_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("DCLH_API_DOCS", raising=False)
+    with TestClient(create_app()) as c:
+        assert c.get("/api/docs").status_code == 404
+        assert c.get("/api/openapi.json").status_code == 404
+        # The schema object is still built for the export script, even though it is not served.
+        assert c.app.openapi()["info"]["title"] == "DC Land Hunter API"  # type: ignore[attr-defined]
+
+
+def test_docs_and_schema_are_served_when_flag_is_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DCLH_API_DOCS", "1")
+    with TestClient(create_app()) as c:
+        assert c.get("/api/docs").status_code == 200
+        assert c.get("/api/openapi.json").status_code == 200
 
 
 def test_sources_listed_from_config_without_db(client: TestClient) -> None:

@@ -96,8 +96,10 @@ jobs:
             sleep 3
           done
           echo "stack did not become healthy" && exit 1
-      - name: Check tiles endpoint
-        run: curl -fsS http://localhost:8080/tiles/health
+      - name: Tiles refuse anonymous requests
+        run: test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/tiles/health)" = "401"
+      - name: API docs are off by default
+        run: test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/docs)" = "404"
       - name: Seed an admin user for the smoke test
         env:
           E2E_PASSWORD: e2e-password-123

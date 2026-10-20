@@ -335,8 +335,6 @@ export interface components {
             version: string;
             /** Database */
             database: boolean;
-            /** Postgis Version */
-            postgis_version: string | null;
             /**
              * Time
              * Format: date-time

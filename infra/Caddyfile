@@ -15,12 +15,20 @@
 		reverse_proxy api:8000
 	}
 
+	# Tiles and basemap need a login. Each request asks the API whether the session cookie is valid
+	# (GET /api/auth/me); a non-2xx answer is returned to the client as is.
 	handle /tiles/* {
+		forward_auth api:8000 {
+			uri /api/auth/me
+		}
 		reverse_proxy martin:3000
 	}
 
 	# Basemap (OpenFreeMap) via our own origin: the web app rewrites tiles.openfreemap.org URLs to /basemap/*.
 	handle_path /basemap/* {
+		forward_auth api:8000 {
+			uri /api/auth/me
+		}
 		reverse_proxy https://tiles.openfreemap.org {
 			header_up Host tiles.openfreemap.org
 		}
