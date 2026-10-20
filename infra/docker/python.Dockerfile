@@ -51,4 +51,5 @@ ENV PATH="/app/.venv/bin:$PATH" \
     DCLH_CONFIG_DIR=/app/config
 
 EXPOSE 8000
-CMD ["uvicorn", "dclh_api.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# Trust no forwarded headers by default. infra/docker-compose.yml sets the one proxy address (the web container).
+CMD ["uvicorn", "dclh_api.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "127.0.0.1"]
