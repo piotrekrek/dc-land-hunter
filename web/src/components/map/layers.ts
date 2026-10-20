@@ -1,9 +1,14 @@
 import type {
+  ExpressionSpecification,
   FilterSpecification,
   LayerSpecification,
   Map as MapLibreMap,
   SourceSpecification,
 } from "maplibre-gl";
+
+import type { MapFocus } from "@/lib/sites";
+
+import type { TileProps } from "./popup";
 
 /** Grid layers served by Martin from the `tiles` schema (brief 8.1: grid by voltage, substations, AOI). */
 export interface LayerGroup {
@@ -13,6 +18,8 @@ export interface LayerGroup {
   layerIds: string[];
   /** Legend swatch, for layers drawn in one colour. */
   color?: string;
+  /** Legend entries, for layers drawn in several colours. */
+  legend?: { color: string; label: string }[];
 }
 
 const tileUrl = (name: string) => `${globalThis.location?.origin ?? ""}/tiles/${name}/{z}/{x}/{y}`;
@@ -21,7 +28,53 @@ const SOURCES: Record<string, SourceSpecification> = {
   aoi: { type: "vector", tiles: [tileUrl("aoi")], maxzoom: 12 },
   lines: { type: "vector", tiles: [tileUrl("lines")], minzoom: 4 },
   substations: { type: "vector", tiles: [tileUrl("substations")], minzoom: 5 },
+  sites: { type: "vector", tiles: [tileUrl("sites")], minzoom: 8 },
 };
+
+/** Site colours by tone. Hex, because MapLibre cannot read the oklch tokens in index.css (ok, warn, bad, muted-foreground). */
+export const SITE_COLORS = { ok: "#187c49", warn: "#814d00", bad: "#ba3630", muted: "#555c63" } as const;
+export type SiteTone = keyof typeof SITE_COLORS;
+/** The same thresholds as the score badge in the list (ScoreBadge.tsx). */
+export const SITE_SCORE_OK = 70;
+export const SITE_SCORE_WARN = 40;
+
+/** Which colour a site gets: excluded sites are grey whatever their score; the rest follow the list's badge. */
+export function siteTone(score: number, excluded: boolean): SiteTone {
+  if (excluded) return "muted";
+  if (score >= SITE_SCORE_OK) return "ok";
+  if (score >= SITE_SCORE_WARN) return "warn";
+  return "bad";
+}
+
+// Tiles may carry the boolean as true, "true" or 1 (see popup.ts), so match all three.
+const SITE_TONE_EXPRESSION: ExpressionSpecification = [
+  "case",
+  ["in", ["to-string", ["get", "excluded"]], ["literal", ["true", "1"]]],
+  SITE_COLORS.muted,
+  [
+    "step",
+    ["to-number", ["get", "score"]],
+    SITE_COLORS.bad,
+    SITE_SCORE_WARN,
+    SITE_COLORS.warn,
+    SITE_SCORE_OK,
+    SITE_COLORS.ok,
+  ],
+];
+
+export const SITE_FILL_ID = "sites-fill";
+/** The selected site's outline, drawn on top; its filter picks one site by `site_id`. */
+export const SITE_HIGHLIGHT_ID = "sites-selected";
+
+export function siteHighlightFilter(siteId: string | null): FilterSpecification {
+  // Site ids are never empty, so a null selection matches nothing.
+  return ["==", ["get", "site_id"], siteId ?? ""];
+}
+
+/** The focus a click on a site polygon selects: the same shape as picking its row in the list. */
+export function siteFocus(props: TileProps, at: { lng: number; lat: number }): MapFocus | null {
+  return typeof props.site_id === "string" && props.site_id ? { siteId: props.site_id, lon: at.lng, lat: at.lat } : null;
+}
 
 /** Ids of the sources served by Martin; any other source error belongs to the basemap. */
 export const OWN_SOURCES: ReadonlySet<string> = new Set(Object.keys(SOURCES));
@@ -74,6 +127,20 @@ const LAYERS: LayerSpecification[] = [
     "source-layer": "aoi",
     paint: { "line-color": "#1f5f7a", "line-width": 1.5, "line-dasharray": [3, 2] },
   },
+  {
+    id: SITE_FILL_ID,
+    type: "fill",
+    source: "sites",
+    "source-layer": "sites",
+    paint: { "fill-color": SITE_TONE_EXPRESSION, "fill-opacity": 0.45 },
+  },
+  {
+    id: "sites-line",
+    type: "line",
+    source: "sites",
+    "source-layer": "sites",
+    paint: { "line-color": SITE_TONE_EXPRESSION, "line-width": 1.5 },
+  },
   ...LINE_LAYERS,
   {
     id: "substations-circle",
@@ -97,10 +164,32 @@ const LAYERS: LayerSpecification[] = [
       "circle-stroke-width": 1,
     },
   },
+  {
+    id: SITE_HIGHLIGHT_ID,
+    type: "line",
+    source: "sites",
+    "source-layer": "sites",
+    filter: siteHighlightFilter(null),
+    paint: { "line-color": "#ffffff", "line-width": 3 },
+  },
+];
+
+const SITE_LEGEND: NonNullable<LayerGroup["legend"]> = [
+  { color: SITE_COLORS.ok, label: `Wynik ${SITE_SCORE_OK} lub więcej` },
+  { color: SITE_COLORS.warn, label: `Wynik ${SITE_SCORE_WARN}–${SITE_SCORE_OK - 1}` },
+  { color: SITE_COLORS.bad, label: `Wynik poniżej ${SITE_SCORE_WARN}` },
+  { color: SITE_COLORS.muted, label: "Wykluczone" },
 ];
 
 export const LAYER_GROUPS: LayerGroup[] = [
   { id: "aoi", label: "Obszar poszukiwań (AOI)", defaultOn: true, layerIds: ["aoi-fill", "aoi-line"] },
+  {
+    id: "sites",
+    label: "Kandydaci (działki)",
+    defaultOn: true,
+    layerIds: [SITE_FILL_ID, "sites-line", SITE_HIGHLIGHT_ID],
+    legend: SITE_LEGEND,
+  },
   ...LINE_BANDS.map((band) => ({
     id: band.id,
     label: `Linie ${band.label}`,
@@ -122,7 +211,12 @@ export function brightenBuildings(map: MapLibreMap) {
 }
 
 /** (Re)adds sources and layers; call after every `style.load` because `setStyle` removes them. */
-export function addGridLayers(map: MapLibreMap, visible: Record<string, boolean>, darkBasemap = true) {
+export function addGridLayers(
+  map: MapLibreMap,
+  visible: Record<string, boolean>,
+  darkBasemap = true,
+  selectedSiteId: string | null = null,
+) {
   // Only the dark basemap needs lighter buildings; the light style already draws them light.
   if (darkBasemap) brightenBuildings(map);
   for (const [id, spec] of Object.entries(SOURCES)) {
@@ -132,6 +226,12 @@ export function addGridLayers(map: MapLibreMap, visible: Record<string, boolean>
     if (!map.getLayer(layer.id)) map.addLayer(layer);
   }
   for (const group of LAYER_GROUPS) setGroupVisibility(map, group, visible[group.id] ?? group.defaultOn);
+  setSiteHighlight(map, selectedSiteId);
+}
+
+/** Outlines the selected site's polygon; null clears the outline. */
+export function setSiteHighlight(map: MapLibreMap, siteId: string | null) {
+  if (map.getLayer(SITE_HIGHLIGHT_ID)) map.setFilter(SITE_HIGHLIGHT_ID, siteHighlightFilter(siteId));
 }
 
 export function setGroupVisibility(map: MapLibreMap, group: LayerGroup, on: boolean) {

@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { LAYER_GROUPS, LINE_BANDS, LINE_LAYER_IDS } from "./layers";
+import {
+  LAYER_GROUPS,
+  LINE_BANDS,
+  LINE_LAYER_IDS,
+  SITE_COLORS,
+  SITE_FILL_ID,
+  SITE_HIGHLIGHT_ID,
+  SITE_SCORE_OK,
+  SITE_SCORE_WARN,
+  siteFocus,
+  siteHighlightFilter,
+  siteTone,
+} from "./layers";
 
 // Distinct line voltages in the real OSM snapshot (lines of 110 kV and above; counts in the loader's report).
 const REAL_VOLTAGES = [110_000, 220_000, 380_000, 400_000, 450_000];
@@ -30,5 +42,60 @@ describe("line voltage bands", () => {
       expect(group?.layerIds).toEqual([band.id]);
       expect(group?.color).toBe(band.color);
     }
+  });
+});
+
+describe("candidate site layers", () => {
+  const sitesGroup = LAYER_GROUPS.find((g) => g.id === "sites");
+
+  it("is one checkbox, on by default, covering the fill, outline and highlight", () => {
+    expect(sitesGroup?.label).toBe("Kandydaci (działki)");
+    expect(sitesGroup?.defaultOn).toBe(true);
+    expect(sitesGroup?.layerIds).toEqual([SITE_FILL_ID, "sites-line", SITE_HIGHLIGHT_ID]);
+  });
+
+  it("has a legend entry for every tone, in Polish", () => {
+    expect(sitesGroup?.legend?.map((item) => item.color)).toEqual([
+      SITE_COLORS.ok,
+      SITE_COLORS.warn,
+      SITE_COLORS.bad,
+      SITE_COLORS.muted,
+    ]);
+    expect(sitesGroup?.legend?.map((item) => item.label)).toEqual([
+      "Wynik 70 lub więcej",
+      "Wynik 40–69",
+      "Wynik poniżej 40",
+      "Wykluczone",
+    ]);
+  });
+
+  it("colours a site by its score, and excluded sites grey whatever the score", () => {
+    expect(siteTone(SITE_SCORE_OK, false)).toBe("ok");
+    expect(siteTone(SITE_SCORE_OK - 0.1, false)).toBe("warn");
+    expect(siteTone(SITE_SCORE_WARN, false)).toBe("warn");
+    expect(siteTone(SITE_SCORE_WARN - 0.1, false)).toBe("bad");
+    expect(siteTone(95, true)).toBe("muted");
+    expect(siteTone(0, true)).toBe("muted");
+  });
+
+  it("highlights only the selected site, and nothing when no site is selected", () => {
+    expect(siteHighlightFilter("site-a")).toEqual(["==", ["get", "site_id"], "site-a"]);
+    expect(siteHighlightFilter(null)).toEqual(["==", ["get", "site_id"], ""]);
+  });
+});
+
+describe("site click", () => {
+  it("selects the clicked site with the click position", () => {
+    expect(siteFocus({ site_id: "site-a", score: 80 }, { lng: 20.9, lat: 52.1 })).toEqual({
+      siteId: "site-a",
+      lon: 20.9,
+      lat: 52.1,
+    });
+  });
+
+  it("selects nothing for a feature without a site id", () => {
+    expect(siteFocus({ score: 80 }, { lng: 20.9, lat: 52.1 })).toBeNull();
+    expect(siteFocus({ site_id: "" }, { lng: 20.9, lat: 52.1 })).toBeNull();
+    expect(siteFocus({ site_id: 7 }, { lng: 20.9, lat: 52.1 })).toBeNull();
   });
 });

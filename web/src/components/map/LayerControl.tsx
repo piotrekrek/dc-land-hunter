@@ -42,6 +42,16 @@ export function LayerControl({ visible, onToggle }: Props) {
                   {g.color && <span aria-hidden className="h-0.5 w-5 rounded" style={{ background: g.color }} />}
                   {g.label}
                 </label>
+                {g.legend && (
+                  <ul className="mt-1 ml-6 flex flex-col gap-0.5 text-xs text-muted-foreground">
+                    {g.legend.map((item) => (
+                      <li key={item.label} className="flex items-center gap-2">
+                        <span aria-hidden className="size-2.5 rounded-sm" style={{ background: item.color }} />
+                        {item.label}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>

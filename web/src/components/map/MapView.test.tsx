@@ -13,6 +13,7 @@ const h = vi.hoisted(() => {
     features: [] as unknown[],
     flyTo: undefined as unknown as ReturnType<typeof vi.fn>,
     markers: [] as Array<{ lngLat: unknown; removed: boolean }>,
+    filters: [] as Array<{ layer: string; filter: unknown }>,
     popups: [] as Array<{
       lngLat: unknown;
       content?: HTMLElement;
@@ -59,6 +60,9 @@ vi.mock("maplibre-gl", () => {
     }
     setPaintProperty(...args: unknown[]) {
       h.paint.push(args);
+    }
+    setFilter(layer: string, filter: unknown) {
+      h.filters.push({ layer, filter });
     }
     getCanvas() {
       return h.canvas;
@@ -369,5 +373,56 @@ describe("MapView focus", () => {
   it("does nothing without a focus", () => {
     render(<MapView />);
     expect(h.flyTo).not.toHaveBeenCalled();
+  });
+});
+
+describe("MapView site selection", () => {
+  const site = {
+    layer: { id: "sites-fill" },
+    properties: { site_id: "site-a", score: 81, excluded: false, area_ha: 12.5 },
+    geometry: { type: "Polygon" },
+  };
+  const point = { x: 10, y: 10 };
+  const click = { point, lngLat: { lng: 20.9, lat: 52.1 } };
+
+  beforeEach(() => {
+    h.setStyle = vi.fn();
+    h.resize = vi.fn();
+    h.flyTo = vi.fn();
+    h.popups = [];
+    h.features = [];
+    h.filters = [];
+  });
+
+  it("picks the site under a click, with no popup", () => {
+    const onSiteClick = vi.fn();
+    h.features = [site];
+    render(<MapView onSiteClick={onSiteClick} />);
+    act(() => emit("click", click));
+    expect(onSiteClick).toHaveBeenCalledWith({ siteId: "site-a", lon: 20.9, lat: 52.1 });
+    expect(h.popups).toHaveLength(0);
+  });
+
+  it("keeps the line popup when a line passes over a site", () => {
+    const onSiteClick = vi.fn();
+    h.features = [
+      {
+        layer: { id: "lines-110" },
+        properties: { voltage: 110000 },
+        geometry: { type: "LineString" },
+      },
+      site,
+    ];
+    render(<MapView onSiteClick={onSiteClick} />);
+    act(() => emit("click", click));
+    expect(onSiteClick).not.toHaveBeenCalled();
+    expect(h.popups).toHaveLength(1);
+  });
+
+  it("outlines the focused site", () => {
+    const { rerender } = render(<MapView focus={{ siteId: "site-a", lon: 20.9, lat: 52.1 }} />);
+    expect(h.filters.at(-1)).toEqual({ layer: "sites-selected", filter: ["==", ["get", "site_id"], "site-a"] });
+    rerender(<MapView focus={{ siteId: "site-b", lon: 17.0, lat: 51.1 }} />);
+    expect(h.filters.at(-1)).toEqual({ layer: "sites-selected", filter: ["==", ["get", "site_id"], "site-b"] });
   });
 });

@@ -3,7 +3,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { proxyBasemapRequest } from "./basemap";
 import { LayerControl } from "./LayerControl";
-import { LAYER_GROUPS, LINE_LAYER_IDS, OWN_SOURCES, addGridLayers, setGroupVisibility } from "./layers";
+import {
+  LAYER_GROUPS,
+  LINE_LAYER_IDS,
+  OWN_SOURCES,
+  SITE_FILL_ID,
+  addGridLayers,
+  setGroupVisibility,
+  setSiteHighlight,
+  siteFocus,
+} from "./layers";
 import { type MapFocus } from "@/lib/sites";
 import { useActiveTheme, type Theme } from "@/lib/theme";
 import { linePopup, renderPopup, stationPopup } from "./popup";
@@ -25,7 +34,7 @@ const BASEMAP_TIMEOUT_MS = 8000;
 const FOCUS_ZOOM = 15;
 
 /** Clickable layers, in priority order: a station wins over a line passing through it. */
-const CLICKABLE: string[] = ["substations-circle", ...LINE_LAYER_IDS];
+const CLICKABLE: string[] = ["substations-circle", ...LINE_LAYER_IDS, SITE_FILL_ID];
 /** Lines are thin, so a click within this many pixels counts as a hit. */
 const HIT_PX = 6;
 
@@ -55,8 +64,18 @@ function fallbackStyle(theme: Theme): StyleSpecification {
   };
 }
 
-export function MapView({ focus = null }: { focus?: MapFocus | null }) {
+export function MapView({
+  focus = null,
+  onSiteClick,
+}: {
+  focus?: MapFocus | null;
+  /** A click on a site polygon picks that site, as picking its row in the list does. */
+  onSiteClick?: (focus: MapFocus) => void;
+}) {
   const container = useRef<HTMLDivElement>(null);
+  const onSiteClickRef = useRef(onSiteClick);
+  onSiteClickRef.current = onSiteClick;
+  const selectedSiteRef = useRef<string | null>(null);
   const [basemapFailed, setBasemapFailed] = useState(false);
   const [basemapIssue, setBasemapIssue] = useState<string | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -104,6 +123,12 @@ export function MapView({ focus = null }: { focus?: MapFocus | null }) {
       const feature = featureAt(map, e.point);
       if (!feature) return;
       const props = feature.properties ?? {};
+      if (feature.layer.id === SITE_FILL_ID) {
+        // A site is picked, not described: its row in the list shows the details.
+        const picked = siteFocus(props, e.lngLat);
+        if (picked) onSiteClickRef.current?.(picked);
+        return;
+      }
       const isStation = feature.layer.id === "substations-circle";
       // A station is a point: use its own position, not where the cursor landed.
       const [lng, lat] =
@@ -143,7 +168,7 @@ export function MapView({ focus = null }: { focus?: MapFocus | null }) {
     map.on("style.load", () => {
       // Runs for every style: setStyle() drops our layers, so they are added again after each one (basemap, theme
       // switch, fallback). Layers and visibility come from React state via visibleRef, so they survive a theme switch.
-      addGridLayers(map, visibleRef.current, shown === "dark");
+      addGridLayers(map, visibleRef.current, shown === "dark", selectedSiteRef.current);
       settled = true;
       window.clearTimeout(timer);
     });
@@ -192,6 +217,8 @@ export function MapView({ focus = null }: { focus?: MapFocus | null }) {
     const map = mapRef.current;
     if (!map || !focus) return;
     map.resize(); // the map is hidden (0x0) on phones until "Mapa" is selected
+    selectedSiteRef.current = focus.siteId;
+    setSiteHighlight(map, focus.siteId);
     map.flyTo({ center: [focus.lon, focus.lat], zoom: FOCUS_ZOOM });
     const marker = new maplibregl.Marker({ color: "#2563eb" }).setLngLat([focus.lon, focus.lat]).addTo(map);
     return () => {
