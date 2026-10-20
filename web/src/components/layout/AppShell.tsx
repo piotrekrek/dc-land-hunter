@@ -27,7 +27,7 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 
 export function AppShell() {
   const { theme, toggle } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, logoutError } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -74,6 +74,11 @@ export function AppShell() {
           </Button>
         </div>
       </header>
+      {logoutError && (
+        <p role="alert" className="border-b border-bad/40 bg-bad-soft px-4 py-2 text-sm text-bad">
+          {logoutError}
+        </p>
+      )}
       {menuOpen && (
         <nav id="mobile-nav" aria-label="Główna nawigacja" className="flex flex-col gap-1 border-b bg-surface p-2 lg:hidden">
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (

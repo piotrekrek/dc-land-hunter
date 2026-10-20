@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from dclh_api.deps import db_session
-from dclh_api.security import COOKIE_NAME, current_user, get_token, login_throttle
+from dclh_api.security import COOKIE_NAME, current_user, get_token, login_ip_throttle, login_throttle
 from dclh_pipeline.auth import authenticate, create_session, delete_session, normalize_email
 from dclh_pipeline.db.models import UserRow
 
@@ -24,9 +24,12 @@ class UserOut(BaseModel):
     role: str
 
 
+def _client_host(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
 def _client_key(request: Request, email: str) -> str:
-    host = request.client.host if request.client else "unknown"
-    return f"{normalize_email(email)}|{host}"
+    return f"{normalize_email(email)}|{_client_host(request)}"
 
 
 @router.post("/login", response_model=UserOut)
@@ -37,13 +40,15 @@ def login(
     session: Annotated[Session, Depends(db_session)],
 ) -> UserOut:
     key = _client_key(request, body.email)
-    if login_throttle.blocked(key):
+    host = _client_host(request)
+    if login_throttle.blocked(key) or login_ip_throttle.blocked(host):
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS, "Zbyt wiele prób logowania. Spróbuj za kilka minut."
         )
     user = authenticate(session, body.email, body.password)
     if user is None:
         login_throttle.record_failure(key)
+        login_ip_throttle.record_failure(host)
         session.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Nieprawidłowy e-mail lub hasło")
     login_throttle.reset(key)
