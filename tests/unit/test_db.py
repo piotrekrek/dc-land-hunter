@@ -22,7 +22,8 @@ def test_health_ok_with_postgis() -> None:
     with TestClient(create_app()) as client:
         body = client.get("/api/health").json()
     assert body["status"] == "ok"
-    assert body["postgis_version"].startswith("3.")
+    # The PostGIS version is server-side only; the public endpoint must not expose it.
+    assert "postgis_version" not in body
 
 
 def test_sync_sources_is_idempotent() -> None:
