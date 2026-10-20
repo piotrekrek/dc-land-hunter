@@ -44,7 +44,7 @@ export function HomePage() {
       </section>
 
       <section aria-label="Mapa" className={cn("min-h-0 flex-1 lg:block", mobileView === "map" ? "block" : "hidden")}>
-        <MapView focus={focus} />
+        <MapView focus={focus} onSiteClick={setFocus} />
       </section>
     </div>
   );

@@ -126,3 +126,26 @@ def test_phase1_tables_and_map_views() -> None:
                     "(2, 'BOGUS', 'estimated', ST_SetSRID(ST_MakePoint(1, 1), 2180))"
                 )
             )
+
+
+def test_tiles_sites_view_exposes_map_properties() -> None:
+    from dclh_pipeline.db import get_engine
+
+    with get_engine().begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO sites (site_id, powiat, zone_id, parcel_ids, area_ha, compactness, estimated_mw, score, "
+                "upside_score, completeness, excluded, grid_badge, large_campus, split_suggested, detail, scored_at, geom) "
+                "VALUES ('site-test', '1421', NULL, '{p1}', 12.5, 0.6, 75, 81, 40, 0.9, false, 'brak', false, false, "
+                "'{}', now(), ST_SetSRID(ST_MakeEnvelope(360000, 500000, 360400, 500300), 2180))"
+            )
+        )
+        row = conn.execute(
+            text(
+                "SELECT site_id, score, excluded, area_ha, estimated_mw, ST_SRID(geom) AS srid FROM tiles.sites"
+            )
+        ).one()
+        assert row.site_id == "site-test"
+        assert row.score == 81 and row.excluded is False
+        assert row.area_ha == 12.5 and row.estimated_mw == 75
+        assert row.srid == 2180
