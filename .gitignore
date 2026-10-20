@@ -34,3 +34,6 @@ data/reports/
 
 # GDAL sidecar index written next to GML files when they are read
 *.gfs
+
+# Parallel agent worktrees (local only)
+.claude/worktrees/
