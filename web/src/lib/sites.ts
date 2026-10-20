@@ -60,6 +60,34 @@ export function toParams(filters: SiteFilters): URLSearchParams {
   return params;
 }
 
+/** True when every field, sort included, has its default value. */
+export const isDefaultFilters = (filters: SiteFilters): boolean =>
+  (Object.keys(DEFAULT_FILTERS) as (keyof SiteFilters)[]).every((key) => filters[key] === DEFAULT_FILTERS[key]);
+
+/**
+ * The filters as a short Polish line above the list. Sort is not a filter, so it is left out.
+ * The default line names only the MW filter: at the default 6 MW/ha, 60 MW and 10 ha select the same sites.
+ */
+export function describeFilters(filters: SiteFilters): string {
+  const filtersAtDefault =
+    filters.minMw === DEFAULT_FILTERS.minMw && filters.minHa === DEFAULT_FILTERS.minHa && !filters.includeExcluded;
+  if (filtersAtDefault) return `Filtry domyślne: od ${DEFAULT_FILTERS.minMw} MW`;
+  const parts = [filters.minMw > 0 ? `od ${filters.minMw} MW` : "moc dowolna"];
+  if (filters.minHa > 0) parts.push(`powierzchnia od ${filters.minHa} ha`);
+  if (filters.includeExcluded) parts.push("z wykluczonymi");
+  return `Filtry: ${parts.join(", ")}`;
+}
+
+/** Keeps the first row of each site: a site that moved between two pages must show once. */
+export function uniqueBySiteId<T extends { site_id: string }>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.site_id)) return false;
+    seen.add(item.site_id);
+    return true;
+  });
+}
+
 export const CONFIDENCE_LABEL: Record<Confidence, string> = {
   verified: "Zweryfikowane",
   estimated: "Szacunek",
