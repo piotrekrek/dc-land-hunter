@@ -27,6 +27,7 @@ from tests.conftest import FIXTURES
 KONIN_EGIB = FIXTURES / "live" / "cge-konin" / "egib_getfeature.gml"
 KONIN_ULDK = FIXTURES / "live" / "cge-konin" / "uldk_getparcelbyxy.txt"
 CFG = load_scoring()
+TARGET_KW = {"mw_per_ha": CFG.target.mw_per_ha, "split_suggestion_ha": CFG.target.large_site_split_ha}
 
 
 @pytest.fixture(scope="module")
@@ -76,13 +77,13 @@ def test_uldk_error_status_never_becomes_a_parcel() -> None:
 
 
 def test_every_real_parcel_is_in_exactly_one_site(konin_parcels) -> None:  # type: ignore[no-untyped-def]
-    sites = cluster_sites(as_parcels(konin_parcels))
+    sites = cluster_sites(as_parcels(konin_parcels), **TARGET_KW)
     members = [pid for site in sites for pid in site.parcel_ids]
     assert sorted(members) == sorted(konin_parcels["ID_DZIALKI"])
 
 
 def test_real_konin_sites_score_within_bounds_and_keep_provenance(konin_parcels) -> None:  # type: ignore[no-untyped-def]
-    scored = score_candidates(cluster_sites(as_parcels(konin_parcels)), _no_layers(), CFG)
+    scored = score_candidates(cluster_sites(as_parcels(konin_parcels), **TARGET_KW), _no_layers(), CFG)
     assert scored
     for item in scored:
         assert 0 <= item.score.score <= 100
@@ -93,7 +94,7 @@ def test_real_konin_sites_score_within_bounds_and_keep_provenance(konin_parcels)
 
 
 def test_real_konin_sites_below_minimum_area_are_excluded(konin_parcels) -> None:  # type: ignore[no-untyped-def]
-    scored = score_candidates(cluster_sites(as_parcels(konin_parcels)), _no_layers(), CFG)
+    scored = score_candidates(cluster_sites(as_parcels(konin_parcels), **TARGET_KW), _no_layers(), CFG)
     for item in scored:
         if item.site.area_ha < CFG.target.ha_min:
             assert item.score.excluded, item.site.site_id
@@ -103,7 +104,9 @@ def test_real_konin_sites_below_minimum_area_are_excluded(konin_parcels) -> None
     strict=True, reason="Known gap: the grid, zoning and constraint layers are not loaded for Konin yet"
 )
 def test_konin_sites_have_grid_features() -> None:
-    scored = score_candidates(cluster_sites(as_parcels(read_page(KONIN_EGIB))), _no_layers(), CFG)
+    scored = score_candidates(
+        cluster_sites(as_parcels(read_page(KONIN_EGIB)), **TARGET_KW), _no_layers(), CFG
+    )
     assert all(item.features.dist_gpz110_km is not None for item in scored)
 
 
@@ -122,7 +125,7 @@ def test_clustering_partitions_any_grid_of_parcels(cells: list[tuple[int, int]])
         Parcel(f"p{i}", "z", box(x * 100, y * 100, x * 100 + 90, y * 100 + 90))
         for i, (x, y) in enumerate(cells)
     ]
-    sites = cluster_sites(parcels)
+    sites = cluster_sites(parcels, **TARGET_KW)
     members = sorted(pid for site in sites for pid in site.parcel_ids)
     assert members == sorted(p.parcel_id for p in parcels)
 

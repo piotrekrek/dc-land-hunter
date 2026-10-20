@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import replace
 
 import pytest
@@ -329,12 +330,59 @@ def test_completeness_drops_as_data_goes_missing_and_upside_recovers() -> None:
     )  # best case for the gaps is at least as good as the full data
 
 
-def test_an_empty_site_scores_low_with_zero_completeness_and_a_big_upside() -> None:
+def test_an_empty_site_is_excluded_and_claims_no_upside() -> None:
+    """No area means the 10 ha minimum cannot be shown to hold: excluded, and upside is not 100 (it was)."""
     s = score_site(SiteFeatures(), CFG)
     assert s.completeness == 0.0
-    assert not s.excluded and s.estimated_mw is None
+    assert s.excluded and s.estimated_mw is None
+    assert [e.key for e in s.exclusions] == ["area_below_min"]
+    assert "nieznana powierzchnia" in s.exclusions[0].reason_pl
     assert s.grid_badge is GridBadge.NONE
-    assert s.score < 10 and s.upside_score > 80
+    assert s.score < 10 and s.upside_score == pytest.approx(s.score)
+
+
+@pytest.mark.parametrize("area", [None, F(math.nan), F(math.inf)], ids=["none", "nan", "inf"])
+def test_a_site_without_a_usable_area_is_excluded_and_not_shown_as_upside_100(
+    area: Fact[float] | None,
+) -> None:
+    """Everything else is ideal, but with no area the upside used to reach 100. Now it equals the score."""
+    s = score_site(full_features(area_ha=area), CFG)
+    assert s.excluded and [e.key for e in s.exclusions] == ["area_below_min"]
+    assert s.upside_score == pytest.approx(s.score)
+    assert s.upside_score < 100
+    assert s.estimated_mw is None and s.large_campus is False and s.split_suggested is False
+    land = item(s, "land_size")
+    assert land.confidence is Confidence.MISSING and land.points == 0
+    assert not any(
+        "ha to duży teren" in i.explanation_pl or "ha mieści się" in i.explanation_pl for i in s.items
+    )
+
+
+@pytest.mark.parametrize(
+    "field", ["forest_pct", "flood_10_or_1_pct", "dist_line110_km", "residential_min_m", "compactness"]
+)
+def test_nan_in_a_feature_scores_exactly_like_missing(field: str) -> None:
+    """NaN fails every comparison, so it must be treated as missing rather than slipping past thresholds."""
+    nan = score_site(full_features(**{field: F(math.nan)}), CFG)
+    missing = score_site(full_features(**{field: None}), CFG)
+    assert nan.score == pytest.approx(missing.score)
+    assert nan.upside_score == pytest.approx(missing.upside_score)
+    assert nan.excluded == missing.excluded and nan.completeness == pytest.approx(missing.completeness)
+
+
+@pytest.mark.parametrize(("area", "excluded"), [(9.999, True), (10.0, False)])
+def test_minimum_area_boundary_and_the_mw_flag_never_contradict(area: float, excluded: bool) -> None:
+    """9.999 ha is 59.994 MW. The flag must not print "60 MW is below the 60 MW minimum"."""
+    s = score_site(full_features(area_ha=F(area)), CFG)
+    assert s.excluded is excluded
+    assert not any("poniżej minimum" in flag for flag in s.flags_pl)
+    if excluded:
+        assert "9,999 ha < 10 ha" in s.exclusions[0].reason_pl
+
+
+def test_minimum_mw_flag_prints_the_figure_it_compares() -> None:
+    s = score_site(full_features(area_ha=F(9.9)), CFG)  # 59.4 MW
+    assert "Szacowana moc 59,4 MW jest poniżej minimum 60 MW." in s.flags_pl
 
 
 def test_no_missing_data_means_upside_equals_score() -> None:

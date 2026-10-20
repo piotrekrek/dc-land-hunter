@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import text
+from sqlalchemy import RowMapping, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -17,6 +18,7 @@ from dclh_api.schemas import FactOut, SiteDetail, SitesPage, SiteSummary
 from dclh_api.security import current_user
 
 router = APIRouter(tags=["sites"], dependencies=[Depends(current_user)])
+logger = logging.getLogger(__name__)
 
 # Whitelisted ORDER BY columns: the query string never reaches SQL.
 SORT_COLUMNS: dict[str, str] = {
@@ -114,6 +116,18 @@ def _fact_map(features: dict[str, Any]) -> dict[str, FactOut]:
 
 @router.get("/sites/{site_id}", response_model=SiteDetail)
 def get_site(site_id: str, session: Annotated[Session, Depends(db_session)]) -> SiteDetail:
+    row = _site_row(session, site_id)
+    if row is None:
+        raise HTTPException(404, "Nie ma takiej lokalizacji.")
+    try:
+        return _site_detail(row)
+    except (KeyError, TypeError, ValueError) as exc:
+        # A row the scorer did not write as expected: log the details, never send them to the client.
+        logger.exception("Malformed sites row %s", site_id)
+        raise HTTPException(500, "Nie udało się wczytać danych tej lokalizacji.") from exc
+
+
+def _site_row(session: Session, site_id: str) -> RowMapping | None:
     try:
         row = (
             session.execute(
@@ -128,8 +142,10 @@ def get_site(site_id: str, session: Annotated[Session, Depends(db_session)]) -> 
         )
     except SQLAlchemyError as exc:
         raise _unavailable() from exc
-    if row is None:
-        raise HTTPException(404, "Nie ma takiej lokalizacji.")
+    return row
+
+
+def _site_detail(row: RowMapping) -> SiteDetail:
     detail = row["detail"]
     score = detail["score"]
     return SiteDetail(
