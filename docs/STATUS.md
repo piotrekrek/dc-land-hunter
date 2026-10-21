@@ -210,7 +210,7 @@ Plausibility:
   1,246 have a name, 911 a DSO). They are on the map at confidence `missing`. Search seeds and scoring do not use them.
 
 Moved out of Phase 1 (see `docs/PLAN.md`): `osm_land` and the `buildings` table to Phase 2; the DSO territory fallback and
-the count of independent circuits to Phase 3. Still open for the owner: Toruń is outside the AOI (see "The AOI" below).
+the count of independent circuits to Phase 3. Toruń is in the AOI by the owner's decision of 20.10.2026 (see "The AOI" below).
 
 ## Source verification round 2 (19.10.2026, from the VPS)
 
@@ -547,14 +547,21 @@ available columns, which settles the names.
   22% małopolskie; 1% lubelskie; 0% podkarpackie, warmińsko-mazurskie and podlaskie.
   Checked points: Bielsko-Biała, Żywiec, Lublin, Praga, Elbląg, Malbork, Tarnów and the south bank of Kraków are out;
   Cieszyn, Kraków north of the river, Warsaw's left bank, Gdańsk, Bydgoszcz and Łódź are in.
-- **Open for the owner:** Toruń (18.60 E, 53.01 N) is out. The river bends west there (through Fordon) and the split
-  follows that bend, so Toruń's centre falls on the south bank. Decide whether that is right; the AOI can be edited.
+- **Toruń is in the AOI (owner decision, 20.10.2026).** The river bends west there (through Fordon), so the split alone
+  puts Toruń's centre (18.60 E, 53.01 N) on the south bank. `config/aoi.yaml` now lists the units to add whole after
+  the split: gmina `0463011` Toruń (PRG name `Toruń`, which contains the centre). Each TERYT must match one PRG unit by
+  level and code, or the build fails. The build prints the area of each unit it adds and records the codes in the
+  `aoi` note. The committed `data/aoi/aoi.geojson` and the VPS `aoi` row still show the split without Toruń until
+  `dclh aoi build` is run again (see the PR for the command).
 - **Martin returned empty tiles after the first load.** `tiles/aoi` gave 204 from zoom 5 up, although PostGIS returned
   the feature for the same tile. A restart of `martin` fixed it. The cause is not confirmed (most likely its cached
   table metadata from startup, when the table was empty). Until it is understood, restart Martin after a first load
   of `aoi`, `substations` or `lines`: `docker compose -f infra/docker-compose.yml restart martin`.
 - Tests: `tests/unit/test_aoi_build.py` (main stem with a loop, a stub and shuffled, reversed ways; the PBF reader on a
-  synthetic extract; GeoJSON round trip; voivodeship shares; the DB row replace, which needs PostGIS).
+  synthetic extract; GeoJSON round trip; voivodeship shares; the include list: TERYT matching by level, config
+  validation, the committed `config/aoi.yaml`; the DB row replace, which needs PostGIS). `tests/unit/test_aoi.py`
+  checks that an included unit on the excluded side is added whole and that a neighbour not on the list stays out
+  (synthetic, so Toruń and Praga are stand-ins).
 
 ## Phase 1.5: `dclh search` (code on fixtures; not yet run live)
 

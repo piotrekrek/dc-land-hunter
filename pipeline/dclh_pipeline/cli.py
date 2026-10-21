@@ -15,7 +15,7 @@ from rich.console import Console
 from rich.table import Table
 
 from dclh_pipeline import __version__, capture, followup
-from dclh_pipeline.config import load_scoring, load_sources
+from dclh_pipeline.config import load_aoi_config, load_scoring, load_sources
 from dclh_pipeline.discovery import STATUS_ICON, discover, render_markdown, save_report, update_sources_doc
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.settings import REPO_ROOT, get_settings
@@ -528,8 +528,9 @@ app.add_typer(aoi_app, name="aoi")
 def aoi_build_cmd() -> None:
     """Build the AOI from the saved PRG and OSM snapshots, write data/aoi/aoi.geojson and load the database.
 
-    Needs the saved `prg` and `osm_power` snapshots (`dclh fetch`). Prints the share of each voivodeship
-    inside the AOI, as a plausibility check. Needs the database.
+    Needs the saved `prg` and `osm_power` snapshots (`dclh fetch`). Units listed in config/aoi.yaml are added
+    after the Vistula split. Prints the share of each voivodeship inside the AOI, as a plausibility check.
+    Needs the database.
     """
     from dclh_pipeline import aoi_build
     from dclh_pipeline.db import session_scope
@@ -546,16 +547,19 @@ def aoi_build_cmd() -> None:
         )
     prg = PrgConnector(config.get("prg")).parse(prg_snapshot)
     vistula = aoi_build.read_vistula(osm_snapshot.path)
-    aoi = aoi_build.build(aoi_build.country_geometry(prg), vistula)
+    included = load_aoi_config().include
+    include_geoms = aoi_build.included_geometries(prg, included)
+    aoi = aoi_build.build(aoi_build.country_geometry(prg), vistula, include_geoms)
     out = REPO_ROOT / "data" / "aoi" / "aoi.geojson"
     aoi_build.write_geojson(aoi, out)
+    note = f"PRG {prg_snapshot.fetched_at:%Y-%m-%d}, OSM {osm_snapshot.fetched_at:%Y-%m-%d}"
+    if included:
+        note += ", include " + " ".join(u.teryt for u in included)
     with session_scope() as session:
-        aoi_build.load_aoi(
-            session,
-            aoi,
-            note=f"PRG {prg_snapshot.fetched_at:%Y-%m-%d}, OSM {osm_snapshot.fetched_at:%Y-%m-%d}",
-        )
+        aoi_build.load_aoi(session, aoi, note=note)
     console.print(f"AOI {aoi.area / 1e6:,.0f} km² · written to {out}")
+    for unit, geom in zip(included, include_geoms, strict=True):
+        console.print(f"added {unit.level} {unit.teryt} {unit.name}: {geom.area / 1e6:,.1f} km²")
     table = Table("voivodeship", "inside AOI")
     for name, share in aoi_build.voivodeship_shares(aoi, prg):
         table.add_row(name, f"{share:.0%}")

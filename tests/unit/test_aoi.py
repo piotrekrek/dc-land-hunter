@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from shapely.geometry import LineString, Point, Polygon
+from shapely.geometry import LineString, Point, Polygon, box
 
 from dclh_pipeline.model.aoi import (
     DROP_REFERENCE_LONLAT,
@@ -17,6 +17,14 @@ COUNTRY = Polygon([(0, 0), (1_000_000, 0), (1_000_000, 1_000_000), (0, 1_000_000
 RIVER = LineString([(600_000, 100_000), (600_000, 500_000), (600_000, 900_000)])
 WEST = Point(300_000, 500_000)
 EAST = Point(800_000, 500_000)
+
+
+# A "city" on the excluded (east) side, like Toruń on the south bank, and a neighbour that is not in the include list,
+# like Praga.
+CITY = box(700_000, 480_000, 720_000, 520_000)
+CITY_POINT = Point(710_000, 500_000)
+PRAGA = box(750_000, 480_000, 760_000, 520_000)
+PRAGA_POINT = Point(755_000, 500_000)
 
 
 def test_extend_line_extends_both_ends() -> None:
@@ -36,6 +44,19 @@ def test_build_aoi_keeps_the_west_side() -> None:
     aoi = build_aoi(COUNTRY, RIVER, WEST, EAST, extension_m=200_000)
     assert aoi.contains(WEST) and not aoi.contains(EAST)
     assert aoi.area == pytest.approx(600_000 * 1_000_000)
+
+
+def test_included_unit_on_the_excluded_side_is_added_whole() -> None:
+    aoi = build_aoi(COUNTRY, RIVER, WEST, EAST, include=[CITY])
+    assert aoi.contains(CITY_POINT)
+    assert aoi.contains(WEST) and not aoi.contains(EAST)
+    assert aoi.area == pytest.approx(600_000 * 1_000_000 + CITY.area)
+
+
+def test_units_not_in_the_include_list_stay_out() -> None:
+    aoi = build_aoi(COUNTRY, RIVER, WEST, EAST, include=[CITY])
+    assert not aoi.contains(PRAGA_POINT)
+    assert not build_aoi(COUNTRY, RIVER, WEST, EAST).contains(CITY_POINT)
 
 
 def test_reversed_line_direction_gives_same_result() -> None:
