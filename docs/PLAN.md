@@ -121,6 +121,29 @@ Tasks: snapshot diffs → events (all nine types), Nowości feed with "mark as s
 
 Acceptance: two consecutive fixture runs produce the expected events, and a test digest renders correctly.
 
+## Ops: job health panel ("Zadania")
+
+**Problem.** The nightly search failed for a week (14–20 Oct, 39 failed jobs) and nobody saw it; it was found by querying
+`jobs` by hand. `search_runs` cannot show it: a failed job rolls back, so it never updates its powiat's row.
+
+**Users.** Admins only (the owner). Members have no use for it.
+
+**Must have**
+1. `GET /api/ops/jobs` (admin only): job counts for the last 24 h by status, the powiats whose *latest* search job
+   failed (with the error), and the last 50 jobs. Read-only, from `jobs` and `admin_units`; no new tables.
+2. A "Zadania" page for admins: three blocks (counts, powiats needing attention, recent jobs with the error text).
+3. An in-app alert: the nav entry shows a red count when a powiat's latest search failed or any job failed in the
+   last 24 h. This is the "someone should look" signal that was missing.
+
+**Deliberately not now**
+- Grafana, Kibana, Loki, Prometheus: the data already sits in Postgres and the stack is one VPS.
+- Email, push or Slack alerts: no SMTP exists yet (it arrives with the Phase 5 digest) and a channel means a
+  new service or credentials, which the owner must approve. Revisit with the digest.
+- Retry buttons, log viewer, charts, history beyond 50 jobs, per-source health (the Sources page covers it).
+
+**Done when:** an admin sees yesterday's failures within one page load, a member gets 403 and no nav entry, and
+the numbers match `SELECT status, count(*) FROM jobs GROUP BY 1`.
+
 ## Phase 6: Hardening and deploy
 
 Tasks: Polish VPS, Caddy HTTPS, nightly `pg_dump` to off-site storage (30 days) plus a restore test, RUNBOOK, performance (first paint under 2 s, filter under 300 ms, Lighthouse ≥ 85), axe a11y, final golden-set and manual-review report.
