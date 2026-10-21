@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import io
+import json
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -10,7 +12,13 @@ import pytest
 from dclh_pipeline.config import SourceSpec
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.snapshots import SnapshotStore
-from dclh_pipeline.sources.isok import IsokConnector, _read_page
+from dclh_pipeline.sources.isok import (
+    PROBABILITY_02PCT,
+    PROBABILITY_1PCT,
+    IsokConnector,
+    _read_page,
+    zones_with_probability,
+)
 
 ClientFactory = Callable[..., PoliteClient]
 
@@ -151,3 +159,44 @@ def test_snapshot_records_the_bbox(tmp_path: Path, make_client: ClientFactory) -
     )
     with zipfile.ZipFile(snapshot.path) as archive:
         assert b"620000.0" in archive.read("request.json")
+
+
+def test_request_asks_for_the_1_and_0_2_percent_zones_in_one_filter(
+    tmp_path: Path, make_client: ClientFactory
+) -> None:
+    seen: list[httpx.Request] = []
+    IsokConnector(SPEC, bbox=BBOX).fetch(make_client(serve([page([], 0)], seen)), SnapshotStore(tmp_path))
+    fes = seen[0].url.params["filter"]
+    assert "<fes:Or>" in fes
+    assert "<fes:Literal>0.01</fes:Literal>" in fes
+    assert "<fes:Literal>0.002</fes:Literal>" in fes
+    assert "<fes:Literal>0.1</fes:Literal>" not in fes
+
+
+def test_parse_keeps_the_0_2_and_1_percent_zones_apart(tmp_path: Path, make_client: ClientFactory) -> None:
+    members = [
+        zone(1, 621_000, 471_000, 500, probability="0.01"),
+        zone(2, 623_000, 471_000, 500, probability="0.002"),
+        zone(3, 625_000, 471_000, 500, probability="0.1"),  # 10%: not used
+    ]
+    snapshot = IsokConnector(SPEC, bbox=BBOX).fetch(
+        make_client(serve([page(members, 3)], [])), SnapshotStore(tmp_path)
+    )
+    table = IsokConnector(SPEC, bbox=BBOX).parse(snapshot)
+    assert len(table) == 2
+    one_pct = zones_with_probability(table, PROBABILITY_1PCT)
+    small = zones_with_probability(table, PROBABILITY_02PCT)
+    assert len(one_pct) == 1 and len(small) == 1
+    assert one_pct.iloc[0].bounds[0] == pytest.approx(621_000)
+    assert small.iloc[0].bounds[0] == pytest.approx(623_000)
+
+
+def test_snapshot_from_before_the_0_2_percent_zones_is_refused(tmp_path: Path) -> None:
+    # Such a snapshot has only 1% zones; reading it as "no 0.2% zone here" would be a false zero.
+    store = SnapshotStore(tmp_path)
+    old = io.BytesIO()
+    with zipfile.ZipFile(old, "w") as archive:
+        archive.writestr("request.json", json.dumps({"layer": "wms_nz-core:NZ.Fluvial", "bbox": list(BBOX)}))
+    snapshot = store.save("isok", old.getvalue(), suffix=".zip", url=None, content_type="application/zip")
+    with pytest.raises(ValueError, match=r"predates the 0\.2% zones"):
+        IsokConnector(SPEC, bbox=BBOX).parse(snapshot)
