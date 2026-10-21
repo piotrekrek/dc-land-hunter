@@ -24,11 +24,15 @@ export interface LayerGroup {
 
 const tileUrl = (name: string) => `${globalThis.location?.origin ?? ""}/tiles/${name}/{z}/{x}/{y}`;
 
+/** Single sites are drawn from this zoom; below it they are too small, so counted bubbles stand in for them. */
+export const SITE_MIN_ZOOM = 8;
+
 const SOURCES: Record<string, SourceSpecification> = {
   aoi: { type: "vector", tiles: [tileUrl("aoi")], maxzoom: 12 },
   lines: { type: "vector", tiles: [tileUrl("lines")], minzoom: 4 },
   substations: { type: "vector", tiles: [tileUrl("substations")], minzoom: 5 },
-  sites: { type: "vector", tiles: [tileUrl("sites")], minzoom: 8 },
+  sites: { type: "vector", tiles: [tileUrl("sites")], minzoom: SITE_MIN_ZOOM },
+  site_clusters: { type: "vector", tiles: [tileUrl("site_clusters")], maxzoom: SITE_MIN_ZOOM - 1 },
 };
 
 /** Site colours by tone. Hex, because MapLibre cannot read the oklch tokens in index.css (ok, warn, bad, muted-foreground). */
@@ -65,6 +69,29 @@ const SITE_TONE_EXPRESSION: ExpressionSpecification = [
 export const SITE_FILL_ID = "sites-fill";
 /** The selected site's outline, drawn on top; its filter picks one site by `site_id`. */
 export const SITE_HIGHLIGHT_ID = "sites-selected";
+export const SITE_CLUSTER_ID = "site-clusters";
+export const SITE_CLUSTER_LABEL_ID = "site-clusters-count";
+
+/**
+ * A bubble takes the colour of the best score among its candidates (excluded sites do not count; the tile omits
+ * `best` when every site in the bubble is excluded, so a missing value reads as -1 and goes grey).
+ */
+const CLUSTER_TONE_EXPRESSION: ExpressionSpecification = [
+  "step",
+  ["to-number", ["get", "best"], -1],
+  SITE_COLORS.muted,
+  0,
+  SITE_COLORS.bad,
+  SITE_SCORE_WARN,
+  SITE_COLORS.warn,
+  SITE_SCORE_OK,
+  SITE_COLORS.ok,
+];
+
+/** Where a click on a bubble zooms to: two levels in, but no further than just past the zoom that shows sites. */
+export function clusterZoomTarget(zoom: number): number {
+  return Math.min(zoom + 2, SITE_MIN_ZOOM + 1);
+}
 /** Stations whose voltage OSM does not give: thousands of them, so they get their own checkbox. */
 export const UNKNOWN_STATIONS_ID = "substations-unknown-circle";
 export const STATION_LAYER_IDS: string[] = ["substations-circle", UNKNOWN_STATIONS_ID];
@@ -115,7 +142,7 @@ const LINE_LAYERS: LayerSpecification[] = LINE_BANDS.map(
   }),
 );
 
-const LAYERS: LayerSpecification[] = [
+export const LAYERS: LayerSpecification[] = [
   {
     id: "aoi-fill",
     type: "fill",
@@ -180,6 +207,36 @@ const LAYERS: LayerSpecification[] = [
     },
   },
   {
+    id: SITE_CLUSTER_ID,
+    type: "circle",
+    source: "site_clusters",
+    "source-layer": "site_clusters",
+    maxzoom: SITE_MIN_ZOOM,
+    paint: {
+      "circle-color": CLUSTER_TONE_EXPRESSION,
+      "circle-opacity": 0.9,
+      "circle-radius": ["interpolate", ["linear"], ["sqrt", ["get", "n"]], 1, 12, 70, 34],
+      "circle-stroke-color": "#ffffff",
+      "circle-stroke-width": 2,
+    },
+  },
+  {
+    id: SITE_CLUSTER_LABEL_ID,
+    type: "symbol",
+    source: "site_clusters",
+    "source-layer": "site_clusters",
+    maxzoom: SITE_MIN_ZOOM,
+    layout: {
+      "text-field": ["to-string", ["get", "n"]],
+      // Both OpenFreeMap styles ship this font; the fallback style has no glyphs, so there the bubbles have no number.
+      "text-font": ["Noto Sans Regular"],
+      "text-size": 13,
+      "text-allow-overlap": true,
+      "text-ignore-placement": true,
+    },
+    paint: { "text-color": "#ffffff" },
+  },
+  {
     id: SITE_HIGHLIGHT_ID,
     type: "line",
     source: "sites",
@@ -202,7 +259,7 @@ export const LAYER_GROUPS: LayerGroup[] = [
     id: "sites",
     label: "Kandydaci (działki)",
     defaultOn: true,
-    layerIds: [SITE_FILL_ID, "sites-line", SITE_HIGHLIGHT_ID],
+    layerIds: [SITE_FILL_ID, "sites-line", SITE_HIGHLIGHT_ID, SITE_CLUSTER_ID, SITE_CLUSTER_LABEL_ID],
     legend: SITE_LEGEND,
   },
   ...LINE_BANDS.map((band) => ({

@@ -12,6 +12,8 @@ const h = vi.hoisted(() => {
     canvas: { style: { cursor: "" } },
     features: [] as unknown[],
     flyTo: undefined as unknown as ReturnType<typeof vi.fn>,
+    easeTo: undefined as unknown as ReturnType<typeof vi.fn>,
+    zoom: 5.5,
     markers: [] as Array<{ lngLat: unknown; removed: boolean }>,
     filters: [] as Array<{ layer: string; filter: unknown }>,
     popups: [] as Array<{
@@ -72,6 +74,12 @@ vi.mock("maplibre-gl", () => {
     }
     flyTo(options: unknown) {
       h.flyTo(options);
+    }
+    easeTo(options: unknown) {
+      h.easeTo(options);
+    }
+    getZoom() {
+      return h.zoom;
     }
   }
   class FakeMarker {
@@ -399,9 +407,35 @@ describe("MapView site selection", () => {
     h.setStyle = vi.fn();
     h.resize = vi.fn();
     h.flyTo = vi.fn();
+    h.easeTo = vi.fn();
+    h.zoom = 5.5;
     h.popups = [];
     h.features = [];
     h.filters = [];
+    h.canvas.style.cursor = "";
+  });
+
+  const bubble = {
+    layer: { id: "site-clusters" },
+    properties: { n: 1341, best: 62 },
+    geometry: { type: "Point", coordinates: [15.57, 51.26] },
+  };
+
+  it("zooms into a bubble instead of picking a site or opening a popup", () => {
+    const onSiteClick = vi.fn();
+    h.features = [bubble];
+    render(<MapView onSiteClick={onSiteClick} />);
+    act(() => emit("click", click));
+    expect(h.easeTo).toHaveBeenCalledWith({ center: [15.57, 51.26], zoom: 7.5 });
+    expect(onSiteClick).not.toHaveBeenCalled();
+    expect(h.popups).toHaveLength(0);
+  });
+
+  it("shows a pointer over a bubble", () => {
+    h.features = [bubble];
+    render(<MapView />);
+    act(() => emit("mousemove", { point }));
+    expect(h.canvas.style.cursor).toBe("pointer");
   });
 
   it("picks the site under a click, with no popup", () => {
