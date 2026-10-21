@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { MapPinned, LoaderCircle } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Link, useSearchParams } from "react-router";
 
 import { api, unwrap } from "@/api/client";
@@ -32,8 +32,13 @@ const GRID_BADGE: Record<SiteSummary["grid_badge"], BadgeProps["variant"]> = {
 };
 
 function SiteRow({ site, selected, onSelect }: { site: SiteSummary; selected: boolean; onSelect: (site: SiteSummary) => void }) {
+  const rowRef = useRef<HTMLLIElement>(null);
+  // A site picked on the map brings its row into view; "nearest" leaves a row that is already visible where it is.
+  useEffect(() => {
+    if (selected) rowRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selected]);
   return (
-    <li data-testid="site-row" className={cn("rounded-md", selected ? "bg-surface-2" : "hover:bg-surface-2")}>
+    <li ref={rowRef} data-testid="site-row" className={cn("rounded-md", selected ? "bg-surface-2" : "hover:bg-surface-2")}>
       <button
         type="button"
         aria-pressed={selected}
