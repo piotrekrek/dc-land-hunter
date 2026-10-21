@@ -553,6 +553,10 @@ available columns, which settles the names.
   level and code, or the build fails. The build prints the area of each unit it adds and records the codes in the
   `aoi` note. The committed `data/aoi/aoi.geojson` and the VPS `aoi` row still show the split without Toruń until
   `dclh aoi build` is run again (see the PR for the command).
+- Checked locally on the real PRG and OSM snapshots (21.10.2026, no DB or file writes): the AOI goes from 187,923 km²
+  to 188,009 km². Gmina 0463011 adds 115.6 km², of which about 86 km² was not already in the AOI. Toruń's centre is
+  out without the list and in with it. Praga (21.05 E, 52.25 N) and Lublin (22.57 E, 51.25 N) stay out. Warsaw's
+  left bank and Poznań stay in.
 - **Martin returned empty tiles after the first load.** `tiles/aoi` gave 204 from zoom 5 up, although PostGIS returned
   the feature for the same tile. A restart of `martin` fixed it. The cause is not confirmed (most likely its cached
   table metadata from startup, when the table was empty). Until it is understood, restart Martin after a first load
