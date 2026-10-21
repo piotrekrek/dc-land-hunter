@@ -177,6 +177,8 @@ export interface components {
             res_cluster_pts: number;
             /** Psi Aid Max Pts */
             psi_aid_max_pts: number;
+            /** Psi Aid Full Pct */
+            psi_aid_full_pct: number;
             /** Res Cluster Km */
             res_cluster_km: number;
             /** Env Decision Found */
