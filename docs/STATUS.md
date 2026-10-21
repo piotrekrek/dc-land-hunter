@@ -1,4 +1,21 @@
 # Status
+## Penalty sources: landscape parks, gas, airport OLS, soil class III (21.10.2026, PRs #76–#78)
+
+Before: seven penalties showed "Brak danych". Three (flood 0,2%, mining terrain, housing) already had sources and
+only need a rerun. The other four had no source. After these PRs:
+
+| Penalty | Source | Confidence | Notes |
+|---|---|---|---|
+| Park krajobrazowy / OChK | GDOŚ WFS `ParkiKrajobrazowe`, `ObszaryChronionegoKrajobrazu` | verified | penalty only, never the protected-area exclusion; buffer zones dropped |
+| Strefa gazociągu | OSM `man_made=pipeline` + gas (877 ways, 8,771 km) | estimated | about 80% of the transmission network; distribution mostly missing |
+| OLS lotniska | OSM `aeroway=runway` (327 of 413 used) | estimated | ICAO Annex 14 inner horizontal radius by runway length |
+| Gleby klasy III | KIUG GetFeatureInfo per parcel, kept sites only | estimated | contour shares estimated; I–II exclusion not fed; powiat 1432 publishes no contours |
+
+Verified live on the VPS: GDOŚ layers (213 and 406 features), the OSM reader on the real extract, KIUG on 5 sites of
+1421 (43 points in 43 s, 0–32%). **Not done:** merge, deploy, `dclh fetch gdos` and the rerun of the 8 powiats with
+sites, so no card shows the new values yet. KIUG adds about 1 s per sample point (5 per kept site): about 67 min for
+0201, about 6 hours for all 8.
+
 ## Phase 3 live data: DSO and PSE loaded, GPZ match report (19.10.2026, VPS)
 
 - Connectors on live data: `dclh fetch tauron` (513 GPZs, locations published, 100% matched by location) and
