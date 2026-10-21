@@ -40,6 +40,7 @@ from dclh_pipeline.sources.isok import (
 from dclh_pipeline.sources.kimpzp import KimpzpConnector, site_points
 from dclh_pipeline.sources.kimpzp import zoning_layer as kimpzp_zoning_layer
 from dclh_pipeline.sources.midas import MidasConnector
+from dclh_pipeline.sources.osm_infra import airport_ols_layer, gas_zone_layer, read_infra
 from dclh_pipeline.sources.osm_power import OsmPowerConnector, to_grid
 from dclh_pipeline.sources.prg import PrgConnector
 from dclh_pipeline.sources.psi import load_psi_layer
@@ -96,6 +97,10 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
 
     substations, lines = to_grid(OsmPowerConnector(config.get("osm_power")).parse(osm_snapshot))
     grid = build_grid_index(substations, lines, as_of=osm_snapshot.fetched_at, source_id="osm_power")
+    # Gas pipelines and runways from the same extract: estimated proxies, no public source exists.
+    infra = read_infra(osm_snapshot.path)
+    gas_layer = gas_zone_layer(infra, cfg.proxies.gas_zone_m, osm_snapshot.fetched_at)
+    ols_layer = airport_ols_layer(infra, cfg.proxies.runway_min_m, osm_snapshot.fetched_at)
     # DSO capacity and PSE lists: optional; a source never fetched or imported stays missing in the scores.
     grid_capacity = load_grid_capacity(store, config, substations, cfg)
     gdos = GdosConnector(config.get("gdos")).parse(gdos_snapshot)
@@ -191,6 +196,8 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
                     "flood_10_or_1": flood_layer,
                     "flood_0_2": flood_02_layer,
                     "landscape_park_or_ochk": landscape_layer,
+                    "gas_pipeline_zone": gas_layer,
+                    "airport_ols": ols_layer,
                     **mining,
                 },
                 capacity=grid_capacity.capacity,

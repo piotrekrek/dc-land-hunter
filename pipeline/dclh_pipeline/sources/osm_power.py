@@ -174,13 +174,15 @@ POWER_FILTER = (
 )
 
 
-def _filter_key() -> str:
+def _filter_key(filters: tuple[str, ...] | None = None) -> str:
     """A short hash of the filter expressions, so a changed filter never reuses an old cut."""
-    return hashlib.sha1("|".join(POWER_FILTER).encode()).hexdigest()[:8]
+    return hashlib.sha1("|".join(POWER_FILTER if filters is None else filters).encode()).hexdigest()[:8]
 
 
-def prefilter_power(source: Path, target: Path) -> Path:
-    """Cut the extract down to the power objects with osmium-tool, then rename it into place."""
+def prefilter_power(source: Path, target: Path, filters: tuple[str, ...] | None = None) -> Path:
+    """Cut the extract down to the objects `filters` selects (default: power) with osmium-tool, then rename it
+    into place. Other readers of the same extract (`osm_infra.py`) pass their own filters."""
+    filters = POWER_FILTER if filters is None else filters
     tmp = target.with_name(target.name + ".tmp")
     command = [
         "osmium",
@@ -194,7 +196,7 @@ def prefilter_power(source: Path, target: Path) -> Path:
     ]
     started = time.monotonic()
     try:
-        subprocess.run([*command, *POWER_FILTER], check=True, capture_output=True, text=True)
+        subprocess.run([*command, *filters], check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as exc:
         tmp.unlink(missing_ok=True)
         raise RuntimeError(
@@ -205,22 +207,23 @@ def prefilter_power(source: Path, target: Path) -> Path:
     return target
 
 
-def _power_source(snapshot_path: Path) -> Path:
-    """The file to parse: a cached power-only cut when osmium-tool is installed, otherwise the full extract.
+def _power_source(snapshot_path: Path, filters: tuple[str, ...] | None = None, label: str = "power") -> Path:
+    """The file to parse: a cached cut (default: power only) when osmium-tool is installed, otherwise the full
+    extract.
 
     The cut gives the same result as the full file; it saves some reading, not memory. The cache name carries
-    the filter's hash, so changing POWER_FILTER builds a new cut.
+    the label and the filter's hash, so changing the filter builds a new cut.
     """
     if shutil.which("osmium") is None:
-        log.info("OSM power: osmium-tool not installed, reading the full extract")
+        log.info("OSM %s: osmium-tool not installed, reading the full extract", label)
         return snapshot_path
     cut = snapshot_path.with_name(
-        snapshot_path.name.removesuffix(".osm.pbf") + f".power-{_filter_key()}.osm.pbf"
+        snapshot_path.name.removesuffix(".osm.pbf") + f".{label}-{_filter_key(filters)}.osm.pbf"
     )
     if cut.exists():
-        log.info("OSM power: using the cached power-only cut %s", cut.name)
+        log.info("OSM %s: using the cached %s-only cut %s", label, label, cut.name)
     else:
-        prefilter_power(snapshot_path, cut)
+        prefilter_power(snapshot_path, cut, filters)
     return cut
 
 

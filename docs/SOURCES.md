@@ -36,6 +36,14 @@ file or calling the endpoint, as described here.
   `protected_nature_pct` hard filter. 87 park features are buffer zones ("… - otulina", 15,066 km²). They are not
   the park and are dropped, which leaves 26,512 km² of parks and 71,838 km² of OChK. A `gdos` snapshot from before
   this change lacks the two layers and is refused, so run `dclh fetch gdos` once after the deploy.
+- **Gas pipelines and airport OLS: no public source; OSM proxy (21.10.2026, owner decision).** Gaz-System publishes
+  no WMS or WFS of its transmission network. The obstacle limitation surfaces (OLS) are held by ULC and each airport
+  operator (Dz.U. 2021 poz. 264), not published as data. BDOT10k `OT_SUPR_L` has no gas (powiat 1421: 7 heat pipes).
+  So `sources/osm_infra.py` reads both from the `osm_power` extract, confidence `estimated`. The extract of
+  12.10.2026 has 877 gas pipeline ways (`man_made=pipeline` + `substance=gas` or `type=gas`, 8,771 km), against
+  about 11,000 km of transmission network. 7,238 pipelines have no substance tag, and distribution pipes are
+  mostly missing. It also has 413 runways (`aeroway=runway`): 86 under 400 m are skipped, which leaves 327 OLS
+  zones. The radius follows ICAO Annex 14 by runway length. Settings live under `proxies` in `config/scoring.yaml`.
 - **`nid` ⚠ not loaded (21.10.2026).** Reachable, but the open data has no coordinates. The archaeological register
   (`https://api.zabytek.gov.pl/nidrestapi/api/data/geoportal/otwarteDaneZestawienieZra`, also CSV on dane.gov.pl dataset 210)
   gives only the gmina and town, with `dokladnosc_polozenia` "przybliżony". The immovable register

@@ -34,7 +34,7 @@ sources:
 
   - id: osm_power
     name: OpenStreetMap – sieć elektroenergetyczna (Geofabrik)
-    used_for: Stacje (napięcie, operator), linie 110–400 kV, generatory (klastry OZE)
+    used_for: Stacje (napięcie, operator), linie 110–400 kV, generatory (klastry OZE); gazociągi i pasy startowe (przybliżenie kar)
     plan: mvp
     cadence: weekly
     core: true
