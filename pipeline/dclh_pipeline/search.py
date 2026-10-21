@@ -3,7 +3,8 @@
 Stages, each counted in the report so a real run shows where candidates drop out:
 
 1. Grid-first seed: the area within the pre-filter distance of a 110 kV line, a GPZ or a 220/400 kV node,
-   cut to the search area (usually one powiat).
+   cut to the search area (usually one powiat). A parcel is kept only by the area holding its representative
+   point, so neighbouring powiats never build a site from the same parcel.
 2. Parcels: fetched by 1 km tiles that touch the seed (`fetch_parcels` is injected, so tests stay offline).
 3. Clusters: adjacent parcels become sites. Clusters under `target.ha_min` are counted and dropped here;
    scoring them would only add rows that the area hard filter excludes anyway.
@@ -140,7 +141,11 @@ def run_search(
     report.parcels_fetched = len(fetched)
 
     started = time.monotonic()
-    in_seed = fetched[fetched.geometry.intersects(seed)]
+    # A parcel on a powiat border touches two seeds. It belongs to the powiat holding its representative
+    # point, so no parcel (and no site_id, which hashes the parcel set) is searched by two powiats.
+    in_seed = fetched[
+        fetched.geometry.intersects(seed) & fetched.geometry.representative_point().within(area)
+    ]
     report.parcels_in_seed = len(in_seed)
     # No zoning layer yet, so zone_id is None. Small lots are dropped first and oversized clusters are cut,
     # otherwise adjacency chains a whole town into one site.
