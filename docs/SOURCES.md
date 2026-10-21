@@ -30,6 +30,12 @@ file or calling the endpoint, as described here.
   The `status` field is `aktualny`. `dclh search` loads it per powiat (`sources/midas.py`).
 - **`isok` 0.2% zones (21.10.2026).** The same WFS now also returns `loo_ql_probabilityofoccurrence = 0.002` in one request
   with the 1% zones (`fes:Or`). `flood_0_2` is the 10-point penalty; the 1% zones stay the hard filter.
+- **`gdos` landscape parks and OChK (21.10.2026).** The same WFS has `GDOS:ParkiKrajobrazowe` (213 features, 25 MB)
+  and `GDOS:ObszaryChronionegoKrajobrazu` (406, 38 MB), with the same fields (`nazwa`, `kodinspire`). Each comes back
+  whole in one request (under 2 s). They feed only the 8-point penalty `landscape_park_or_ochk`, never the
+  `protected_nature_pct` hard filter. 87 park features are buffer zones ("… - otulina", 15,066 km²). They are not
+  the park and are dropped, which leaves 26,512 km² of parks and 71,838 km² of OChK. A `gdos` snapshot from before
+  this change lacks the two layers and is refused, so run `dclh fetch gdos` once after the deploy.
 - **`nid` ⚠ not loaded (21.10.2026).** Reachable, but the open data has no coordinates. The archaeological register
   (`https://api.zabytek.gov.pl/nidrestapi/api/data/geoportal/otwarteDaneZestawienieZra`, also CSV on dane.gov.pl dataset 210)
   gives only the gmina and town, with `dokladnosc_polozenia` "przybliżony". The immovable register

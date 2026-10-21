@@ -10,8 +10,10 @@ import pytest
 
 from dclh_pipeline.config import SourceSpec
 from dclh_pipeline.http import PoliteClient
+from dclh_pipeline.model.features import GeomIndex, Layer, constraint_facts
+from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.snapshots import SnapshotStore
-from dclh_pipeline.sources.gdos import LAYERS, GdosConnector
+from dclh_pipeline.sources.gdos import LAYERS, GdosConnector, landscape_areas, protected_areas
 
 ClientFactory = Callable[..., PoliteClient]
 
@@ -72,6 +74,53 @@ def test_parse_builds_one_table_in_2180(tmp_path: Path) -> None:
     assert table.crs.to_epsg() == 2180
     assert table.loc[table["kind"] == "reserve", "name"].iloc[0] == "reserve"
     assert table.loc[table["kind"] == "reserve", "code"].iloc[0] == "PL.reserve"
+
+
+def test_landscape_parks_and_ochk_are_kept_out_of_the_protected_areas(tmp_path: Path) -> None:
+    # The protected-area share is a hard filter; landscape parks and OChK only carry a penalty.
+    table = GdosConnector(SPEC).parse(save(SnapshotStore(tmp_path), bundle(good_parts())))
+    assert set(protected_areas(table)["kind"]) == {
+        "natura2000_soo",
+        "natura2000_oso",
+        "national_park",
+        "reserve",
+    }
+    assert set(landscape_areas(table)["kind"]) == {"landscape_park", "ochk"}
+
+
+def test_a_landscape_park_buffer_zone_is_not_part_of_the_park(tmp_path: Path) -> None:
+    # The live layer publishes each park's buffer zone as its own feature, named "… - otulina".
+    parts = good_parts()
+    parts["landscape_park"] = feature_collection(
+        LAYERS["landscape_park"],
+        "PL.ZIPOP.1393.PK.88",
+        "Nadwieprzański Park Krajobrazowy - otulina",
+        520_000,
+        500_000,
+    )
+    table = GdosConnector(SPEC).parse(save(SnapshotStore(tmp_path), bundle(parts)))
+    assert set(landscape_areas(table)["kind"]) == {"ochk"}
+
+
+def test_a_site_in_a_landscape_park_gets_the_penalty_flag_but_no_protected_share(tmp_path: Path) -> None:
+    table = GdosConnector(SPEC).parse(save(SnapshotStore(tmp_path), bundle(good_parts())))
+    park = table.loc[table["kind"] == "landscape_park", "geometry"].iloc[0]
+    site = park.buffer(-100)  # well inside the park, away from every other layer
+
+    def layer(areas):  # type: ignore[no-untyped-def]
+        return Layer(
+            source_id="gdos", index=GeomIndex(areas.geometry), as_of=None, confidence=Confidence.VERIFIED
+        )
+
+    facts = constraint_facts(
+        site,
+        {
+            "protected_nature": layer(protected_areas(table)),
+            "landscape_park_or_ochk": layer(landscape_areas(table)),
+        },
+    )
+    assert facts["landscape_park_or_ochk"] is not None and facts["landscape_park_or_ochk"].value is True
+    assert facts["protected_nature_pct"] is not None and facts["protected_nature_pct"].value == 0.0
 
 
 def test_missing_layer_is_reported(tmp_path: Path) -> None:

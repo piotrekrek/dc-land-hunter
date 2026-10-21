@@ -29,7 +29,7 @@ from dclh_pipeline.settings import Settings, get_settings
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
 from dclh_pipeline.sources.bdot10k import Bdot10kConnector
 from dclh_pipeline.sources.egib import BBox, EgibConnector
-from dclh_pipeline.sources.gdos import GdosConnector
+from dclh_pipeline.sources.gdos import GdosConnector, landscape_areas, protected_areas
 from dclh_pipeline.sources.heat import heat_town_layer
 from dclh_pipeline.sources.isok import (
     PROBABILITY_02PCT,
@@ -98,10 +98,17 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
     grid = build_grid_index(substations, lines, as_of=osm_snapshot.fetched_at, source_id="osm_power")
     # DSO capacity and PSE lists: optional; a source never fetched or imported stays missing in the scores.
     grid_capacity = load_grid_capacity(store, config, substations, cfg)
-    protected = GdosConnector(config.get("gdos")).parse(gdos_snapshot)
+    gdos = GdosConnector(config.get("gdos")).parse(gdos_snapshot)
     protected_layer = Layer(
         source_id="gdos",
-        index=GeomIndex(protected.geometry),
+        index=GeomIndex(protected_areas(gdos).geometry),
+        as_of=gdos_snapshot.fetched_at,
+        confidence=Confidence.VERIFIED,
+    )
+    # Penalty only: landscape parks and OChK must never reach the protected-area exclusion.
+    landscape_layer = Layer(
+        source_id="gdos",
+        index=GeomIndex(landscape_areas(gdos).geometry),
         as_of=gdos_snapshot.fetched_at,
         confidence=Confidence.VERIFIED,
     )
@@ -183,6 +190,7 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
                     "protected_nature": protected_layer,
                     "flood_10_or_1": flood_layer,
                     "flood_0_2": flood_02_layer,
+                    "landscape_park_or_ochk": landscape_layer,
                     **mining,
                 },
                 capacity=grid_capacity.capacity,
