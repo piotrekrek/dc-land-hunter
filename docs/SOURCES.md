@@ -12,8 +12,8 @@ browser for the sources whose data sits behind a form or in a file. Raw samples:
 
 | Status | Count | Sources |
 |---|---|---|
-| ✓ | 20 | `prg`, `osm_power`, `osm_land`, `bdot10k`, `ru`, `kimpzp`, `egib`, `uldk`, `kiug`, `gdos`, `isok`, `midas`, `nid`, `pse_closed`, `pse_odb`, `pse_avail`, `energa`, `tauron`, `psi`, `heat` |
-| ⚠ | 1 | `uke` (lead only) |
+| ✓ | 19 | `prg`, `osm_power`, `osm_land`, `bdot10k`, `ru`, `kimpzp`, `egib`, `uldk`, `kiug`, `gdos`, `isok`, `midas`, `pse_closed`, `pse_odb`, `pse_avail`, `energa`, `tauron`, `psi`, `heat` |
+| ⚠ | 2 | `uke` (lead only); `nid` (endpoint reachable, but no geometry to filter on, see Hard filters below: not loaded) |
 | – | 2 | `invest_offers`: manual CSV import by design; `enea`: manual CSV only (owner decision 19.10.2026) |
 
 `kowr` (12.10.2026) and `enea` (19.10.2026) are manual-only by owner decision. The generated table below still shows ⚠ for `pse_odb`, `pse_avail`,
@@ -21,6 +21,23 @@ browser for the sources whose data sits behind a form or in a file. Raw samples:
 file or calling the endpoint, as described here.
 
 ### Hard filters and zoning
+
+- **`midas` ✓ mining (21.10.2026, loaded live for powiat 1421).** ArcGIS MapServer
+  `https://cbdgmapa.pgi.gov.pl/arcgis/rest/services/midas/MapServer`: layer 1 "obszary górnicze" (`mining_area`, 6,201
+  current features) and layer 2 "tereny górnicze" (`mining_terrain`, 6,022). Query with `inSR=2180&outSR=2180`,
+  `f=geojson` (the answer is in EPSG:2180), `maxRecordCount` 1000, paged by `resultOffset`. The count-only request
+  (`returnCountOnly=true`) gives the total to check against. Layers 3–5 are archive, layer 0 is deposits: not used.
+  The `status` field is `aktualny`. `dclh search` loads it per powiat (`sources/midas.py`).
+- **`isok` 0.2% zones (21.10.2026).** The same WFS now also returns `loo_ql_probabilityofoccurrence = 0.002` in one request
+  with the 1% zones (`fes:Or`). `flood_0_2` is the 10-point penalty; the 1% zones stay the hard filter.
+- **`nid` ⚠ not loaded (21.10.2026).** Reachable, but the open data has no coordinates. The archaeological register
+  (`https://api.zabytek.gov.pl/nidrestapi/api/data/geoportal/otwarteDaneZestawienieZra`, also CSV on dane.gov.pl dataset 210)
+  gives only the gmina and town, with `dokladnosc_polozenia` "przybliżony". The immovable register
+  (`…/otwarteDaneZestawienieZrn`) gives an address (street and number) for many objects but no point or polygon.
+  The NID extent layer (`usluga.zabytek.gov.pl/ZN_ZASIEGI`, `Zabytki_nieruchome_I–IV`) renders no features at all over
+  Poland (blank WMS answers, 21.10.2026), and `INSPIRE_AMD` has no WFS. So `heritage_register` stays `missing`
+  ("Brak danych") and does not exclude anything. Next step: geocode the address register against PRG address points,
+  or find a WFS with the heritage extents.
 
 - **`isok` ✓ flood.** Use the flat layer `wms_nz-core:NZ.Fluvial` on
   `https://wody.isok.gov.pl/wss/INSPIRE/INSPIRE_HY_10k_2019_WFS` (6,744 zones in Poland). Attributes:
