@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { NAV_ITEMS } from "@/components/layout/nav";
@@ -19,10 +19,17 @@ describe("App shell", () => {
     renderWithProviders(<AppRoutes />);
     await screen.findByText("Brak lokalizacji dla tych filtrów");
     const nav = screen.getAllByRole("navigation", { name: "Główna nawigacja" })[0]!;
-    for (const item of NAV_ITEMS.filter((i) => !i.adminOnly)) {
+    for (const item of NAV_ITEMS.filter((i) => !i.adminOnly && !i.iconOnly)) {
       expect(nav).toHaveTextContent(item.label);
     }
-    expect(nav).not.toHaveTextContent("Zadania");
+    // Nowości, Ustawienia and Zadania are icon-only links on the right, named by aria-label and title.
+    for (const item of NAV_ITEMS.filter((i) => i.iconOnly && !i.adminOnly)) {
+      expect(nav).not.toHaveTextContent(item.label);
+      const link = within(screen.getByRole("navigation", { name: "Skróty" })).getByRole("link", { name: item.label });
+      expect(link).toHaveAttribute("title", item.label);
+      expect(link).toHaveAttribute("href", item.to);
+    }
+    expect(screen.queryByRole("link", { name: /Zadania/ })).not.toBeInTheDocument();
     expect(screen.getByText("Brak lokalizacji dla tych filtrów")).toBeInTheDocument();
     expect(screen.getByTestId("map")).toBeInTheDocument();
     expect(await screen.findByText("Połączono z API")).toBeInTheDocument();

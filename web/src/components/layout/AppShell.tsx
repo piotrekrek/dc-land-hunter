@@ -20,11 +20,11 @@ function Brand() {
   );
 }
 
-function AttentionBadge({ count }: { count: number }) {
+function AttentionBadge({ count, className }: { count: number; className?: string }) {
   if (count <= 0) return null;
   return (
     <span
-      className="ml-auto rounded-full bg-bad px-1.5 text-xs font-semibold leading-5 text-white"
+      className={cn("rounded-full bg-bad px-1.5 text-xs font-semibold leading-5 text-white", className)}
       aria-label={`${count} do sprawdzenia`}
       data-testid="jobs-attention"
     >
@@ -32,6 +32,12 @@ function AttentionBadge({ count }: { count: number }) {
     </span>
   );
 }
+
+const iconLinkClass = ({ isActive }: { isActive: boolean }) =>
+  cn(
+    "relative flex size-9 items-center justify-center rounded-md transition-colors",
+    isActive ? "bg-accent-soft text-accent-soft-foreground" : "text-muted-foreground hover:bg-surface-2 hover:text-foreground",
+  );
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
@@ -46,6 +52,8 @@ export function AppShell() {
   const isAdmin = user?.role === "admin";
   const { data: ops } = useOpsJobs(isAdmin);
   const items = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin);
+  const labelled = items.filter((item) => !item.iconOnly);
+  const icons = items.filter((item) => item.iconOnly);
   const attention = (to: string) => (to === "/zadania" ? (ops?.attention ?? 0) : 0);
 
   return (
@@ -53,15 +61,31 @@ export function AppShell() {
       <header className="flex h-14 shrink-0 items-center gap-4 border-b bg-surface px-4">
         <Brand />
         <nav aria-label="Główna nawigacja" className="hidden flex-1 items-center gap-1 lg:flex">
-          {items.map(({ to, label, icon: Icon }) => (
-            <NavLink key={to} to={to} end={to === "/"} className={linkClass}>
+          {labelled.map(({ to, label, icon: Icon }) => (
+            <NavLink key={to} to={to} className={linkClass} end={to === "/"}>
               <Icon className="size-4" aria-hidden />
               {label}
-              <AttentionBadge count={attention(to)} />
             </NavLink>
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
+          <nav aria-label="Skróty" className="hidden items-center gap-1 lg:flex">
+            {icons.map(({ to, label, icon: Icon }) => {
+              const count = attention(to);
+              return (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={iconLinkClass}
+                  title={label}
+                  aria-label={count > 0 ? `${label}: ${count} do sprawdzenia` : label}
+                >
+                  <Icon className="size-5" aria-hidden />
+                  <AttentionBadge count={count} className="absolute -right-1 -top-1 min-w-5 px-1 text-center text-[11px] leading-5" />
+                </NavLink>
+              );
+            })}
+          </nav>
           <ApiStatus />
           {user && (
             <span className="hidden text-xs text-muted-foreground xl:inline" data-testid="current-user">

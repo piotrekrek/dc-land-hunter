@@ -80,7 +80,9 @@ describe("navigation alert", () => {
     mockFetch({ "/api/ops/jobs": ops, "/api/auth/me": admin });
     renderWithProviders(<AppShell />);
     expect((await screen.findAllByTestId("jobs-attention"))[0]).toHaveTextContent("3");
-    expect(screen.getAllByRole("link", { name: /Zadania/ }).length).toBeGreaterThan(0);
+    const link = within(screen.getByRole("navigation", { name: "Skróty" })).getByRole("link", { name: "Zadania: 3 do sprawdzenia" });
+    expect(link).toHaveAttribute("href", "/zadania");
+    expect(link).toHaveTextContent("3");
   });
 
   it("hides the entry and the badge from a member", async () => {
