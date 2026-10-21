@@ -557,6 +557,12 @@ available columns, which settles the names.
   to 188,009 km². Gmina 0463011 adds 115.6 km², of which about 86 km² was not already in the AOI. Toruń's centre is
   out without the list and in with it. Praga (21.05 E, 52.25 N) and Lublin (22.57 E, 51.25 N) stay out. Warsaw's
   left bank and Poznań stay in.
+- **Run it in the container** (21.10.2026): `docker compose -f infra/docker-compose.yml exec api dclh aoi build` (about 4.5 min).
+  The GeoJSON is written to `<data dir>/aoi/aoi.geojson`: the data volume in the containers, the repo's tracked
+  `data/aoi/aoi.geojson` on the host. Before this fix the container run computed for minutes and then failed on
+  `PermissionError: /app/data/aoi` (nothing was written to the database). The output folder is now created first, so a
+  bad path fails at once. To refresh the tracked file, run the build on the host and commit the result; the container
+  copy is identical (same SHA-256 on the 12.10.2026 snapshots).
 - **Martin returned empty tiles after the first load.** `tiles/aoi` gave 204 from zoom 5 up, although PostGIS returned
   the feature for the same tile. A restart of `martin` fixed it. The cause is not confirmed (most likely its cached
   table metadata from startup, when the table was empty). Until it is understood, restart Martin after a first load

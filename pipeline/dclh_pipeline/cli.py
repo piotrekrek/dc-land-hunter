@@ -549,12 +549,15 @@ def aoi_build_cmd() -> None:
         raise typer.BadParameter(
             "need saved 'prg' and 'osm_power' snapshots; run `dclh fetch` for both first"
         )
+    # Check the output folder first: the build below takes minutes, and a path the app user cannot write used
+    # to fail only after it.
+    out = aoi_build.geojson_path(settings.data_dir)
+    out.parent.mkdir(parents=True, exist_ok=True)
     prg = PrgConnector(config.get("prg")).parse(prg_snapshot)
     vistula = aoi_build.read_vistula(osm_snapshot.path)
     included = load_aoi_config().include
     include_geoms = aoi_build.included_geometries(prg, included)
     aoi = aoi_build.build(aoi_build.country_geometry(prg), vistula, include_geoms)
-    out = REPO_ROOT / "data" / "aoi" / "aoi.geojson"
     aoi_build.write_geojson(aoi, out)
     note = f"PRG {prg_snapshot.fetched_at:%Y-%m-%d}, OSM {osm_snapshot.fetched_at:%Y-%m-%d}"
     if included:

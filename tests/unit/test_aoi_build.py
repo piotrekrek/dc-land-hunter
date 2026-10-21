@@ -16,6 +16,7 @@ from dclh_pipeline import aoi_build
 from dclh_pipeline.config import IncludedUnit, load_aoi_config
 from dclh_pipeline.db import session_scope
 from dclh_pipeline.model.aoi import lonlat_to_2180
+from dclh_pipeline.settings import REPO_ROOT, Settings
 
 
 def _line(*pts: tuple[float, float]) -> LineString:
@@ -177,6 +178,18 @@ def test_write_geojson_stores_wgs84_and_reads_back(tmp_path: Path) -> None:
     back = gpd.read_file(out)
     assert back.crs.to_epsg() == 4326
     assert back.to_crs(2180).geometry.iloc[0].area == pytest.approx(aoi.area, rel=1e-6)
+
+
+def test_geojson_goes_under_the_data_dir_and_defaults_to_the_tracked_file(tmp_path: Path) -> None:
+    # The containers set DCLH_DATA_DIR=/data (a writable volume); the repo path there is read-only.
+    assert aoi_build.geojson_path(tmp_path) == tmp_path / "aoi" / "aoi.geojson"
+    assert aoi_build.geojson_path(Settings().data_dir) == REPO_ROOT / "data" / "aoi" / "aoi.geojson"
+
+
+def test_geojson_can_be_written_to_a_data_dir_without_an_aoi_folder(tmp_path: Path) -> None:
+    path = aoi_build.geojson_path(tmp_path / "volume")
+    aoi_build.write_geojson(box(18, 52, 19, 53), path)
+    assert path.is_file()
 
 
 @pytest.mark.db
