@@ -7,6 +7,7 @@ country polygon with it, and keeping the piece(s) on the western/northern side. 
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 
 from pyproj import Transformer
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
@@ -50,10 +51,13 @@ def build_aoi(
     drop_point: Point,
     *,
     extension_m: float = 200_000,
+    include: Sequence[BaseGeometry] = (),
 ) -> BaseGeometry:
     """Split `country` along the extended `vistula` and return the side that contains `keep_point`.
 
-    Raises ValueError if the split is not clean (the reference points must land on different sides).
+    `include` pieces (for example a city on the other bank, from `config/aoi.yaml`) are unioned in after the
+    split, so they do not move the river line. Raises ValueError if the split is not clean (the reference
+    points must land on different sides).
     """
     cutter = extend_line(vistula, extension_m)
     pieces = list(split(country, cutter).geoms)
@@ -69,7 +73,7 @@ def build_aoi(
         raise ValueError("drop reference point is not inside any piece")
     if any(k.equals(d) for k in kept for d in drop):
         raise ValueError("reference points fall in the same piece; the split is not usable")
-    return unary_union(kept)
+    return unary_union([*kept, *include])
 
 
 def simplify_for_display(aoi: BaseGeometry, tolerance_m: float = 200) -> BaseGeometry:

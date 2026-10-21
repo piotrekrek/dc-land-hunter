@@ -46,7 +46,7 @@ Acceptance: `docker compose up` starts everything; CI green; every MVP source ha
 ## Phase 1: Base and grid layers
 
 **Finished 19.10.2026.** Acceptance met on live data: the per-voivodeship counts are in STATUS.md ("Phase 1 close-out"),
-and the AOI tests pass. Toruń (out of the AOI by the river-split rule) is an open owner decision, not a Phase 1 blocker.
+and the AOI tests pass. Toruń was decided on 20.10.2026: it is in the AOI via the include list in `config/aoi.yaml`.
 
 Tasks:
 - [x] `prg` connector: voivodeship, powiat and gmina boundaries with TERYT → `admin_units` (`dclh load-admin`: 16 / 380 / 2,479 units).

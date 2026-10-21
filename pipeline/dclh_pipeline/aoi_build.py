@@ -24,6 +24,7 @@ from shapely.ops import unary_union
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from dclh_pipeline.config import IncludedUnit
 from dclh_pipeline.model.aoi import DROP_REFERENCE_LONLAT, KEEP_REFERENCE_LONLAT, build_aoi, lonlat_to_2180
 from dclh_pipeline.sources.osm_power import _NodeLocations
 from dclh_pipeline.sources.prg import EPSG
@@ -148,9 +149,32 @@ def as_multipolygon(geom: BaseGeometry) -> MultiPolygon:
     raise ValueError(f"AOI is {geom.geom_type}, expected polygons")
 
 
-def build(country: Polygon | MultiPolygon, vistula: LineString) -> MultiPolygon:
+def included_geometries(prg: gpd.GeoDataFrame, units: Sequence[IncludedUnit]) -> list[BaseGeometry]:
+    """The PRG geometry of each unit that `config/aoi.yaml` adds to the AOI.
+
+    A unit must match exactly one PRG row by level and TERYT code. A code that PRG does not have fails the
+    build, so a typo cannot silently leave a town out.
+    """
+    geoms: list[BaseGeometry] = []
+    for unit in units:
+        match = prg[(prg["level"] == unit.level) & (prg["teryt"] == unit.teryt)]
+        if len(match) != 1:
+            raise ValueError(
+                f"AOI include {unit.level} {unit.teryt} ({unit.name}): PRG has {len(match)} units, expected 1"
+            )
+        geoms.append(match.geometry.iloc[0])
+    return geoms
+
+
+def build(
+    country: Polygon | MultiPolygon, vistula: LineString, include: Sequence[BaseGeometry] = ()
+) -> MultiPolygon:
     aoi = build_aoi(
-        country, vistula, lonlat_to_2180(*KEEP_REFERENCE_LONLAT), lonlat_to_2180(*DROP_REFERENCE_LONLAT)
+        country,
+        vistula,
+        lonlat_to_2180(*KEEP_REFERENCE_LONLAT),
+        lonlat_to_2180(*DROP_REFERENCE_LONLAT),
+        include=include,
     )
     return as_multipolygon(aoi)
 
@@ -190,6 +214,7 @@ __all__ = [
     "as_multipolygon",
     "build",
     "country_geometry",
+    "included_geometries",
     "load_aoi",
     "main_stem",
     "read_vistula",
