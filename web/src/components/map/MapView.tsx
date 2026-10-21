@@ -7,12 +7,14 @@ import {
   LAYER_GROUPS,
   LINE_LAYER_IDS,
   OWN_SOURCES,
+  SITE_CLUSTER_ID,
   SITE_FILL_ID,
   STATION_LAYER_IDS,
   addGridLayers,
   setGroupVisibility,
   setSiteHighlight,
   siteFocus,
+  clusterZoomTarget,
 } from "./layers";
 import { type MapFocus } from "@/lib/sites";
 import { useActiveTheme, type Theme } from "@/lib/theme";
@@ -48,6 +50,12 @@ function featureAt(map: maplibregl.Map, point: { x: number; y: number }) {
   ];
   const hits = map.queryRenderedFeatures(box, { layers: [...layers] });
   return CLICKABLE.map((id) => hits.find((f) => f.layer.id === id)).find(Boolean);
+}
+
+/** The counted bubble under a point (zoomed-out view), if any. */
+function bubbleAt(map: maplibregl.Map, point: { x: number; y: number }) {
+  if (!map.getLayer(SITE_CLUSTER_ID)) return undefined;
+  return map.queryRenderedFeatures([point.x, point.y], { layers: [SITE_CLUSTER_ID] }).find((f) => f.layer.id === SITE_CLUSTER_ID);
 }
 
 /** Used when the basemap cannot load (offline, blocked): the map still works, without a background map. */
@@ -121,6 +129,13 @@ export function MapView({
     let popup: maplibregl.Popup | null = null;
     map.on("click", (e: maplibregl.MapMouseEvent) => {
       popup?.remove();
+      const bubble = bubbleAt(map, e.point);
+      if (bubble?.geometry.type === "Point") {
+        // A bubble stands for many sites: zoom in on it instead of picking one.
+        const [lng, lat] = bubble.geometry.coordinates as [number, number];
+        map.easeTo({ center: [lng, lat], zoom: clusterZoomTarget(map.getZoom()) });
+        return;
+      }
       const feature = featureAt(map, e.point);
       if (!feature) return;
       const props = feature.properties ?? {};
@@ -146,7 +161,7 @@ export function MapView({
         .addTo(map);
     });
     map.on("mousemove", (e: maplibregl.MapMouseEvent) => {
-      map.getCanvas().style.cursor = featureAt(map, e.point) ? "pointer" : "";
+      map.getCanvas().style.cursor = bubbleAt(map, e.point) || featureAt(map, e.point) ? "pointer" : "";
     });
 
     // Fall back when the basemap style fails to load, or hangs (blocked networks often drop silently).

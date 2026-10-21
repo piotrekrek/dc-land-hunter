@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  LAYERS,
   LAYER_GROUPS,
+  SITE_CLUSTER_ID,
+  SITE_CLUSTER_LABEL_ID,
+  SITE_MIN_ZOOM,
+  clusterZoomTarget,
   UNKNOWN_STATIONS_ID,
   LINE_BANDS,
   LINE_LAYER_IDS,
@@ -49,10 +54,16 @@ describe("line voltage bands", () => {
 describe("candidate site layers", () => {
   const sitesGroup = LAYER_GROUPS.find((g) => g.id === "sites");
 
-  it("is one checkbox, on by default, covering the fill, outline and highlight", () => {
+  it("is one checkbox, on by default, covering the fill, outline, highlight and the zoomed-out bubbles", () => {
     expect(sitesGroup?.label).toBe("Kandydaci (działki)");
     expect(sitesGroup?.defaultOn).toBe(true);
-    expect(sitesGroup?.layerIds).toEqual([SITE_FILL_ID, "sites-line", SITE_HIGHLIGHT_ID]);
+    expect(sitesGroup?.layerIds).toEqual([
+      SITE_FILL_ID,
+      "sites-line",
+      SITE_HIGHLIGHT_ID,
+      SITE_CLUSTER_ID,
+      SITE_CLUSTER_LABEL_ID,
+    ]);
   });
 
   it("has a legend entry for every tone, in Polish", () => {
@@ -110,5 +121,26 @@ describe("station layers", () => {
     expect(unknown?.label).toBe("Stacje o nieznanym napięciu");
     expect(unknown?.defaultOn).toBe(false);
     expect(unknown?.layerIds).toEqual([UNKNOWN_STATIONS_ID]);
+  });
+});
+
+describe("zoomed-out site bubbles", () => {
+  const layer = (id: string) => LAYERS.find((l) => l.id === id);
+
+  it("hands over to single sites at exactly the zoom where bubbles stop", () => {
+    expect(layer(SITE_CLUSTER_ID)?.maxzoom).toBe(SITE_MIN_ZOOM);
+    expect(layer(SITE_CLUSTER_LABEL_ID)?.maxzoom).toBe(SITE_MIN_ZOOM);
+    expect(layer(SITE_FILL_ID)?.minzoom).toBeUndefined(); // the sites source carries minzoom, so none per layer
+  });
+
+  it("switches with the candidates checkbox, so one box hides both views", () => {
+    const sites = LAYER_GROUPS.find((g) => g.id === "sites");
+    expect(sites?.layerIds).toEqual(expect.arrayContaining([SITE_FILL_ID, SITE_CLUSTER_ID, SITE_CLUSTER_LABEL_ID]));
+  });
+
+  it("zooms two levels into a bubble, but stops just past the zoom that shows sites", () => {
+    expect(clusterZoomTarget(5.5)).toBe(7.5);
+    expect(clusterZoomTarget(7.5)).toBe(SITE_MIN_ZOOM + 1);
+    expect(clusterZoomTarget(SITE_MIN_ZOOM + 1)).toBe(SITE_MIN_ZOOM + 1);
   });
 });
