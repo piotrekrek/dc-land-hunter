@@ -32,6 +32,7 @@ from dclh_pipeline.config import Prefilter, ScoringConfig
 from dclh_pipeline.model.features import GridIndex, SiteLayers, ZoningLayer
 from dclh_pipeline.model.sites import Parcel, Site, cluster_sites
 from dclh_pipeline.scoring.run import ScoredSite, score_candidates
+from dclh_pipeline.scoring.types import Fact
 from dclh_pipeline.sources.egib import TILE_M, BBox, tile_bbox
 
 M_PER_KM = 1000.0
@@ -40,6 +41,8 @@ BUFFER_SEGMENTS = 8  # quarter-circle segments; plenty for a 3–25 km buffer
 ParcelFetcher = Callable[[list[BBox]], gpd.GeoDataFrame]
 # Asks KIMPZP for the given sites; returns their zoning layer and the count of answers by status.
 ZoningSampler = Callable[[list[Site]], tuple[ZoningLayer, dict[str, int]]]
+# Asks KIUG for the given sites; returns the estimated class III share per site_id and the answers by status.
+SoilSampler = Callable[[list[Site]], tuple[dict[str, Fact[float]], dict[str, int]]]
 
 
 @dataclass
@@ -54,6 +57,7 @@ class SearchReport:
     scored: int = 0
     excluded: int = 0
     kimpzp_answers: dict[str, int] = field(default_factory=dict)  # KIMPZP answers by status
+    kiug_answers: dict[str, int] = field(default_factory=dict)  # KIUG soil-class answers by status
     zoning: dict[str, int] = field(default_factory=dict)  # kept (not excluded) sites by zoning value
     seconds: dict[str, float] = field(default_factory=dict)
 
@@ -69,6 +73,7 @@ class SearchReport:
             ("Ocenione", str(self.scored)),
             ("  wykluczone twardymi filtrami", str(self.excluded)),
             *((f"KIMPZP odpowiedzi: {status}", str(n)) for status, n in sorted(self.kimpzp_answers.items())),
+            *((f"KIUG odpowiedzi: {status}", str(n)) for status, n in sorted(self.kiug_answers.items())),
             *((f"Przeznaczenie (niewykluczone): {kind}", str(n)) for kind, n in sorted(self.zoning.items())),
             *((f"Czas: {name}, s", f"{sec:.1f}") for name, sec in self.seconds.items()),
         ]
@@ -116,11 +121,13 @@ def run_search(
     *,
     parcels_as_of: datetime | None = None,
     sample_zoning: ZoningSampler | None = None,
+    sample_soil: SoilSampler | None = None,
 ) -> SearchResult:
     """Search `area` (EPSG:2180) and return every scored site with the funnel counts.
 
-    `sample_zoning` is asked only about the sites the hard filters keep: an excluded site's zoning changes
-    nothing, and KIMPZP costs a request per sampled point.
+    `sample_zoning` and `sample_soil` are asked only about the sites the hard filters keep: an excluded site's
+    zoning or soil changes nothing, and KIMPZP and KIUG each cost a request per sampled point. The soil share
+    feeds only a penalty, so the rescore cannot exclude a kept site on it.
     """
     if layers.grid is None:
         raise ValueError("search needs the grid layer: load OSM power first (dclh fetch osm_power)")
@@ -174,15 +181,21 @@ def run_search(
     report.seconds["score"] = time.monotonic() - started
 
     kept = [s.site for s in scored if not s.score.excluded]
-    if sample_zoning is not None and kept:
-        started = time.monotonic()
-        sampled, report.kimpzp_answers = sample_zoning(kept)
-        rescored = score_candidates(
-            kept, replace(layers, zoning=(sampled, *layers.zoning)), cfg, parcels_as_of=parcels_as_of
-        )
+    if kept and (sample_zoning is not None or sample_soil is not None):
+        sampled_layers = layers
+        if sample_zoning is not None:
+            started = time.monotonic()
+            sampled, report.kimpzp_answers = sample_zoning(kept)
+            sampled_layers = replace(sampled_layers, zoning=(sampled, *layers.zoning))
+            report.seconds["kimpzp"] = time.monotonic() - started
+        if sample_soil is not None:
+            started = time.monotonic()
+            soil, report.kiug_answers = sample_soil(kept)
+            sampled_layers = replace(sampled_layers, soil_iii=soil)
+            report.seconds["kiug"] = time.monotonic() - started
+        rescored = score_candidates(kept, sampled_layers, cfg, parcels_as_of=parcels_as_of)
         by_id = {s.site.site_id: s for s in rescored}
         scored = [by_id.get(s.site.site_id, s) for s in scored]
-        report.seconds["kimpzp"] = time.monotonic() - started
     report.zoning = dict(
         Counter(
             s.features.zoning.value.value if s.features.zoning else "brak warstwy"

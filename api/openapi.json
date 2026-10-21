@@ -1349,7 +1349,8 @@
           "search": {
             "$ref": "#/components/schemas/SearchParams",
             "default": {
-              "min_parcel_ha": 1.0
+              "min_parcel_ha": 1.0,
+              "soil_points_per_site": 5
             }
           },
           "connection_cost": {
@@ -1380,6 +1381,12 @@
             "minimum": 0.0,
             "title": "Min Parcel Ha",
             "default": 1.0
+          },
+          "soil_points_per_site": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Soil Points Per Site",
+            "default": 5
           }
         },
         "additionalProperties": false,

@@ -160,6 +160,8 @@ class Prefilter(_Model):
 class SearchParams(_Model):
     # EGiB carries no land use, so without zoning the search drops town lots by size before clustering.
     min_parcel_ha: float = Field(default=1.0, ge=0)
+    # KIUG soil-class sample points per kept site (about one per 2 ha); each is one request at 1 per second.
+    soil_points_per_site: int = Field(default=5, ge=1)
 
 
 class ConnectionCost(_Model):

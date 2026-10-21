@@ -559,7 +559,8 @@ export interface components {
             prefilter: components["schemas"]["Prefilter"];
             /**
              * @default {
-             *       "min_parcel_ha": 1
+             *       "min_parcel_ha": 1,
+             *       "soil_points_per_site": 5
              *     }
              */
             search: components["schemas"]["SearchParams"];
@@ -572,6 +573,11 @@ export interface components {
              * @default 1
              */
             min_parcel_ha: number;
+            /**
+             * Soil Points Per Site
+             * @default 5
+             */
+            soil_points_per_site: number;
         };
         /** SiteDetail */
         SiteDetail: {

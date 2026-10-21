@@ -24,6 +24,7 @@ from dclh_pipeline.model.features import GeomIndex, Layer, SiteLayers, ZoningLay
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.sites import Site
 from dclh_pipeline.model.zoning import mpzp_outline_kind, plan_ogolny_kind
+from dclh_pipeline.scoring.types import Fact
 from dclh_pipeline.search import SearchResult, run_search
 from dclh_pipeline.settings import Settings, get_settings
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
@@ -39,6 +40,7 @@ from dclh_pipeline.sources.isok import (
 )
 from dclh_pipeline.sources.kimpzp import KimpzpConnector, site_points
 from dclh_pipeline.sources.kimpzp import zoning_layer as kimpzp_zoning_layer
+from dclh_pipeline.sources.kiug import KiugConnector, site_soil_points, soil_iii_facts
 from dclh_pipeline.sources.midas import MidasConnector
 from dclh_pipeline.sources.osm_infra import airport_ols_layer, gas_zone_layer, read_infra
 from dclh_pipeline.sources.osm_power import OsmPowerConnector, to_grid
@@ -181,6 +183,15 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
             counts = {str(k): int(v) for k, v in answers["status"].value_counts().items()}
             return kimpzp_zoning_layer(sites, answers, snapshot.fetched_at), counts
 
+        def sample_soil(sites: list[Site]) -> tuple[dict[str, Fact[float]], dict[str, int]]:
+            points = site_soil_points(sites, cfg.search.soil_points_per_site)
+            connector = KiugConnector(config.get("kiug"), points=points)
+            snapshot = connector.fetch(client, store)
+            answers = connector.parse(snapshot)
+            store.mark_good(snapshot)
+            counts = {str(k): int(v) for k, v in answers["status"].value_counts().items()}
+            return soil_iii_facts(answers, snapshot.fetched_at), counts
+
         def fetch_parcels(tiles):  # type: ignore[no-untyped-def]
             connector = EgibConnector(config.get("egib"), bboxes=tiles)
             return connector.parse(connector.fetch(client, store))
@@ -211,6 +222,7 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
             fetch_parcels,
             parcels_as_of=None,
             sample_zoning=sample_zoning,
+            sample_soil=sample_soil,
         )
     return PowiatSearch(
         teryt=str(units.iloc[0]["teryt"]),
