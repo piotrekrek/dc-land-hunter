@@ -203,6 +203,35 @@ def test_kimpzp_samples_only_kept_sites_and_outranks_the_register() -> None:
     assert excluded.features.zoning is not None and excluded.features.zoning.source_id == "ru"
 
 
+def test_kiug_samples_only_kept_sites_and_feeds_the_class_iii_penalty() -> None:
+    from dclh_pipeline.model.features import GeomIndex, Layer
+    from dclh_pipeline.model.provenance import Confidence
+    from dclh_pipeline.scoring.types import Fact
+
+    asked: list[list[str]] = []
+
+    def sample(sites):  # type: ignore[no-untyped-def]
+        asked.append([s.site_id for s in sites])
+        return {s.site_id: Fact(60.0, "kiug", None, Confidence.ESTIMATED) for s in sites}, {"parcel": 9}
+
+    result = run_search(AREA, SiteLayers(grid=grid()), CFG, lambda t: parcels(), sample_soil=sample)
+    (site,) = result.scored
+    assert asked == [[site.site.site_id]]
+    assert site.features.soil_class_iii_pct is not None and site.features.soil_class_iii_pct.value == 60.0
+    soil = next(i for i in site.score.items if i.key == "pen_soil_iii")
+    assert soil.points == -CFG.penalties.soil_class_III_pct_over_30  # 60% is over the 30% threshold
+    assert not site.score.excluded
+    assert result.report.kiug_answers == {"parcel": 9}
+
+    # An excluded site is not sampled, so its soil stays missing.
+    asked.clear()
+    flood = Layer("isok", GeomIndex([box(X0, Y0, X0 + 100, Y0 + 100)]), confidence=Confidence.VERIFIED)
+    layers = SiteLayers(grid=grid(), constraints={"flood_10_or_1": flood})
+    (excluded,) = run_search(AREA, layers, CFG, lambda t: parcels(), sample_soil=sample).scored
+    assert excluded.score.excluded and asked == []
+    assert excluded.features.soil_class_iii_pct is None
+
+
 def test_a_parcel_on_a_powiat_border_is_searched_by_one_powiat_only() -> None:
     # One 20 ha parcel straddles the border x = X0 + 300. Its representative point is west of it. Both
     # powiats' seeds touch it, but it may become a site in one run only: `site_id` is the primary key of

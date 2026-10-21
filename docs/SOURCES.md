@@ -36,6 +36,16 @@ file or calling the endpoint, as described here.
   `protected_nature_pct` hard filter. 87 park features are buffer zones ("… - otulina", 15,066 km²). They are not
   the park and are dropped, which leaves 26,512 km² of parks and 71,838 km² of OChK. A `gdos` snapshot from before
   this change lacks the two layers and is refused, so run `dclh fetch gdos` once after the deploy.
+- **`kiug` soil classes (21.10.2026, estimate for the class III penalty only).** WMS only, no WFS. GetFeatureInfo
+  1.1.1, `SRS=EPSG:2180` (easting first), `INFO_FORMAT=application/vnd.ogc.gml`, layer `klasouzytki`. The answer
+  describes the whole **parcel** under the point: `Identyfikator działki`, `Pole pow. w ewidencji gruntów (ha)`
+  and `Oznaczenie konturu`. The last lists the parcel's contours with their class, comma-separated (e.g.
+  `RIIIb, RIVa, RV, W-RIIIb`). It has no contour areas, so `sources/kiug.py` splits each parcel evenly over its
+  contours and weights parcels by area. A point with no parcel answers "Usługa nie udostępnia danych opisowych…".
+  Coverage depends on the starosta: powiat 1432 (warszawski zachodni) returns its parcels with an empty area and
+  no contours, so those parcels are skipped. Live run on 5 sites of 1421: 43 points in 43 s, estimates of 0–32%.
+  Cost is one request per point at 1 per second, at most `search.soil_points_per_site` (5) per kept site.
+  The I–II hard filter is not fed (owner decision): an estimate must never exclude a site.
 - **Gas pipelines and airport OLS: no public source; OSM proxy (21.10.2026, owner decision).** Gaz-System publishes
   no WMS or WFS of its transmission network. The obstacle limitation surfaces (OLS) are held by ULC and each airport
   operator (Dz.U. 2021 poz. 264), not published as data. BDOT10k `OT_SUPR_L` has no gas (powiat 1421: 7 heat pipes).

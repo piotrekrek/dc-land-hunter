@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<FeatureCollection xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.intergraph.com/geomedia/gml" xmlns:gml="http://www.opengis.net/gml" xmlns:xlink="http://www.w3.org/1999/xlink"><gml:featureMember><Layer Name="integracja"><Attribute Name="Informacja">Usługa nie udostępnia danych opisowych dla wybranego obiektu</Attribute></Layer></gml:featureMember></FeatureCollection>

@@ -437,6 +437,8 @@ class SiteLayers:
     pse_planned: PointLayer | None = None  # PSE planned load stations
     heat: Layer | None = None  # towns with a heat concession (URE), placed by their urban gmina
     psi: PsiLayer | None = None  # regional aid rates by gmina (PSI map, regulation 2021 poz. 2422)
+    # Estimated class III soil share per site_id, sampled from KIUG for the sites the hard filters keep.
+    soil_iii: dict[str, Fact[float]] = field(default_factory=dict)
 
 
 def build_site_features(
@@ -469,4 +471,6 @@ def build_site_features(
         site.geom, layers.residential, cfg.hard_filters["residential_within_m"].threshold_m or 100.0
     )
     features.update(constraint_facts(site.geom, layers.constraints))
+    if site.site_id in layers.soil_iii:
+        features["soil_class_iii_pct"] = layers.soil_iii[site.site_id]
     return SiteFeatures(**features)

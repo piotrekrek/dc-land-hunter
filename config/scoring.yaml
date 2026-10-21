@@ -87,6 +87,9 @@ prefilter:
 # target.large_site_split_ha are cut into pieces of about that size.
 search:
   min_parcel_ha: 1.0
+  # KIUG soil-class points per site the hard filters keep: about one per 2 ha, at most this many. Each point is
+  # one request at 1 per second, so 800 kept sites (powiat 0201) cost up to about 67 minutes.
+  soil_points_per_site: 5
 
 # Connection-cost calculator (brief section 3, Prawo energetyczne amendment of 30.04.2026).
 # NEEDS LEGAL VERIFICATION. Shown in the UI with the label "wymaga weryfikacji prawnej".
