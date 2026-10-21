@@ -364,6 +364,28 @@
           }
         }
       }
+    },
+    "/api/ops/jobs": {
+      "get": {
+        "tags": [
+          "ops"
+        ],
+        "summary": "Job Health",
+        "description": "Admin only. Read-only view of the `jobs` table; `search_runs` is not used because a failed search\nrolls back and never updates it.",
+        "operationId": "job_health_api_ops_jobs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpsJobs"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -632,6 +654,57 @@
         "title": "FactOut",
         "description": "A feature value with its provenance (brief section 4: source_id, as_of, confidence)."
       },
+      "FailingPowiat": {
+        "properties": {
+          "teryt": {
+            "type": "string",
+            "title": "Teryt"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "failed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "teryt",
+          "name",
+          "failed_at",
+          "error"
+        ],
+        "title": "FailingPowiat",
+        "description": "A powiat whose most recent search job failed, so its sites are going stale."
+      },
       "GridParams": {
         "properties": {
           "line110_km_full": {
@@ -810,6 +883,123 @@
         ],
         "title": "Health"
       },
+      "JobCounts": {
+        "properties": {
+          "pending": {
+            "type": "integer",
+            "title": "Pending",
+            "default": 0
+          },
+          "running": {
+            "type": "integer",
+            "title": "Running",
+            "default": 0
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done",
+            "default": 0
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "JobCounts",
+        "description": "`pending` and `running` count every such job; `done` and `failed` only the last 24 hours."
+      },
+      "JobItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "powiat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Powiat"
+          },
+          "powiat_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Powiat Name"
+          },
+          "requested_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "powiat",
+          "powiat_name",
+          "requested_by",
+          "created_at",
+          "finished_at",
+          "error"
+        ],
+        "title": "JobItem"
+      },
       "JobOut": {
         "properties": {
           "id": {
@@ -886,6 +1076,39 @@
           "password"
         ],
         "title": "LoginIn"
+      },
+      "OpsJobs": {
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/JobCounts"
+          },
+          "failing_powiats": {
+            "items": {
+              "$ref": "#/components/schemas/FailingPowiat"
+            },
+            "type": "array",
+            "title": "Failing Powiats"
+          },
+          "attention": {
+            "type": "integer",
+            "title": "Attention"
+          },
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/JobItem"
+            },
+            "type": "array",
+            "title": "Recent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "counts",
+          "failing_powiats",
+          "attention",
+          "recent"
+        ],
+        "title": "OpsJobs"
       },
       "Penalties": {
         "properties": {

@@ -19,9 +19,10 @@ describe("App shell", () => {
     renderWithProviders(<AppRoutes />);
     await screen.findByText("Brak lokalizacji dla tych filtrów");
     const nav = screen.getAllByRole("navigation", { name: "Główna nawigacja" })[0]!;
-    for (const item of NAV_ITEMS) {
+    for (const item of NAV_ITEMS.filter((i) => !i.adminOnly)) {
       expect(nav).toHaveTextContent(item.label);
     }
+    expect(nav).not.toHaveTextContent("Zadania");
     expect(screen.getByText("Brak lokalizacji dla tych filtrów")).toBeInTheDocument();
     expect(screen.getByTestId("map")).toBeInTheDocument();
     expect(await screen.findByText("Połączono z API")).toBeInTheDocument();

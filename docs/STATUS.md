@@ -584,3 +584,13 @@ available columns, which settles the names.
   dropped before clustering and clusters above `target.large_site_split_ha` (80 ha) are cut on a grid into pieces of
   about that size (flag `split_cluster`). Both are blunt stand-ins for the missing zoning layer. **Next on the VPS:**
   rerun `uv run dclh search 1421` and check whether the Hillwood area appears as its own site.
+
+## Ops: job health panel "Zadania" (21.10.2026, tested on PostGIS; not yet deployed)
+
+- Admin-only `GET /api/ops/jobs` and a **Zadania** page: job counts (24 h), powiats whose latest search job failed
+  (with the error), and the last 50 jobs. Read-only, from `jobs`; no migration.
+- Alert: a red count on the nav entry (admins only) = failing powiats + failed non-search jobs of the last 24 h.
+  Refreshes every 5 minutes.
+- Why `jobs` and not `search_runs`: a failed search rolls back, so `search_runs` kept showing `ok` for powiats whose
+  nightly job had been failing since 14 Oct (duplicate `site_id`, fixed by giving each border parcel to one powiat).
+- Not done on purpose: email/push alerts (no SMTP until the Phase 5 digest), retry button, log viewer, charts.

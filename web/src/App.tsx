@@ -5,6 +5,7 @@ import { shouldRetry } from "@/api/client";
 import { AppShell } from "@/components/layout/AppShell";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider } from "@/lib/auth";
+import { JobsPage } from "@/pages/JobsPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { HomePage } from "@/pages/HomePage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
@@ -80,6 +81,7 @@ export function AppRoutes() {
         />
         <Route path="lokalizacje/:siteId" element={<SiteCardPage />} />
         <Route path="zrodla" element={<SourcesPage />} />
+        <Route path="zadania" element={<JobsPage />} />
         <Route path="ustawienia" element={<SettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

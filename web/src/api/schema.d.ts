@@ -163,6 +163,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ops/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Job Health
+         * @description Admin only. Read-only view of the `jobs` table; `search_runs` is not used because a failed search
+         *     rolls back and never updates it.
+         */
+        get: operations["job_health_api_ops_jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -265,6 +286,20 @@ export interface components {
              */
             confidence: "verified" | "estimated" | "missing";
         };
+        /**
+         * FailingPowiat
+         * @description A powiat whose most recent search job failed, so its sites are going stale.
+         */
+        FailingPowiat: {
+            /** Teryt */
+            teryt: string;
+            /** Name */
+            name: string | null;
+            /** Failed At */
+            failed_at: string | null;
+            /** Error */
+            error: string | null;
+        };
         /** GridParams */
         GridParams: {
             /** Line110 Km Full */
@@ -341,6 +376,56 @@ export interface components {
              */
             time: string;
         };
+        /**
+         * JobCounts
+         * @description `pending` and `running` count every such job; `done` and `failed` only the last 24 hours.
+         */
+        JobCounts: {
+            /**
+             * Pending
+             * @default 0
+             */
+            pending: number;
+            /**
+             * Running
+             * @default 0
+             */
+            running: number;
+            /**
+             * Done
+             * @default 0
+             */
+            done: number;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+        };
+        /** JobItem */
+        JobItem: {
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Status */
+            status: string;
+            /** Powiat */
+            powiat: string | null;
+            /** Powiat Name */
+            powiat_name: string | null;
+            /** Requested By */
+            requested_by: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Error */
+            error: string | null;
+        };
         /** JobOut */
         JobOut: {
             /** Id */
@@ -367,6 +452,16 @@ export interface components {
             email: string;
             /** Password */
             password: string;
+        };
+        /** OpsJobs */
+        OpsJobs: {
+            counts: components["schemas"]["JobCounts"];
+            /** Failing Powiats */
+            failing_powiats: components["schemas"]["FailingPowiat"][];
+            /** Attention */
+            attention: number;
+            /** Recent */
+            recent: components["schemas"]["JobItem"][];
         };
         /** Penalties */
         Penalties: {
@@ -916,6 +1011,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    job_health_api_ops_jobs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpsJobs"];
                 };
             };
         };
