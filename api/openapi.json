@@ -408,6 +408,11 @@
             "type": "number",
             "title": "Psi Aid Max Pts"
           },
+          "psi_aid_full_pct": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Psi Aid Full Pct"
+          },
           "res_cluster_km": {
             "type": "number",
             "title": "Res Cluster Km"
@@ -428,6 +433,7 @@
           "heat_network_pts",
           "res_cluster_pts",
           "psi_aid_max_pts",
+          "psi_aid_full_pct",
           "res_cluster_km",
           "env_decision_found",
           "public_seller"

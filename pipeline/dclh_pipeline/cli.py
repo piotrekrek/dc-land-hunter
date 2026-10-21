@@ -24,9 +24,11 @@ from dclh_pipeline.sources.base import Source
 from dclh_pipeline.sources.egib import EgibConnector
 from dclh_pipeline.sources.energa import EnergaConnector
 from dclh_pipeline.sources.gdos import GdosConnector
+from dclh_pipeline.sources.heat import HeatConnector
 from dclh_pipeline.sources.manual import MANUAL_CAPACITY, MANUAL_POINTS
 from dclh_pipeline.sources.osm_power import OsmPowerConnector, summarize_grid
 from dclh_pipeline.sources.prg import PrgConnector
+from dclh_pipeline.sources.psi import PsiConnector
 from dclh_pipeline.sources.tauron import TauronConnector
 
 app = typer.Typer(help="DC Land Hunter pipeline", no_args_is_help=True)
@@ -39,6 +41,8 @@ CONNECTORS: dict[str, type[Source]] = {
     "gdos": GdosConnector,
     "tauron": TauronConnector,
     "energa": EnergaConnector,
+    "heat": HeatConnector,
+    "psi": PsiConnector,
 }
 
 

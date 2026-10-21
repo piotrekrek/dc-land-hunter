@@ -13,4 +13,3 @@ Phase 3 imports (`dclh import-manual`, see `docs/RUNBOOK.md`). Headers are match
 | DSO capacity, one DSO per file | `enea`, `energa`, `tauron` | `dso, gpz_name, published_mw, as_of, note`. `dso` must match the source id. Blank `published_mw` = not published. `as_of` = YYYY-MM-DD. |
 | PSE point lists | `pse_closed`, `pse_odb`, `pse_avail` | `name, as_of` and `x_2180, y_2180` (metres) or `lat, lon` (WGS84). `pse_closed` and `pse_odb` also take PSE's own XLSX as published, with no coordinates (located by station name). |
 
-| `psi_aid.csv` | `psi` bonus (Phase 2) | Aid intensity per gmina from the regional aid map regulation (to prepare). |

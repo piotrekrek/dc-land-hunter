@@ -19,6 +19,7 @@ from shapely.geometry.base import BaseGeometry
 from dclh_pipeline.config import Prefilter, ScoringConfig
 from dclh_pipeline.model.grid import SubstationClass, is_foreign_operator
 from dclh_pipeline.model.provenance import Confidence
+from dclh_pipeline.model.psi import PsiLayer, psi_points_fact
 from dclh_pipeline.model.sites import Site
 from dclh_pipeline.scoring.types import Fact, SiteFeatures, ZoningKind
 
@@ -336,6 +337,19 @@ def constraint_facts(
     return out
 
 
+def heat_network_km_fact(site: BaseGeometry, heat: Layer | None) -> Fact[float] | None:
+    """Distance in km to the nearest town with a heat concession (its urban gmina), 0 inside it.
+
+    Missing when the concession list is not loaded or no concession town could be placed on the map.
+    """
+    if heat is None:
+        return None
+    distance = heat.index.nearest_distance_m(site)
+    return (
+        None if distance is None else _fact(distance / M_PER_KM, heat.source_id, heat.as_of, heat.confidence)
+    )
+
+
 def residential_fact(site: BaseGeometry, residential: Layer | None) -> Fact[float] | None:
     """Distance to the nearest residential building, in metres."""
     if residential is None:
@@ -421,6 +435,8 @@ class SiteLayers:
     pse_closed: PointLayer | None = None  # PSE closed switchyards (no connection possible)
     pse_odb: PointLayer | None = None  # PSE connection conditions issued (demand signal)
     pse_planned: PointLayer | None = None  # PSE planned load stations
+    heat: Layer | None = None  # towns with a heat concession (URE), placed by their urban gmina
+    psi: PsiLayer | None = None  # regional aid rates by gmina (PSI map, regulation 2021 poz. 2422)
 
 
 def build_site_features(
@@ -445,6 +461,8 @@ def build_site_features(
     features["closed_switchyard_nearby"] = closed_switchyard_fact(site.geom, layers.pse_closed, cfg)
     features["dist_pse_odb_km"] = nearest_point_km_fact(site.geom, layers.pse_odb)
     features["dist_pse_planned_station_km"] = nearest_point_km_fact(site.geom, layers.pse_planned)
+    features["dist_heat_network_km"] = heat_network_km_fact(site.geom, layers.heat)
+    features["psi_aid_pts"] = psi_points_fact(site.geom, layers.psi, cfg)
     features["zoning"] = zoning_fact(site.geom, layers.zoning, layers.industrial)
     features["residential_min_m"] = residential_fact(site.geom, layers.residential)
     features["residential_clear_ha"] = residential_clear_fact(

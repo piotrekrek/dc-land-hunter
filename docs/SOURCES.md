@@ -134,11 +134,18 @@ file or calling the endpoint, as described here.
 - **`heat` ✓.** URE concession register JSON: `https://api.ure.gov.pl/api/ConcessionOtherFuel?rodzajKoncesji=PCC`
   (344 heat transmission/distribution licences, with `miejscowosc` and `wojewodztwo`). It is a town-level proxy for "district
   heating exists here". Store the town and licence type only (the rows carry addresses and tax ids).
+  **Loaded live 21.10.2026** with `dclh fetch heat` (344 rows, from the VPS). The connector keeps town, voivodeship and end date.
+  Towns are placed by their urban gmina (TERYT type digit 1); miejsko-wiejska seats are not placed (their polygon covers farmland).
 - **`psi` ✓.** Rozporządzenie RM z 14.12.2021 w sprawie mapy pomocy regionalnej na lata 2022–2027 (Dz.U. 2021 poz.
-  2422), in force (ELI API). `data/manual/psi_aid.csv` does **not exist yet**. The map is per NUTS-3 subregion, not per gmina,
-  so the CSV needs a subregion → gmina join.
-- **`uke` ⚠ lead only.** UKE's PIT map portal (`pitmap.uke.gov.pl`) reportedly serves public WMS layers for SIIS
-  nodes, collocations and lines without login (existing/planned infrastructure needs login). Not yet probed.
+  2422), in force. **Loaded live 21.10.2026** with `dclh fetch psi` from the ELI text
+  (`api.sejm.gov.pl/eli/acts/DU/2021/2422/text.html`, 200). The map is not a gmina table: it is voivodeship rates (50/40/30/25 %) with
+  exceptions, so the rates are constants in `model/psi.py`, checked against that text on every fetch. No `psi_aid.csv` is needed.
+  Still unknown, so missing: the Warsaw regional area's powiats (only its listed gminas are rated), the Poznań subregion (all Wielkopolska
+  outside Poznań) and the FST +10 points (§ 5).
+- **`uke` ⚠ lead only, not obtainable as data (checked 21.10.2026).** `pitmap.uke.gov.pl` is a map SPA. Its GeoServer
+  (`/pit2/PitMapa/backend/geoserver/wms` and `/ows`) answers `404 Użytkownik niezalogowany` (login required), and the WMTS
+  is the same. The map's search API (`/search/api/getLayerInPolygon`) answers anonymously but is not documented and its terms
+  are unknown. No connector until the owner decides (see docs/STATUS.md).
 
 Unverified endpoints are not used by any connector until they are confirmed in this file.
 
@@ -250,6 +257,7 @@ Fallback order for interactive maps (brief): JSON endpoint → Playwright → ma
 - **DSO art. 7 ust. 8l lists** (Enea PDFs, likely also Tauron and PGE): a 110 kV load queue signal; needs a PDF table
   parser and must drop applicant names.
 - **tauron**: read the site's terms before a scheduled connector; keep to the server's rate limit.
-- **uke**: probe `pitmap.uke.gov.pl` WMS for SIIS nodes.
-- **psi**: build `data/manual/psi_aid.csv` (subregion → gmina) from Dz.U. 2021 poz. 2422.
+- **psi**: the Warsaw regional area's powiat list (GUS NUTS PL91) and the Poznań subregion's powiats, to replace the
+  "unknown" rates with real ones (the owner or GUS).
+- **uke**: owner decision needed: a login for the PIT map, or an agreed use of the undocumented search API.
 - **kowr**: manual-only (owner decision 12.10.2026); no scraping.

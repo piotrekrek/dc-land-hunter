@@ -126,6 +126,9 @@ class BonusParams(_Model):
     heat_network_pts: float
     res_cluster_pts: float
     psi_aid_max_pts: float
+    psi_aid_full_pct: float = Field(
+        gt=0
+    )  # the aid rate that earns psi_aid_max_pts (top of the 2022–2027 map)
     res_cluster_km: float
     env_decision_found: float
     public_seller: float

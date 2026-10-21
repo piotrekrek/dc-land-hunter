@@ -109,6 +109,12 @@ def test_operator(operator: str | None, dso: Dso | None) -> None:
 def test_foreign_operator_flags_powered_brownfield_candidates() -> None:
     assert is_foreign_operator("ArcelorMittal Poland")
     assert not is_foreign_operator("Tauron Dystrybucja")
+
+
+@pytest.mark.parametrize("operator", ["PGE Energetyka Kolejowa", "PKP Energetyka", "PKP Trakcja"])
+def test_rail_traction_is_not_a_powered_brownfield_owner(operator: str) -> None:
+    # Owner's decision pending (docs/STATUS.md): traction substations never make a brownfield "powered".
+    assert not is_foreign_operator(operator)
     assert not is_foreign_operator(None)
     assert not is_foreign_operator("  ")
 
