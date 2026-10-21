@@ -189,6 +189,15 @@ def voivodeship_shares(aoi: BaseGeometry, prg: gpd.GeoDataFrame) -> list[tuple[s
     return sorted(shares, key=lambda item: -item[1])
 
 
+def geojson_path(data_dir: Path) -> Path:
+    """Where `dclh aoi build` writes the GeoJSON: `<data dir>/aoi/aoi.geojson`.
+
+    On the host the data dir is the repo's `data/`, so this is the tracked file. In the containers it is the
+    data volume (`DCLH_DATA_DIR=/data`); the repo path there is read-only for the app user.
+    """
+    return data_dir / "aoi" / "aoi.geojson"
+
+
 def write_geojson(aoi: BaseGeometry, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     gdf = gpd.GeoDataFrame({"name": ["default"]}, geometry=[aoi], crs=f"EPSG:{EPSG}").to_crs(4326)
