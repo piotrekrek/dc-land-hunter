@@ -444,7 +444,7 @@ def _bonus_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
         ),
         _scored(
             "bonus_psi", "bonus", "Pomoc regionalna (PSI)", f.psi_aid_pts, b.psi_aid_max_pts,
-            lambda pts: (max(0.0, min(pts, b.psi_aid_max_pts)), f"Intensywność pomocy w gminie: {_n(pts)} z {_n(b.psi_aid_max_pts, 0)} pkt."),
+            lambda pts: (max(0.0, min(pts, b.psi_aid_max_pts)), f"Pomoc regionalna w gminie (mapa 2022–2027, skala do {_n(b.psi_aid_full_pct, 0)} %): {_n(pts)} z {_n(b.psi_aid_max_pts, 0)} pkt."),
             "mapa pomocy regionalnej",
         ),
         _scored(

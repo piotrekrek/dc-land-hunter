@@ -141,6 +141,14 @@ def derive_operator(operator_tag: str | None) -> Dso | None:
     return None
 
 
+# Rail traction substations (PGE Energetyka Kolejowa, PKP Energetyka) are not an industrial owner's plant, so
+# they never make a "powered brownfield" (owner's decision pending; see docs/STATUS.md, 21.10.2026).
+_RAIL_TRACTION_PATTERN = re.compile(r"energetyka\s+kolejowa|\bpkp\b", re.I)
+
+
 def is_foreign_operator(operator_tag: str | None) -> bool:
-    """True when an operator is named but is neither a DSO nor PSE: a candidate "powered brownfield"."""
-    return bool(operator_tag and operator_tag.strip()) and derive_operator(operator_tag) is None
+    """True when an operator is named but is neither a DSO, PSE nor a rail traction operator: a candidate
+    "powered brownfield"."""
+    if not (operator_tag and operator_tag.strip()):
+        return False
+    return derive_operator(operator_tag) is None and not _RAIL_TRACTION_PATTERN.search(operator_tag)

@@ -54,8 +54,9 @@ connectivity:
   cities: [Poznań, Wrocław, Szczecin, Gdańsk, Katowice, Łódź, Kraków, Warszawa, Bydgoszcz, Opole, Zielona Góra]
 
 # Bonus category: points are final-score points (the category is capped at weights.bonus).
-bonus: {heat_network_km: 5, heat_network_pts: 3, psi_aid_max_pts: 3, res_cluster_km: 10, res_cluster_pts: 2,
-        env_decision_found: 3, public_seller: 2}
+bonus: {heat_network_km: 5, heat_network_pts: 3, psi_aid_max_pts: 3, psi_aid_full_pct: 50, res_cluster_km: 10,
+        res_cluster_pts: 2, env_decision_found: 3, public_seller: 2}
+# psi_aid_full_pct: the regional aid rate (%) that earns psi_aid_max_pts; points scale linearly below it.
 
 penalties:
   flood_0_2pct: 10

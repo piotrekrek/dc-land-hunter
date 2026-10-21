@@ -235,7 +235,7 @@ sources:
     cadence: monthly
     core: false
     licence_expected: "Do ustalenia"
-    notes: "Właściwa usługa (WMS/eksport) do ustalenia w discovery."
+    notes: "Brak danych: usługi GeoServer PIT wymagają logowania (21.10.2026). Decyzja właściciela; patrz docs/SOURCES.md."
     probes:
       - {kind: page, url: "https://www.uke.gov.pl/", keywords: ["inwentaryzacja", "infrastruktur", "mapa", "węzł"]}
 
@@ -246,7 +246,7 @@ sources:
     cadence: static
     core: false
     licence_expected: "Akt prawny (rozporządzenie) – domena publiczna"
-    notes: "Tabela statyczna przygotowana ręcznie z rozporządzenia: data/manual/psi_aid.csv."
+    notes: "Stawki z tekstu rozporządzenia (ELI); model/psi.py, sprawdzane przy każdym pobraniu. Bez psi_aid.csv."
     probes:
       # Rozporządzenie RM z 14.12.2021 w sprawie mapy pomocy regionalnej na lata 2022–2027 (Dz.U. 2021 poz. 2422).
       - {kind: http, method: GET, url: "https://api.sejm.gov.pl/eli/acts/DU/2021/2422"}

@@ -30,11 +30,13 @@ from dclh_pipeline.snapshots import Snapshot, SnapshotStore
 from dclh_pipeline.sources.bdot10k import Bdot10kConnector
 from dclh_pipeline.sources.egib import BBox, EgibConnector
 from dclh_pipeline.sources.gdos import GdosConnector
+from dclh_pipeline.sources.heat import heat_town_layer
 from dclh_pipeline.sources.isok import IsokConnector
 from dclh_pipeline.sources.kimpzp import KimpzpConnector, site_points
 from dclh_pipeline.sources.kimpzp import zoning_layer as kimpzp_zoning_layer
 from dclh_pipeline.sources.osm_power import OsmPowerConnector, to_grid
 from dclh_pipeline.sources.prg import PrgConnector
+from dclh_pipeline.sources.psi import load_psi_layer
 from dclh_pipeline.sources.ru import RuMpzpConnector, RuPlanOgolnyConnector
 
 WARSAW = ZoneInfo("Europe/Warsaw")
@@ -128,6 +130,10 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
         )
 
         zoning = _ru_zoning_layers(config, client, store, tuple(area.bounds))
+        # Bonus layers from saved snapshots (`dclh fetch heat|psi`); a source never fetched stays missing.
+        gminas = admin[admin["level"] == "gmina"]
+        heat = heat_town_layer(store, config.get("heat"), gminas)
+        psi = load_psi_layer(store, config.get("psi"), gminas)
 
         def sample_zoning(sites: list[Site]) -> tuple[ZoningLayer, dict[str, int]]:
             connector = KimpzpConnector(config.get("kimpzp"), points=site_points(sites))
@@ -152,6 +158,8 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
                 pse_closed=grid_capacity.pse_closed,
                 pse_odb=grid_capacity.pse_odb,
                 pse_planned=grid_capacity.pse_planned,
+                heat=heat,
+                psi=psi,
             ),
             cfg,
             fetch_parcels,
