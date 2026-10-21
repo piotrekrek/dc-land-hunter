@@ -201,3 +201,20 @@ def test_kimpzp_samples_only_kept_sites_and_outranks_the_register() -> None:
     (excluded,) = run_search(AREA, layers, CFG, lambda t: parcels(), sample_zoning=sample).scored
     assert excluded.score.excluded and asked == []
     assert excluded.features.zoning is not None and excluded.features.zoning.source_id == "ru"
+
+
+def test_a_parcel_on_a_powiat_border_is_searched_by_one_powiat_only() -> None:
+    # One 20 ha parcel straddles the border x = X0 + 300. Its representative point is west of it. Both
+    # powiats' seeds touch it, but it may become a site in one run only: `site_id` is the primary key of
+    # `sites`, so the same parcel set in two powiats made the nightly write fail.
+    straddler = gpd.GeoDataFrame(
+        {"parcel_id": ["border"]}, geometry=[box(X0, Y0, X0 + 500, Y0 + 400)], crs=2180
+    )
+    west = box(X0 - 20_000, Y0 - 20_000, X0 + 300, Y0 + 20_000)
+    east = box(X0 + 300, Y0 - 20_000, X0 + 20_000, Y0 + 20_000)
+
+    in_west = run_search(west, SiteLayers(grid=grid()), CFG, lambda tiles: straddler)
+    in_east = run_search(east, SiteLayers(grid=grid()), CFG, lambda tiles: straddler)
+
+    assert [s.site.parcel_ids for s in in_west.scored] == [("border",)]
+    assert in_east.scored == []
