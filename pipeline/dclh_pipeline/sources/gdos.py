@@ -1,13 +1,18 @@
-"""GDOŚ Geoserwis: protected nature areas (Natura 2000, national parks, nature reserves) via the WFS.
+"""GDOŚ Geoserwis: protected nature areas via the WFS (Natura 2000, parks, reserves, landscape parks, OChK).
 
-Feeds the hard filter `protected_nature_pct` (brief 2.2 and the deal killers in section 3). `fetch()` pages
+Natura 2000, national parks and reserves feed the hard filter `protected_nature_pct` (brief 2.2 and the deal
+killers in section 3); `protected_areas()` selects them. Landscape parks and OChK only feed the penalty
+`landscape_park_or_ochk`; `landscape_areas()` selects them, so they never reach the exclusion. `fetch()` pages
 through each WFS layer and bundles the pages into one zip snapshot, like the PRG connector. `parse()` reads
 them with GDAL's GML driver and returns one GeoDataFrame in EPSG:2180.
 
 Layer names and attributes come from the live GetCapabilities and a sample response (14.10.2026): `nazwa`
 (name), `kodinspire` (INSPIRE code). Feature counts that day: 145 OSO, 871 SOO, 46 national parks, 2,152
-reserves. `fetch()` checks each layer's total against `numberMatched`, so a server cap cannot produce a
-silently truncated snapshot. `parse()` fails loudly if a layer is missing or a geometry lies outside Poland.
+reserves; on 21.10.2026: 213 landscape park features (25 MB) and 406 OChK (38 MB). 87 of the 213 are a park's
+buffer zone ("… - otulina", 15,066 km²), which is not the park; without them the parks cover 26,512 km².
+`fetch()` checks each layer's total against `numberMatched`, so a server cap cannot produce a silently
+truncated snapshot. `parse()` fails loudly if a layer is missing (so a snapshot from before the landscape
+layers is refused) or a geometry lies outside Poland.
 """
 
 from __future__ import annotations
@@ -35,7 +40,13 @@ LAYERS: dict[str, str] = {
     "natura2000_oso": "GDOS:ObszarySpecjalnejOchrony",  # birds directive (OSO)
     "national_park": "GDOS:ParkiNarodowe",
     "reserve": "GDOS:Rezerwaty",
+    "landscape_park": "GDOS:ParkiKrajobrazowe",
+    "ochk": "GDOS:ObszaryChronionegoKrajobrazu",  # obszar chronionego krajobrazu
 }
+# Kinds that only feed the landscape penalty; every other kind is a protected area for the hard filter.
+LANDSCAPE_KINDS: frozenset[str] = frozenset({"landscape_park", "ochk"})
+# A buffer zone ("otulina") around a park is published as its own feature; it is not part of the park.
+_BUFFER_ZONE = re.compile(r"\botulin", re.IGNORECASE)
 NAME_FIELD = "nazwa"
 CODE_FIELD = "kodinspire"
 EPSG = 2180
@@ -95,6 +106,17 @@ class GdosConnector(Source):
         )
         _check_bounds(table)
         return table
+
+
+def protected_areas(table: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """Natura 2000, national parks and reserves: the areas of the `protected_nature_pct` hard filter."""
+    return table[~table["kind"].isin(LANDSCAPE_KINDS)]
+
+
+def landscape_areas(table: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """Landscape parks and OChK minus park buffer zones: the areas of the `landscape_park_or_ochk` penalty."""
+    landscape = table[table["kind"].isin(LANDSCAPE_KINDS)]
+    return landscape[~landscape["name"].str.contains(_BUFFER_ZONE)]
 
 
 def _number_matched(gml: bytes) -> int | None:
