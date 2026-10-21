@@ -109,6 +109,21 @@ Tasks:
 
 Acceptance: at least 70% of GPZs in Enea and Energa areas are matched to published capacity (or the reason is documented), and scores use them.
 
+## Penalty sources (21.10.2026)
+
+Four penalties had no source and showed "Brak danych" (0 pts) on every card. Owner decisions 21.10.2026: gas and
+airport OLS from an OSM proxy (no public source exists); soil from KIUG as an estimate that feeds only the
+class III penalty, never the I–II exclusion. One PR each, stacked (#76 → #77 → #78), merged in that order.
+
+Tasks:
+- [x] Landscape parks and OChK from GDOŚ, penalty only, park buffer zones ("otulina") dropped (#76). Deploy step: `dclh fetch gdos`.
+- [x] Gas pipelines (zone `proxies.gas_zone_m`) and runways (ICAO Annex 14 radius by length) from the `osm_power` extract, `estimated` (#77).
+- [x] Class III soil share from KIUG point samples on kept sites, `estimated`, at most `search.soil_points_per_site` per site (#78).
+- [ ] After merge and deploy: `dclh fetch gdos`, then `dclh search <TERYT> --write` for the 8 powiats with sites (0201, 0202, 0203, 0205, 0206, 0213, 0215, 1421). This also fills the already-wired flood 0,2%, mining terrain and housing penalties. KIUG adds about 6 hours over all 8.
+- [ ] Owner: tune `proxies.gas_zone_m` (15 m) once the controlled-zone widths are checked.
+
+Acceptance: on a rescored site card none of the seven penalties shows "Brak danych" unless the source has nothing there (e.g. KIUG parcels a starosta does not publish).
+
 ## Phase 4: Investor workflow
 
 Tasks: Sprawdź działkę (ULDK + cached layers, under 30 s), kanban (Moje projekty) with drag and drop, notes with RODO notice and full delete, watches, XLSX export, PDF one-pager (WeasyPrint), connection-cost calculator (configurable figures, flagged "wymaga weryfikacji prawnej"), login UI, keyboard shortcuts.
