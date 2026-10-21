@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   LAYER_GROUPS,
+  UNKNOWN_STATIONS_ID,
   LINE_BANDS,
   LINE_LAYER_IDS,
   SITE_COLORS,
@@ -97,5 +98,17 @@ describe("site click", () => {
     expect(siteFocus({ score: 80 }, { lng: 20.9, lat: 52.1 })).toBeNull();
     expect(siteFocus({ site_id: "" }, { lng: 20.9, lat: 52.1 })).toBeNull();
     expect(siteFocus({ site_id: 7 }, { lng: 20.9, lat: 52.1 })).toBeNull();
+  });
+});
+
+describe("station layers", () => {
+  it("keeps unknown-voltage stations in their own checkbox, off by default", () => {
+    const known = LAYER_GROUPS.find((g) => g.id === "substations");
+    const unknown = LAYER_GROUPS.find((g) => g.id === "substations-unknown");
+    expect(known?.defaultOn).toBe(true);
+    expect(known?.layerIds).toEqual(["substations-circle"]);
+    expect(unknown?.label).toBe("Stacje o nieznanym napięciu");
+    expect(unknown?.defaultOn).toBe(false);
+    expect(unknown?.layerIds).toEqual([UNKNOWN_STATIONS_ID]);
   });
 });
