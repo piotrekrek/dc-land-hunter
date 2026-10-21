@@ -523,8 +523,8 @@ def _penalty_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
             ),
             "zabudowa mieszkaniowa", missing_upside=0.0,
         ),
-        flag("pen_gas", "Strefa gazociągu", f.gas_pipeline_zone, p.gas_pipeline_zone, "Teren w strefie kontrolowanej gazociągu.", "Poza strefami gazociągów.", "gazociągi"),
-        flag("pen_airport", "Obszar ograniczeń lotniska (OLS)", f.airport_ols, p.airport_ols, "Teren w obszarze ograniczeń wysokości zabudowy lotniska.", "Poza OLS lotnisk.", "obszary ograniczeń lotnisk"),
+        flag("pen_gas", "Strefa gazociągu", f.gas_pipeline_zone, p.gas_pipeline_zone, "Gazociąg z mapy OSM przy terenie: prawdopodobna strefa kontrolowana.", "Brak gazociągu w danych OSM (dane niepełne, do sprawdzenia u operatora).", "gazociągi"),
+        flag("pen_airport", "Obszar ograniczeń lotniska (OLS)", f.airport_ols, p.airport_ols, "Teren w promieniu powierzchni ograniczających lotniska (wg pasa startowego z OSM).", "Brak pasa startowego w OSM w promieniu powierzchni ograniczających.", "obszary ograniczeń lotnisk"),
     ]  # fmt: skip
 
 

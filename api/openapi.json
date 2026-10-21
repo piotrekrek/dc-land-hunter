@@ -1187,6 +1187,26 @@
         ],
         "title": "Prefilter"
       },
+      "Proxies": {
+        "properties": {
+          "gas_zone_m": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Gas Zone M",
+            "default": 15.0
+          },
+          "runway_min_m": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Runway Min M",
+            "default": 400.0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Proxies",
+        "description": "Settings of the OSM proxies for penalties that have no public source (`sources/osm_infra.py`)."
+      },
       "ScoreItemOut": {
         "properties": {
           "key": {
@@ -1315,6 +1335,13 @@
           },
           "penalties": {
             "$ref": "#/components/schemas/Penalties"
+          },
+          "proxies": {
+            "$ref": "#/components/schemas/Proxies",
+            "default": {
+              "gas_zone_m": 15.0,
+              "runway_min_m": 400.0
+            }
           },
           "prefilter": {
             "$ref": "#/components/schemas/Prefilter"

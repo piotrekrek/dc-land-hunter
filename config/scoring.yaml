@@ -67,6 +67,15 @@ penalties:
   gas_pipeline_zone: 5
   airport_ols: 5
 
+# OSM proxies for two penalties without a public source (sources/osm_infra.py, confidence "estimated").
+# gas_zone_m: a site this close to a gas pipeline mapped in OSM is "in its zone". A rough figure for the
+#   controlled zone of a transmission pipeline; the real width depends on diameter and pressure. Owner to tune.
+# runway_min_m: runways shorter than this (farm strips) get no OLS. Longer ones get the ICAO Annex 14 inner
+#   horizontal surface: 2000 m under 800 m, 2500 m under 1200 m, else 4000 m.
+proxies:
+  gas_zone_m: 15
+  runway_min_m: 400
+
 # Grid pre-filter (pipeline step 4). A zone is kept if ANY condition holds.
 prefilter:
   line110_km: 3

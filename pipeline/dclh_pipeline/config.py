@@ -144,6 +144,13 @@ class Penalties(_Model):
     airport_ols: float
 
 
+class Proxies(_Model):
+    """Settings of the OSM proxies for penalties that have no public source (`sources/osm_infra.py`)."""
+
+    gas_zone_m: float = Field(default=15.0, gt=0)  # a site this close to a gas pipeline is in its zone
+    runway_min_m: float = Field(default=400.0, ge=0)  # shorter runways (farm strips) get no OLS
+
+
 class Prefilter(_Model):
     line110_km: float = Field(gt=0)
     gpz110_km: float = Field(gt=0)
@@ -177,6 +184,7 @@ class ScoringConfig(_Model):
     connectivity: ConnectivityParams
     bonus: BonusParams
     penalties: Penalties
+    proxies: Proxies = Proxies()
     prefilter: Prefilter
     search: SearchParams = SearchParams()
     connection_cost: ConnectionCost

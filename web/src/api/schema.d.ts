@@ -491,6 +491,22 @@ export interface components {
             /** Node 220 400 Km */
             node_220_400_km: number;
         };
+        /**
+         * Proxies
+         * @description Settings of the OSM proxies for penalties that have no public source (`sources/osm_infra.py`).
+         */
+        Proxies: {
+            /**
+             * Gas Zone M
+             * @default 15
+             */
+            gas_zone_m: number;
+            /**
+             * Runway Min M
+             * @default 400
+             */
+            runway_min_m: number;
+        };
         /** ScoreItemOut */
         ScoreItemOut: {
             /** Key */
@@ -533,6 +549,13 @@ export interface components {
             connectivity: components["schemas"]["ConnectivityParams"];
             bonus: components["schemas"]["BonusParams"];
             penalties: components["schemas"]["Penalties"];
+            /**
+             * @default {
+             *       "gas_zone_m": 15,
+             *       "runway_min_m": 400
+             *     }
+             */
+            proxies: components["schemas"]["Proxies"];
             prefilter: components["schemas"]["Prefilter"];
             /**
              * @default {
