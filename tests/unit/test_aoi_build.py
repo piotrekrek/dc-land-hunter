@@ -8,10 +8,12 @@ import geopandas as gpd
 import osmium
 import pytest
 from osmium.osm.mutable import Node, Way
+from pydantic import ValidationError
 from shapely.geometry import LineString, MultiPolygon, Polygon, box
 from sqlalchemy import text
 
 from dclh_pipeline import aoi_build
+from dclh_pipeline.config import IncludedUnit, load_aoi_config
 from dclh_pipeline.db import session_scope
 from dclh_pipeline.model.aoi import lonlat_to_2180
 
@@ -110,6 +112,62 @@ def test_read_vistula_fails_when_the_extract_has_no_such_river(tmp_path: Path) -
         w.add_node(Node(id=1, location=(19.0, 52.0)))
     with pytest.raises(ValueError, match="no waterway=river"):
         aoi_build.read_vistula(path)
+
+
+def _prg_units() -> gpd.GeoDataFrame:
+    # Two gminas with the same code digits at different levels, to check that the level is matched too.
+    return gpd.GeoDataFrame(
+        {
+            "level": ["gmina", "gmina", "powiat"],
+            "teryt": ["0463011", "0663011", "0463"],
+            "name": ["Toruń", "Lublin", "toruński"],
+        },
+        geometry=[box(0, 0, 1, 1), box(2, 0, 3, 1), box(0, 0, 9, 9)],
+        crs=2180,
+    )
+
+
+def test_included_geometries_match_one_unit_by_level_and_teryt() -> None:
+    units = [IncludedUnit(level="gmina", teryt="0463011", name="Toruń")]
+    geoms = aoi_build.included_geometries(_prg_units(), units)
+    assert len(geoms) == 1 and geoms[0].equals(box(0, 0, 1, 1))
+
+
+def test_included_geometries_reject_a_teryt_that_prg_does_not_have() -> None:
+    units = [IncludedUnit(level="gmina", teryt="0461011", name="Toruń (miasto)")]
+    with pytest.raises(ValueError, match="PRG has 0 units"):
+        aoi_build.included_geometries(_prg_units(), units)
+
+
+def test_included_geometries_match_a_powiat_by_its_own_level() -> None:
+    units = [IncludedUnit(level="powiat", teryt="0463", name="toruński")]
+    assert aoi_build.included_geometries(_prg_units(), units)[0].equals(box(0, 0, 9, 9))
+
+
+def test_committed_aoi_config_adds_torun() -> None:
+    config = load_aoi_config()  # config/aoi.yaml, the file the owner edits
+    assert [(u.level, u.teryt) for u in config.include] == [("gmina", "0463011")]
+
+
+def test_aoi_config_loads_an_empty_file_as_no_additions(tmp_path: Path) -> None:
+    path = tmp_path / "aoi.yaml"
+    path.write_text("")
+    assert load_aoi_config(path).include == []
+
+
+def test_aoi_config_rejects_a_teryt_of_the_wrong_length(tmp_path: Path) -> None:
+    path = tmp_path / "aoi.yaml"
+    path.write_text("include:\n  - {level: gmina, teryt: '046301', name: Toruń}\n")
+    with pytest.raises(ValidationError, match="7 digits"):
+        load_aoi_config(path)
+
+
+def test_aoi_config_rejects_duplicate_units(tmp_path: Path) -> None:
+    path = tmp_path / "aoi.yaml"
+    unit = "{level: gmina, teryt: '0463011', name: Toruń}"
+    path.write_text(f"include:\n  - {unit}\n  - {unit}\n")
+    with pytest.raises(ValidationError, match="duplicate"):
+        load_aoi_config(path)
 
 
 def test_write_geojson_stores_wgs84_and_reads_back(tmp_path: Path) -> None:

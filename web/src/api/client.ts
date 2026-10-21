@@ -32,6 +32,8 @@ export type SourceOut = components["schemas"]["SourceOut"];
 export type SourcesList = components["schemas"]["SourcesList"];
 
 export type User = components["schemas"]["UserOut"];
+export type OpsJobs = components["schemas"]["OpsJobs"];
+export type JobItem = components["schemas"]["JobItem"];
 
 export class ApiError extends Error {
   constructor(

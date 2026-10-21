@@ -23,5 +23,13 @@ compose=(docker compose -f infra/docker-compose.yml)
 "${compose[@]}" up --build -d
 "${compose[@]}" ps
 
+# Every rebuild moves the `:local` tags and leaves the previous image untagged ("dangling"), and BuildKit keeps a
+# cache. On the small VPS disk these piled up until a build failed with "no space left on device" (19.10.2026).
+# Only dangling images are removed (never tagged or running ones, so no re-pulls from Docker Hub) and the cache is
+# capped, not wiped, so rebuilds stay fast. A cleanup failure must not turn a good deploy into a failed one.
+docker image prune -f >/dev/null || echo "warning: docker image prune failed" >&2
+docker builder prune -f --keep-storage "${DCLH_BUILD_CACHE_KEEP:-2GB}" >/dev/null || echo "warning: docker builder prune failed" >&2
+echo "disk after cleanup: $(df -h / | awk 'NR==2 {print $4 " free (" $5 " used)"}')"
+
 echo
 echo "deployed $(git log -1 --format='%h %s (%cd)' --date=short)"

@@ -288,7 +288,10 @@ scripts/deploy.sh
 ```
 
 The script refuses to run on a dirty tree or on any branch other than `main`, fast-forwards to
-`origin/main`, rebuilds, shows `docker compose ps` and prints the commit it deployed. If it refuses because
+`origin/main`, rebuilds, shows `docker compose ps`, removes dangling images and caps the BuildKit cache at 2 GB
+(`DCLH_BUILD_CACHE_KEEP=3GB scripts/deploy.sh` changes the cap), prints the free disk and the commit it deployed.
+Docker has no "keep the last N images" setting; tagged images (`postgis`, `martin`, the `node` build base) are
+deliberately kept, so they are not pulled again from Docker Hub. If it refuses because
 of local changes, do not stash them blindly: look at `git diff`, move anything worth keeping into a branch
 on your own machine and open a pull request, then `git checkout -- .` on the VPS.
 

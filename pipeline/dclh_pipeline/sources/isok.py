@@ -1,10 +1,12 @@
 """ISOK flood hazard maps: the 1% (Q100) zones for one search area, from the PGW Wody Polskie WFS.
 
-Feeds the hard filter `flood_10_or_1_pct` (constraint layer `flood_10_or_1`). Verified 19.10.2026
+Feeds two constraint layers: the hard filter `flood_10_or_1_pct` (constraint `flood_10_or_1`, the 1% zones)
+and the penalty `flood_0_2_pct` (constraint `flood_0_2`, the 0.2% zones, 10 points). Verified 19.10.2026
 (docs/SOURCES.md): the flat layer `wms_nz-core:NZ.Fluvial` has `loo_ql_probabilityofoccurrence` 0.1 / 0.01 /
-0.002. The connector asks only for 0.01, which also returns the levee-breach scenario at Q1%. It does not ask
-for the 10% zones: a 10% flood is modelled inside the 1% extent, so the 1% zones already cover them. The 0.2%
-zones (a penalty, not a filter) are not fetched yet.
+0.002. The connector asks for 0.01 and 0.002 in one request, which also returns the levee-breach scenario at
+Q1%. It does not ask for the 10% zones: a 10% flood is modelled inside the 1% extent, so the 1% zones already
+cover them. `zones_with_probability()` splits the answer. A snapshot from before the 0.2% zones has no
+`probabilities` entry in its request and is refused, so an old answer can never read as "no 0.2% zone here".
 
 Zones are whole river reaches (13 zones near Warsaw are 22 MB), so the connector fetches one bbox (a powiat),
 pages with startIndex and checks the total against numberMatched. The answer to
@@ -25,6 +27,7 @@ from pathlib import Path
 from typing import ClassVar
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 from pyogrio import read_dataframe
 from shapely import box
@@ -40,7 +43,9 @@ LAYER = "wms_nz-core:NZ.Fluvial"
 PROBABILITY_FIELD = "loo_ql_probabilityofoccurrence"
 LIKELIHOOD_FIELD = "loo_qualitativelikelihood"
 VALID_TO_FIELD = "validityperiod_end"
-PROBABILITY = 0.01
+PROBABILITY_1PCT = 0.01
+PROBABILITY_02PCT = 0.002
+PROBABILITIES = (PROBABILITY_1PCT, PROBABILITY_02PCT)
 EPSG = 2180
 PAGE_SIZE = 20  # a zone near Warsaw is about 2 MB, so pages stay small
 MAX_PAGES = 100
@@ -53,13 +58,17 @@ _TIMESTAMP = re.compile(rb'\s+timeStamp="[^"]*"')
 
 
 def getfeature_params(bbox: BBox, *, start: int, count: int) -> dict[str, str | int]:
-    """One page of 1% zones inside `bbox` (easting, northing). The FES envelope is sent northing-first."""
+    """One page of 1% and 0.2% zones inside `bbox` (easting, northing). The FES envelope is northing-first."""
     x0, y0, x1, y1 = bbox
+    probability = "".join(
+        f"<fes:PropertyIsEqualTo><fes:ValueReference>{PROBABILITY_FIELD}</fes:ValueReference>"
+        f"<fes:Literal>{p}</fes:Literal></fes:PropertyIsEqualTo>"
+        for p in PROBABILITIES
+    )
     fes = (
         '<fes:Filter xmlns:fes="http://www.opengis.net/fes/2.0" xmlns:gml="http://www.opengis.net/gml/3.2">'
         "<fes:And>"
-        f"<fes:PropertyIsEqualTo><fes:ValueReference>{PROBABILITY_FIELD}</fes:ValueReference>"
-        f"<fes:Literal>{PROBABILITY}</fes:Literal></fes:PropertyIsEqualTo>"
+        f"<fes:Or>{probability}</fes:Or>"
         "<fes:BBOX><fes:ValueReference>geom</fes:ValueReference>"
         '<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">'
         f"<gml:lowerCorner>{y0} {x0}</gml:lowerCorner><gml:upperCorner>{y1} {x1}</gml:upperCorner>"
@@ -90,7 +99,8 @@ class IsokConnector(Source):
     def fetch(self, client: PoliteClient, store: SnapshotStore) -> Snapshot:
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-            _write(archive, "request.json", json.dumps({"layer": LAYER, "bbox": self.bbox}).encode())
+            request = {"layer": LAYER, "bbox": self.bbox, "probabilities": list(PROBABILITIES)}
+            _write(archive, "request.json", json.dumps(request).encode())
             start, matched = 0, None
             for page in range(MAX_PAGES):
                 resp = client.get(
@@ -124,13 +134,15 @@ class IsokConnector(Source):
             request = json.loads(archive.read("request.json"))
             pages = sorted(n for n in archive.namelist() if n.startswith("page_"))
             frames = [_read_page(archive.read(name)) for name in pages]
+        if PROBABILITY_02PCT not in request.get("probabilities", []):
+            raise ValueError("ISOK: the snapshot predates the 0.2% zones; fetch ISOK again")
         area = box(*request["bbox"])
         if not frames:
             return _empty()
         table = gpd.GeoDataFrame(
             pd.concat(frames, ignore_index=True), geometry="geometry", crs=f"EPSG:{EPSG}"
         )
-        table = table[table[PROBABILITY_FIELD] == PROBABILITY]
+        table = table[np.isin(table[PROBABILITY_FIELD].to_numpy(), PROBABILITIES)]
         # The server selected the zones by the bbox, so they must touch it. A server may match on envelopes,
         # so one zone outside is possible; none inside means swapped axes or a wrong CRS. Fail rather than
         # load a river in the wrong place.
@@ -150,6 +162,11 @@ class IsokConnector(Source):
             geometry=clipped[keep].to_numpy(),
             crs=f"EPSG:{EPSG}",
         )
+
+
+def zones_with_probability(table: gpd.GeoDataFrame, probability: float) -> gpd.GeoSeries:
+    """The zone geometries of one probability (`PROBABILITY_1PCT` or `PROBABILITY_02PCT`) from `parse()`."""
+    return table.geometry[np.isclose(table["probability"].to_numpy(dtype=float), probability)]
 
 
 def _write(archive: zipfile.ZipFile, name: str, content: bytes) -> None:

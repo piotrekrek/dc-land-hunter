@@ -1,0 +1,9 @@
+# Area of interest additions (PROJECT_BRIEF.md section 2.1).
+# `dclh aoi build` splits Poland along the Vistula and keeps the western/northern side. Each unit listed here is
+# then added to the AOI whole, so a town on the excluded bank can be kept. The TERYT code must exist in PRG
+# (admin_units); the build fails otherwise and prints the area of each unit it adds.
+# Owner decision, 20.10.2026: Toruń is in the AOI.
+include:
+  - level: gmina
+    teryt: "0463011"
+    name: Toruń

@@ -46,7 +46,7 @@ Acceptance: `docker compose up` starts everything; CI green; every MVP source ha
 ## Phase 1: Base and grid layers
 
 **Finished 19.10.2026.** Acceptance met on live data: the per-voivodeship counts are in STATUS.md ("Phase 1 close-out"),
-and the AOI tests pass. Toruń (out of the AOI by the river-split rule) is an open owner decision, not a Phase 1 blocker.
+and the AOI tests pass. Toruń was decided on 20.10.2026: it is in the AOI via the include list in `config/aoi.yaml`.
 
 Tasks:
 - [x] `prg` connector: voivodeship, powiat and gmina boundaries with TERYT → `admin_units` (`dclh load-admin`: 16 / 380 / 2,479 units).
@@ -120,6 +120,29 @@ Acceptance: E2E flows pass (login, filter + open card, check parcel, move deal, 
 Tasks: snapshot diffs → events (all nine types), Nowości feed with "mark as seen", watches, weekly digest email (SMTP, Monday 07:00), scheduled runs (Monday 05:00 Europe/Warsaw plus per-source cadence), manual offer CSV import (`kowr` is manual-only, no connector) with template.
 
 Acceptance: two consecutive fixture runs produce the expected events, and a test digest renders correctly.
+
+## Ops: job health panel ("Zadania")
+
+**Problem.** The nightly search failed for a week (14–20 Oct, 39 failed jobs) and nobody saw it; it was found by querying
+`jobs` by hand. `search_runs` cannot show it: a failed job rolls back, so it never updates its powiat's row.
+
+**Users.** Admins only (the owner). Members have no use for it.
+
+**Must have**
+1. `GET /api/ops/jobs` (admin only): job counts for the last 24 h by status, the powiats whose *latest* search job
+   failed (with the error), and the last 50 jobs. Read-only, from `jobs` and `admin_units`; no new tables.
+2. A "Zadania" page for admins: three blocks (counts, powiats needing attention, recent jobs with the error text).
+3. An in-app alert: the nav entry shows a red count when a powiat's latest search failed or any job failed in the
+   last 24 h. This is the "someone should look" signal that was missing.
+
+**Deliberately not now**
+- Grafana, Kibana, Loki, Prometheus: the data already sits in Postgres and the stack is one VPS.
+- Email, push or Slack alerts: no SMTP exists yet (it arrives with the Phase 5 digest) and a channel means a
+  new service or credentials, which the owner must approve. Revisit with the digest.
+- Retry buttons, log viewer, charts, history beyond 50 jobs, per-source health (the Sources page covers it).
+
+**Done when:** an admin sees yesterday's failures within one page load, a member gets 403 and no nav entry, and
+the numbers match `SELECT status, count(*) FROM jobs GROUP BY 1`.
 
 ## Phase 6: Hardening and deploy
 

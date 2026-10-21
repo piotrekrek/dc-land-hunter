@@ -4,6 +4,7 @@ import { NavLink, Outlet } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { useOpsJobs } from "@/lib/ops";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,19 @@ function Brand() {
   );
 }
 
+function AttentionBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      className="ml-auto rounded-full bg-bad px-1.5 text-xs font-semibold leading-5 text-white"
+      aria-label={`${count} do sprawdzenia`}
+      data-testid="jobs-attention"
+    >
+      {count}
+    </span>
+  );
+}
+
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
     "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
@@ -29,16 +43,21 @@ export function AppShell() {
   const { theme, toggle } = useTheme();
   const { user, logout, logoutError } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const isAdmin = user?.role === "admin";
+  const { data: ops } = useOpsJobs(isAdmin);
+  const items = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin);
+  const attention = (to: string) => (to === "/zadania" ? (ops?.attention ?? 0) : 0);
 
   return (
     <div className="flex h-full flex-col">
       <header className="flex h-14 shrink-0 items-center gap-4 border-b bg-surface px-4">
         <Brand />
         <nav aria-label="Główna nawigacja" className="hidden flex-1 items-center gap-1 lg:flex">
-          {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+          {items.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to} end={to === "/"} className={linkClass}>
               <Icon className="size-4" aria-hidden />
               {label}
+              <AttentionBadge count={attention(to)} />
             </NavLink>
           ))}
         </nav>
@@ -81,10 +100,11 @@ export function AppShell() {
       )}
       {menuOpen && (
         <nav id="mobile-nav" aria-label="Główna nawigacja" className="flex flex-col gap-1 border-b bg-surface p-2 lg:hidden">
-          {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+          {items.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to} end={to === "/"} className={linkClass} onClick={() => setMenuOpen(false)}>
               <Icon className="size-4" aria-hidden />
               {label}
+              <AttentionBadge count={attention(to)} />
             </NavLink>
           ))}
         </nav>

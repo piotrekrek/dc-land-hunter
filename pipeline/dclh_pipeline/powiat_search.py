@@ -31,9 +31,15 @@ from dclh_pipeline.sources.bdot10k import Bdot10kConnector
 from dclh_pipeline.sources.egib import BBox, EgibConnector
 from dclh_pipeline.sources.gdos import GdosConnector
 from dclh_pipeline.sources.heat import heat_town_layer
-from dclh_pipeline.sources.isok import IsokConnector
+from dclh_pipeline.sources.isok import (
+    PROBABILITY_02PCT,
+    PROBABILITY_1PCT,
+    IsokConnector,
+    zones_with_probability,
+)
 from dclh_pipeline.sources.kimpzp import KimpzpConnector, site_points
 from dclh_pipeline.sources.kimpzp import zoning_layer as kimpzp_zoning_layer
+from dclh_pipeline.sources.midas import MidasConnector
 from dclh_pipeline.sources.osm_power import OsmPowerConnector, to_grid
 from dclh_pipeline.sources.prg import PrgConnector
 from dclh_pipeline.sources.psi import load_psi_layer
@@ -57,9 +63,10 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
 
     DSO capacity and the PSE lists are used when a good snapshot exists (`grid_capacity.py`).
 
-    The powiat's flood zones (`isok`), residential buildings (`bdot10k`) and RU plans (`ru`: MPZP outlines and
-    plan ogólny zones) are downloaded now, like the parcels. A failed download fails the search: without them
-    the flood and housing filters would silently not apply and zoning would read "unknown", and the nightly
+    The powiat's flood zones (`isok`, 1% and 0.2%), mining areas (`midas`), residential buildings (`bdot10k`)
+    and RU plans (`ru`: MPZP outlines and plan ogólny zones) are downloaded now, like the parcels. A failed
+    download fails the search: without them the flood, mining and housing filters would silently not apply and
+    zoning would read "unknown", and the nightly
     planner retries the powiat later. KIMPZP is asked per kept site; a gmina server that does not answer
     leaves that point without a plan.
     """
@@ -111,10 +118,29 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
         store.mark_good(flood_snapshot)
         flood_layer = Layer(
             source_id="isok",
-            index=GeomIndex(flood.geometry),
+            index=GeomIndex(zones_with_probability(flood, PROBABILITY_1PCT)),
             as_of=flood_snapshot.fetched_at,
             confidence=Confidence.VERIFIED,
         )
+        flood_02_layer = Layer(
+            source_id="isok",
+            index=GeomIndex(zones_with_probability(flood, PROBABILITY_02PCT)),
+            as_of=flood_snapshot.fetched_at,
+            confidence=Confidence.VERIFIED,
+        )
+        midas_connector = MidasConnector(config.get("midas"), bbox=tuple(area.bounds))
+        midas_snapshot = midas_connector.fetch(client, store)
+        midas = midas_connector.parse(midas_snapshot)
+        store.mark_good(midas_snapshot)
+        mining = {
+            kind: Layer(
+                source_id="midas",
+                index=GeomIndex(midas.geometry[midas["kind"] == kind]),
+                as_of=midas_snapshot.fetched_at,
+                confidence=Confidence.VERIFIED,
+            )
+            for kind in ("mining_area", "mining_terrain")
+        }
         housing_connector = Bdot10kConnector(config.get("bdot10k"), teryt=teryt)
         housing_snapshot = housing_connector.fetch(client, store)
         housing = housing_connector.parse(housing_snapshot)
@@ -153,7 +179,12 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
                 grid=grid,
                 zoning=zoning,
                 residential=housing_layer,
-                constraints={"protected_nature": protected_layer, "flood_10_or_1": flood_layer},
+                constraints={
+                    "protected_nature": protected_layer,
+                    "flood_10_or_1": flood_layer,
+                    "flood_0_2": flood_02_layer,
+                    **mining,
+                },
                 capacity=grid_capacity.capacity,
                 pse_closed=grid_capacity.pse_closed,
                 pse_odb=grid_capacity.pse_odb,

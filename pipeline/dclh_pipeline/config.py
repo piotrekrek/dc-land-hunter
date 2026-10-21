@@ -269,6 +269,39 @@ class SourcesConfig(_Model):
         return [s for s in self.sources if s.plan == plan]
 
 
+# --------------------------------------------------------------------------- aoi.yaml
+
+# TERYT code length per PRG level (voivodeship 02, powiat 0463, gmina 0463011).
+TERYT_LENGTH: dict[str, int] = {"voivodeship": 2, "powiat": 4, "gmina": 7}
+
+
+class IncludedUnit(_Model):
+    level: Literal["voivodeship", "powiat", "gmina"]
+    teryt: str
+    # For people reading the file. The build matches on level and TERYT only.
+    name: str
+
+    @model_validator(mode="after")
+    def _teryt_shape(self) -> IncludedUnit:
+        if not (self.teryt.isdigit() and len(self.teryt) == TERYT_LENGTH[self.level]):
+            raise ValueError(
+                f"{self.level} TERYT must be {TERYT_LENGTH[self.level]} digits, got {self.teryt!r}"
+            )
+        return self
+
+
+class AoiConfig(_Model):
+    include: list[IncludedUnit] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _unique(self) -> AoiConfig:
+        keys = [(u.level, u.teryt) for u in self.include]
+        dupes = {k for k in keys if keys.count(k) > 1}
+        if dupes:
+            raise ValueError(f"duplicate AOI include units: {sorted(dupes)}")
+        return self
+
+
 # --------------------------------------------------------------------------- loaders
 
 
@@ -285,3 +318,8 @@ def load_scoring(path: Path | None = None) -> ScoringConfig:
 def load_sources(path: Path | None = None) -> SourcesConfig:
     path = path or get_settings().config_dir / "sources.yaml"
     return SourcesConfig.model_validate(_read_yaml(path))
+
+
+def load_aoi_config(path: Path | None = None) -> AoiConfig:
+    path = path or get_settings().config_dir / "aoi.yaml"
+    return AoiConfig.model_validate(_read_yaml(path) or {})
