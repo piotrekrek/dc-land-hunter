@@ -1,5 +1,6 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { components } from "@/api/schema";
@@ -180,6 +181,36 @@ describe("SiteList", () => {
     renderWithProviders(<SiteList onSelect={() => {}} />);
     await screen.findAllByTestId("site-row");
     expect(screen.getByRole("region", { name: "Wyniki" })).toContainElement(screen.getByRole("list", { name: "Ranking lokalizacji" }));
+  });
+
+  it("scrolls the selected row into view, so a site picked on the map shows in the list", async () => {
+    // jsdom has no layout, so record which row each scroll was asked for instead of checking the position.
+    const scrolled: Element[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolled.push(this);
+    };
+    try {
+      mockFetch({ "/api/sites": { total: 2, offset: 0, limit: 50, items: [site({}), site({ site_id: "site-b" })] } });
+      // Stands in for the map: picking a site there changes the selected id the list receives.
+      const WithMapPick = () => {
+        const [selectedId, setSelectedId] = useState<string | null>(null);
+        return (
+          <>
+            <button onClick={() => setSelectedId("site-b")}>Wybierz na mapie</button>
+            <SiteList selectedId={selectedId} onSelect={() => {}} />
+          </>
+        );
+      };
+      renderWithProviders(<WithMapPick />);
+      const rows = await screen.findAllByTestId("site-row");
+      expect(scrolled).toHaveLength(0);
+
+      await userEvent.click(screen.getByRole("button", { name: "Wybierz na mapie" }));
+      expect(scrolled).toEqual([rows[1]]);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
   });
 
   it("marks excluded sites and shows their upside", async () => {
