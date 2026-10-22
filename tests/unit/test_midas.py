@@ -104,6 +104,24 @@ def test_fetch_pages_both_layers_in_epsg_2180(tmp_path: Path, make_client: Clien
     ]  # one page of 2, then the last one
 
 
+def test_each_layer_is_asked_only_for_fields_it_has(tmp_path: Path, make_client: ClientFactory) -> None:
+    # Since 22.10.2026 the server answers 400 "Failed to execute query" when outFields names a field the
+    # layer lacks: layer 1 has NAZWA_OG only, layer 2 NAZWA_TG only.
+    layers = {
+        1: (1, [[feature(1, square(621_000, 471_000, 500))]]),
+        2: (1, [[feature(2, square(625_000, 475_000, 500))]]),
+    }
+    seen: list[httpx.Request] = []
+    MidasConnector(SPEC, bbox=BBOX).fetch(make_client(serve(layers, seen)), SnapshotStore(tmp_path))
+    fields = {
+        r.url.path.split("/")[-2]: set(r.url.params["outFields"].split(","))
+        for r in seen
+        if "outFields" in r.url.params
+    }
+    assert "NAZWA_OG" in fields["1"] and "NAZWA_TG" not in fields["1"]
+    assert "NAZWA_TG" in fields["2"] and "NAZWA_OG" not in fields["2"]
+
+
 def test_parse_keeps_name_and_mineral_and_clips_to_the_bbox(
     tmp_path: Path, make_client: ClientFactory
 ) -> None:

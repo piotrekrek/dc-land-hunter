@@ -35,7 +35,9 @@ MAP_URL = "https://cbdgmapa.pgi.gov.pl/arcgis/rest/services/midas/MapServer"
 LAYERS: dict[str, int] = {"mining_area": 1, "mining_terrain": 2}
 # Field that names the feature, per kind (the two layers name it differently).
 NAME_FIELDS: dict[str, str] = {"mining_area": "NAZWA_OG", "mining_terrain": "NAZWA_TG"}
-OUT_FIELDS = ("ID_KONTURU", "STATUS", "KOPALINA", *NAME_FIELDS.values())
+# Asked per layer with only that layer's name field: since 22.10.2026 the server answers 400 "Failed to
+# execute query" when outFields names a field the layer lacks (NAZWA_TG on layer 1).
+COMMON_FIELDS = ("ID_KONTURU", "STATUS", "KOPALINA")
 EPSG = 2180
 PAGE_SIZE = 1000
 MAX_PAGES = 100
@@ -82,7 +84,7 @@ class MidasConnector(Source):
                 url,
                 {
                     **geometry,
-                    "outFields": ",".join(OUT_FIELDS),
+                    "outFields": ",".join((*COMMON_FIELDS, NAME_FIELDS[kind])),
                     "returnGeometry": "true",
                     "orderByFields": "OBJECTID",
                     "resultOffset": len(features),
