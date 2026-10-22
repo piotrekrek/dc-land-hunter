@@ -64,6 +64,15 @@ file or calling the endpoint, as described here.
   12.10.2026 has 56,143 closed `industrial` ways and 370 multipolygon relations, plus 5,026 closed `brownfield`
   ways and 28 relations (a tag-only count, 52 MB peak). Area assembly was tested on a generated PBF only (no
   osmium-tool outside the container). The `osm_land` entry stays for a later buildings/landuse connector.
+- **Wind and solar clusters (`bonus_res`): OSM proxy (22.10.2026).** `sources/osm_res.py` reads `power=generator`
+  and `power=plant` with a wind or solar source (nodes and closed ways) from the `osm_power` extract, confidence
+  `estimated`. Capacity is the `*:output:electricity` tag, else 2 MW per turbine or 0,8 MW/ha of a solar outline.
+  Objects under 0,1 MW (rooftop PV) are dropped, objects within 2 km are grouped, and a group of at least 20 MW is a
+  cluster (constants in the module). The extract of 12.10.2026 has 5,825 wind and 67,129 solar objects (3,179 with
+  a tagged output); 9,967 are kept, about 14.1 GW wind (including offshore Baltic turbines tagged 15 MW) and 9.8 GW
+  solar. They form 256 clusters of at least 20 MW (13.3 GW; 474 at 10 MW, 76 at 50 MW). One pass over the full
+  file without osmium-tool took 4 min 52 s and 480 MB RSS. Rooftop PV and unmapped farms are missing, so
+  "no cluster" means "none in OSM".
 - **`nid` ⚠ not loaded (21.10.2026).** Reachable, but the open data has no coordinates. The archaeological register
   (`https://api.zabytek.gov.pl/nidrestapi/api/data/geoportal/otwarteDaneZestawienieZra`, also CSV on dane.gov.pl dataset 210)
   gives only the gmina and town, with `dokladnosc_polozenia` "przybliżony". The immovable register

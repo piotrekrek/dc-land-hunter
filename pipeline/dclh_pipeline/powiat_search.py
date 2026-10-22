@@ -52,6 +52,7 @@ from dclh_pipeline.sources.midas import MidasConnector
 from dclh_pipeline.sources.osm_industrial import industrial_layer, read_industrial
 from dclh_pipeline.sources.osm_infra import airport_ols_layer, gas_zone_layer, read_infra
 from dclh_pipeline.sources.osm_power import OsmPowerConnector, to_grid
+from dclh_pipeline.sources.osm_res import read_res, res_cluster_layer
 from dclh_pipeline.sources.prg import PrgConnector, big_city_layer
 from dclh_pipeline.sources.psi import load_psi_layer
 from dclh_pipeline.sources.ru import RuMpzpConnector, RuPlanOgolnyConnector
@@ -116,6 +117,7 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
     industrial = industrial_layer(
         read_industrial(osm_snapshot.path, industrial_bounds), osm_snapshot.fetched_at
     )
+    res_layer = res_cluster_layer(read_res(osm_snapshot.path), osm_snapshot.fetched_at)
     # DSO capacity and PSE lists: optional; a source never fetched or imported stays missing in the scores.
     grid_capacity = load_grid_capacity(store, config, substations, cfg)
     gdos = GdosConnector(config.get("gdos")).parse(gdos_snapshot)
@@ -240,6 +242,7 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
                 heat=heat,
                 psi=psi,
                 big_cities=big_cities,
+                res_clusters=res_layer,
             ),
             cfg,
             fetch_parcels,

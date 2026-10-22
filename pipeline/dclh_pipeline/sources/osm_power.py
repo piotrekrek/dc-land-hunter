@@ -8,7 +8,7 @@ EPSG:2180 with the columns `kind`, `osm_id`, `name`, `operator`, `voltage` (the 
 Known gaps, on purpose:
 - Substations mapped as multipolygon relations are skipped. They are rare.
 - Lines are `power=line` only. `minor_line` is distribution below 110 kV, which the scorer does not use.
-- Generators (`power=generator`, renewable clusters) are not read yet.
+- Generators (`power=generator`, wind and solar clusters) are read by `osm_res.py` from the same extract.
 
 `to_grid()` turns the table into the `Substation` and `Line` objects the scorer's grid index uses. A
 substation's `name` is what lets DSO capacity lists be matched to it (`model/gpz_match.py`).
