@@ -55,7 +55,7 @@ sources:
 
   - id: bdot10k
     name: GUGiK BDOT10k
-    used_for: Budynki (odległość od zabudowy mieszkaniowej), drogi, tereny przemysłowe
+    used_for: Budynki (odległość od zabudowy mieszkaniowej), las (PTLZ, rodzaj „las”), drogi, tereny przemysłowe
     plan: mvp
     cadence: monthly
     core: false

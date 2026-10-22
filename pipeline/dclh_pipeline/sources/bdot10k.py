@@ -10,6 +10,12 @@ construction count: they will be lived in.
 
 `fetch()` looks the URL up in the WFS (one feature, filtered by TERYT) and stores the zip as it is. `parse()`
 reads only the buildings member, straight from the zip.
+
+Forest (`forest` constraint, hard filter `forest_pct_over`) comes from the same zip, member `…__OT_PTLZ_A.xml`
+(BDOT10k land cover, "pokrycie terenu: tereny leśne lub zadrzewione"). Only `rodzaj = "las"` counts as forest:
+`zadrzewienie` (tree rows, orchards) and `zagajnik` (young scrub) are not forest. Verified 20.10.2026 on the
+powiat 1421 zip (1,640 PTLZ features, rodzaj values las / zadrzewienie / zagajnik). The land register class
+Ls is not used: KIUG gives it only per parcel, and a point sample cannot measure a share.
 """
 
 from __future__ import annotations
@@ -34,6 +40,9 @@ WFS_URL = "https://mapy.geoportal.gov.pl/wss/service/PZGIK/BDOT/WFS/PobieranieBD
 INDEX_LAYER = "ms:BDOT10k_powiaty"
 DOWNLOAD_HOST = "opendata.geoportal.gov.pl"
 BUILDINGS_MEMBER_SUFFIX = "__OT_BUBD_A.xml"
+FOREST_MEMBER_SUFFIX = "__OT_PTLZ_A.xml"
+FOREST_FIELD = "rodzaj"
+FOREST = "las"
 FUNCTION_FIELD = "funkcjaOgolnaBudynku"
 DETAIL_FIELD = "funkcjaSzczegolowaBudynku"
 STATUS_FIELD = "kategoriaIstnienia"
@@ -102,13 +111,10 @@ class Bdot10kConnector(Source):
         return store.save_file(self.id, dest, suffix=".zip", url=url, content_type="application/zip")
 
     def parse(self, snapshot: Snapshot) -> gpd.GeoDataFrame:
-        with zipfile.ZipFile(snapshot.path) as archive:
-            members = [n for n in archive.namelist() if n.endswith(BUILDINGS_MEMBER_SUFFIX)]
-        if len(members) != 1:
-            raise ValueError(f"BDOT10k: expected one *{BUILDINGS_MEMBER_SUFFIX} in the zip, found {members}")
+        member = _member(snapshot, BUILDINGS_MEMBER_SUFFIX)
         # Easting-first with srsName="EPSG:2180"; SWAP_COORDINATES=NO states that instead of relying on GDAL.
         raw = read_dataframe(
-            f"/vsizip/{snapshot.path}/{members[0]}",
+            f"/vsizip/{snapshot.path}/{member}",
             columns=[FUNCTION_FIELD, DETAIL_FIELD, STATUS_FIELD],
             SWAP_COORDINATES="NO",
         )
@@ -131,6 +137,34 @@ class Bdot10kConnector(Source):
         )
         _check_bounds(table)
         return table
+
+    def parse_forest(self, snapshot: Snapshot) -> gpd.GeoDataFrame:
+        """Forest polygons (`rodzaj = las`) of the powiat, in EPSG:2180. Empty when the powiat has none."""
+        member = _member(snapshot, FOREST_MEMBER_SUFFIX)
+        raw = read_dataframe(
+            f"/vsizip/{snapshot.path}/{member}", columns=[FOREST_FIELD], SWAP_COORDINATES="NO"
+        )
+        if FOREST_FIELD not in raw.columns:
+            raise ValueError(
+                f"BDOT10k: field {FOREST_FIELD!r} not found in PTLZ; available: {sorted(raw.columns)}"
+            )
+        keep = (raw[FOREST_FIELD] == FOREST) & raw.geometry.notna() & ~raw.geometry.is_empty
+        table = gpd.GeoDataFrame(
+            {"kind": raw.loc[keep, FOREST_FIELD].astype(str).to_numpy()},
+            geometry=raw.geometry[keep].to_numpy(),
+            crs=f"EPSG:{EPSG}",
+        )
+        _check_bounds(table)
+        return table
+
+
+def _member(snapshot: Snapshot, suffix: str) -> str:
+    """The one member of the powiat zip whose name ends with `suffix`."""
+    with zipfile.ZipFile(snapshot.path) as archive:
+        members = [n for n in archive.namelist() if n.endswith(suffix)]
+    if len(members) != 1:
+        raise ValueError(f"BDOT10k: expected one *{suffix} in the zip, found {members}")
+    return members[0]
 
 
 def _check_bounds(table: gpd.GeoDataFrame) -> None:

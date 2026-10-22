@@ -168,6 +168,12 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
             as_of=housing_snapshot.fetched_at,
             confidence=Confidence.VERIFIED,
         )
+        forest_layer = Layer(
+            source_id="bdot10k",
+            index=GeomIndex(housing_connector.parse_forest(housing_snapshot).geometry),
+            as_of=housing_snapshot.fetched_at,
+            confidence=Confidence.VERIFIED,
+        )
 
         zoning = _ru_zoning_layers(config, client, store, tuple(area.bounds))
         # Bonus layers from saved snapshots (`dclh fetch heat|psi`); a source never fetched stays missing.
@@ -209,6 +215,7 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
                     "landscape_park_or_ochk": landscape_layer,
                     "gas_pipeline_zone": gas_layer,
                     "airport_ols": ols_layer,
+                    "forest": forest_layer,
                     **mining,
                 },
                 capacity=grid_capacity.capacity,

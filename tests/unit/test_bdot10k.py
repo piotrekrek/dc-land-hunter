@@ -150,3 +150,44 @@ def test_teryt_is_padded_and_checked() -> None:
     assert Bdot10kConnector(SPEC, teryt="201").teryt == "0201"
     with pytest.raises(ValueError, match="4 digits"):
         Bdot10kConnector(SPEC, teryt="14a1")
+
+
+def forest(i: int, x0: float, y0: float, kind: str) -> str:
+    """One OT_PTLZ_A feature (land cover: forest, tree rows, scrub) as GUGiK writes it."""
+    ring = f"{x0} {y0} {x0 + 50} {y0} {x0 + 50} {y0 + 50} {x0} {y0 + 50} {x0} {y0}"
+    return f"""<gml:featureMember><ot:OT_PTLZ_A gml:id="las_{i}">
+<ot:rodzaj>{kind}</ot:rodzaj>
+<ot:geometria><gml:Polygon gml:id="f{i}" srsName="EPSG:2180" srsDimension="2"><gml:exterior><gml:LinearRing>
+<gml:posList>{ring}</gml:posList></gml:LinearRing></gml:exterior></gml:Polygon></ot:geometria>
+</ot:OT_PTLZ_A></gml:featureMember>"""
+
+
+FOREST_MEMBER = "PL.PZGiK.330.1421/BDOT10k/PL.PZGiK.330.1421__OT_PTLZ_A.xml"
+
+
+def test_parse_forest_keeps_only_forest_not_tree_rows_or_scrub(tmp_path: Path) -> None:
+    members = [
+        forest(1, 625_000, 480_000, "las"),
+        forest(2, 625_100, 480_000, "zadrzewienie"),
+        forest(3, 625_200, 480_000, "zagajnik"),
+        forest(4, 625_300, 480_000, "las"),
+    ]
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<gml:FeatureCollection xmlns:gml="http://www.opengis.net/gml/3.2" '
+        'xmlns:ot="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0">'
+        + "".join(members)
+        + "</gml:FeatureCollection>"
+    ).encode()
+    snapshot = SnapshotStore(tmp_path).save("bdot10k", powiat_zip({FOREST_MEMBER: xml}), suffix=".zip")
+    table = Bdot10kConnector(SPEC, teryt="1421").parse_forest(snapshot)
+    assert len(table) == 2
+    assert set(table["kind"]) == {"las"}
+    assert table.crs.to_epsg() == 2180
+    assert tuple(table.total_bounds[:2]) == (625_000, 480_000)
+
+
+def test_forest_member_missing_is_reported(tmp_path: Path) -> None:
+    snapshot = SnapshotStore(tmp_path).save("bdot10k", powiat_zip(SAMPLE), suffix=".zip")
+    with pytest.raises(ValueError, match="PTLZ"):
+        Bdot10kConnector(SPEC, teryt="1421").parse_forest(snapshot)
