@@ -247,3 +247,16 @@ def test_a_parcel_on_a_powiat_border_is_searched_by_one_powiat_only() -> None:
 
     assert [s.site.parcel_ids for s in in_west.scored] == [("border",)]
     assert in_east.scored == []
+
+
+def test_forest_triggers_its_hard_filter_only_on_the_forest_share() -> None:
+    # Forest covers the west half of the 800 × 400 m site (50%): over the 30% threshold, so excluded.
+    from dclh_pipeline.model.features import GeomIndex, Layer
+    from dclh_pipeline.model.provenance import Confidence
+
+    forest = Layer("bdot10k", GeomIndex([box(X0, Y0, X0 + 400, Y0 + 400)]), confidence=Confidence.VERIFIED)
+    (site,) = run_search(
+        AREA, SiteLayers(grid=grid(), constraints={"forest": forest}), CFG, lambda t: parcels()
+    ).scored
+    assert site.features.forest_pct is not None and site.features.forest_pct.value == pytest.approx(50.0)
+    assert {e.key for e in site.score.exclusions} == {"forest_pct_over"}
