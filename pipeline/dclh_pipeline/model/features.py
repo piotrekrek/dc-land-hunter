@@ -455,6 +455,8 @@ class SiteLayers:
     big_cities: Layer | None = None  # `connectivity.cities`, placed by their PRG urban gmina
     # Estimated class III soil share per site_id, sampled from KIUG for the sites the hard filters keep.
     soil_iii: dict[str, Fact[float]] = field(default_factory=dict)
+    # Hectares of neighbouring EGiB parcels per site_id (`sites.expansion_ha`), from the fetched parcels.
+    expansion_ha: dict[str, Fact[float]] = field(default_factory=dict)
 
 
 def build_site_features(
@@ -490,4 +492,6 @@ def build_site_features(
     features.update(constraint_facts(site.geom, layers.constraints))
     if site.site_id in layers.soil_iii:
         features["soil_class_iii_pct"] = layers.soil_iii[site.site_id]
+    if site.site_id in layers.expansion_ha:
+        features["expansion_ha"] = layers.expansion_ha[site.site_id]
     return SiteFeatures(**features)

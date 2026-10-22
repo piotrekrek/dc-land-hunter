@@ -273,3 +273,18 @@ def test_forest_under_the_threshold_does_not_exclude() -> None:
     ).scored
     assert site.features.forest_pct is not None and site.features.forest_pct.value == pytest.approx(20.0)
     assert "forest_pct_over" not in {e.key for e in site.score.exclusions}
+
+
+def test_small_lots_dropped_before_clustering_count_as_expansion_land() -> None:
+    rows = [
+        ("field", box(X0, Y0, X0 + 400, Y0 + 400)),  # 16 ha site
+        ("lot", box(X0 + 410, Y0, X0 + 460, Y0 + 100)),  # 0.5 ha, 10 m away: under min_parcel_ha
+        ("far-lot", box(X0 + 600, Y0, X0 + 650, Y0 + 100)),  # 0.5 ha, 200 m away
+    ]
+    frame = gpd.GeoDataFrame({"parcel_id": [r[0] for r in rows]}, geometry=[r[1] for r in rows], crs=2180)
+    (site,) = run_search(AREA, SiteLayers(grid=grid()), CFG, lambda tiles: frame).scored
+    fact = site.features.expansion_ha
+    assert fact is not None and fact.value == pytest.approx(0.5)
+    assert fact.source_id == "egib" and fact.confidence == "verified"
+    item = next(i for i in site.score.items if i.key == "land_expansion")
+    assert item.points > 0 and "0,5 ha" in item.explanation_pl

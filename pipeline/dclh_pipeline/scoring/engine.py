@@ -18,6 +18,7 @@ from datetime import datetime
 
 from dclh_pipeline.config import ScoringConfig
 from dclh_pipeline.model.provenance import Confidence
+from dclh_pipeline.model.sites import EXPANSION_GAP_M
 from dclh_pipeline.scoring.types import (
     CategoryScore,
     Exclusion,
@@ -398,7 +399,10 @@ def _land_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
 
     def expansion(ha: float) -> tuple[float, str]:
         pts = min(LAND_EXPANSION_MAX, ha / 10.0 * land.expansion_ha_bonus_per_10ha)
-        return pts, f"{_n(ha)} ha dodatkowego terenu o zgodnym przeznaczeniu obok (rezerwa na rozbudowę)."
+        return (
+            pts,
+            f"{_n(ha)} ha sąsiednich działek ewidencyjnych (do {_n(EXPANSION_GAP_M, 0)} m od terenu) jako rezerwa na rozbudowę. Ich przeznaczenie i dostępność do kupienia nie są sprawdzone.",
+        )
 
     return [
         _scored("land_size", "land", "Wielkość terenu", f.area_ha, LAND_SIZE_MAX, size, "powierzchnia terenu"),

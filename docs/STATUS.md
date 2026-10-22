@@ -471,7 +471,12 @@ Not done yet (needs real data from a machine in Poland):
 - Not yet: live data for the features (EGiB connector written, not yet run live), the golden-set run. Sites list and card are built (see below).
 - Site clustering (`model/sites.py`): parcels touching or within 5 m in the same zone form one site; area in ha,
   Polsby-Popper compactness, estimated MW (6 MW/ha), stable `site_id`, >80 ha split suggestion (flag only).
-  9 tests on synthetic parcels. `expansion_ha` is not implemented: the brief does not define how to compute it.
+  9 tests on synthetic parcels. `expansion_ha` (score item "Rezerwa na rozbudowę"): the area of other fetched EGiB
+  parcels within 20 m of the site (`EXPANSION_GAP_M`, about one road width), outside the site, overlaps counted once.
+  It includes the small lots dropped by `search.min_parcel_ha`, parcels of other sites and parcels across a powiat
+  border. Fact: source `egib`, confidence `verified` (the geometry is authoritative). Limits: EGiB has no land use
+  here, so road and water parcels count too; nobody checks a neighbour's zoning, owner or whether it is for sale (the
+  card says so); land beyond the fetched 1 km tiles is not seen.
 - Feature layer (`model/features.py`, `model/zoning.py`): grid distances (110 kV line, GPZ, 220/400 kV node), N-1
   count of distinct 110 kV lines within 3 km, the grid pre-filter (3 / 5 / 25 km, any one keeps a zone), powered
   brownfields (industrial area ≤ 200 m from the site with a 110 kV substation ≤ 100 m from that area), zoning
@@ -517,7 +522,7 @@ Not done yet (needs real data from a machine in Poland):
   Next: capture the CGE Konin sample again with the corrected request (`dclh capture-sample`).
 - Still missing for Phase 2: the live connectors (`ru`, `egib` + `uldk`, `gdos`, `isok`, `midas`, `nid`, `kiug`,
   residential buildings) that fill the layers, the golden-set run, and the first manual top-30 review. They all
-  need a Polish machine (Phase 0). Not yet: the map choropleth, the `dclh score` command, expansion land, and the
+  need a Polish machine (Phase 0). Not yet: the map choropleth, the `dclh score` command, and the
   PSE/telecom/city/heat-network distances.
 
 ## Ready for real data (PRG first)
