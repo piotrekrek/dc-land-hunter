@@ -260,3 +260,16 @@ def test_forest_triggers_its_hard_filter_only_on_the_forest_share() -> None:
     ).scored
     assert site.features.forest_pct is not None and site.features.forest_pct.value == pytest.approx(50.0)
     assert {e.key for e in site.score.exclusions} == {"forest_pct_over"}
+
+
+def test_forest_under_the_threshold_does_not_exclude() -> None:
+    # Forest covers 160 × 400 m of the 800 × 400 m site (20%): under the 30% threshold, so the site stays.
+    from dclh_pipeline.model.features import GeomIndex, Layer
+    from dclh_pipeline.model.provenance import Confidence
+
+    forest = Layer("bdot10k", GeomIndex([box(X0, Y0, X0 + 160, Y0 + 400)]), confidence=Confidence.VERIFIED)
+    (site,) = run_search(
+        AREA, SiteLayers(grid=grid(), constraints={"forest": forest}), CFG, lambda t: parcels()
+    ).scored
+    assert site.features.forest_pct is not None and site.features.forest_pct.value == pytest.approx(20.0)
+    assert "forest_pct_over" not in {e.key for e in site.score.exclusions}
