@@ -31,7 +31,7 @@ The brief gives distances and bonus sizes but not how sub-criteria share a categ
 | **Land** | Size: 35 in the ideal 10–30 ha, 25–35 sliding down to 80 ha, 20 above (flagged "do podziału") | 35 |
 | | Compactness: 0 at the configured minimum (0.35), linear to 1.0 | 25 |
 | | Parcels: full at ≤ 3, zero at ≥ 30 (fewer owners) | 30 |
-| | Expansion land: 3 points per 10 ha (config), capped | 10 |
+| | Expansion land: 3 points per 10 ha (config), capped. Hectares of other EGiB parcels within 20 m of the site | 10 |
 | **Connectivity** | Telecom node: full ≤ 2 km, zero ≥ 15 km | 50 |
 | | Large city: full ≤ 30 km, zero ≥ 120 km | 50 |
 | **Zoning** | Lookup from `zoning:` in the config (MPZP 100, SG 80, procedure 50, unknown 30, other 0) | 100 |

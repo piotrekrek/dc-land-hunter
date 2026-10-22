@@ -30,7 +30,8 @@ from shapely.geometry.base import BaseGeometry
 
 from dclh_pipeline.config import Prefilter, ScoringConfig
 from dclh_pipeline.model.features import GridIndex, SiteLayers, ZoningLayer
-from dclh_pipeline.model.sites import Parcel, Site, cluster_sites
+from dclh_pipeline.model.provenance import Confidence
+from dclh_pipeline.model.sites import Parcel, Site, cluster_sites, expansion_ha
 from dclh_pipeline.scoring.run import ScoredSite, score_candidates
 from dclh_pipeline.scoring.types import Fact
 from dclh_pipeline.sources.egib import TILE_M, BBox, tile_bbox
@@ -172,6 +173,14 @@ def run_search(
     report.clusters = len(sites)
     big = [replace(s, flags=[*s.flags, "seed_grid"]) for s in sites if s.area_ha >= cfg.target.ha_min]
     report.clusters_below_min_area = len(sites) - len(big)
+    # Expansion land: every fetched parcel counts, also the small lots and other powiats' parcels.
+    expansion = expansion_ha(big, [str(p) for p in fetched["parcel_id"]], list(fetched.geometry))
+    layers = replace(
+        layers,
+        expansion_ha={
+            sid: Fact(ha, "egib", parcels_as_of, Confidence.VERIFIED) for sid, ha in expansion.items()
+        },
+    )
     report.seconds["cluster"] = time.monotonic() - started
 
     started = time.monotonic()

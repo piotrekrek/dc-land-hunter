@@ -6,7 +6,7 @@ import pytest
 from shapely.geometry import box
 
 from dclh_pipeline.config import load_scoring
-from dclh_pipeline.model.sites import Parcel, Site, cluster_sites
+from dclh_pipeline.model.sites import Parcel, Site, cluster_sites, expansion_ha
 
 TARGET = load_scoring().target
 
@@ -131,3 +131,29 @@ def test_min_piece_ha_never_merges_separate_clusters() -> None:
         min_piece_ha=10.0,
     )
     assert ("small",) in [s.parcel_ids for s in sites]
+
+
+def test_expansion_counts_near_parcels_outside_the_site_only() -> None:
+    (site,) = cluster([Parcel("a", None, square(0, 0, 400)), Parcel("b", None, square(400, 0, 400))])  # 32 ha
+    ids = ["a", "b", "touching", "gap-15m", "gap-30m", "far"]
+    geoms = [
+        square(0, 0, 400),  # already in the site
+        square(400, 0, 400),  # already in the site
+        square(800, 0, 100),  # 1 ha sharing an edge
+        square(0, 415, 200),  # 4 ha across a 15 m road
+        square(-230, 0, 200),  # 4 ha 30 m away: too far
+        square(5_000, 5_000, 400),
+    ]
+    assert expansion_ha([site], ids, geoms)[site.site_id] == pytest.approx(5.0)
+
+
+def test_expansion_counts_an_overlap_with_the_site_once_and_outside_it_only() -> None:
+    (site,) = cluster([Parcel("a", None, square(0, 0, 400))])
+    # A duplicate of a 1 ha neighbour, and a 1 ha neighbour overlapping the site by 0.25 ha (bad geometry).
+    geoms = [square(0, 0, 400), square(400, 0, 100), square(400, 0, 100), square(350, 350, 100)]
+    assert expansion_ha([site], ["a", "n1", "n1", "n2"], geoms)[site.site_id] == pytest.approx(1.75)
+
+
+def test_expansion_is_zero_for_a_lone_site() -> None:
+    (site,) = cluster([Parcel("a", None, square(0, 0, 400))])
+    assert expansion_ha([site], ["a"], [square(0, 0, 400)]) == {site.site_id: 0.0}

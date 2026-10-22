@@ -9,13 +9,14 @@ from __future__ import annotations
 import hashlib
 import math
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 
 from shapely import STRtree, union_all
 from shapely.geometry.base import BaseGeometry
 
 GAP_M = 5.0  # parcels closer than this belong to the same site
+EXPANSION_GAP_M = 20.0  # other parcels this close to a site count as land to grow it (about one road width)
 
 
 @dataclass(frozen=True)
@@ -186,3 +187,30 @@ def cluster_sites(
                 )
             )
     return sorted(sites, key=lambda s: s.site_id)
+
+
+def expansion_ha(
+    sites: Iterable[Site],
+    parcel_ids: Sequence[str],
+    geoms: Sequence[BaseGeometry],
+    *,
+    gap_m: float = EXPANSION_GAP_M,
+) -> dict[str, float]:
+    """Hectares of other parcels within `gap_m` of each site: neighbouring land that could be bought.
+
+    Counts every given parcel that is not part of the site, whatever its size, owner or use: EGiB carries no
+    land use here, so road and water parcels count too, and nothing says a neighbour is for sale. Parcels of
+    another site count as well. Overlaps are counted once and the site itself is cut out.
+    Only the given (fetched) parcels are seen, so land beyond the fetched tiles is missed.
+    """
+    tree = STRtree(list(geoms))
+    out: dict[str, float] = {}
+    for site in sites:
+        own = set(site.parcel_ids)
+        near = [
+            geoms[i]
+            for i in tree.query(site.geom, predicate="dwithin", distance=gap_m)
+            if parcel_ids[i] not in own
+        ]
+        out[site.site_id] = float(union_all(near).difference(site.geom).area) / 10_000 if near else 0.0
+    return out
