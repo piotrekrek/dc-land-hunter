@@ -365,6 +365,17 @@ def big_city_km_fact(site: BaseGeometry, cities: Layer | None) -> Fact[float] | 
     )
 
 
+def res_cluster_km_fact(site: BaseGeometry, res: Layer | None) -> Fact[float] | None:
+    """Distance in km to the nearest wind or solar cluster (`sources/osm_res.py`), 0 when one touches it.
+
+    Missing when the layer is not loaded or has no cluster.
+    """
+    if res is None:
+        return None
+    distance = res.index.nearest_distance_m(site)
+    return None if distance is None else _fact(distance / M_PER_KM, res.source_id, res.as_of, res.confidence)
+
+
 def residential_fact(site: BaseGeometry, residential: Layer | None) -> Fact[float] | None:
     """Distance to the nearest residential building, in metres."""
     if residential is None:
@@ -453,6 +464,7 @@ class SiteLayers:
     heat: Layer | None = None  # towns with a heat concession (URE), placed by their urban gmina
     psi: PsiLayer | None = None  # regional aid rates by gmina (PSI map, regulation 2021 poz. 2422)
     big_cities: Layer | None = None  # `connectivity.cities`, placed by their PRG urban gmina
+    res_clusters: Layer | None = None  # wind and solar clusters from OSM (`sources/osm_res.py`)
     # Estimated class III soil share per site_id, sampled from KIUG for the sites the hard filters keep.
     soil_iii: dict[str, Fact[float]] = field(default_factory=dict)
     # Hectares of neighbouring EGiB parcels per site_id (`sites.expansion_ha`), from the fetched parcels.
@@ -484,6 +496,7 @@ def build_site_features(
     features["dist_heat_network_km"] = heat_network_km_fact(site.geom, layers.heat)
     features["psi_aid_pts"] = psi_points_fact(site.geom, layers.psi, cfg)
     features["dist_big_city_km"] = big_city_km_fact(site.geom, layers.big_cities)
+    features["dist_res_cluster_km"] = res_cluster_km_fact(site.geom, layers.res_clusters)
     features["zoning"] = zoning_fact(site.geom, layers.zoning, layers.industrial)
     features["residential_min_m"] = residential_fact(site.geom, layers.residential)
     features["residential_clear_ha"] = residential_clear_fact(
