@@ -166,6 +166,12 @@ file or calling the endpoint, as described here.
   exceptions, so the rates are constants in `model/psi.py`, checked against that text on every fetch. No `psi_aid.csv` is needed.
   Still unknown, so missing: the Warsaw regional area's powiats (only its listed gminas are rated), the Poznań subregion (all Wielkopolska
   outside Poznań) and the FST +10 points (§ 5).
+- **Big cities (`conn_city`) from `prg` ✓, no new source.** The list of cities is `connectivity.cities` in
+  `config/scoring.yaml` (the brief's 11 regional centres). Each city is placed by its PRG urban gmina of the same name (TERYT type
+  digit 1). Checked 22.10.2026 against the 12.10.2026 PRG snapshot: all 11 names match exactly one urban gmina (Kraków 1261011,
+  Katowice 2469011, Warszawa 1465011, Łódź 1061011, Gdańsk 2261011, Bydgoszcz 0461011, Opole 1661011, Wrocław 0264011, Poznań
+  3064011, Zielona Góra 0862011, Szczecin 3262011). The distance runs to the city boundary (0 inside). It is `verified` with
+  `source_id` `prg`; a name with no urban gmina is logged and left out.
 - **`uke` ⚠ lead only, not obtainable as data (checked 21.10.2026).** `pitmap.uke.gov.pl` is a map SPA. Its GeoServer
   (`/pit2/PitMapa/backend/geoserver/wms` and `/ows`) answers `404 Użytkownik niezalogowany` (login required), and the WMTS
   is the same. The map's search API (`/search/api/getLayerInPolygon`) answers anonymously but is not documented and its terms

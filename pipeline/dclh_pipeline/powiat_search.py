@@ -44,7 +44,7 @@ from dclh_pipeline.sources.kiug import KiugConnector, site_soil_points, soil_iii
 from dclh_pipeline.sources.midas import MidasConnector
 from dclh_pipeline.sources.osm_infra import airport_ols_layer, gas_zone_layer, read_infra
 from dclh_pipeline.sources.osm_power import OsmPowerConnector, to_grid
-from dclh_pipeline.sources.prg import PrgConnector
+from dclh_pipeline.sources.prg import PrgConnector, big_city_layer
 from dclh_pipeline.sources.psi import load_psi_layer
 from dclh_pipeline.sources.ru import RuMpzpConnector, RuPlanOgolnyConnector
 
@@ -180,6 +180,7 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
         gminas = admin[admin["level"] == "gmina"]
         heat = heat_town_layer(store, config.get("heat"), gminas)
         psi = load_psi_layer(store, config.get("psi"), gminas)
+        big_cities = big_city_layer(gminas, cfg.connectivity.cities, prg_snapshot.fetched_at)
 
         def sample_zoning(sites: list[Site]) -> tuple[ZoningLayer, dict[str, int]]:
             connector = KimpzpConnector(config.get("kimpzp"), points=site_points(sites))
@@ -224,6 +225,7 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
                 pse_planned=grid_capacity.pse_planned,
                 heat=heat,
                 psi=psi,
+                big_cities=big_cities,
             ),
             cfg,
             fetch_parcels,
