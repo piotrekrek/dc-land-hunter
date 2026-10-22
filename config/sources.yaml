@@ -34,7 +34,7 @@ sources:
 
   - id: osm_power
     name: OpenStreetMap – sieć elektroenergetyczna (Geofabrik)
-    used_for: Stacje (napięcie, operator), linie 110–400 kV, generatory (klastry OZE); gazociągi i pasy startowe (przybliżenie kar)
+    used_for: Stacje (napięcie, operator), linie 110–400 kV, generatory (klastry OZE); gazociągi i pasy startowe (przybliżenie kar); tereny przemysłowe/poprzemysłowe (stacje własne, fallback planu)
     plan: mvp
     cadence: weekly
     core: true
@@ -45,7 +45,7 @@ sources:
 
   - id: osm_land
     name: OpenStreetMap – użytkowanie terenu i budynki (Geofabrik)
-    used_for: Strefy przemysłowe/poprzemysłowe (fallback), bliskość zabudowy mieszkaniowej
+    used_for: Bliskość zabudowy mieszkaniowej (tereny przemysłowe czyta osm_power)
     plan: mvp
     cadence: weekly
     core: false

@@ -20,7 +20,14 @@ from dclh_pipeline.config import SourcesConfig, load_scoring, load_sources
 from dclh_pipeline.db.models import JobRow, SearchRunRow
 from dclh_pipeline.grid_capacity import load_grid_capacity
 from dclh_pipeline.http import PoliteClient
-from dclh_pipeline.model.features import GeomIndex, Layer, SiteLayers, ZoningLayer, build_grid_index
+from dclh_pipeline.model.features import (
+    POWERED_BROWNFIELD_NEAR_M,
+    GeomIndex,
+    Layer,
+    SiteLayers,
+    ZoningLayer,
+    build_grid_index,
+)
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.sites import Site
 from dclh_pipeline.model.zoning import mpzp_outline_kind, plan_ogolny_kind
@@ -42,6 +49,7 @@ from dclh_pipeline.sources.kimpzp import KimpzpConnector, site_points
 from dclh_pipeline.sources.kimpzp import zoning_layer as kimpzp_zoning_layer
 from dclh_pipeline.sources.kiug import KiugConnector, site_soil_points, soil_iii_facts
 from dclh_pipeline.sources.midas import MidasConnector
+from dclh_pipeline.sources.osm_industrial import industrial_layer, read_industrial
 from dclh_pipeline.sources.osm_infra import airport_ols_layer, gas_zone_layer, read_infra
 from dclh_pipeline.sources.osm_power import OsmPowerConnector, to_grid
 from dclh_pipeline.sources.prg import PrgConnector
@@ -103,6 +111,11 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
     infra = read_infra(osm_snapshot.path)
     gas_layer = gas_zone_layer(infra, cfg.proxies.gas_zone_m, osm_snapshot.fetched_at)
     ols_layer = airport_ols_layer(infra, cfg.proxies.runway_min_m, osm_snapshot.fetched_at)
+    # Industrial and brownfield areas around the powiat: powered brownfields and the zoning fallback.
+    industrial_bounds = tuple(area.buffer(POWERED_BROWNFIELD_NEAR_M).bounds)
+    industrial = industrial_layer(
+        read_industrial(osm_snapshot.path, industrial_bounds), osm_snapshot.fetched_at
+    )
     # DSO capacity and PSE lists: optional; a source never fetched or imported stays missing in the scores.
     grid_capacity = load_grid_capacity(store, config, substations, cfg)
     gdos = GdosConnector(config.get("gdos")).parse(gdos_snapshot)
@@ -208,6 +221,7 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
                 grid=grid,
                 zoning=zoning,
                 residential=housing_layer,
+                industrial=industrial,
                 constraints={
                     "protected_nature": protected_layer,
                     "flood_10_or_1": flood_layer,
