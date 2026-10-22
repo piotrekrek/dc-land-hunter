@@ -350,6 +350,21 @@ def heat_network_km_fact(site: BaseGeometry, heat: Layer | None) -> Fact[float] 
     )
 
 
+def big_city_km_fact(site: BaseGeometry, cities: Layer | None) -> Fact[float] | None:
+    """Distance in km to the nearest big city (its PRG urban gmina), 0 inside it.
+
+    Missing when the city layer is not loaded or none of the configured cities could be placed.
+    """
+    if cities is None:
+        return None
+    distance = cities.index.nearest_distance_m(site)
+    return (
+        None
+        if distance is None
+        else _fact(distance / M_PER_KM, cities.source_id, cities.as_of, cities.confidence)
+    )
+
+
 def residential_fact(site: BaseGeometry, residential: Layer | None) -> Fact[float] | None:
     """Distance to the nearest residential building, in metres."""
     if residential is None:
@@ -437,6 +452,7 @@ class SiteLayers:
     pse_planned: PointLayer | None = None  # PSE planned load stations
     heat: Layer | None = None  # towns with a heat concession (URE), placed by their urban gmina
     psi: PsiLayer | None = None  # regional aid rates by gmina (PSI map, regulation 2021 poz. 2422)
+    big_cities: Layer | None = None  # `connectivity.cities`, placed by their PRG urban gmina
     # Estimated class III soil share per site_id, sampled from KIUG for the sites the hard filters keep.
     soil_iii: dict[str, Fact[float]] = field(default_factory=dict)
 
@@ -465,6 +481,7 @@ def build_site_features(
     features["dist_pse_planned_station_km"] = nearest_point_km_fact(site.geom, layers.pse_planned)
     features["dist_heat_network_km"] = heat_network_km_fact(site.geom, layers.heat)
     features["psi_aid_pts"] = psi_points_fact(site.geom, layers.psi, cfg)
+    features["dist_big_city_km"] = big_city_km_fact(site.geom, layers.big_cities)
     features["zoning"] = zoning_fact(site.geom, layers.zoning, layers.industrial)
     features["residential_min_m"] = residential_fact(site.geom, layers.residential)
     features["residential_clear_ha"] = residential_clear_fact(

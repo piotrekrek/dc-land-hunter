@@ -16,9 +16,12 @@ so a server-side result cap can't produce a silently truncated snapshot.
 from __future__ import annotations
 
 import io
+import logging
 import re
 import tempfile
 import zipfile
+from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
 from typing import ClassVar
 
@@ -29,8 +32,12 @@ from shapely.geometry import box
 from shapely.geometry.base import BaseGeometry
 
 from dclh_pipeline.http import PoliteClient
+from dclh_pipeline.model.features import GeomIndex, Layer
+from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
 from dclh_pipeline.sources.base import Source
+
+log = logging.getLogger(__name__)
 
 WFS_URL = "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WFS/AdministrativeBoundaries"
 
@@ -207,3 +214,18 @@ def locate(table: gpd.GeoDataFrame, geom: BaseGeometry) -> dict[str, dict[str, s
             row = hit.iloc[0]
             found[level] = {"teryt": str(row["teryt"]), "name": str(row["name"])}
     return found
+
+
+def big_city_layer(gminas: gpd.GeoDataFrame, names: Sequence[str], as_of: datetime | None) -> Layer:
+    """The big cities (`connectivity.cities` in config/scoring.yaml) as a layer of their PRG polygons.
+
+    A city is its urban gmina (TERYT 7th digit `1`, gmina miejska) of the same name; every big city is a city
+    with powiat rights, so its gmina polygon is the city itself. A name with no such gmina is left out and
+    logged. The boundaries are GUGiK's, so the distance is verified; which cities count as big is a setting.
+    """
+    urban = gminas[gminas["teryt"].astype(str).str[-1] == "1"]
+    hits = urban[urban["name"].isin(names)]
+    unplaced = sorted(set(names) - set(hits["name"]))
+    if unplaced:
+        log.warning("big cities with no urban gmina of that name in PRG; not placed: %s", unplaced)
+    return Layer(source_id="prg", index=GeomIndex(hits.geometry), as_of=as_of, confidence=Confidence.VERIFIED)
