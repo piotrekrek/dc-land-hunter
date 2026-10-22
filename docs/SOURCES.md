@@ -78,6 +78,10 @@ file or calling the endpoint, as described here.
   `…__OT_BUBD_A.xml` (60,434 in 1421), EPSG:2180, **easting-first**. Residential = `funkcjaOgolnaBudynku = "budynki
   mieszkalne"` (43,085 in 1421). Also use `kategoriaIstnienia` and skip `zniszczony`. `funkcjaSzczegolowaBudynku`
   separates `budynek jednorodzinny` / `wielorodzinny` / `dom letniskowy`.
+- **`bdot10k` ✓ forest.** Same zip, member `…__OT_PTLZ_A.xml` (land cover "tereny leśne lub zadrzewione"),
+  easting-first like the buildings. Field `rodzaj`: in 1421 `las` 1,091 polygons / 3,759 ha, `zadrzewienie` 318 / 248 ha,
+  `zagajnik` 231 / 229 ha (checked 22.10.2026 on the stored zip). Only `las` feeds the `forest` constraint
+  (`forest_pct_over`, 30%): a forest is the deal killer, a tree row or young scrub is not.
 - **`ru` ✓ zoning** (addresses from the RU "Usługi sieciowe" page):
   - `https://rejestr-urbanistyczny.gov.pl/uslugi-sieciowe/app-pog/wfs`: `app-pog:StrefaPlanistyczna` (506,565 plan
     ogólny zones). The fields `symbol` (e.g. `SJ`, `SU`, `SI`) and `oznaczenie` are readable with pyogrio. EPSG:2180,
