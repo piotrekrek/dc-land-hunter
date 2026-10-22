@@ -60,9 +60,10 @@ file or calling the endpoint, as described here.
   ways and nodes kept) and limited to the powiat box plus 200 m. It feeds `grid_brownfield` (an industrial area
   within 200 m of the site with a named non-DSO/PSE 110 kV substation within 100 m of it) and the zoning fallback.
   Without osmium-tool the full extract is not read (its node location index would not fit in memory) and the item
-  stays missing. OSM does not tell working plants from closed ones, so the substation decides. Real counts not
-  measured yet: the VPS had under 1.5 GB free during the search reruns and no osmium-tool outside the container;
-  tested on a generated PBF only. The `osm_land` entry stays for a later buildings/landuse connector.
+  stays missing. OSM does not tell working plants from closed ones, so the substation decides. The extract of
+  12.10.2026 has 56,143 closed `industrial` ways and 370 multipolygon relations, plus 5,026 closed `brownfield`
+  ways and 28 relations (a tag-only count, 52 MB peak). Area assembly was tested on a generated PBF only (no
+  osmium-tool outside the container). The `osm_land` entry stays for a later buildings/landuse connector.
 - **`nid` ⚠ not loaded (21.10.2026).** Reachable, but the open data has no coordinates. The archaeological register
   (`https://api.zabytek.gov.pl/nidrestapi/api/data/geoportal/otwarteDaneZestawienieZra`, also CSV on dane.gov.pl dataset 210)
   gives only the gmina and town, with `dokladnosc_polozenia` "przybliżony". The immovable register
