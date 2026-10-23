@@ -1,7 +1,9 @@
 import maplibregl, { type StyleSpecification } from "maplibre-gl";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { api, unwrap } from "@/api/client";
 import { proxyBasemapRequest } from "./basemap";
+import { CoverageControls } from "./CoverageControls";
 import { LayerControl } from "./LayerControl";
 import {
   LAYER_GROUPS,
@@ -11,11 +13,13 @@ import {
   SITE_FILL_ID,
   STATION_LAYER_IDS,
   addGridLayers,
+  setCoverageData,
   setGroupVisibility,
   setSiteHighlight,
   siteFocus,
   clusterZoomTarget,
 } from "./layers";
+import { coverageCollection, type CoverageItem, type CoverageLevel, type CoverageCollection } from "@/lib/coverage";
 import { type MapFocus } from "@/lib/sites";
 import { useActiveTheme, type Theme } from "@/lib/theme";
 import { linePopup, renderPopup, stationPopup } from "./popup";
@@ -98,6 +102,12 @@ export function MapView({
   );
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
+  const coverageOn = visible.coverage === true;
+  const [coverageLevel, setCoverageLevel] = useState<CoverageLevel>("gmina");
+  const [coverageItem, setCoverageItem] = useState<CoverageItem>("all");
+  const [coverageError, setCoverageError] = useState(false);
+  // Kept outside React state: the style reload (theme switch, fallback) must re-add the shapes without a refetch.
+  const coverageRef = useRef<CoverageCollection>(coverageCollection([]));
 
   const toggle = useCallback((groupId: string, on: boolean) => {
     setVisible((v) => ({ ...v, [groupId]: on }));
@@ -184,7 +194,7 @@ export function MapView({
     map.on("style.load", () => {
       // Runs for every style: setStyle() drops our layers, so they are added again after each one (basemap, theme
       // switch, fallback). Layers and visibility come from React state via visibleRef, so they survive a theme switch.
-      addGridLayers(map, visibleRef.current, shown === "dark", selectedSiteRef.current);
+      addGridLayers(map, visibleRef.current, shown === "dark", selectedSiteRef.current, coverageRef.current);
       settled = true;
       window.clearTimeout(timer);
     });
@@ -223,6 +233,29 @@ export function MapView({
     };
   }, []);
 
+  // Coverage shapes for the chosen level and item, fetched only while the layer is on.
+  useEffect(() => {
+    if (!coverageOn) return;
+    let current = true;
+    setCoverageError(false);
+    unwrap(
+      api.GET("/api/coverage", {
+        params: { query: { level: coverageLevel, item: coverageItem, include_geometry: true } },
+      }),
+    )
+      .then((data) => {
+        if (!current) return;
+        coverageRef.current = coverageCollection(data.areas);
+        if (mapRef.current) setCoverageData(mapRef.current, coverageRef.current);
+      })
+      .catch(() => {
+        if (current) setCoverageError(true);
+      });
+    return () => {
+      current = false;
+    };
+  }, [coverageOn, coverageLevel, coverageItem]);
+
   // Switch the basemap when the theme changes. The map effect above runs first, so on mount this is a no-op.
   useEffect(() => {
     applyThemeRef.current?.(theme);
@@ -245,7 +278,16 @@ export function MapView({
   return (
     <div className="relative h-full w-full">
       <div ref={container} className="h-full w-full" data-testid="map" aria-label="Mapa" role="region" />
-      <LayerControl visible={visible} onToggle={toggle} />
+      <LayerControl visible={visible} onToggle={toggle}>
+        {coverageOn && (
+          <CoverageControls level={coverageLevel} item={coverageItem} onLevel={setCoverageLevel} onItem={setCoverageItem} />
+        )}
+      </LayerControl>
+      {coverageOn && coverageError && (
+        <div role="status" className="absolute bottom-16 left-3 rounded-md border bg-surface px-3 py-1.5 text-xs text-bad shadow-sm">
+          Nie udało się wczytać pokrycia danych.
+        </div>
+      )}
       {!basemapFailed && basemapIssue && (
         <div className="absolute bottom-8 left-3 max-w-sm rounded-md border bg-surface px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
           Podkład mapowy ładuje się z błędami: {basemapIssue}

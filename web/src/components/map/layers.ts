@@ -1,11 +1,13 @@
 import type {
   ExpressionSpecification,
   FilterSpecification,
+  GeoJSONSource,
   LayerSpecification,
   Map as MapLibreMap,
   SourceSpecification,
 } from "maplibre-gl";
 
+import { COVERAGE_BAND_EDGES, coverageBandLabel, type CoverageCollection } from "@/lib/coverage";
 import type { MapFocus } from "@/lib/sites";
 
 import type { TileProps } from "./popup";
@@ -64,6 +66,21 @@ const SITE_TONE_EXPRESSION: ExpressionSpecification = [
     SITE_SCORE_OK,
     SITE_COLORS.ok,
   ],
+];
+
+/** Coverage bands, from low to high coverage: a sequential blue-green scale that stays readable on both basemaps. */
+export const COVERAGE_COLORS = ["#ffffcc", "#c7e9b4", "#7fcdbb", "#41b6c4", "#225ea8"] as const;
+export const COVERAGE_SOURCE_ID = "coverage";
+export const COVERAGE_FILL_ID = "coverage-fill";
+export const COVERAGE_LINE_ID = "coverage-line";
+const EMPTY_COVERAGE: CoverageCollection = { type: "FeatureCollection", features: [] };
+
+/** Step over the 0–1 share: one colour per band. Shares arrive as numbers, so no `to-number` is needed. */
+const COVERAGE_COLOR_EXPRESSION: ExpressionSpecification = [
+  "step",
+  ["get", "share"],
+  COVERAGE_COLORS[0],
+  ...COVERAGE_BAND_EDGES.slice(1).flatMap((edge, i) => [edge, COVERAGE_COLORS[i + 1]!]),
 ];
 
 export const SITE_FILL_ID = "sites-fill";
@@ -142,6 +159,21 @@ const LINE_LAYERS: LayerSpecification[] = LINE_BANDS.map(
   }),
 );
 
+const COVERAGE_LAYERS: LayerSpecification[] = [
+  {
+    id: COVERAGE_FILL_ID,
+    type: "fill",
+    source: COVERAGE_SOURCE_ID,
+    paint: { "fill-color": COVERAGE_COLOR_EXPRESSION, "fill-opacity": 0.55 },
+  },
+  {
+    id: COVERAGE_LINE_ID,
+    type: "line",
+    source: COVERAGE_SOURCE_ID,
+    paint: { "line-color": COVERAGE_COLOR_EXPRESSION, "line-width": 1 },
+  },
+];
+
 export const LAYERS: LayerSpecification[] = [
   {
     id: "aoi-fill",
@@ -157,6 +189,8 @@ export const LAYERS: LayerSpecification[] = [
     "source-layer": "aoi",
     paint: { "line-color": "#1f5f7a", "line-width": 1.5, "line-dasharray": [3, 2] },
   },
+  // Coverage sits under the sites and lines, so the candidates stay clickable on top of it.
+  ...COVERAGE_LAYERS,
   {
     id: SITE_FILL_ID,
     type: "fill",
@@ -253,6 +287,11 @@ const SITE_LEGEND: NonNullable<LayerGroup["legend"]> = [
   { color: SITE_COLORS.muted, label: "Wykluczone" },
 ];
 
+const COVERAGE_LEGEND: NonNullable<LayerGroup["legend"]> = COVERAGE_COLORS.map((color, band) => ({
+  color,
+  label: coverageBandLabel(band),
+}));
+
 export const LAYER_GROUPS: LayerGroup[] = [
   { id: "aoi", label: "Obszar poszukiwań (AOI)", defaultOn: true, layerIds: ["aoi-fill", "aoi-line"] },
   {
@@ -261,6 +300,13 @@ export const LAYER_GROUPS: LayerGroup[] = [
     defaultOn: true,
     layerIds: [SITE_FILL_ID, "sites-line", SITE_HIGHLIGHT_ID, SITE_CLUSTER_ID, SITE_CLUSTER_LABEL_ID],
     legend: SITE_LEGEND,
+  },
+  {
+    id: "coverage",
+    label: "Pokrycie danych",
+    defaultOn: false,
+    layerIds: [COVERAGE_FILL_ID, COVERAGE_LINE_ID],
+    legend: COVERAGE_LEGEND,
   },
   ...LINE_BANDS.map((band) => ({
     id: band.id,
@@ -295,17 +341,24 @@ export function addGridLayers(
   visible: Record<string, boolean>,
   darkBasemap = true,
   selectedSiteId: string | null = null,
+  coverage: CoverageCollection = EMPTY_COVERAGE,
 ) {
   // Only the dark basemap needs lighter buildings; the light style already draws them light.
   if (darkBasemap) brightenBuildings(map);
   for (const [id, spec] of Object.entries(SOURCES)) {
     if (!map.getSource(id)) map.addSource(id, spec);
   }
+  if (!map.getSource(COVERAGE_SOURCE_ID)) map.addSource(COVERAGE_SOURCE_ID, { type: "geojson", data: coverage });
   for (const layer of LAYERS) {
     if (!map.getLayer(layer.id)) map.addLayer(layer);
   }
   for (const group of LAYER_GROUPS) setGroupVisibility(map, group, visible[group.id] ?? group.defaultOn);
   setSiteHighlight(map, selectedSiteId);
+}
+
+/** Replaces the coverage shapes; the source may not exist yet (before the style loads), then nothing happens. */
+export function setCoverageData(map: MapLibreMap, collection: CoverageCollection) {
+  (map.getSource(COVERAGE_SOURCE_ID) as GeoJSONSource | undefined)?.setData(collection);
 }
 
 /** Outlines the selected site's polygon; null clears the outline. */

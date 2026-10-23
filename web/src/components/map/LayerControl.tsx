@@ -1,18 +1,20 @@
 import { Layers } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 
 import { LAYER_GROUPS } from "./layers";
 
 interface Props {
   visible: Record<string, boolean>;
   onToggle: (groupId: string, on: boolean) => void;
+  /** Controls of one layer (e.g. the coverage selectors), shown below the list of layers. */
+  children?: ReactNode;
 }
 
 /** Open on a desktop (Tailwind's lg breakpoint, 1024px), collapsed on a phone where the panel covers the map. */
 const initiallyOpen = (): boolean =>
   typeof matchMedia === "function" ? matchMedia("(min-width: 1024px)").matches : true;
 
-export function LayerControl({ visible, onToggle }: Props) {
+export function LayerControl({ visible, onToggle, children }: Props) {
   const [open, setOpen] = useState(initiallyOpen);
   const panelId = useId();
   return (
@@ -55,6 +57,7 @@ export function LayerControl({ visible, onToggle }: Props) {
               </li>
             ))}
           </ul>
+          {children}
         </fieldset>
       )}
     </div>
