@@ -34,7 +34,7 @@ test("home shows the Polish shell, the map and an empty list", async ({ page, is
     await expect(page.getByText("Brak lokalizacji dla tych filtrów")).toBeVisible();
     await page.getByRole("button", { name: "Mapa" }).click();
   } else {
-    await expect(page.getByRole("navigation", { name: "Główna nawigacja" })).toContainText("Źródła danych");
+    await expect(page.getByRole("navigation", { name: "Główna nawigacja" })).toContainText("Kolejka");
     await expect(page.getByText("Brak lokalizacji dla tych filtrów")).toBeVisible();
     await expect(page.getByTestId("api-status")).toContainText("Połączono z API");
   }
@@ -43,8 +43,8 @@ test("home shows the Polish shell, the map and an empty list", async ({ page, is
   await expectNoSeriousA11yViolations(page);
 });
 
-test("sources page lists every configured source", async ({ page, isMobile }) => {
-  await page.goto("/zrodla");
+test("settings page lists every configured source", async ({ page, isMobile }) => {
+  await page.goto("/ustawienia");
   await expect(page.getByRole("heading", { name: "Źródła danych" })).toBeVisible();
   if (!isMobile) {
     await expect(page.getByTestId("source-row")).toHaveCount(28);
@@ -55,12 +55,12 @@ test("sources page lists every configured source", async ({ page, isMobile }) =>
 
 test("settings page shows the scoring weights", async ({ page }) => {
   await page.goto("/ustawienia");
-  await expect(page.getByText("Sieć elektroenergetyczna")).toBeVisible();
+  await expect(page.getByText("Sieć elektroenergetyczna").first()).toBeVisible();
   await expect(page.getByText("60 MW").first()).toBeVisible();
 });
 
 test("theme toggle switches to dark mode", async ({ page }) => {
-  await page.goto("/zrodla");
+  await page.goto("/ustawienia");
   const html = page.locator("html");
   const wasDark = (await html.getAttribute("class"))?.includes("dark") ?? false;
   await page.getByRole("button", { name: wasDark ? "Włącz jasny motyw" : "Włącz ciemny motyw" }).click();
@@ -72,7 +72,7 @@ test("theme toggle switches to dark mode", async ({ page }) => {
 test("admin sees 'Uruchom teraz' and can queue a check", async ({ page }, testInfo) => {
   // Discovery is one shared job: while the desktop run's job is pending, a second queue is refused (409).
   test.skip(testInfo.project.name !== "desktop", "queues the shared discovery job once; desktop covers it");
-  await page.goto("/zrodla");
+  await page.goto("/ustawienia");
   await page.getByRole("button", { name: "Uruchom teraz" }).click();
   await expect(page.getByRole("status")).toContainText("dodane do kolejki");
 });
