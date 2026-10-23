@@ -7,16 +7,18 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from dclh_api.deps import db_session
 from dclh_api.security import current_user
 from dclh_pipeline.db.models import PowiatPriorityRow, UserRow
+from dclh_pipeline.powiat_search import pick_powiats, queued_powiats
 
 router = APIRouter(tags=["powiats"], dependencies=[Depends(current_user)])
 
 ERROR_CHARS = 300  # same cut as the Zadania page: the exception and its first detail
+NEXT_UP = 4  # how many upcoming powiats the tab shows; the nightly run takes more (`limit` in infra/crontab)
 
 
 class PowiatItem(BaseModel):
@@ -36,6 +38,8 @@ class PowiatItem(BaseModel):
 
 class PowiatList(BaseModel):
     items: list[PowiatItem]
+    # The powiats the next nightly run would search first, from the saved priority list (not unsaved changes).
+    next_up: list[str]
 
 
 class PriorityIn(BaseModel):
@@ -57,9 +61,25 @@ _POWIATS = text(
 )
 
 
+def _next_up(session: Session, items: list[PowiatItem]) -> list[str]:
+    """The planner's own choice (`pick_powiats`), so the preview cannot drift from the nightly run."""
+    busy = queued_powiats(session)
+    saved = session.scalars(
+        select(PowiatPriorityRow.teryt).order_by(PowiatPriorityRow.added_at, PowiatPriorityRow.teryt)
+    )
+    return pick_powiats(
+        [i.teryt for i in items if i.teryt not in busy],
+        {i.teryt: i.last_attempt_at for i in items if i.last_attempt_at is not None},
+        NEXT_UP,
+        priority=list(saved),
+        searched_ok={i.teryt for i in items if i.checked},
+    )
+
+
 def _list(session: Session) -> PowiatList:
     rows = session.execute(_POWIATS, {"chars": ERROR_CHARS}).mappings()
-    return PowiatList(items=[PowiatItem(**row) for row in rows])
+    items = [PowiatItem(**row) for row in rows]
+    return PowiatList(items=items, next_up=_next_up(session, items))
 
 
 @router.get("/powiats", response_model=PowiatList)

@@ -1,4 +1,4 @@
-import { CircleAlert, CircleCheck, ListOrdered, LoaderCircle, ServerCrash } from "lucide-react";
+import { CircleAlert, CircleCheck, Clock, ListOrdered, LoaderCircle, Search, ServerCrash } from "lucide-react";
 import { useState } from "react";
 
 import type { PowiatItem } from "@/api/client";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/format";
-import { usePowiaty, useSavePriority } from "@/lib/powiaty";
+import { MIN_QUERY, activeQuery, matchesQuery, usePowiaty, useSavePriority } from "@/lib/powiaty";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | "unchecked" | "checked";
@@ -83,6 +83,8 @@ export function PowiatyPage() {
   const [staged, setStaged] = useState<ReadonlySet<string> | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [opened, setOpened] = useState<Record<string, boolean>>({});
+  const [rawQuery, setRawQuery] = useState("");
+  const query = activeQuery(rawQuery);
 
   const items = data?.items ?? [];
   const saved = new Set(items.filter((i) => i.priority).map((i) => i.teryt));
@@ -90,7 +92,12 @@ export function PowiatyPage() {
   const dirty = staged !== null && !sameSet(staged, saved);
   const checkedCount = items.filter((i) => i.checked).length;
   const queue = items.filter((i) => selected.has(i.teryt));
-  const visible = items.filter((i) => filter === "all" || (filter === "checked") === i.checked);
+  const visible = items.filter(
+    (i) => (filter === "all" || (filter === "checked") === i.checked) && (query === null || matchesQuery(i, query)),
+  );
+  const byCode = new Map(items.map((i) => [i.teryt, i]));
+  const nextUp = (data?.next_up ?? []).flatMap((t) => byCode.get(t) ?? []);
+  const groups = groupByVoivodeship(visible);
 
   const toggle = (teryt: string) => {
     const next = new Set(selected);
@@ -118,6 +125,25 @@ export function PowiatyPage() {
 
         {data && (
           <>
+            <div className="relative mt-4">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+              <input
+                type="search"
+                value={rawQuery}
+                onChange={(e) => setRawQuery(e.target.value)}
+                aria-label="Szukaj powiatu"
+                placeholder={`Szukaj powiatu lub województwa (min. ${MIN_QUERY} litery)`}
+                className="h-10 w-full rounded-md border bg-surface pl-9 pr-3 text-sm placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-accent"
+              />
+            </div>
+            {query !== null && (
+              <p className="mt-2 text-xs text-muted-foreground" role="status" data-testid="search-summary">
+                {visible.length === 0
+                  ? `Brak wyników dla „${rawQuery.trim()}”`
+                  : `Znaleziono ${visible.length} ${visible.length === 1 ? "powiat" : "powiatów"} w ${groups.length} ${groups.length === 1 ? "województwie" : "województwach"}`}
+              </p>
+            )}
+
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <span className="text-sm" data-testid="checked-count">
                 Sprawdzone: {checkedCount} z {items.length}
@@ -131,7 +157,8 @@ export function PowiatyPage() {
               </div>
             </div>
 
-            <Card className="mt-4 p-3" aria-labelledby="queue-heading" role="region">
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <Card className="p-3" aria-labelledby="queue-heading" role="region">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 id="queue-heading" className="flex items-center gap-2 text-sm font-semibold">
                   <ListOrdered className="size-4" aria-hidden /> Kolejka priorytetowa ({queue.length})
@@ -171,17 +198,42 @@ export function PowiatyPage() {
               )}
             </Card>
 
+            <Card className="p-3" aria-labelledby="next-heading" role="region">
+              <h2 id="next-heading" className="flex items-center gap-2 text-sm font-semibold">
+                <Clock className="size-4" aria-hidden /> Następne w kolejce ({nextUp.length})
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Tyle powiatów plan nocny (01:00) przeszuka jako pierwsze, według zapisanej listy.
+                {dirty && " Zaktualizuje się po zapisaniu zmian."}
+              </p>
+              {nextUp.length === 0 ? (
+                <p className="mt-2 text-sm text-muted-foreground">Brak powiatów do przeszukania.</p>
+              ) : (
+                <ol className="mt-2 flex flex-col gap-1" data-testid="next-up">
+                  {nextUp.map((i, n) => (
+                    <li key={i.teryt} className="flex items-center gap-2 text-sm">
+                      <span className="w-4 text-xs text-muted-foreground">{n + 1}.</span>
+                      <span className="min-w-0 flex-1 truncate">{i.name}</span>
+                      {i.priority && !i.checked ? <Badge variant="accent">priorytet</Badge> : <Badge>rotacja</Badge>}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </Card>
+            </div>
+
             <div className="mt-4 flex flex-col gap-2">
-              {groupByVoivodeship(visible).map((group) => {
+              {groups.map((group) => {
                 const all = items.filter((i) => (i.voivodeship_teryt ?? "") === group.key);
-                const isOpen = opened[group.key] ?? all.some((i) => saved.has(i.teryt));
+                // While searching, every group with a result is open so the match is visible at once.
+                const isOpen = query !== null || (opened[group.key] ?? all.some((i) => saved.has(i.teryt)));
                 return (
                   <details
                     key={group.key}
                     open={isOpen}
                     onToggle={(e) => {
                       const open = e.currentTarget.open;
-                      setOpened((o) => ({ ...o, [group.key]: open }));
+                      if (query === null) setOpened((o) => ({ ...o, [group.key]: open }));
                     }}
                     className="rounded-lg border bg-surface"
                     data-testid="voivodeship"
@@ -200,7 +252,7 @@ export function PowiatyPage() {
                   </details>
                 );
               })}
-              {visible.length === 0 && <EmptyState icon={CircleCheck} title="Brak powiatów w tym filtrze" />}
+              {visible.length === 0 && query === null && <EmptyState icon={CircleCheck} title="Brak powiatów w tym filtrze" />}
             </div>
           </>
         )}

@@ -7,6 +7,5 @@
 
 # Nightly search (Warsaw time): queue the 8 powiats attempted longest ago. Each search job is skipped if it
 # starts after 05:00, so the night window closes on its own. Needs the `prg` snapshot (lists the powiats).
-# `priority` powiats (TERYT) go first until each has one successful search: 0805 powiat słubicki (Lubuskie),
-# 3021 powiat poznański (Plewiska GPZ, gmina Komorniki), 1465 m.st. Warszawa (Bielany).
-0 1 * * * dclh enqueue plan_searches --payload '{"limit": 8, "window_end_hour": 5, "priority": ["0805", "3021", "1465"]}'
+# Priority powiats come from the list saved in the Powiaty tab (table powiat_priority), not from here.
+0 1 * * * dclh enqueue plan_searches --payload '{"limit": 8, "window_end_hour": 5}'
