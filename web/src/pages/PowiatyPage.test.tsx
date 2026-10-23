@@ -96,6 +96,31 @@ describe("PowiatyPage", () => {
     expect(await screen.findByText(/Zapisano/)).toBeInTheDocument();
   });
 
+  it("removes a powiat from the queue with its X, staged until saved", async () => {
+    const { puts } = mockApi();
+    const user = userEvent.setup();
+    renderWithProviders(<PowiatyPage />);
+    await screen.findByTestId("checked-count");
+    const queue = screen.getByTestId("priority-queue");
+    expect(within(queue).getAllByRole("listitem")).toHaveLength(1);
+
+    await user.click(within(queue).getByRole("button", { name: "Usuń z kolejki: powiat pruszkowski" }));
+    expect(screen.queryByTestId("priority-queue")).not.toBeInTheDocument();
+    expect(puts).toEqual([]); // nothing is sent until Zapisz
+    await user.click(screen.getByRole("button", { name: "Zapisz (0)" }));
+    await waitFor(() => expect(puts).toEqual([{ teryts: [] }]));
+  });
+
+  it("undoes a removal with Cofnij", async () => {
+    mockApi();
+    const user = userEvent.setup();
+    renderWithProviders(<PowiatyPage />);
+    await screen.findByTestId("checked-count");
+    await user.click(screen.getByRole("button", { name: "Usuń z kolejki: powiat pruszkowski" }));
+    await user.click(screen.getByRole("button", { name: "Cofnij" }));
+    expect(within(screen.getByTestId("priority-queue")).getAllByRole("listitem")).toHaveLength(1);
+  });
+
   it("filters to the powiats that are not checked", async () => {
     mockApi();
     const user = userEvent.setup();
