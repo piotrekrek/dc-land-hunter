@@ -201,6 +201,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/powiats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Powiats */
+        get: operations["list_powiats_api_powiats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/powiats/priority": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Priority
+         * @description Replace the whole priority list (the Save button). Codes that stay keep their `added_at`, so the
+         *     planner's order of the list does not change.
+         */
+        put: operations["save_priority_api_powiats_priority_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -540,6 +578,36 @@ export interface components {
             /** Airport Ols */
             airport_ols: number;
         };
+        /** PowiatItem */
+        PowiatItem: {
+            /** Teryt */
+            teryt: string;
+            /** Name */
+            name: string;
+            /** Voivodeship Teryt */
+            voivodeship_teryt: string | null;
+            /** Voivodeship Name */
+            voivodeship_name: string | null;
+            /** Checked */
+            checked: boolean;
+            /** Last Ok At */
+            last_ok_at: string | null;
+            /** Last Attempt At */
+            last_attempt_at: string | null;
+            /** Status */
+            status: string | null;
+            /** Sites */
+            sites: number | null;
+            /** Error */
+            error: string | null;
+            /** Priority */
+            priority: boolean;
+        };
+        /** PowiatList */
+        PowiatList: {
+            /** Items */
+            items: components["schemas"]["PowiatItem"][];
+        };
         /** Prefilter */
         Prefilter: {
             /** Line110 Km */
@@ -548,6 +616,11 @@ export interface components {
             gpz110_km: number;
             /** Node 220 400 Km */
             node_220_400_km: number;
+        };
+        /** PriorityIn */
+        PriorityIn: {
+            /** Teryts */
+            teryts: string[];
         };
         /**
          * Proxies
@@ -1153,6 +1226,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OpsJobs"];
+                };
+            };
+        };
+    };
+    list_powiats_api_powiats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PowiatList"];
+                };
+            };
+        };
+    };
+    save_priority_api_powiats_priority_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriorityIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PowiatList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

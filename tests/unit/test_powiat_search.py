@@ -8,8 +8,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from dclh_pipeline.jobs import _job_search
+from dclh_pipeline.powiat_search import merge_priority, pick_powiats, window_closed
 from dclh_pipeline.powiat_search import next_window_end as window_end
-from dclh_pipeline.powiat_search import pick_powiats, window_closed
 
 WARSAW_NIGHT = datetime(2026, 10, 14, 23, 30, tzinfo=UTC)  # 01:30 in Warsaw (CEST, UTC+2)
 
@@ -57,6 +57,12 @@ def test_a_priority_powiat_that_failed_before_stays_first_until_it_succeeds() ->
 
 def test_priority_codes_outside_the_candidates_are_ignored() -> None:
     assert pick_powiats(["1404"], {}, limit=3, priority=["0805", "0805"]) == ["1404"]
+
+
+def test_cron_priority_comes_before_the_saved_list_without_duplicates() -> None:
+    assert merge_priority(["0805", "3021"], ["3021", "1465"]) == ["0805", "3021", "1465"]
+    assert merge_priority([], ["1465"]) == ["1465"]
+    assert merge_priority([805], []) == ["805"]  # a payload written as numbers still becomes codes
 
 
 def test_window_ends_at_five_warsaw_time_the_same_night() -> None:

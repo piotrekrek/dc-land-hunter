@@ -10,6 +10,7 @@ import { LoginPage } from "@/pages/LoginPage";
 import { HomePage } from "@/pages/HomePage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
+import { PowiatyPage } from "@/pages/PowiatyPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { SiteCardPage } from "@/pages/SiteCardPage";
 import { SourcesPage } from "@/pages/SourcesPage";
@@ -80,6 +81,7 @@ export function AppRoutes() {
           }
         />
         <Route path="lokalizacje/:siteId" element={<SiteCardPage />} />
+        <Route path="powiaty" element={<PowiatyPage />} />
         <Route path="zrodla" element={<SourcesPage />} />
         <Route path="zadania" element={<JobsPage />} />
         <Route path="ustawienia" element={<SettingsPage />} />

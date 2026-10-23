@@ -634,3 +634,13 @@ available columns, which settles the names.
 - Why `jobs` and not `search_runs`: a failed search rolls back, so `search_runs` kept showing `ok` for powiats whose
   nightly job had been failing since 14 Oct (duplicate `site_id`, fixed by giving each border parcel to one powiat).
 - Not done on purpose: email/push alerts (no SMTP until the Phase 5 digest), retry button, log viewer, charts.
+
+## Powiat checklist and priority list "Powiaty" (23.10.2026, tested on PostGIS; not yet deployed)
+
+- New **Powiaty** page: all powiats grouped by województwo, *checked* = a successful search exists (automatic), a
+  "Priorytet" toggle for not-checked powiats, and Zapisz / Cofnij. Backed by `GET /api/powiats` and
+  `PUT /api/powiats/priority` (any logged-in user) and the new table `powiat_priority` (migration `0008`).
+- `plan_searches` merges the cron payload's `priority` (PR #90: 0805, 3021, 1465) with the saved list and forces them
+  ahead of the rotation until each has one successful search. A saved list applies from the next 01:00 run.
+- Not done on purpose: manual "checked" ticks, re-prioritising a checked powiat, "search now" button.
+- Deploy needs the migration (`alembic upgrade head` runs with the stack) and a hard refresh.

@@ -75,6 +75,16 @@ class SearchRunRow(Base):
     error: Mapped[str | None] = mapped_column(Text)
 
 
+class PowiatPriorityRow(Base):
+    """Powiats to search first. The planner forces them ahead of the rotation until one search succeeds."""
+
+    __tablename__ = "powiat_priority"
+
+    teryt: Mapped[str] = mapped_column(Text, primary_key=True)
+    added_by: Mapped[str | None] = mapped_column(Text)
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class JobRow(Base):
     """Work queue polled by the worker ("Uruchom teraz" and scheduled runs). No message broker."""
 

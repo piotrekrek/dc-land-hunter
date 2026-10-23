@@ -1,4 +1,4 @@
-import { Activity, Bell, Database, Download, Map, Search, Settings, SquareKanban, type LucideIcon } from "lucide-react";
+import { Activity, Bell, Database, Download, Map, MapPinned, Search, Settings, SquareKanban, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   to: string;
@@ -16,6 +16,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/sprawdz-dzialke", label: "Sprawdź działkę", icon: Search },
   { to: "/projekty", label: "Moje projekty", icon: SquareKanban },
   { to: "/eksport", label: "Eksport", icon: Download },
+  { to: "/powiaty", label: "Powiaty", icon: MapPinned },
   { to: "/zrodla", label: "Źródła danych", icon: Database },
   { to: "/nowosci", label: "Nowości", icon: Bell, iconOnly: true },
   { to: "/ustawienia", label: "Ustawienia", icon: Settings, iconOnly: true },

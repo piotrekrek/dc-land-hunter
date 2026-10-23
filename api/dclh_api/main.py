@@ -6,7 +6,7 @@ import os
 
 from fastapi import FastAPI
 
-from dclh_api.routers import auth, config, coverage, health, ops, sites, sources
+from dclh_api.routers import auth, config, coverage, health, ops, powiats, sites, sources
 from dclh_pipeline import __version__
 
 
@@ -28,6 +28,7 @@ def create_app() -> FastAPI:
         sites.router,
         coverage.router,
         ops.router,
+        powiats.router,
     ):
         app.include_router(router, prefix="/api")
     return app
