@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 
 import { shouldRetry } from "@/api/client";
 import { AppShell } from "@/components/layout/AppShell";
@@ -13,7 +13,6 @@ import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { PowiatyPage } from "@/pages/PowiatyPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { SiteCardPage } from "@/pages/SiteCardPage";
-import { SourcesPage } from "@/pages/SourcesPage";
 
 export function AppRoutes() {
   return (
@@ -82,7 +81,7 @@ export function AppRoutes() {
         />
         <Route path="lokalizacje/:siteId" element={<SiteCardPage />} />
         <Route path="powiaty" element={<PowiatyPage />} />
-        <Route path="zrodla" element={<SourcesPage />} />
+        <Route path="zrodla" element={<Navigate to="/ustawienia" replace />} />
         <Route path="zadania" element={<JobsPage />} />
         <Route path="ustawienia" element={<SettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />

@@ -159,7 +159,7 @@ Acceptance: two consecutive fixture runs produce the expected events, and a test
 **Done when:** an admin sees yesterday's failures within one page load, a member gets 403 and no nav entry, and
 the numbers match `SELECT status, count(*) FROM jobs GROUP BY 1`.
 
-## Ops: powiat checklist and priority list ("Powiaty")
+## Ops: powiat checklist and priority list (tab "Kolejka", formerly "Powiaty")
 
 **Problem.** The nightly planner picks the powiats searched longest ago, and the only way to push a powiat to the front
 was editing `infra/crontab` (PR #90). The team needs to see which of the 380 powiats still have no successful search and

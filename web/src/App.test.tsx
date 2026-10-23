@@ -35,6 +35,21 @@ describe("App shell", () => {
     expect(await screen.findByText("Połączono z API")).toBeInTheDocument();
   });
 
+  it("puts Kolejka right after the map and keeps Źródła danych off the navbar", () => {
+    expect(NAV_ITEMS.slice(0, 2).map((i) => i.label)).toEqual(["Mapa i lista", "Kolejka"]);
+    expect(NAV_ITEMS.map((i) => i.label)).not.toContain("Źródła danych");
+  });
+
+  it("redirects the old /zrodla address to Ustawienia, which hosts the sources", async () => {
+    mockFetch({
+      "/api/auth/me": { email: "ala@example.org", role: "member" },
+      "/api/sources": { database: true, sources: [] },
+    });
+    renderWithProviders(<AppRoutes />, { route: "/zrodla" });
+    expect(await screen.findByRole("heading", { name: "Ustawienia" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Źródła danych" })).toBeInTheDocument();
+  });
+
   it("routes to a placeholder screen", async () => {
     mockFetch({ "/api/auth/me": { email: "ala@example.org", role: "member" } });
     renderWithProviders(<AppRoutes />, { route: "/projekty" });
