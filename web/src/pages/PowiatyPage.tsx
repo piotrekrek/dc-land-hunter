@@ -1,4 +1,4 @@
-import { CircleAlert, CircleCheck, Clock, ListOrdered, LoaderCircle, Search, ServerCrash } from "lucide-react";
+import { CircleAlert, CircleCheck, Clock, ListOrdered, LoaderCircle, Search, ServerCrash, X } from "lucide-react";
 import { useState } from "react";
 
 import type { PowiatItem } from "@/api/client";
@@ -181,7 +181,19 @@ export function PowiatyPage() {
                 <ol className="mt-2 flex flex-wrap gap-1.5" data-testid="priority-queue">
                   {queue.map((i) => (
                     <li key={i.teryt}>
-                      <Badge variant="accent">{i.name}</Badge>
+                      <Badge variant="accent" className="gap-1 pr-1">
+                        {i.name}
+                        <button
+                          type="button"
+                          aria-label={`Usuń z kolejki: ${i.name}`}
+                          title="Usuń z kolejki"
+                          disabled={save.isPending}
+                          onClick={() => toggle(i.teryt)}
+                          className="rounded-sm p-0.5 hover:bg-accent/20 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
+                        >
+                          <X aria-hidden />
+                        </button>
+                      </Badge>
                     </li>
                   ))}
                 </ol>
