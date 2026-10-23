@@ -7,6 +7,7 @@ import { PageScroll } from "@/components/PageScroll";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatHa, formatKm, formatMW, formatNumber } from "@/lib/format";
+import { SourcesSection } from "@/pages/SourcesPage";
 
 const WEIGHT_LABELS: Record<string, string> = {
   grid: "Sieć elektroenergetyczna",
@@ -80,6 +81,7 @@ export function SettingsPage() {
           </div>
         )}
       </div>
+      <SourcesSection />
     </PageScroll>
   );
 }

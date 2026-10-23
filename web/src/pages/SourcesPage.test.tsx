@@ -5,7 +5,7 @@ import type { SourceOut } from "@/api/client";
 import { formatDate, formatNumber } from "@/lib/format";
 import { mockFetch, renderWithProviders } from "@/test/render";
 
-import { SourcesPage } from "./SourcesPage";
+import { SourcesSection } from "./SourcesPage";
 
 const base: Omit<SourceOut, "id" | "name" | "plan" | "discovery_status"> = {
   used_for: "test",
@@ -28,10 +28,10 @@ const sources: SourceOut[] = [
 
 afterEach(() => vi.restoreAllMocks());
 
-describe("SourcesPage", () => {
+describe("SourcesSection", () => {
   it("shows each source with its Polish status label", async () => {
     mockFetch({ "/api/sources": { database: true, sources }, "/api/auth/me": { email: "ala@example.org", role: "member" } });
-    renderWithProviders(<SourcesPage />);
+    renderWithProviders(<SourcesSection />);
     const rows = await screen.findAllByTestId("source-row");
     expect(rows).toHaveLength(4);
     expect(within(rows[0]!).getByText("Zweryfikowane")).toBeInTheDocument();
@@ -42,13 +42,13 @@ describe("SourcesPage", () => {
 
   it("warns when the database is down", async () => {
     mockFetch({ "/api/sources": { database: false, sources }, "/api/auth/me": { email: "ala@example.org", role: "member" } });
-    renderWithProviders(<SourcesPage />);
+    renderWithProviders(<SourcesSection />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Baza danych jest niedostępna");
   });
 
   it("tells the user to run discovery when nothing was checked", async () => {
     mockFetch({ "/api/sources": { database: true, sources: sources.map((s) => ({ ...s, discovery_status: null })) }, "/api/auth/me": { email: "ala@example.org", role: "member" } });
-    renderWithProviders(<SourcesPage />);
+    renderWithProviders(<SourcesSection />);
     expect(await screen.findByText(/dclh discover/)).toBeInTheDocument();
   });
 
@@ -63,7 +63,7 @@ describe("SourcesPage", () => {
         : s,
     );
     mockFetch({ "/api/sources": { database: true, sources: withDetails }, "/api/auth/me": { email: "ala@example.org", role: "member" } });
-    renderWithProviders(<SourcesPage />);
+    renderWithProviders(<SourcesSection />);
     const rows = await screen.findAllByTestId("source-row");
     const row = within(rows[1]!);
     expect(row.getByText("Tylko GPZ, bez mocy 110 kV")).toBeInTheDocument();
@@ -80,7 +80,7 @@ describe("SourcesPage", () => {
 
   it("omits notes and error lines and shows dashes when the API sends none", async () => {
     mockFetch({ "/api/sources": { database: true, sources }, "/api/auth/me": { email: "ala@example.org", role: "member" } });
-    renderWithProviders(<SourcesPage />);
+    renderWithProviders(<SourcesSection />);
     const rows = await screen.findAllByTestId("source-row");
     expect(within(rows[0]!).queryByText(/Ostatni błąd/)).not.toBeInTheDocument();
     expect(within(rows[0]!).getAllByText("—")).not.toHaveLength(0);
@@ -92,31 +92,31 @@ describe("SourcesPage", () => {
 
   it("exposes the summary grid as a named group", async () => {
     mockFetch({ "/api/sources": { database: true, sources }, "/api/auth/me": { email: "ala@example.org", role: "member" } });
-    renderWithProviders(<SourcesPage />);
+    renderWithProviders(<SourcesSection />);
     await screen.findAllByTestId("source-row");
     expect(screen.getByRole("group", { name: "Podsumowanie źródeł MVP" })).toBeInTheDocument();
   });
 
   it("shows 'Uruchom teraz' to admins only", async () => {
     mockFetch({ "/api/sources": { database: true, sources }, "/api/auth/me": { email: "ala@example.org", role: "member" } });
-    const { unmount } = renderWithProviders(<SourcesPage />);
+    const { unmount } = renderWithProviders(<SourcesSection />);
     await screen.findAllByTestId("source-row");
     expect(screen.queryByRole("button", { name: /Uruchom teraz/ })).not.toBeInTheDocument();
     unmount();
     vi.restoreAllMocks();
     mockFetch({ "/api/sources": { database: true, sources }, "/api/auth/me": { email: "root@example.org", role: "admin" } });
-    renderWithProviders(<SourcesPage />);
+    renderWithProviders(<SourcesSection />);
     expect(await screen.findByRole("button", { name: /Uruchom teraz/ })).toBeInTheDocument();
   });
 
   it("shows an error state when the API fails", async () => {
     mockFetch({ "/api/auth/me": { email: "ala@example.org", role: "member" } });
-    renderWithProviders(<SourcesPage />);
+    renderWithProviders(<SourcesSection />);
     expect(await screen.findByText("Nie udało się pobrać listy źródeł")).toBeInTheDocument();
   });
 });
 
-describe("SourcesPage coverage table", () => {
+describe("SourcesSection coverage table", () => {
   const areas = [
     {
       teryt: "0215",
@@ -136,7 +136,7 @@ describe("SourcesPage coverage table", () => {
       "/api/auth/me": { email: "ala@example.org", role: "member" },
       "/api/coverage": { level: "powiat", item: "all", areas },
     });
-    renderWithProviders(<SourcesPage />);
+    renderWithProviders(<SourcesSection />);
     const row = await screen.findByTestId("coverage-row");
     const cells = within(row).getAllByRole("cell");
     expect(cells[0]).toHaveTextContent("powiat wrocławski");
@@ -148,7 +148,7 @@ describe("SourcesPage coverage table", () => {
 
   it("says so, in plain text, when the coverage cannot be loaded", async () => {
     mockFetch({ "/api/sources": { database: true, sources }, "/api/auth/me": { email: "ala@example.org", role: "member" } });
-    renderWithProviders(<SourcesPage />);
+    renderWithProviders(<SourcesSection />);
     expect(await screen.findByText("Nie udało się pobrać pokrycia danych.")).toBeInTheDocument();
   });
 });

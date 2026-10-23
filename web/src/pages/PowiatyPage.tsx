@@ -108,9 +108,9 @@ export function PowiatyPage() {
   const onSave = () => save.mutate([...selected], { onSuccess: () => setStaged(null) });
 
   return (
-    <PageScroll label="Powiaty">
+    <PageScroll label="Kolejka">
       <div className="mx-auto max-w-5xl p-4 md:p-6">
-        <h1 className="text-xl font-semibold">Powiaty</h1>
+        <h1 className="text-xl font-semibold">Kolejka</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
           Powiat jest „sprawdzony”, gdy ma udane wyszukiwanie. Zaznacz „Priorytet” przy powiatach, które mają być przeszukane
           najpierw, i zapisz listę. Nocny plan (01:00) weźmie je przed resztą, aż każdy z nich zostanie sprawdzony.

@@ -654,3 +654,8 @@ available columns, which settles the names.
 - Migration `0009` moves the starter priorities (0805, 3021, 1465) from `infra/crontab` into `powiat_priority`
   (`added_by = 'seed'`); the crontab payload no longer carries `priority`, so the tab is the only place to change it.
 
+
+## Navbar: "Kolejka" second, Źródła danych under Ustawienia (23.10.2026, web tests green; not yet deployed)
+
+- The "Powiaty" tab is now **Kolejka** (route stays `/powiaty`) and sits second in the navbar, right after "Mapa i lista".
+- "Źródła danych" left the navbar: it is a section at the bottom of Ustawienia. `/zrodla` redirects to `/ustawienia`.

@@ -4,7 +4,6 @@ import { CircleCheck, CircleX, Database, LoaderCircle, Minus, Play, ServerCrash,
 
 import { api, unwrap, type SourceOut } from "@/api/client";
 import { EmptyState } from "@/components/EmptyState";
-import { PageScroll } from "@/components/PageScroll";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -115,16 +114,17 @@ function RunNow() {
   );
 }
 
-export function SourcesPage() {
+/** The „Źródła danych” section of Ustawienia. */
+export function SourcesSection() {
   const { data, isPending, isError } = useQuery({
     queryKey: ["sources"],
     queryFn: () => unwrap(api.GET("/api/sources")),
   });
 
   return (
-    <PageScroll label="Źródła danych">
+    <section aria-labelledby="zrodla-heading">
       <div className="mx-auto max-w-6xl p-4 md:p-6">
-        <h1 className="text-xl font-semibold">Źródła danych</h1>
+        <h2 id="zrodla-heading" className="text-xl font-semibold">Źródła danych</h2>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
           Stan każdego źródła: wynik weryfikacji (discovery), ostatnie udane pobranie i częstotliwość odświeżania.
           Usługi publiczne często blokują adresy spoza Polski, więc weryfikacja musi być uruchamiana z serwera w Polsce.
@@ -144,7 +144,7 @@ export function SourcesPage() {
 
         <CoverageTable />
       </div>
-    </PageScroll>
+    </section>
   );
 }
 
