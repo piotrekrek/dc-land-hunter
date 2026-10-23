@@ -16,6 +16,8 @@ from urllib.robotparser import RobotFileParser
 
 import httpx
 
+from dclh_pipeline.response_cache import ResponseCache
+
 RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 
 
@@ -36,8 +38,10 @@ class PoliteClient:
         transport: httpx.BaseTransport | None = None,
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
+        cache: ResponseCache | None = None,
     ) -> None:
         self.user_agent = user_agent
+        self.cache = cache
         self.min_interval_s = 1.0 / rate_limit_per_s
         self.retries = retries
         self.backoff_s = backoff_s
@@ -73,7 +77,15 @@ class PoliteClient:
     # -- public API -----------------------------------------------------------------------
 
     def get(self, url: str, **kwargs: Any) -> httpx.Response:
-        return self.request("GET", url, **kwargs)
+        if self.cache is None:
+            return self.request("GET", url, **kwargs)
+        key = ResponseCache.key("GET", url, kwargs.get("params"))
+        cached = self.cache.get(key, url)
+        if cached is not None:
+            return cached
+        response = self.request("GET", url, **kwargs)
+        self.cache.put(key, response)
+        return response
 
     def head(self, url: str, **kwargs: Any) -> httpx.Response:
         return self.request("HEAD", url, **kwargs)

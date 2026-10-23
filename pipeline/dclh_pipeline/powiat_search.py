@@ -31,6 +31,7 @@ from dclh_pipeline.model.features import (
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.sites import Site
 from dclh_pipeline.model.zoning import mpzp_outline_kind, plan_ogolny_kind
+from dclh_pipeline.response_cache import ResponseCache
 from dclh_pipeline.scoring.types import Fact
 from dclh_pipeline.search import SearchResult, run_search
 from dclh_pipeline.settings import Settings, get_settings
@@ -58,6 +59,8 @@ from dclh_pipeline.sources.psi import load_psi_layer
 from dclh_pipeline.sources.ru import RuMpzpConnector, RuPlanOgolnyConnector
 
 WARSAW = ZoneInfo("Europe/Warsaw")
+# Answers are reused this long, so a monthly refresh reads last month's downloads instead of asking again.
+SEARCH_CACHE_TTL = timedelta(days=40)
 EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
@@ -140,6 +143,7 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
         rate_limit_per_s=config.defaults.rate_limit_per_s,
         timeout_s=config.defaults.timeout_s,
         retries=2,
+        cache=ResponseCache(settings.data_dir / "http-cache", SEARCH_CACHE_TTL),
     ) as client:
         flood_connector = IsokConnector(config.get("isok"), bbox=tuple(area.bounds))
         flood_snapshot = flood_connector.fetch(client, store)
