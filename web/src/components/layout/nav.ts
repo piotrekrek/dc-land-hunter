@@ -13,7 +13,7 @@ export interface NavItem {
 /** The eight screens from brief 8.1 (Karta lokalizacji opens from the list, so it has no nav entry). */
 export const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Mapa i lista", icon: Map },
-  { to: "/powiaty", label: "Kolejka", icon: MapPinned },
+  { to: "/kolejka", label: "Kolejka", icon: MapPinned },
   { to: "/sprawdz-dzialke", label: "Sprawdź działkę", icon: Search },
   { to: "/projekty", label: "Moje projekty", icon: SquareKanban },
   { to: "/eksport", label: "Eksport", icon: Download },

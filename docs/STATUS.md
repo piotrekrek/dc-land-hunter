@@ -657,5 +657,5 @@ available columns, which settles the names.
 
 ## Navbar: "Kolejka" second, Źródła danych under Ustawienia (23.10.2026, web tests green; not yet deployed)
 
-- The "Powiaty" tab is now **Kolejka** (route stays `/powiaty`) and sits second in the navbar, right after "Mapa i lista".
+- The "Powiaty" tab is now **Kolejka** (route is `/kolejka` since 23.10.2026; `/powiaty` redirects) and sits second in the navbar, right after "Mapa i lista".
 - "Źródła danych" left the navbar: it is a section at the bottom of Ustawienia. `/zrodla` redirects to `/ustawienia`.
