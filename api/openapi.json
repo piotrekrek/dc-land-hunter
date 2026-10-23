@@ -461,6 +461,69 @@
           }
         }
       }
+    },
+    "/api/powiats": {
+      "get": {
+        "tags": [
+          "powiats"
+        ],
+        "summary": "List Powiats",
+        "operationId": "list_powiats_api_powiats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PowiatList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/powiats/priority": {
+      "put": {
+        "tags": [
+          "powiats"
+        ],
+        "summary": "Save Priority",
+        "description": "Replace the whole priority list (the Save button). Codes that stay keep their `added_at`, so the\nplanner's order of the list does not change.",
+        "operationId": "save_priority_api_powiats_priority_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PriorityIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PowiatList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1327,6 +1390,136 @@
         ],
         "title": "Penalties"
       },
+      "PowiatItem": {
+        "properties": {
+          "teryt": {
+            "type": "string",
+            "title": "Teryt"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "voivodeship_teryt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voivodeship Teryt"
+          },
+          "voivodeship_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voivodeship Name"
+          },
+          "checked": {
+            "type": "boolean",
+            "title": "Checked"
+          },
+          "last_ok_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Ok At"
+          },
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt At"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "sites": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sites"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "priority": {
+            "type": "boolean",
+            "title": "Priority"
+          }
+        },
+        "type": "object",
+        "required": [
+          "teryt",
+          "name",
+          "voivodeship_teryt",
+          "voivodeship_name",
+          "checked",
+          "last_ok_at",
+          "last_attempt_at",
+          "status",
+          "sites",
+          "error",
+          "priority"
+        ],
+        "title": "PowiatItem"
+      },
+      "PowiatList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PowiatItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PowiatList"
+      },
       "Prefilter": {
         "properties": {
           "line110_km": {
@@ -1353,6 +1546,22 @@
           "node_220_400_km"
         ],
         "title": "Prefilter"
+      },
+      "PriorityIn": {
+        "properties": {
+          "teryts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Teryts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "teryts"
+        ],
+        "title": "PriorityIn"
       },
       "Proxies": {
         "properties": {

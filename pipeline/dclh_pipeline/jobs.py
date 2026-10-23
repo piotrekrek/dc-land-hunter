@@ -17,10 +17,11 @@ from sqlalchemy.orm import Session
 
 from dclh_pipeline.config import SourceSpec, load_sources
 from dclh_pipeline.db import session_scope
-from dclh_pipeline.db.models import JobRow, RunRow, SearchRunRow, SourceRow
+from dclh_pipeline.db.models import JobRow, PowiatPriorityRow, RunRow, SearchRunRow, SourceRow
 from dclh_pipeline.discovery import discover, save_report
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.powiat_search import (
+    merge_priority,
     next_window_end,
     pick_powiats,
     powiats_from_prg,
@@ -107,7 +108,10 @@ def _job_plan_searches(session: Session, payload: dict[str, Any]) -> dict[str, A
     snapshot = SnapshotStore(get_settings().raw_dir).latest("prg")
     if snapshot is None:
         raise ValueError("no saved snapshot of 'prg'; run `dclh fetch prg` first (it lists the powiats)")
-    priority = [str(t) for t in payload.get("priority", [])]
+    saved = session.scalars(
+        select(PowiatPriorityRow.teryt).order_by(PowiatPriorityRow.added_at, PowiatPriorityRow.teryt)
+    )
+    priority = merge_priority(payload.get("priority", []), list(saved))
     busy = queued_powiats(session)
     teryts = [t for t in powiats_from_prg(snapshot) if t not in busy]
     runs = list(session.scalars(select(SearchRunRow)))

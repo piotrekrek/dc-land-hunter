@@ -159,6 +159,28 @@ Acceptance: two consecutive fixture runs produce the expected events, and a test
 **Done when:** an admin sees yesterday's failures within one page load, a member gets 403 and no nav entry, and
 the numbers match `SELECT status, count(*) FROM jobs GROUP BY 1`.
 
+## Ops: powiat checklist and priority list ("Powiaty")
+
+**Problem.** The nightly planner picks the powiats searched longest ago, and the only way to push a powiat to the front
+was editing `infra/crontab` (PR #90). The team needs to see which of the 380 powiats still have no successful search and
+to say which ones come first.
+
+**Must have**
+1. `GET /api/powiats` (any logged-in user): every powiat grouped by województwo, with *checked* (= it has a successful
+   search, `search_runs.last_ok_at`), the last attempt or error, sites found and whether it is on the priority list.
+2. `PUT /api/powiats/priority`: replaces the saved list (table `powiat_priority`, migration `0008`). Unknown codes give 422.
+3. A "Powiaty" page: counts, filter, one section per województwo, a "Priorytet" toggle per not-checked powiat, and
+   Zapisz / Cofnij. Changes are staged until saved.
+4. `plan_searches` takes the cron payload's `priority` first, then the saved list, and forces them ahead of the rotation
+   until each has one successful search. After that they join the normal rotation.
+
+**Deliberately not now**
+- A manual "checked" tick (checked is automatic), re-prioritising an already checked powiat, a "search now" button
+  (a saved list applies from the next 01:00 run), per-user lists, and drag-and-drop ordering.
+
+**Done when:** saving 0805 in the tab makes the next `plan_searches` queue it first, and the page shows it as checked
+after its search succeeds.
+
 ## Phase 6: Hardening and deploy
 
 Tasks: Polish VPS, Caddy HTTPS, nightly `pg_dump` to off-site storage (30 days) plus a restore test, RUNBOOK, performance (first paint under 2 s, filter under 300 ms, Lighthouse ≥ 85), axe a11y, final golden-set and manual-review report.

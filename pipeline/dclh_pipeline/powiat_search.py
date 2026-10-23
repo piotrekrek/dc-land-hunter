@@ -330,6 +330,11 @@ def pick_powiats(
     return (urgent + rest)[:limit]
 
 
+def merge_priority(from_payload: Sequence[object], saved: Sequence[str]) -> list[str]:
+    """The planner's priority list: the cron payload's codes first, then the ones saved in the Powiaty tab."""
+    return list(dict.fromkeys([*(str(t) for t in from_payload), *saved]))
+
+
 def next_window_end(now: datetime, hour: int) -> datetime:
     """The next local `hour`:00 (Warsaw) after `now`, in UTC. Used as the deadline of a nightly run."""
     local = now.astimezone(WARSAW)
