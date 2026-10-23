@@ -1,4 +1,16 @@
 # Status
+## Forest filter live: `dclh search 1421` on main (22.10.2026, VPS)
+
+- Forest (`forest_pct_over`, 30%) is fed from the BDOT10k land cover (`rodzaj = "las"`, PR #81, merged and deployed as dc92df1).
+  The same run loaded the psi and heat bonus layers and the KIUG soil penalty, all from main.
+- Funnel: 138,232 parcels fetched, 112,763 in the seed area, 786 clusters, 318 scored, **94 kept and 224 excluded**. 73 of the
+  excluded sites carry a forest exclusion (`las: 100% terenu` in the top example). Zoning: KIMPZP `no_plan` for 282 sites, 94 `unknown`.
+- Runtime: parcels 533 s, KIMPZP 294 s, KIUG 473 s, score 10 s. Peak memory 808 MB, no memory guard trip.
+- **Not measured:** the effect of forest alone. The 19.10 baseline (355 scored, 194 excluded) ran on older code (site split, soil,
+  flood 0.2%, bonus layers), so the difference is not attributable to the forest filter.
+- Still missing (per the CLI line): soil I–II hard filter, heritage (`nid`, no coordinates in the open data).
+- Log on the VPS: `data/reports/search-1421-forest.log` (not committed).
+
 ## Penalty sources: landscape parks, gas, airport OLS, soil class III (21.10.2026, PRs #76–#78)
 
 Before: seven penalties showed "Brak danych". Three (flood 0,2%, mining terrain, housing) already had sources and
