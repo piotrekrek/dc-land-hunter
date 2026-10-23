@@ -1,5 +1,8 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { mockFetch } from "@/test/render";
 
 type Handler = (e?: unknown) => void;
 
@@ -24,6 +27,7 @@ const h = vi.hoisted(() => {
     created: [] as Array<{ style: unknown }>,
     layout: [] as unknown[][],
     paint: [] as unknown[][],
+    coverage: [] as unknown[],
   };
   return state;
 });
@@ -48,8 +52,8 @@ vi.mock("maplibre-gl", () => {
     resize() {
       h.resize();
     }
-    getSource() {
-      return undefined;
+    getSource(id: string) {
+      return id === "coverage" ? { setData: (data: unknown) => h.coverage.push(data) } : undefined;
     }
     getLayer() {
       return {};
@@ -470,3 +474,67 @@ describe("MapView site selection", () => {
     expect(h.filters.at(-1)).toEqual({ layer: "sites-selected", filter: ["==", ["get", "site_id"], "site-b"] });
   });
 });
+
+describe("MapView coverage layer", () => {
+  const area = {
+    teryt: "1421011",
+    name: "Piaseczno",
+    sites: 4,
+    with_data: 3,
+    total: 4,
+    share: 0.75,
+    by_item: { zoning: 0.5, pen_soil_iii: 0, bonus_psi: 1, grid_headroom: 0.25 },
+    geometry: { type: "Polygon", coordinates: [[[20, 52], [21, 52], [21, 53], [20, 52]]] },
+  };
+
+  beforeEach(() => {
+    h.setStyle = vi.fn();
+    h.resize = vi.fn();
+    h.coverage = [];
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it("fetches the gmina coverage with shapes when the layer is switched on, and draws it", async () => {
+    const fetchSpy = mockFetch({ "/api/coverage": { level: "gmina", item: "all", areas: [area, { ...area, teryt: "1425011", geometry: null }] } });
+    render(<MapView />);
+    await userEvent.click(screen.getByLabelText("Pokrycie danych"));
+
+    await waitFor(() => expect(h.coverage.length).toBeGreaterThan(0));
+    const url = new URL(requestUrl(fetchSpy.mock.calls[0]![0]));
+    expect(url.pathname).toBe("/api/coverage");
+    expect(Object.fromEntries(url.searchParams)).toEqual({ level: "gmina", item: "all", include_geometry: "true" });
+    const drawn = h.coverage.at(-1) as { features: { properties: { share: number } }[] };
+    expect(drawn.features.map((f) => f.properties.share)).toEqual([0.75]);
+  });
+
+  it("refetches for the chosen level and item", async () => {
+    const fetchSpy = mockFetch({ "/api/coverage": { level: "gmina", item: "all", areas: [area] } });
+    render(<MapView />);
+    await userEvent.click(screen.getByLabelText("Pokrycie danych"));
+    await userEvent.selectOptions(screen.getByLabelText("Wskaźnik"), "pen_soil_iii");
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+    const last = new URL(requestUrl(fetchSpy.mock.calls[1]![0]));
+    expect(last.searchParams.get("item")).toBe("pen_soil_iii");
+    expect(last.searchParams.get("level")).toBe("gmina");
+  });
+
+  it("says so when the coverage cannot be loaded", async () => {
+    mockFetch({});
+    render(<MapView />);
+    await userEvent.click(screen.getByLabelText("Pokrycie danych"));
+    expect(await screen.findByText("Nie udało się wczytać pokrycia danych.")).toBeInTheDocument();
+  });
+
+  it("does not ask the API while the layer is off", () => {
+    const fetchSpy = mockFetch({ "/api/coverage": { level: "gmina", item: "all", areas: [] } });
+    render(<MapView />);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Poziom obszaru")).not.toBeInTheDocument();
+  });
+});
+
+function requestUrl(input: unknown): string {
+  return typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
+}

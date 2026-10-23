@@ -6,7 +6,7 @@ import os
 
 from fastapi import FastAPI
 
-from dclh_api.routers import auth, config, health, ops, sites, sources
+from dclh_api.routers import auth, config, coverage, health, ops, sites, sources
 from dclh_pipeline import __version__
 
 
@@ -20,7 +20,15 @@ def create_app() -> FastAPI:
         docs_url="/api/docs" if docs_enabled else None,
         redoc_url=None,
     )
-    for router in (health.router, auth.router, sources.router, config.router, sites.router, ops.router):
+    for router in (
+        health.router,
+        auth.router,
+        sources.router,
+        config.router,
+        sites.router,
+        coverage.router,
+        ops.router,
+    ):
         app.include_router(router, prefix="/api")
     return app
 

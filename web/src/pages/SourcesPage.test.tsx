@@ -115,3 +115,40 @@ describe("SourcesPage", () => {
     expect(await screen.findByText("Nie udało się pobrać listy źródeł")).toBeInTheDocument();
   });
 });
+
+describe("SourcesPage coverage table", () => {
+  const areas = [
+    {
+      teryt: "0215",
+      name: "powiat wrocławski",
+      sites: 384,
+      with_data: 300,
+      total: 384,
+      share: 0.78,
+      by_item: { zoning: 0.25, pen_soil_iii: 0, bonus_psi: 1, grid_headroom: 0.5 },
+      geometry: null,
+    },
+  ];
+
+  it("shows one row per powiat with the share of candidates that have data, in Polish format", async () => {
+    mockFetch({
+      "/api/sources": { database: true, sources },
+      "/api/auth/me": { email: "ala@example.org", role: "member" },
+      "/api/coverage": { level: "powiat", item: "all", areas },
+    });
+    renderWithProviders(<SourcesPage />);
+    const row = await screen.findByTestId("coverage-row");
+    const cells = within(row).getAllByRole("cell");
+    expect(cells[0]).toHaveTextContent("powiat wrocławski");
+    expect(cells[0]).toHaveTextContent("0215");
+    expect(cells[1]).toHaveTextContent(formatNumber(384, 0));
+    expect(cells.slice(2).map((c) => c.textContent)).toEqual(["78%", "25%", "0%", "100%", "50%"]);
+    expect(screen.getByRole("columnheader", { name: "Gleby klasy III" })).toBeInTheDocument();
+  });
+
+  it("says so, in plain text, when the coverage cannot be loaded", async () => {
+    mockFetch({ "/api/sources": { database: true, sources }, "/api/auth/me": { email: "ala@example.org", role: "member" } });
+    renderWithProviders(<SourcesPage />);
+    expect(await screen.findByText("Nie udało się pobrać pokrycia danych.")).toBeInTheDocument();
+  });
+});

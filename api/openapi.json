@@ -365,6 +365,81 @@
         }
       }
     },
+    "/api/coverage": {
+      "get": {
+        "tags": [
+          "coverage"
+        ],
+        "summary": "Get Coverage",
+        "operationId": "get_coverage_api_coverage_get",
+        "parameters": [
+          {
+            "name": "level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "wojewodztwo",
+                "powiat",
+                "gmina"
+              ],
+              "type": "string",
+              "default": "powiat",
+              "title": "Level"
+            }
+          },
+          {
+            "name": "item",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "zoning",
+                "pen_soil_iii",
+                "bonus_psi",
+                "grid_headroom"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Item"
+            }
+          },
+          {
+            "name": "include_geometry",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Geometry"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverageOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ops/jobs": {
       "get": {
         "tags": [
@@ -558,6 +633,98 @@
           "cities"
         ],
         "title": "ConnectivityParams"
+      },
+      "CoverageArea": {
+        "properties": {
+          "teryt": {
+            "type": "string",
+            "title": "Teryt"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "sites": {
+            "type": "integer",
+            "title": "Sites"
+          },
+          "with_data": {
+            "type": "integer",
+            "title": "With Data"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "share": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Share"
+          },
+          "by_item": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "By Item"
+          },
+          "geometry": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometry"
+          }
+        },
+        "type": "object",
+        "required": [
+          "teryt",
+          "name",
+          "sites",
+          "with_data",
+          "total",
+          "share",
+          "by_item"
+        ],
+        "title": "CoverageArea",
+        "description": "Kept sites of one administrative area (not excluded) and how many of them have data.\n\n`with_data`, `total` and `share` follow the requested item: sites for a single item,\nscore items for `all`. `by_item` is always filled, so one response serves the table."
+      },
+      "CoverageOut": {
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "wojewodztwo",
+              "powiat",
+              "gmina"
+            ],
+            "title": "Level"
+          },
+          "item": {
+            "type": "string",
+            "title": "Item"
+          },
+          "areas": {
+            "items": {
+              "$ref": "#/components/schemas/CoverageArea"
+            },
+            "type": "array",
+            "title": "Areas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "level",
+          "item",
+          "areas"
+        ],
+        "title": "CoverageOut"
       },
       "DiscoverIn": {
         "properties": {

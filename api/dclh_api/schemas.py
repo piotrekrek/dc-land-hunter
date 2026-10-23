@@ -123,3 +123,26 @@ class SiteDetail(SiteSummary):
     items: list[ScoreItemOut]
     features: dict[str, FactOut]
     geometry: dict[str, Any]  # GeoJSON polygon, WGS84
+
+
+class CoverageArea(BaseModel):
+    """Kept sites of one administrative area (not excluded) and how many of them have data.
+
+    `with_data`, `total` and `share` follow the requested item: sites for a single item,
+    score items for `all`. `by_item` is always filled, so one response serves the table.
+    """
+
+    teryt: str
+    name: str
+    sites: int
+    with_data: int
+    total: int
+    share: float = Field(ge=0, le=1)
+    by_item: dict[str, float]  # share of the area's kept sites with data, per tracked item
+    geometry: dict[str, Any] | None = None  # GeoJSON, WGS84, simplified for display; only when asked for
+
+
+class CoverageOut(BaseModel):
+    level: Literal["wojewodztwo", "powiat", "gmina"]
+    item: str
+    areas: list[CoverageArea]

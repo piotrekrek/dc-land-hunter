@@ -163,6 +163,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Coverage */
+        get: operations["get_coverage_api_coverage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ops/jobs": {
         parameters: {
             query?: never;
@@ -251,6 +268,47 @@ export interface components {
             city_km_zero: number;
             /** Cities */
             cities: string[];
+        };
+        /**
+         * CoverageArea
+         * @description Kept sites of one administrative area (not excluded) and how many of them have data.
+         *
+         *     `with_data`, `total` and `share` follow the requested item: sites for a single item,
+         *     score items for `all`. `by_item` is always filled, so one response serves the table.
+         */
+        CoverageArea: {
+            /** Teryt */
+            teryt: string;
+            /** Name */
+            name: string;
+            /** Sites */
+            sites: number;
+            /** With Data */
+            with_data: number;
+            /** Total */
+            total: number;
+            /** Share */
+            share: number;
+            /** By Item */
+            by_item: {
+                [key: string]: number;
+            };
+            /** Geometry */
+            geometry?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** CoverageOut */
+        CoverageOut: {
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "wojewodztwo" | "powiat" | "gmina";
+            /** Item */
+            item: string;
+            /** Areas */
+            areas: components["schemas"]["CoverageArea"][];
         };
         /** DiscoverIn */
         DiscoverIn: {
@@ -1033,6 +1091,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_coverage_api_coverage_get: {
+        parameters: {
+            query?: {
+                level?: "wojewodztwo" | "powiat" | "gmina";
+                item?: "all" | "zoning" | "pen_soil_iii" | "bonus_psi" | "grid_headroom";
+                include_geometry?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoverageOut"];
                 };
             };
             /** @description Validation Error */

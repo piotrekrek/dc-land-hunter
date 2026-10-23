@@ -9,7 +9,8 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth";
-import { formatDate, formatDateTime, formatNumber } from "@/lib/format";
+import { COVERAGE_ITEM_LABELS, COVERAGE_ITEMS, type CoverageItem } from "@/lib/coverage";
+import { formatDate, formatDateTime, formatNumber, formatPercent } from "@/lib/format";
 
 type DiscoveryStatus = NonNullable<SourceOut["discovery_status"]>;
 
@@ -140,8 +141,72 @@ export function SourcesPage() {
           </EmptyState>
         )}
         {data && <SourcesBody sources={data.sources} database={data.database} />}
+
+        <CoverageTable />
       </div>
     </PageScroll>
+  );
+}
+
+/** The items the table shows as columns: every tracked item, not the combined "all" (that is the first column). */
+const TABLE_ITEMS = COVERAGE_ITEMS.filter((item): item is Exclude<CoverageItem, "all"> => item !== "all");
+
+/** Share of kept candidates with data, per powiat: where a gap is a gap in the data, not a bad site. */
+function CoverageTable() {
+  const { data, isPending, isError } = useQuery({
+    queryKey: ["coverage", "powiat", "all"],
+    queryFn: () => unwrap(api.GET("/api/coverage", { params: { query: { level: "powiat", item: "all" } } })),
+  });
+
+  return (
+    <section aria-labelledby="coverage-heading" className="mt-8">
+      <h2 id="coverage-heading" className="text-lg font-semibold">Pokrycie danych według powiatów</h2>
+      <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+        Udział kandydatów (bez wykluczonych), dla których dany wskaźnik ma dane. Brak danych nie znaczy, że lokalizacja jest zła:
+        to luka, którą trzeba uzupełnić, np. zapytać powiat o klasy gleb.
+      </p>
+      {isPending && <p className="mt-4 text-sm text-muted-foreground">Wczytuję pokrycie danych…</p>}
+      {isError && <p className="mt-4 text-sm text-bad">Nie udało się pobrać pokrycia danych.</p>}
+      {data && data.areas.length === 0 && (
+        <p className="mt-4 text-sm text-muted-foreground">Brak powiatów z kandydatami.</p>
+      )}
+      {data && data.areas.length > 0 && (
+        <Card className="mt-4 overflow-x-auto">
+          <table className="w-full text-sm">
+            <caption className="sr-only">Pokrycie danych według powiatów</caption>
+            <thead className="border-b bg-surface-2 text-left text-xs text-muted-foreground">
+              <tr>
+                <th scope="col" className="px-3 py-2 font-medium">Powiat</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">Kandydaci</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">{COVERAGE_ITEM_LABELS.all}</th>
+                {TABLE_ITEMS.map((item) => (
+                  <th key={item} scope="col" className="px-3 py-2 text-right font-medium">
+                    {COVERAGE_ITEM_LABELS[item]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.areas.map((area) => (
+                <tr key={area.teryt} className="border-b last:border-0" data-testid="coverage-row">
+                  <td className="px-3 py-2.5">
+                    <div className="font-medium">{area.name}</div>
+                    <div className="font-mono text-xs text-muted-foreground">{area.teryt}</div>
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{formatNumber(area.sites, 0)}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{formatPercent(area.share)}</td>
+                  {TABLE_ITEMS.map((item) => (
+                    <td key={item} className="px-3 py-2.5 text-right tabular-nums">
+                      {formatPercent(area.by_item[item])}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+    </section>
   );
 }
 
