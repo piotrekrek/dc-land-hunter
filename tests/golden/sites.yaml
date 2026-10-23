@@ -78,11 +78,16 @@ sites:
 
   - name: Data4 Jawczyce
     expect: excluded_too_small
-    decision: "kept by owner (11.10.2026): address only (Przyparkowa 21, 4 ha); verify via geocoding + ULDK or revisit"
-    lon: null
-    lat: null
-    verified_on_geoportal: false
-    sources: []
+    decision: "kept by owner (11.10.2026): address only (Przyparkowa 21, 4 ha); verified 22.10.2026 on Geoportal (parcel 141/9, see below)"
+    lon: 20.85075
+    lat: 52.21107
+    verified_on_geoportal: true
+    # Parcel 141/9 (ULDK, 22.10.2026): 1.02 ha, obręb Jawczyce, gmina Ożarów Mazowiecki (obszar wiejski), powiat
+    # warszawski zachodni. The owner identified it as the Data4 plot on Geoportal. The 4 ha in the address note is
+    # not confirmed by any parcel data: the site may span more than this one parcel. Either way it is under 10 ha.
+    # The plus code 6V62+77 (cell centre 52.2107 N, 20.8507 E) lies inside this parcel.
+    parcel: {id: "143206_5.0005.141/9", area_ha: 1.02}
+    sources: ["https://uldk.gugik.gov.pl/?request=GetParcelById&id=143206_5.0005.141/9&result=teryt,voivodeship,county,commune,region,parcel,geom_wkt&srid=2180"]
 
   - name: Atman Duchnice
     expect: excluded_too_small
