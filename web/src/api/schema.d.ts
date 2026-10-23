@@ -607,6 +607,8 @@ export interface components {
         PowiatList: {
             /** Items */
             items: components["schemas"]["PowiatItem"][];
+            /** Next Up */
+            next_up: string[];
         };
         /** Prefilter */
         Prefilter: {

@@ -88,7 +88,7 @@ Current content (19.10.2026):
 
 | When (Warsaw time) | Job | Effect |
 |---|---|---|
-| Daily 01:00 | `plan_searches`, limit 8 powiats, window ends 05:00 | Queues the 8 powiats searched longest ago, after the priority powiats (cron `priority` plus the list saved in the Powiaty tab) that have no successful search yet. Each search fetches EGiB parcels for its seed area. |
+| Daily 01:00 | `plan_searches`, limit 8 powiats, window ends 05:00 | Queues the 8 powiats searched longest ago, after the priority powiats (the list saved in the Powiaty tab, table `powiat_priority`) that have no successful search yet. Each search fetches EGiB parcels for its seed area. |
 | Monday 05:00 | `discover` | Live check of every source; reports only, never blocks. |
 
 Manual runs: `docker compose -f infra/docker-compose.yml exec worker dclh …` (see `docs/RUNBOOK.md`). The "Uruchom teraz" button on the Sources page is for admins.

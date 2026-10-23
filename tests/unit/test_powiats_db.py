@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from typing import Any
 
@@ -130,3 +131,41 @@ def test_both_endpoints_need_a_login() -> None:
     with TestClient(create_app()) as anonymous:
         assert anonymous.get("/api/powiats").status_code == 401
         assert anonymous.put("/api/powiats/priority", json={"teryts": []}).status_code == 401
+
+
+def test_next_up_lists_unsearched_priority_first_then_the_stalest(client: TestClient) -> None:
+    with session_scope() as session:
+        session.execute(text("DELETE FROM search_runs"))
+        session.execute(
+            text(
+                "INSERT INTO search_runs (teryt, last_attempt_at, last_ok_at, status) VALUES "
+                "('0801', now() - interval '3 days', now() - interval '3 days', 'ok'),"
+                "('0805', now() - interval '1 day', now() - interval '1 day', 'ok')"
+            )
+        )
+    first = client.put("/api/powiats/priority", json={"teryts": ["1465"]}).json()
+    assert first["next_up"] == ["1465", "0801", "0805"]  # 1465 forced first; then the stalest search
+    # A priority powiat with a successful search is no longer forced.
+    again = client.put("/api/powiats/priority", json={"teryts": ["0805"]}).json()
+    assert again["next_up"] == ["1465", "0801", "0805"]
+    assert client.get("/api/powiats").json()["next_up"] == again["next_up"]
+
+
+def test_next_up_skips_powiats_that_already_have_a_search_job_waiting(client: TestClient) -> None:
+    client.put("/api/powiats/priority", json={"teryts": ["0805", "1465"]})
+    with session_scope() as session:
+        session.execute(
+            text("INSERT INTO jobs (kind, status, payload) VALUES ('search', 'pending', CAST(:p AS jsonb))"),
+            {"p": json.dumps({"powiat": "0805"})},
+        )
+    try:
+        assert client.get("/api/powiats").json()["next_up"][0] == "1465"
+    finally:
+        with session_scope() as session:
+            session.execute(text("DELETE FROM jobs"))
+
+
+def test_next_up_shows_at_most_four() -> None:
+    from dclh_api.routers.powiats import NEXT_UP
+
+    assert NEXT_UP == 4

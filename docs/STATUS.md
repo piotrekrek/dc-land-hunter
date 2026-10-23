@@ -644,3 +644,13 @@ available columns, which settles the names.
   ahead of the rotation until each has one successful search. A saved list applies from the next 01:00 run.
 - Not done on purpose: manual "checked" ticks, re-prioritising a checked powiat, "search now" button.
 - Deploy needs the migration (`alembic upgrade head` runs with the stack) and a hard refresh.
+
+## Powiaty tab: search and "Następne w kolejce" (23.10.2026, tested on PostGIS; not yet deployed)
+
+- Search box above the list: from 3 letters it filters live (name, TERYT or województwo name; case and Polish accents
+  ignored) and opens only the województwa with a match. It combines with the Sprawdzone / Niesprawdzone filter.
+- New card next to "Kolejka priorytetowa": the next 4 powiats the nightly run would search, from the saved list
+  (`next_up` in `GET/PUT /api/powiats`, computed with the planner's own `pick_powiats`). Unsaved toggles are not simulated.
+- Migration `0009` moves the starter priorities (0805, 3021, 1465) from `infra/crontab` into `powiat_priority`
+  (`added_by = 'seed'`); the crontab payload no longer carries `priority`, so the tab is the only place to change it.
+
