@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -309,10 +310,24 @@ def record_attempt(
     session.merge(row)
 
 
-def pick_powiats(teryts: Sequence[str], last_attempt: Mapping[str, datetime], limit: int) -> list[str]:
-    """The `limit` powiats attempted longest ago; never-attempted ones first, then by code (stable)."""
-    ordered = sorted(set(teryts), key=lambda t: (t in last_attempt, last_attempt.get(t, EPOCH), t))
-    return ordered[:limit]
+def pick_powiats(
+    teryts: Sequence[str],
+    last_attempt: Mapping[str, datetime],
+    limit: int,
+    priority: Sequence[str] = (),
+    searched_ok: AbstractSet[str] = frozenset(),
+) -> list[str]:
+    """The `limit` powiats attempted longest ago; never-attempted ones first, then by code (stable).
+
+    Priority powiats that have not had a successful search yet go before everything else, in the order given.
+    Once one has a successful search it joins the normal rotation, so it does not hold a slot every night.
+    """
+    urgent = [t for t in dict.fromkeys(priority) if t in teryts and t not in searched_ok]
+    rest = sorted(
+        (t for t in set(teryts) if t not in urgent),
+        key=lambda t: (t in last_attempt, last_attempt.get(t, EPOCH), t),
+    )
+    return (urgent + rest)[:limit]
 
 
 def next_window_end(now: datetime, hour: int) -> datetime:

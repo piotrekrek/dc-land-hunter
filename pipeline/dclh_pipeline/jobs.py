@@ -107,10 +107,13 @@ def _job_plan_searches(session: Session, payload: dict[str, Any]) -> dict[str, A
     snapshot = SnapshotStore(get_settings().raw_dir).latest("prg")
     if snapshot is None:
         raise ValueError("no saved snapshot of 'prg'; run `dclh fetch prg` first (it lists the powiats)")
+    priority = [str(t) for t in payload.get("priority", [])]
     busy = queued_powiats(session)
     teryts = [t for t in powiats_from_prg(snapshot) if t not in busy]
-    last = {row.teryt: row.last_attempt_at for row in session.scalars(select(SearchRunRow))}
-    chosen = pick_powiats(teryts, last, limit)
+    runs = list(session.scalars(select(SearchRunRow)))
+    last = {row.teryt: row.last_attempt_at for row in runs}
+    searched_ok = {row.teryt for row in runs if row.last_ok_at is not None}
+    chosen = pick_powiats(teryts, last, limit, priority=priority, searched_ok=searched_ok)
     for teryt in chosen:
         enqueue(
             session, "search", {"powiat": teryt, "not_after": deadline.isoformat()}, requested_by="planner"

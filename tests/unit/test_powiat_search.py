@@ -35,6 +35,30 @@ def test_pick_powiats_is_stable_and_has_no_duplicates() -> None:
     assert pick_powiats(["1402"], {}, limit=0) == []
 
 
+def test_unsearched_priority_powiats_go_first_in_the_given_order() -> None:
+    last = {"1402": datetime(2026, 10, 1, tzinfo=UTC)}
+    teryts = ["1402", "1404", "0805", "1465", "3021"]
+    picked = pick_powiats(teryts, last, limit=4, priority=["0805", "3021", "1465"])
+    assert picked == ["0805", "3021", "1465", "1404"]
+
+
+def test_a_priority_powiat_with_a_successful_search_joins_the_rotation() -> None:
+    last = {"0805": datetime(2026, 10, 14, tzinfo=UTC)}
+    teryts = ["0805", "1404"]
+    picked = pick_powiats(teryts, last, limit=2, priority=["0805"], searched_ok={"0805"})
+    assert picked == ["1404", "0805"]
+
+
+def test_a_priority_powiat_that_failed_before_stays_first_until_it_succeeds() -> None:
+    last = {"0805": datetime(2026, 10, 14, tzinfo=UTC)}
+    picked = pick_powiats(["0805", "1404"], last, limit=1, priority=["0805"], searched_ok=set())
+    assert picked == ["0805"]
+
+
+def test_priority_codes_outside_the_candidates_are_ignored() -> None:
+    assert pick_powiats(["1404"], {}, limit=3, priority=["0805", "0805"]) == ["1404"]
+
+
 def test_window_ends_at_five_warsaw_time_the_same_night() -> None:
     assert window_end(WARSAW_NIGHT, hour=5) == datetime(2026, 10, 15, 3, 0, tzinfo=UTC)  # 05:00 CEST
 
