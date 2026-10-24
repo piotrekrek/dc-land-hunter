@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDate, formatDateTime, formatHa, formatKm, formatMW, formatNumber, formatPercent, formatPln } from "./format";
+import { formatDate, formatDateTime, formatDuration, formatHa, formatKm, formatMW, formatNumber, formatPercent, formatPln } from "./format";
 
 const sp = (s: string) => s.replace(/\u00a0/g, " ");
 
@@ -36,3 +36,18 @@ describe("Polish formatting", () => {
     expect(formatDateTime("2026-10-10T16:05:00Z")).toBe("10.10.2026, 18:05");
   });
 });
+
+describe("formatDuration", () => {
+  it("writes seconds under a minute and minutes with the rest after", () => {
+    expect(formatDuration(0)).toBe("0 s");
+    expect(formatDuration(24.6)).toBe("25 s");
+    expect(formatDuration(60)).toBe("1 min");
+    expect(formatDuration(70)).toBe("1 min 10 s");
+    expect(formatDuration(125)).toBe("2 min 5 s");
+  });
+
+  it("never goes negative", () => {
+    expect(formatDuration(-5)).toBe("0 s");
+  });
+});
+

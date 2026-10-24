@@ -35,6 +35,15 @@ export type User = components["schemas"]["UserOut"];
 export type OpsJobs = components["schemas"]["OpsJobs"];
 export type JobItem = components["schemas"]["JobItem"];
 export type PowiatItem = components["schemas"]["PowiatItem"];
+export type ResolveOut = components["schemas"]["ResolveOut"];
+export type ResolvedParcel = components["schemas"]["ResolvedParcelOut"];
+export type CheckOut = components["schemas"]["CheckOut"];
+export type CheckStep = components["schemas"]["StepOut"];
+export type CheckSiteSummary = components["schemas"]["CheckSiteSummary"];
+export type CheckSiteDetail = components["schemas"]["CheckSiteDetail"];
+export type CheckListItem = components["schemas"]["CheckListItem"];
+export type Sheet = components["schemas"]["SheetOut"];
+export type Verdict = components["schemas"]["VerdictOut"];
 
 export class ApiError extends Error {
   constructor(

@@ -741,3 +741,20 @@ What this settles for the plan:
   (a `SiteDetail` plus verdict, sheet, unknowns, next steps, layer ages).
 - Not done: the web pages (steps 7 to 10) and the orthophoto.
 
+## Sprawdź działkę, steps 7 to 10: the pages (25.10.2026; not yet deployed)
+
+- **`/sprawdz-dzialke`:** one field for what people are sent (ids, coordinates, a Google Maps link, several at once; the server
+  parses it), "Wskaż na mapie" (a click drops a pin and looks the parcel up), then **"Czy to ta działka?"** (outline, gmina,
+  obręb, area, "poza obszarem zainteresowania") before anything expensive starts. Problems are listed by entry with what to do.
+  The recent checks of the whole team are below.
+- **`/sprawdz-dzialke/:checkId`:** while it runs, a progress bar (steps done over all, never a fake animation), the remaining
+  time, a ledger of what each step found, a polite live region and the state in the browser tab; the same address becomes the
+  result: the verdict sentence, the ruler (score and potential), "Nie wiemy", next steps with copyable letters, the survey
+  sheet (SVG: hatches, scale bar, north arrow, layer toggles) with the title block, the Protokół and the layer ages. Several
+  parcels get a comparison list (`?n=` picks one). A failed layer is shown as such and the check goes on; a failed check keeps
+  the parcels that finished. "Sprawdź ponownie" starts a new check with the same parcels.
+- The site card links to a check of its parcels ("Sprawdź tę działkę z aktualnymi danymi").
+- Not done on purpose: the drawing appears when a parcel is finished, not layer by layer (the server saves the sheet per
+  parcel); "Dodaj do projektów" (the kanban does not exist yet); "Sprawdź tę działkę" in the map popups; the orthophoto;
+  a Playwright test that pastes a real id (it needs live GUGiK services).
+

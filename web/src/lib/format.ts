@@ -52,3 +52,13 @@ export function formatDateTime(value: string | Date | null | undefined): string 
   const d = toDate(value);
   return d ? `${dateFmt.format(d)}, ${timeFmt.format(d)}` : "—";
 }
+
+/** "25 s", "1 min 10 s", "2 min": how long a check is expected to take or has taken. */
+export function formatDuration(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  if (total < 60) return `${total} s`;
+  const minutes = Math.floor(total / 60);
+  const rest = total % 60;
+  return rest === 0 ? `${minutes} min` : `${minutes} min ${rest} s`;
+}
+

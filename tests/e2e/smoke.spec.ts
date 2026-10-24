@@ -53,6 +53,17 @@ test("settings page lists every configured source", async ({ page, isMobile }) =
   await expectNoSeriousA11yViolations(page);
 });
 
+test("Sprawdź działkę shows the form and the recent list, and explains a check that does not exist", async ({ page }) => {
+  await page.goto("/sprawdz-dzialke");
+  await expect(page.getByRole("heading", { name: "Sprawdź działkę", level: 1 })).toBeVisible();
+  await expect(page.getByLabel("Numer działki, współrzędne lub link")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Znajdź działkę" })).toBeDisabled();
+  await expect(page.getByText("Jeszcze nic nie sprawdzano")).toBeVisible();
+  await expectNoSeriousA11yViolations(page);
+  await page.goto("/sprawdz-dzialke/00000000-0000-4000-8000-000000000000");
+  await expect(page.getByText("Nie ma takiego sprawdzenia")).toBeVisible();
+});
+
 test("settings page shows the scoring weights", async ({ page }) => {
   await page.goto("/ustawienia");
   await expect(page.getByText("Sieć elektroenergetyczna").first()).toBeVisible();
