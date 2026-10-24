@@ -11,10 +11,11 @@ from collections.abc import Callable, Collection
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import ColumnElement, select
+from sqlalchemy import ColumnElement, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+from dclh_pipeline.check_job import run_check_job
 from dclh_pipeline.config import SourceSpec, load_sources
 from dclh_pipeline.db import session_scope
 from dclh_pipeline.db.models import JobRow, PowiatPriorityRow, RunRow, SearchRunRow, SourceRow
@@ -37,6 +38,7 @@ from dclh_pipeline.snapshots import SnapshotStore
 log = logging.getLogger(__name__)
 
 JobHandler = Callable[[Session, dict[str, Any]], dict[str, Any]]
+CHECK_INTERRUPTED_PL = "Sprawdzenie przerwane przez restart serwera. Uruchom je ponownie."
 
 
 def sync_sources(session: Session, specs: list[SourceSpec]) -> None:
@@ -126,6 +128,7 @@ def _job_plan_searches(session: Session, payload: dict[str, Any]) -> dict[str, A
 
 
 HANDLERS: dict[str, JobHandler] = {
+    "check_parcel": run_check_job,
     "discover": _job_discover,
     "search": _job_search,
     "plan_searches": _job_plan_searches,
@@ -186,6 +189,15 @@ def fail_interrupted(
     ).all()
     for job in stale:
         job.status, job.error, job.finished_at = "failed", error, now
+        if job.kind == "check_parcel":
+            # The page polls the check, not the job: without this it would show "running" for ever.
+            session.execute(
+                text(
+                    "UPDATE parcel_checks SET status = 'failed', finished_at = :now, error = :error "
+                    "WHERE job_id = :job AND status IN ('pending', 'running')"
+                ),
+                {"now": now, "job": job.id, "error": CHECK_INTERRUPTED_PL},
+            )
         run_row = session.get(RunRow, job.run_id) if job.run_id is not None else None
         if run_row is not None and run_row.status == "running":
             run_row.status, run_row.finished_at = "failed", now

@@ -8,7 +8,7 @@ import os
 import resource
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from rich.console import Console
@@ -588,6 +588,44 @@ def enqueue_cmd(
         console.print(f"queued job {job.id} ({kind})")
 
 
+@app.command("check")
+def check_cmd(
+    inputs: Annotated[
+        list[str],
+        typer.Argument(help="Parcel ids, coordinates or a Google Maps link, e.g. 306201_1.0002.1573"),
+    ],
+) -> None:
+    """Check parcels with the layers and scorer of the nightly search. Run from Poland. No database writes."""
+    from dclh_pipeline.layers import cached_static_layers
+    from dclh_pipeline.parcel_check import CheckContext, check_all, resolve_parcels
+    from dclh_pipeline.parcel_input import parse_inputs
+    from dclh_pipeline.powiat_search import SEARCH_CACHE_TTL
+
+    settings = get_settings()
+    if settings.contact_email.endswith(".invalid"):
+        raise typer.BadParameter("set DCLH_CONTACT_EMAIL first (it goes into the User-Agent)")
+    config, cfg = load_sources(), load_scoring()
+    store = SnapshotStore(settings.raw_dir)
+    aoi = _load_aoi_or_none()
+    with PoliteClient(
+        user_agent=settings.user_agent,
+        rate_limit_per_s=config.defaults.rate_limit_per_s,
+        timeout_s=config.defaults.timeout_s,
+        retries=2,
+        cache=ResponseCache(settings.data_dir / "http-cache", SEARCH_CACHE_TTL),
+    ) as client:
+        resolution = resolve_parcels(client, parse_inputs("\n".join(inputs)), aoi)
+        for issue in resolution.issues:
+            console.print(f"[red]{issue.text}[/red]: {issue.message_pl}")
+        if not resolution.items:
+            raise typer.Exit(1)
+        static, cached = cached_static_layers(settings, config, cfg, store)
+        console.print(f"warstwy statyczne {'z pamięci' if cached else 'wczytane'}")
+        ctx = CheckContext(config=config, cfg=cfg, store=store, client=client, static=static)
+        for result in check_all(resolution.items, ctx, _ConsoleCheckReporter()):
+            _print_check(result)
+
+
 @app.command("worker")
 def worker_cmd(
     once: Annotated[bool, typer.Option(help="Process pending jobs, then exit")] = False,
@@ -728,3 +766,55 @@ def check_spike_cmd(
             json.dumps([t.__dict__ for t in timings], indent=2, ensure_ascii=False), encoding="utf-8"
         )
         console.print(f"Saved: {out}")
+
+
+def _load_aoi_or_none() -> Any:
+    """The area of interest from the database, or None when the database is not reachable or has none."""
+    from dclh_pipeline.db import session_scope
+    from dclh_pipeline.parcel_check import load_aoi
+
+    try:
+        with session_scope() as session:
+            return load_aoi(session)
+    except Exception:  # the CLI works without a database; the parcel is then not labelled in or out
+        return None
+
+
+class _ConsoleCheckReporter:
+    def step_start(self, parcel: int | None, key: str) -> None:
+        pass
+
+    def step_end(
+        self,
+        parcel: int | None,
+        key: str,
+        *,
+        ok: bool,
+        seconds: float,
+        finding: str | None = None,
+        error: str | None = None,
+    ) -> None:
+        mark = "[green]ok[/green]" if ok else "[red]BŁĄD[/red]"
+        console.print(f"  {key:<11} {mark} {seconds:>6.1f} s  {finding or error or ''}")
+
+
+def _print_check(result: Any) -> None:
+    parcel, score = result.parcel, result.scored.score
+    outside = "  [yellow]poza obszarem zainteresowania[/yellow]" if result.outside_aoi else ""
+    console.print(
+        f"\n[bold]{parcel.parcel_id}[/bold]  {parcel.commune}, obręb {parcel.obreb}, "
+        f"{parcel.area_ha:.2f} ha{outside}"
+    )
+    console.print(f"[bold]{result.verdict.text_pl}[/bold]")
+    console.print(
+        f"wynik {score.score:.1f} (do {score.upside_score:.1f}), kompletność {score.completeness:.0%}, "
+        f"moc {score.estimated_mw or 0:.0f} MW, sieć: {score.grid_badge.value}"
+    )
+    for exclusion in score.exclusions:
+        console.print(f"  [red]{exclusion.mode}[/red] {exclusion.reason_pl}")
+    for item in score.items:
+        console.print(f"  {item.category:<13} {item.points:>6.1f}/{item.max_points:<5.1f} {item.label_pl}")
+    for unknown in result.unknowns:
+        console.print(f"  [yellow]?[/yellow] {unknown.label_pl}: {unknown.why_pl}")
+    for step in result.next_steps:
+        console.print(f"  -> {step.title_pl}")

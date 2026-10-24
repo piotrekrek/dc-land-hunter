@@ -239,6 +239,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/parcels/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve
+         * @description Ask ULDK what was pasted before any expensive work ("Czy to ta działka?"). Short and synchronous.
+         */
+        post: operations["resolve_api_parcels_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent Checks */
+        get: operations["recent_checks_api_checks_get"];
+        put?: never;
+        /**
+         * Start Check
+         * @description Queue a check. The worker does the work; the page polls `GET /api/checks/{id}`.
+         */
+        post: operations["start_check_api_checks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/checks/{check_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Check */
+        get: operations["get_check_api_checks__check_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/checks/{check_id}/sites/{n}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Check Site */
+        get: operations["get_check_site_api_checks__check_id__sites__n__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -272,6 +347,180 @@ export interface components {
             max_points: number;
             /** Upside Points */
             upside_points: number;
+        };
+        /** CheckIn */
+        CheckIn: {
+            /** Parcels */
+            parcels?: string[];
+            /** Points */
+            points?: components["schemas"]["PointIn"][];
+        };
+        /** CheckList */
+        CheckList: {
+            /** Items */
+            items: components["schemas"]["CheckListItem"][];
+        };
+        /** CheckListItem */
+        CheckListItem: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "done" | "failed";
+            /** Requested By */
+            requested_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Parcels */
+            parcels: string[];
+            verdict: components["schemas"]["VerdictOut"] | null;
+            /** Score */
+            score: number | null;
+        };
+        /** CheckOut */
+        CheckOut: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "done" | "failed";
+            /** Requested By */
+            requested_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Error */
+            error: string | null;
+            /** Parcels */
+            parcels: string[];
+            /** Steps */
+            steps: components["schemas"]["StepOut"][];
+            /** Estimate Seconds */
+            estimate_seconds: number | null;
+            /** Sites */
+            sites: components["schemas"]["CheckSiteSummary"][];
+        };
+        /**
+         * CheckSiteDetail
+         * @description A scored parcel: what the site card shows, plus the verdict, the sheet and the manual next steps.
+         */
+        CheckSiteDetail: {
+            /** Site Id */
+            site_id: string;
+            /** Zone Id */
+            zone_id: string | null;
+            /** Area Ha */
+            area_ha: number;
+            /** Estimated Mw */
+            estimated_mw: number;
+            /** Score */
+            score: number;
+            /** Upside Score */
+            upside_score: number;
+            /** Completeness */
+            completeness: number;
+            /** Excluded */
+            excluded: boolean;
+            /**
+             * Grid Badge
+             * @enum {string}
+             */
+            grid_badge: "Opublikowana moc" | "Bliskość sieci" | "Brak danych";
+            /** Large Campus */
+            large_campus: boolean;
+            /** Split Suggested */
+            split_suggested: boolean;
+            /** Flags */
+            flags: string[];
+            /** Lon */
+            lon: number;
+            /** Lat */
+            lat: number;
+            mw_fact: components["schemas"]["FactOut"];
+            /** Parcel Ids */
+            parcel_ids: string[];
+            /**
+             * Scored At
+             * Format: date-time
+             */
+            scored_at: string;
+            /** Exclusions */
+            exclusions: components["schemas"]["ExclusionOut"][];
+            /** Categories */
+            categories: components["schemas"]["CategoryOut"][];
+            /** Items */
+            items: components["schemas"]["ScoreItemOut"][];
+            /** Features */
+            features: {
+                [key: string]: components["schemas"]["FactOut"];
+            };
+            /** Geometry */
+            geometry: {
+                [key: string]: unknown;
+            };
+            /** N */
+            n: number;
+            /** Check Id */
+            check_id: string;
+            /** Requested By */
+            requested_by: string;
+            /**
+             * Checked At
+             * Format: date-time
+             */
+            checked_at: string;
+            verdict: components["schemas"]["VerdictOut"];
+            /** Outside Aoi */
+            outside_aoi: boolean;
+            /** Unknowns */
+            unknowns: components["schemas"]["UnknownOut"][];
+            /** Next Steps */
+            next_steps: components["schemas"]["NextStepOut"][];
+            sheet: components["schemas"]["SheetOut"];
+            /** Layer Ages */
+            layer_ages: {
+                [key: string]: string | null;
+            };
+            parcel: components["schemas"]["ParcelInfoOut"];
+        };
+        /** CheckSiteSummary */
+        CheckSiteSummary: {
+            /** N */
+            n: number;
+            /** Parcel Id */
+            parcel_id: string;
+            /** Commune */
+            commune: string;
+            /** Obreb */
+            obreb: string;
+            /** Area Ha */
+            area_ha: number;
+            /** Estimated Mw */
+            estimated_mw: number;
+            /** Score */
+            score: number;
+            /** Upside Score */
+            upside_score: number;
+            /** Completeness */
+            completeness: number;
+            /** Excluded */
+            excluded: boolean;
+            verdict: components["schemas"]["VerdictOut"];
+            /** Outside Aoi */
+            outside_aoi: boolean;
         };
         /** ConnectionCost */
         ConnectionCost: {
@@ -347,6 +596,11 @@ export interface components {
             item: string;
             /** Areas */
             areas: components["schemas"]["CoverageArea"][];
+        };
+        /** CreatedOut */
+        CreatedOut: {
+            /** Id */
+            id: string;
         };
         /** DiscoverIn */
         DiscoverIn: {
@@ -474,6 +728,13 @@ export interface components {
              */
             time: string;
         };
+        /** IssueOut */
+        IssueOut: {
+            /** Text */
+            text: string;
+            /** Message Pl */
+            message_pl: string;
+        };
         /**
          * JobCounts
          * @description `pending` and `running` count every such job; `done` and `failed` only the last 24 hours.
@@ -551,6 +812,15 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** NextStepOut */
+        NextStepOut: {
+            /** Key */
+            key: string;
+            /** Title Pl */
+            title_pl: string;
+            /** Copy Text */
+            copy_text: string | null;
+        };
         /** OpsJobs */
         OpsJobs: {
             counts: components["schemas"]["JobCounts"];
@@ -560,6 +830,23 @@ export interface components {
             attention: number;
             /** Recent */
             recent: components["schemas"]["JobItem"][];
+        };
+        /** ParcelInfoOut */
+        ParcelInfoOut: {
+            /** Parcel Id */
+            parcel_id: string;
+            /** Voivodeship */
+            voivodeship: string;
+            /** County */
+            county: string;
+            /** Commune */
+            commune: string;
+            /** Obreb */
+            obreb: string;
+            /** Powiat Teryt */
+            powiat_teryt: string;
+            /** Registered Area Ha */
+            registered_area_ha: number;
         };
         /** Penalties */
         Penalties: {
@@ -577,6 +864,13 @@ export interface components {
             gas_pipeline_zone: number;
             /** Airport Ols */
             airport_ols: number;
+        };
+        /** PointIn */
+        PointIn: {
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
         };
         /** PowiatItem */
         PowiatItem: {
@@ -639,6 +933,51 @@ export interface components {
              * @default 400
              */
             runway_min_m: number;
+        };
+        /** ResolveIn */
+        ResolveIn: {
+            /** Text */
+            text: string;
+        };
+        /** ResolveOut */
+        ResolveOut: {
+            /** Items */
+            items: components["schemas"]["ResolvedParcelOut"][];
+            /** Issues */
+            issues: components["schemas"]["IssueOut"][];
+            /** Dropped */
+            dropped: number;
+            /** Duplicates */
+            duplicates: number;
+        };
+        /** ResolvedParcelOut */
+        ResolvedParcelOut: {
+            /** Parcel Id */
+            parcel_id: string;
+            /** Powiat Teryt */
+            powiat_teryt: string;
+            /** Voivodeship */
+            voivodeship: string;
+            /** County */
+            county: string;
+            /** Commune */
+            commune: string;
+            /** Obreb */
+            obreb: string;
+            /** Area Ha */
+            area_ha: number;
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+            /** In Aoi */
+            in_aoi: boolean | null;
+            /** Source Text */
+            source_text: string;
+            /** Outline */
+            outline: {
+                [key: string]: unknown;
+            };
         };
         /** ScoreItemOut */
         ScoreItemOut: {
@@ -711,6 +1050,30 @@ export interface components {
              * @default 5
              */
             soil_points_per_site: number;
+        };
+        /** SheetLayerOut */
+        SheetLayerOut: {
+            /** Key */
+            key: string;
+            /** Label Pl */
+            label_pl: string;
+            /** Kind */
+            kind: string;
+            /** Paths */
+            paths: number[][][];
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** SheetOut */
+        SheetOut: {
+            /** Origin 2180 */
+            origin_2180: number[];
+            /** Bbox M */
+            bbox_m: number[];
+            /** Parcel */
+            parcel: number[][][];
+            /** Layers */
+            layers: components["schemas"]["SheetLayerOut"][];
         };
         /** SiteDetail */
         SiteDetail: {
@@ -873,6 +1236,26 @@ export interface components {
             /** Sources */
             sources: components["schemas"]["SourceOut"][];
         };
+        /** StepOut */
+        StepOut: {
+            /** Parcel */
+            parcel: number | null;
+            /** Key */
+            key: string;
+            /** Label Pl */
+            label_pl: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "waiting" | "running" | "done" | "failed";
+            /** Seconds */
+            seconds: number | null;
+            /** Finding Pl */
+            finding_pl: string | null;
+            /** Error */
+            error: string | null;
+        };
         /** Target */
         Target: {
             /** Mw Min */
@@ -890,6 +1273,13 @@ export interface components {
             large_campus_mw: number;
             /** Large Site Split Ha */
             large_site_split_ha: number;
+        };
+        /** UnknownOut */
+        UnknownOut: {
+            /** Label Pl */
+            label_pl: string;
+            /** Why Pl */
+            why_pl: string;
         };
         /** UserOut */
         UserOut: {
@@ -910,6 +1300,16 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VerdictOut */
+        VerdictOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "odpada" | "wymaga_wyjasnien" | "warto";
+            /** Text Pl */
+            text_pl: string;
         };
         /** Weights */
         Weights: {
@@ -1272,6 +1672,155 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PowiatList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_api_parcels_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolveOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recent_checks_api_checks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckList"];
+                };
+            };
+        };
+    };
+    start_check_api_checks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_check_api_checks__check_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                check_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_check_site_api_checks__check_id__sites__n__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                check_id: string;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckSiteDetail"];
                 };
             };
             /** @description Validation Error */

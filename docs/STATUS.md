@@ -718,3 +718,26 @@ What this settles for the plan:
   "Warunki konieczne" group. The list keeps its round badge.
 - Not done on purpose: the verdict sentence (needs the pipeline, step 4), the sheet (step 7), a visual review in a browser.
 
+## Sprawdź działkę, steps 3 to 5: the check pipeline, job and API (25.10.2026; not yet deployed)
+
+- **Layers (`layers.py`):** `search_powiat` now builds `StaticLayers` (grid, OSM proxies, GDOŚ, DSO/PSE capacity, heat, PSI,
+  cities; `cached_static_layers` keeps them per process, rebuilt when any snapshot manifest changes) and `AreaLayers`
+  (flood, mining, BDOT10k, RU) through `load_static_layers` and `load_area_layers`. A search is `strict` (a failed download
+  fails it); a check is not: the step is reported and the criteria it feeds stay missing. Behaviour of the search is
+  unchanged (compared on powiat 0213, see the PR).
+- **`parcel_check.py`:** ULDK by id or point, one `Site` per parcel (a parcel over 80 ha is kept whole and flagged), the same
+  scorer, layers for the parcel plus 500 m, KIMPZP and KIUG always asked (also for an excluded parcel). The verdict
+  ("Odpada" / "Wymaga wyjaśnień" / "Warto sprawdzać dalej") uses only scorer output; "warto" needs a score of 70 and 70% of
+  the data (the ruler's upper tick). Hard filters that could not be evaluated are listed as "Nie sprawdzono: …". The
+  survey sheet is made on the server (`check_sheet.py`): layers as simplified paths in local metres, capped per layer.
+- **CLI:** `dclh check <id|coordinates|link>` prints the steps, verdict, score, unknowns and next steps. No DB writes.
+- **Job `check_parcel` (`check_job.py`):** commits the step list after every step (progress is visible while it runs),
+  stores one result per parcel, records step timings in `check_step_stats` (warm = every answer from the response cache)
+  and fails the check when the worker restarts (`fail_interrupted`), so the page never waits for ever.
+- **Migration `0010`:** `parcel_checks`, `parcel_check_sites` (the `sites` columns plus verdict, unknowns, next steps, sheet,
+  layer ages), `check_step_stats`. Checks are kept, not expired.
+- **API:** `POST /api/parcels/resolve` (server-side parsing, ULDK, WGS84 outline), `POST /api/checks` (ids or points, 20 at
+  most, 3 open per user), `GET /api/checks`, `GET /api/checks/{id}` (steps, remaining-time estimate), `GET /api/checks/{id}/sites/{n}`
+  (a `SiteDetail` plus verdict, sheet, unknowns, next steps, layer ages).
+- Not done: the web pages (steps 7 to 10) and the orthophoto.
+

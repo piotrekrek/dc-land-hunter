@@ -26,6 +26,8 @@ class ResponseCache:
         self.root = root
         self.ttl_s = ttl.total_seconds()
         self._clock = clock
+        self.hits = 0  # answers served from disk and requests that had to go out: a check's "warm" flag
+        self.misses = 0
 
     @staticmethod
     def key(method: str, url: str, params: Any = None) -> str:
@@ -40,10 +42,13 @@ class ResponseCache:
     def get(self, key: str, url: str) -> httpx.Response | None:
         body_path, meta_path = self._paths(key)
         if not meta_path.exists() or not body_path.exists():
+            self.misses += 1
             return None
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
         if self._clock() - float(meta["fetched_at"]) > self.ttl_s:
+            self.misses += 1
             return None
+        self.hits += 1
         return httpx.Response(
             200,
             content=body_path.read_bytes(),
