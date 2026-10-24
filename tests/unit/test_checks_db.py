@@ -506,3 +506,83 @@ def test_resolve_returns_the_parcel_with_a_wgs84_outline_and_the_issues(
 def test_resolve_without_a_contact_address_is_a_clear_503(client: TestClient) -> None:
     response = client.post("/api/parcels/resolve", json={"text": ID})
     assert response.status_code == 503 and "DCLH_CONTACT_EMAIL" in response.json()["detail"]
+
+
+# ------------------------------------------------------------------------------------------- memory
+
+
+def memory_stub(monkeypatch: pytest.MonkeyPatch, fail_times: int) -> list[str]:
+    """`cached_static_layers` raises MemoryError `fail_times` times, then works; returns the notes shown."""
+    attempts = {"n": 0}
+    notes: list[str] = []
+
+    def flaky(*args: Any) -> tuple[Any, bool]:
+        attempts["n"] += 1
+        if attempts["n"] <= fail_times:
+            raise MemoryError("only 742 MB of memory is available, the OSM parse wants at least 800 MB")
+        return SimpleNamespace(osm_snapshot=None, prg_snapshot=None), False
+
+    monkeypatch.setattr(check_job, "cached_static_layers", flaky)
+    monkeypatch.setattr(check_job, "MEMORY_WAIT_S", 0.0)
+    original = DbCheckReporter.note
+    monkeypatch.setattr(
+        DbCheckReporter, "note", lambda self, p, k, t: (notes.append(t), original(self, p, k, t))[0]
+    )
+    return notes
+
+
+def test_a_check_waits_for_free_memory_and_then_runs(stubbed: pytest.MonkeyPatch) -> None:
+    notes = memory_stub(stubbed, fail_times=2)
+    stubbed.setattr(
+        check_job, "resolve_parcels", lambda client, parsed, aoi: Resolution(items=[resolved()], issues=[])
+    )
+    stubbed.setattr(check_job, "check_parcel", lambda parcel, index, ctx, reporter: parcel_check(parcel))
+    check_id = open_check()
+    run_check_job(None, {"check_id": check_id})  # type: ignore[arg-type]
+    assert (
+        notes == ["Czekam na wolną pamięć serwera (trwa inne zadanie)…"] * 2
+    )  # the page is told while it waits
+    with session_scope() as session:
+        assert session.execute(text("SELECT status FROM parcel_checks")).scalar_one() == "done"
+    static = next(s for s in steps_in_db(check_id) if s["key"] == "static")
+    assert static["status"] == "done" and "Czekam" not in (static["finding_pl"] or "")
+
+
+def test_a_check_that_never_gets_memory_fails_with_a_message_a_person_can_act_on(
+    stubbed: pytest.MonkeyPatch,
+) -> None:
+    memory_stub(stubbed, fail_times=99)
+    stubbed.setattr(check_job, "MEMORY_ATTEMPTS", 3)
+    stubbed.setattr(
+        check_job, "resolve_parcels", lambda client, parsed, aoi: Resolution(items=[resolved()], issues=[])
+    )
+    check_id = open_check()
+    with pytest.raises(MemoryError):
+        run_check_job(None, {"check_id": check_id})  # type: ignore[arg-type]
+    with session_scope() as session:
+        row = session.execute(text("SELECT status, error FROM parcel_checks")).mappings().one()
+    assert row["status"] == "failed"
+    assert (
+        row["error"] == check_job.CHECK_MEMORY_PL and "MB" not in row["error"]
+    )  # no engineering detail for the reader
+
+
+def test_the_worker_tells_its_idle_hook_how_long_it_has_been_idle() -> None:
+    from dclh_pipeline.jobs import work
+
+    seen: list[float] = []
+    assert work(once=True, kinds=["check_parcel"], on_idle=seen.append) == 0
+    assert len(seen) == 1 and 0 <= seen[0] < 5
+
+
+def test_the_idle_hook_is_not_called_while_jobs_are_running(stubbed: pytest.MonkeyPatch) -> None:
+    from dclh_pipeline import jobs
+
+    stubbed.setattr(
+        check_job, "resolve_parcels", lambda client, parsed, aoi: Resolution(items=[resolved()], issues=[])
+    )
+    stubbed.setattr(check_job, "check_parcel", lambda parcel, index, ctx, reporter: parcel_check(parcel))
+    open_check()
+    calls: list[float] = []
+    assert jobs.work(once=True, kinds=["check_parcel"], on_idle=calls.append) == 1
+    assert len(calls) == 1  # once, after the queue emptied

@@ -250,17 +250,20 @@ def work(
     interval_s: float = 10.0,
     kinds: Collection[str] | None = None,
     exclude: Collection[str] = (),
+    on_idle: Callable[[float], None] | None = None,
 ) -> int:
     """Poll for jobs. Returns the number of jobs executed (useful with once=True).
 
-    `kinds` and `exclude` split the queue between workers (the check worker serves only `check_parcel`); with
-    neither, the worker takes every kind.
+    `kinds` and `exclude` split the queue between workers (the check worker serves only `check_parcel`);
+    with neither, the worker takes every kind. `on_idle` is called after every empty poll with the seconds
+    since the last job (or the start): the check worker uses it to release memory it does not need.
     """
     executed = 0
     with session_scope() as session:
         interrupted = fail_interrupted(session, kinds, exclude)
     if interrupted:
         log.warning("marked %d interrupted job(s) as failed", interrupted)
+    idle_since = time.monotonic()
     while True:
         with session_scope() as session:
             job = claim_next(session, kinds, exclude)
@@ -269,7 +272,10 @@ def work(
             log.info("running job %s", job_id)
             execute(job_id)
             executed += 1
+            idle_since = time.monotonic()
             continue
+        if on_idle is not None:
+            on_idle(time.monotonic() - idle_since)
         if once:
             return executed
         time.sleep(interval_s)

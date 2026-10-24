@@ -9,6 +9,7 @@ that fails on its second parcel still shows the first.
 from __future__ import annotations
 
 import json
+import logging
 import statistics
 import time
 import uuid
@@ -23,7 +24,7 @@ from sqlalchemy.orm import Session
 from dclh_pipeline.config import load_scoring, load_sources
 from dclh_pipeline.db import session_scope
 from dclh_pipeline.http import PoliteClient
-from dclh_pipeline.layers import cached_static_layers
+from dclh_pipeline.layers import cached_static_layers, release_static_layers
 from dclh_pipeline.parcel_check import (
     STEP_LABELS_PL,
     STEP_ORDER,
@@ -39,6 +40,8 @@ from dclh_pipeline.response_cache import ResponseCache
 from dclh_pipeline.scoring.run import to_jsonable
 from dclh_pipeline.settings import Settings, get_settings
 from dclh_pipeline.snapshots import SnapshotStore
+
+log = logging.getLogger(__name__)
 
 KIND = "check_parcel"
 CACHE_TTL_DAYS = 40  # as the nightly search: a repeat check reads last answers instead of asking again
@@ -59,6 +62,16 @@ DEFAULT_STEP_SECONDS = {
     "scoring": 1.0,
 }
 HISTORY = 10  # runs per step whose median is the estimate
+
+# The static layers need free memory (the OSM parse refuses to start below 800 MB available on the host),
+# which a nightly search can use up for a while. A check waits for it a few minutes before it gives up.
+MEMORY_ATTEMPTS = 6
+MEMORY_WAIT_S = 30.0
+STATIC_IDLE_S = 600.0  # the check worker gives the static layers back after this long without a check
+CHECK_MEMORY_PL = (
+    "Na serwerze brakuje teraz wolnej pamięci (zwykle trwa nocne przeszukiwanie powiatów). "
+    "Spróbuj za kilka minut."
+)
 
 
 def initial_steps(parcels: Sequence[ResolvedParcel], *, static_cached: bool) -> list[dict[str, Any]]:
@@ -124,6 +137,11 @@ class DbCheckReporter:
                 text("UPDATE parcel_checks SET steps = CAST(:steps AS jsonb) WHERE id = :id"),
                 {"steps": json.dumps(self.steps, ensure_ascii=False), "id": self.check_id},
             )
+
+    def note(self, parcel: int | None, key: str, text_pl: str) -> None:
+        """A short remark on a running step ("Czekam na wolną pamięć…"), visible to the page at once."""
+        self._find(parcel, key)["finding_pl"] = text_pl
+        self._save()
 
     def step_start(self, parcel: int | None, key: str) -> None:
         self._find(parcel, key)["status"] = "running"
@@ -301,7 +319,8 @@ def run_check_job(session: Session, payload: dict[str, Any]) -> dict[str, Any]:
     try:
         return _run(check_id)
     except Exception as exc:
-        _finish(check_id, status="failed", error=f"{type(exc).__name__}: {exc}"[:500])
+        reason = CHECK_MEMORY_PL if isinstance(exc, MemoryError) else f"{type(exc).__name__}: {exc}"[:500]
+        _finish(check_id, status="failed", error=reason)
         raise
 
 
@@ -338,7 +357,7 @@ def _run(check_id: str) -> dict[str, Any]:
         if not static_cached:
             reporter.step_start(None, "static")
         started = time.monotonic()
-        static, _ = cached_static_layers(settings, config, cfg, store)
+        static = _static_layers(settings, config, cfg, store, reporter if not static_cached else None)
         if not static_cached:
             reporter.step_end(
                 None,
@@ -362,3 +381,28 @@ def _static_is_cached(store: SnapshotStore) -> bool:
     from dclh_pipeline.layers import _STATIC_CACHE, snapshot_key
 
     return _STATIC_CACHE["layers"] is not None and _STATIC_CACHE["key"] == snapshot_key(store)
+
+
+def _static_layers(
+    settings: Settings, config: Any, cfg: Any, store: SnapshotStore, reporter: DbCheckReporter | None
+) -> Any:
+    """The static layers, waiting for free memory when the host is short of it (see MEMORY_ATTEMPTS)."""
+    for attempt in range(1, MEMORY_ATTEMPTS + 1):
+        try:
+            return cached_static_layers(settings, config, cfg, store)[0]
+        except MemoryError:
+            if attempt == MEMORY_ATTEMPTS:
+                raise
+            log.warning(
+                "static layers: not enough free memory (attempt %d of %d), waiting", attempt, MEMORY_ATTEMPTS
+            )
+            if reporter is not None:
+                reporter.note(None, "static", "Czekam na wolną pamięć serwera (trwa inne zadanie)…")
+            time.sleep(MEMORY_WAIT_S)
+    raise AssertionError("unreachable")
+
+
+def release_when_idle(idle_seconds: float) -> None:
+    """`work(on_idle=...)` for the check worker: give the static layers back after a quiet spell."""
+    if idle_seconds >= STATIC_IDLE_S and release_static_layers():
+        log.info("check worker idle for %.0f s: static layers released", idle_seconds)
