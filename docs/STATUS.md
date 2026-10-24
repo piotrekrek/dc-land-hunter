@@ -659,3 +659,38 @@ available columns, which settles the names.
 
 - The "Powiaty" tab is now **Kolejka** (route is `/kolejka` since 23.10.2026; `/powiaty` redirects) and sits second in the navbar, right after "Mapa i lista".
 - "Źródła danych" left the navbar: it is a section at the bottom of Ustawienia. `/zrodla` redirects to `/ustawienia`.
+
+## Sprawdź działkę, step 1: spike on the VPS (24.10.2026)
+
+`dclh check-spike` run in the worker container (Poland), one parcel in a powiat searched before and one in a powiat never
+searched. Area layers only, for a 1.5 km buffer; the static layers (grid, OSM cuts, GDOŚ and so on) are not in these
+numbers. "Warm" is the second pass, read from the response cache. No step failed. Raw log: `data/reports/check-spike-2026-10-24.log` (on the VPS, not in git).
+
+| Step | Reguły `142104_2.0013.562/2` cold / warm | Konin `306201_1.0002.1573` cold / warm |
+|---|---|---|
+| ULDK by id, by point | 0 s, 1.0 s / 0 s | 0 s, 0.9 s / 0 s |
+| EGiB neighbours (1 km tiles, 1 request/s) | **34.7 s** / 7.4 s (16,245 rows) | **24.4 s** / 5.2 s (9,669 rows) |
+| Flood zones (isok) | 8.5 s / 1.2 s (6.7 MB) | 10.8 s / 1.5 s (8.6 MB) |
+| Mining (midas) | 4.1 s / 0 s | 4.1 s / 0 s |
+| RU zoning (MPZP + plan ogólny) | 2.1 s / 0 s | 2.1 s / 0 s |
+| BDOT10k powiat zip (housing, forest) | 4.4 s / 3.0 s (18.6 MB, 43,015 rows) | 2.5 s / 1.1 s (9.6 MB, 8,043 rows) |
+| KIMPZP and KIUG point | 1.4 s / 0 s | 1.6 s / 0 s |
+| **Total** | **56.2 s / 11.6 s** | **46.5 s / 7.8 s** |
+
+Peak process memory 282 MB and 273 MB (about 157 MB of it is the Python start-up).
+
+What this settles for the plan:
+- **Assumption C holds:** `GetParcelById` returns EPSG:2180 geometry, the same parcel as the by-point lookup
+  (fixtures in `tests/fixtures/live/check-spike-2026-10-24/`). An unknown id and a malformed id give the same
+  `-1 brak wyników` answer with HTTP 200.
+- **The 30 s promise holds for a warm check** (8 to 12 s of area layers). A cold check is about a minute, below the
+  75 s the plan assumed. Default estimates for the loader: cold about 55 s, warm about 12 s.
+- **EGiB neighbours are the cold cost** (25 to 35 s: tiles at 1 request/s, used only for the expansion land). A smaller
+  radius or fewer tiles is the first lever if cold checks must be faster.
+- **BDOT10k is not the bottleneck** (2.5 to 4.4 s cold, 18.6 MB), so no derived per-powiat file: a small in-process
+  cache of the parsed frames is enough (step 3).
+- **Not measured:** memory of the static layers. Step 3 must measure the check worker's peak before the `mem_limit` is final.
+- **Name search is not usable yet:** `GetParcelByIdOrNr` with "Konin 0002 1573" returns no result, so "obręb + numer"
+  needs another request form before the UI offers it.
+- Bug found and fixed: `check-spike --out` failed when the target folder did not exist.
+

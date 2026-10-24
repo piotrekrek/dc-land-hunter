@@ -197,7 +197,7 @@ mining, BDOT10k housing, RU, plus three OSM parses of the full extract) and `run
 **Assumptions (to verify in step 1, none are measured yet)**
 - A: a check can reuse the scorer unchanged. It can: `score_candidates(sites, layers, cfg)` takes any `Site`.
 - B: the heavy part is loading layers, not scoring. Per-powiat downloads (BDOT10k, flood, RU) and the OSM parses
-  are too slow and too big for 30 s on the 1.9 GB VPS if repeated per request (R7).
+  are too slow and too big for 30 s on the VPS if repeated per request (R7). The VPS reports 3.9 GB RAM (24.10.2026), about 1.5 GB free with everything running.
 - C: ULDK `GetParcelById` returns the same `SRID=2180` geometry as `GetParcelByXY` (only the XY form is confirmed live).
 
 ### Design
@@ -218,7 +218,7 @@ mining, BDOT10k housing, RU, plus three OSM parses of the full extract) and `run
    row (`pending`) and returns its id; the page polls it. Progress is a list of layer steps with status, so a cold
    run shows "Pobieranie: strefy zalewowe…" rather than a frozen spinner. Worker poll is 10 s today: add a short
    poll for this kind, or a wake-up, so a warm check is not 10 s late.
-4. **Storage, migration `0009`.** Tables `check_step_stats` (loader estimates), `parcel_checks` (`id`, `requested_by`, `created_at`, `status`, `steps` jsonb,
+4. **Storage, migration `0010`** (`0009` is the priority seed). Tables `check_step_stats` (loader estimates), `parcel_checks` (`id`, `requested_by`, `created_at`, `status`, `steps` jsonb,
    `inputs` text[], `error`) and `parcel_check_sites` (one row per resulting site: the same columns as `sites`,
    including `detail` and `geom`). Not the `sites` table: its writer deletes by powiat. Parcel ids and geometry
    only; no owner data, no notes (brief 9.6). Checks are visible to all users.
@@ -237,6 +237,54 @@ mining, BDOT10k housing, RU, plus three OSM parses of the full extract) and `run
    - A parcel outside the AOI is scored and labelled "poza obszarem zainteresowania" (decision 1 below).
    - Zoning "unknown" stays "unknown", not "bad" (brief 3).
    - The card carries the manual next steps (KW, MPZP query to the gmina, DSO query), as for any site.
+
+### Architecture addendum (24.10.2026)
+
+Settled after reading the worker, `search_powiat` and the site card; it refines the Design above.
+
+1. **A dedicated check worker.** The existing worker runs one job at a time and a powiat search takes 1 to 3 hours, so
+   a check would wait behind it. Run `dclh worker --kinds search,discover,plan_searches` (existing service) and
+   `dclh worker --kinds check_parcel --interval 2` (new `check-worker` service with a `mem_limit`). `claim_next` and
+   `work` take the kinds. **`fail_interrupted` must be scoped to the worker's own kinds:** today it marks every
+   `running` job failed at start-up, so restarting one worker would kill the other's live job.
+2. **Progress needs commits.** `jobs.execute` runs the handler in one transaction, so step progress would only appear
+   at the end. The `check_parcel` handler calls `session.commit()` after every step; the page polls every 2 s.
+3. **Layer loading, one implementation.** `search_powiat` splits into `load_static_layers` (grid, gas, runways,
+   industrial, residential clusters, GDOŚ, DSO/PSE capacity, heat, PSI, cities; cached per process, keyed by snapshot
+   hashes) and `load_area_layers(bbox, teryt, on_step)` (flood, mining, BDOT10k, RU). A search uses the whole powiat as
+   the bbox; a check uses the parcel buffered by `check_buffer_m(cfg)`, the largest distance any criterion looks at.
+   BDOT10k is an 18.6 MB zip per powiat and took 2.5 to 4.4 s cold in the spike (STATUS, 24.10.2026), so a small
+   in-process cache of the parsed frames is enough; no derived per-powiat file.
+4. **The sheet is made on the server.** Each step returns a finding string and a simplified geometry in local metres
+   (EPSG:2180 minus the parcel centroid, clipped, about 500 KB cap per check). The browser draws SVG paths directly.
+5. **The input parser stays in Python.** The web calls `POST /api/parcels/resolve`; no TypeScript copy of the regexes.
+6. **Contract first.** Step 5 ships typed schemas and JSON fixtures of real output (`tests/fixtures/check/`), so the
+   web steps can start before the backend is finished.
+7. **Retry a layer = run the check again.** Successful answers sit in the 40-day response cache, so a re-run repeats
+   only what failed.
+
+Decisions (owner, 24.10.2026): a dedicated check worker; the Geoportal orthophoto comes later as its own step (the
+first version draws the sheet on a plain background); checks are kept indefinitely.
+
+**Revised sequence** (supersedes the numbering of the steps below; each row is one PR):
+
+| # | Step | Needs |
+|---|---|---|
+| 0 | Docs: this addendum | none |
+| 1 | **[x] done 24.10.2026.** Run `dclh check-spike` on the VPS; numbers in STATUS; ULDK by-id fixtures. Result: warm 8 to 12 s, cold about 1 min, assumption C holds, name search unusable, static-layer memory still to measure in step 3 | 0 |
+| 2 | Worker kinds, scoped `fail_interrupted`, idle `check-worker` service | 0 |
+| 3 | Layer-loading refactor, no behaviour change | 1 |
+| 4 | `parcel_check`, `dclh check`, verdict, findings and sheet geometry; consistency test | 3 |
+| 5 | Migration `0010`, job, progress, estimates, API, contract fixtures | 2, 4 |
+| 6 | Web foundations: fonts, tokens, `Protokol` and `Ruler` extracted from the site card | 0 |
+| 7 | Web: the `Sheet` SVG component from fixtures | 6 |
+| 8 | Web: input, confirmation, recent list, map click | 6, API contract |
+| 9 | Web: progress, result, several parcels, partial failure, a11y, Playwright smoke | 5, 7, 8 |
+| 10 | Polish: "Sprawdź ponownie", "Sprawdź tę działkę" from popups and the card, history | 9 |
+| 11 | Orthophoto (proxy and terms check) | 9 |
+
+Backend (1 to 5) and web (6 to 8) can run in parallel. The UI/UX audit section above (its step 1 changes the site card
+header, its step 5 adds a map block to the card) overlaps step 6 and step 7: do step 6 first or rebase.
 
 ### UI and UX design
 
@@ -388,7 +436,7 @@ kit" and the owner's reaction; `axe` run on each state.
    search tests pass unchanged and a powiat search produces the same sites as before on the fixture.
 4. **`check_parcels` + `dclh check <ids>` CLI.** Prints the score breakdown. *Done when* the consistency test
    passes: checking the parcels of a site already in `sites` gives the same score and features as the search did.
-5. **Migration `0009`, job `check_parcel`, step tracking and estimate, API.** Tests: 401 without login, 422 on bad input, the 20-id cap,
+5. **Migration `0010`, job `check_parcel`, step tracking and estimate, API.** Tests: 401 without login, 422 on bad input, the 20-id cap,
    a failing source gives `missing` and an "nie sprawdzono" line, DB tests under `*_test` only.
 6a. **[x] Design prototype, approved 24.10.2026** (`docs/design/sprawdz-dzialke-prototype.html`, static HTML, example data). Owner verdicts: the ruler reads faster than the round badge (keep); the serif verdict is too formal (use Plex Sans); the Protokół replaces the cards on the existing site card page too (shared component). Original brief: The sheet, ruler, Protokół and loader in light and
    dark at three widths, for the owner to react to *before* the React code. *Done when* the owner approves or redirects.
@@ -408,7 +456,7 @@ checking the same parcel at once, and a parcel in a powiat with no saved snapsho
 | Risk | Mitigation |
 |---|---|
 | Cold powiat takes minutes (BDOT10k, RU) and the 30 s promise breaks | Measure in step 1; loader with estimated time; promise 30 s only for warm checks |
-| Memory: static layers held in the worker on a 1.9 GB VPS | Build lazily, drop after idle, measure peak in step 1; the worker already runs one job at a time |
+| Memory: static layers held in a second worker process on a 3.9 GB VPS (about 1.5 GB free) | Build lazily, drop after idle, measure peak in step 1; the worker already runs one job at a time |
 | ULDK blocks non-Polish IPs and rate-limits | Runs on the VPS only; `PoliteClient` rate limit; tests use fixtures |
 | A check and a nightly search disagree on the same land | The consistency test in step 4 |
 | Scoring a small or off-grid parcel looks like a recommendation | Hard-filter reasons shown first; the "poza wyszukiwaniem" and "poza obszarem" labels; no rank, only a score and its explanation |
@@ -419,7 +467,7 @@ checking the same parcel at once, and a parcel in a powiat with no saved snapsho
    of inputs; `expansion_ha` still counts neighbouring parcels. Combining parcels is a later option.
 3. "Check only on demand" (interpreted): a check runs only when a user asks. No automatic re-check or refresh, and
    no expiry job; a result is re-run by pressing "Sprawdź ponownie". The card always shows the check date and
-   layer ages. *To confirm with the owner: does this also mean old checks are kept indefinitely?*
+   layer ages. Old checks are kept indefinitely (owner, 24.10.2026).
 4. BDOT10k housing stays, with no OSM fallback. A cold powiat is slow, so the page must show a loader with an
    estimated time instead of shortening the check (below).
 
