@@ -80,7 +80,8 @@ export function AppRoutes() {
           }
         />
         <Route path="lokalizacje/:siteId" element={<SiteCardPage />} />
-        <Route path="powiaty" element={<PowiatyPage />} />
+        <Route path="kolejka" element={<PowiatyPage />} />
+        <Route path="powiaty" element={<Navigate to="/kolejka" replace />} />
         <Route path="zrodla" element={<Navigate to="/ustawienia" replace />} />
         <Route path="zadania" element={<JobsPage />} />
         <Route path="ustawienia" element={<SettingsPage />} />
