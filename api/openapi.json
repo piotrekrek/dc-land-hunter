@@ -966,6 +966,13 @@
             ],
             "title": "Error"
           },
+          "parcels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Parcels"
+          },
           "steps": {
             "items": {
               "$ref": "#/components/schemas/StepOut"
@@ -1001,6 +1008,7 @@
           "started_at",
           "finished_at",
           "error",
+          "parcels",
           "steps",
           "estimate_seconds",
           "sites"

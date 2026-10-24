@@ -118,6 +118,7 @@ class CheckOut(BaseModel):
     started_at: datetime | None
     finished_at: datetime | None
     error: str | None
+    parcels: list[str]  # what was asked: parcel ids, or the coordinates of a point
     steps: list[StepOut]
     estimate_seconds: int | None  # remaining time while the check is open
     sites: list[CheckSiteSummary]
@@ -372,6 +373,7 @@ def get_check(check_id: str, session: Annotated[Session, Depends(db_session)]) -
         started_at=row["started_at"],
         finished_at=row["finished_at"],
         error=row["error"],
+        parcels=[str(i.get("parcel_id") or i.get("text", "")) for i in row["inputs"]],
         steps=[StepOut(**s) for s in steps],
         estimate_seconds=_remaining_seconds(session, steps, len(row["inputs"])) if open_check else None,
         sites=[

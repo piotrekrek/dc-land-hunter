@@ -185,6 +185,7 @@ def test_an_open_check_shows_an_estimate_from_the_defaults_then_from_history(cli
     check_id = open_check()
     first = client.get(f"/api/checks/{check_id}").json()
     assert first["status"] == "pending" and first["steps"] == [] and first["sites"] == []
+    assert first["parcels"] == [ID]
     assert first["estimate_seconds"] and first["estimate_seconds"] > 20  # static layers and every step
     with session_scope() as session:
         for seconds in (1.0, 3.0, 2.0):
