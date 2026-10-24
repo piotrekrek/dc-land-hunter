@@ -694,3 +694,15 @@ What this settles for the plan:
   needs another request form before the UI offers it.
 - Bug found and fixed: `check-spike --out` failed when the target folder did not exist.
 
+## Sprawdź działkę, step 2: the job queue splits by kind (24.10.2026, tested on PostGIS; not yet deployed)
+
+- `dclh worker` takes `--kinds` and `--exclude-kinds` (comma lists); `claim_next`, `fail_interrupted` and `work` take the
+  same filters. Without them nothing changes.
+- **`fail_interrupted` is scoped to the worker's own kinds.** It used to mark every running job failed at start-up, which
+  assumed one worker: restarting the check worker would have killed a search that was still running.
+- Compose: `worker` runs with `--exclude-kinds check_parcel` (so a new job kind is never orphaned) and the new
+  `check-worker` with `--kinds check_parcel --interval 2` and `mem_limit: 800m`. The check worker is idle until the
+  `check_parcel` job exists (step 5). A test keeps every handled kind with exactly one worker.
+- The Zadania page labels the new kind "Sprawdzenie działki".
+- Deploying adds one idle container; no migration.
+

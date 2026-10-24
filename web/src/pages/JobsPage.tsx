@@ -20,6 +20,7 @@ const KIND: Record<string, string> = {
   search: "Wyszukiwanie",
   discover: "Weryfikacja źródeł",
   plan_searches: "Plan nocny",
+  check_parcel: "Sprawdzenie działki",
 };
 
 function Counts({ counts }: { counts: OpsJobs["counts"] }) {

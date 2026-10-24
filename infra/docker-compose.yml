@@ -74,9 +74,18 @@ services:
       timeout: 5s
       retries: 10
 
+  # Two workers split the queue by job kind: a check is asked for by a person and must not wait behind a nightly
+  # search that runs for hours. The general worker takes everything except checks, so a new kind is never orphaned.
   worker:
     <<: *python
-    command: ["dclh", "worker"]
+    command: ["dclh", "worker", "--exclude-kinds", "check_parcel"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  check-worker:
+    <<: *python
+    command: ["dclh", "worker", "--kinds", "check_parcel", "--interval", "2"]
+    mem_limit: 800m
     depends_on:
       migrate: { condition: service_completed_successfully }
 

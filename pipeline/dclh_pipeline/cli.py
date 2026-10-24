@@ -592,11 +592,18 @@ def enqueue_cmd(
 def worker_cmd(
     once: Annotated[bool, typer.Option(help="Process pending jobs, then exit")] = False,
     interval: Annotated[float, typer.Option(help="Seconds between polls")] = 10.0,
+    kinds: Annotated[
+        str | None, typer.Option(help="Only take these job kinds (comma list), e.g. check_parcel")
+    ] = None,
+    exclude_kinds: Annotated[str | None, typer.Option(help="Never take these job kinds (comma list)")] = None,
 ) -> None:
-    """Poll the jobs table and execute jobs one at a time."""
+    """Poll the jobs table and execute jobs one at a time. Several workers can split the queue by kind."""
     from dclh_pipeline.jobs import work
 
-    executed = work(once=once, interval_s=interval)
+    def names(text: str | None) -> list[str] | None:
+        return [k.strip() for k in text.split(",") if k.strip()] if text else None
+
+    executed = work(once=once, interval_s=interval, kinds=names(kinds), exclude=names(exclude_kinds) or ())
     console.print(f"executed {executed} job(s)")
 
 
