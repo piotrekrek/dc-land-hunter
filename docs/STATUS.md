@@ -758,3 +758,18 @@ What this settles for the plan:
   parcel); "Dodaj do projektów" (the kanban does not exist yet); "Sprawdź tę działkę" in the map popups; the orthophoto;
   a Playwright test that pastes a real id (it needs live GUGiK services).
 
+## Sprawdź działkę: first real checks on the VPS (25.10.2026)
+
+Deployed #102 to #106. A real check (Żarów `021908_5.0007.238/1`) takes about 28 s through the queue (static layers 16 s the
+first time after a worker start, then 8 to 10 s of area layers). What the first runs found and fixed:
+- ISOK and RU rejected loosely matched answers ("a feature must touch the box"); they now share `bbox_check`: a feature
+  within 2 km of the box passes, swapped axes are still caught. The RU plan ogólny service returned a zone 213 m outside a
+  parcel-sized box. Flood and zoning steps no longer fail on parcels with nothing nearby.
+- A check gives the **same score and score items as the nightly search** for the same land (three single-parcel sites of
+  powiat 0219 compared: identical scores).
+- **Memory:** the OSM parse refuses to start below 800 MB available on the host, which a nightly search can use up. The check
+  worker waits (6 x 30 s) and then fails with "Na serwerze brakuje teraz wolnej pamięci…", and gives the static layers back
+  after 10 minutes without a check, so a quiet check worker does not starve the nightly search. Its container limit is 1200 MB
+  (first check peaked at about 740 MB).
+- The first check after a worker restart is slower (the static layers are loaded again); the estimate counts that step.
+

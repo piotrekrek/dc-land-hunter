@@ -636,12 +636,22 @@ def worker_cmd(
     exclude_kinds: Annotated[str | None, typer.Option(help="Never take these job kinds (comma list)")] = None,
 ) -> None:
     """Poll the jobs table and execute jobs one at a time. Several workers can split the queue by kind."""
+    from dclh_pipeline.check_job import KIND as CHECK_KIND
+    from dclh_pipeline.check_job import release_when_idle
     from dclh_pipeline.jobs import work
 
     def names(text: str | None) -> list[str] | None:
         return [k.strip() for k in text.split(",") if k.strip()] if text else None
 
-    executed = work(once=once, interval_s=interval, kinds=names(kinds), exclude=names(exclude_kinds) or ())
+    only = names(kinds)
+    executed = work(
+        once=once,
+        interval_s=interval,
+        kinds=only,
+        exclude=names(exclude_kinds) or (),
+        # The check worker keeps the static layers between checks but gives them back when it has been idle.
+        on_idle=release_when_idle if only and CHECK_KIND in only else None,
+    )
     console.print(f"executed {executed} job(s)")
 
 

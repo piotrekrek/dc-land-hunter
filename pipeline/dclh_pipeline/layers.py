@@ -420,3 +420,22 @@ def soil_sampler(
         return soil_iii_facts(answers, snapshot.fetched_at), counts
 
     return sample
+
+
+def release_static_layers() -> bool:
+    """Drop the cached static layers and give the memory back. True when there was something to drop.
+
+    They take several hundred MB, and the OSM parse of the nightly search refuses to start without 800 MB free
+    on the host, so a worker that is idle must not hold them.
+    """
+    had = _STATIC_CACHE["layers"] is not None
+    _STATIC_CACHE["key"] = _STATIC_CACHE["layers"] = None
+    if had:
+        import contextlib
+        import ctypes
+        import gc
+
+        gc.collect()
+        with contextlib.suppress(OSError):  # glibc keeps freed pages; ask it to return them to the system
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+    return had
