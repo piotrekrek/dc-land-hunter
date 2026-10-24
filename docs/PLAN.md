@@ -326,8 +326,8 @@ Step 3, result:
   never needs to count it), no cards of equal weight.
 
 **Type and colour.** Keep IBM Plex Sans for the UI and tabular numbers (already in the app). Add *IBM Plex Sans
-Condensed* for the sheet's annotations, which is close to technical drafting lettering, and use *IBM Plex Serif* for
-the one-sentence verdict only, so it reads like the opinion line of a report. Both are in `@fontsource` (no new
+Condensed* for the sheet's annotations, which is close to technical drafting lettering. The verdict sentence is
+plain IBM Plex Sans (owner, 24.10.2026: the serif looked too formal). Both faces are in `@fontsource` (no new
 service). Tokens: reuse `--ok/--warn/--bad` and `--accent`; add `--ink` (sheet lines, = foreground), `--paper`
 (sheet background, = surface, slightly lifted from the page), `--layer-flood`, `--layer-forest`, `--layer-nature`,
 `--layer-housing`, `--layer-grid`, each defined for light and dark. Contrast pairs checked for AA in both themes,
@@ -390,7 +390,7 @@ kit" and the owner's reaction; `axe` run on each state.
    passes: checking the parcels of a site already in `sites` gives the same score and features as the search did.
 5. **Migration `0009`, job `check_parcel`, step tracking and estimate, API.** Tests: 401 without login, 422 on bad input, the 20-id cap,
    a failing source gives `missing` and an "nie sprawdzono" line, DB tests under `*_test` only.
-6a. **Design prototype (static HTML, fixture data, no React).** The sheet, ruler, Protokół and loader in light and
+6a. **[x] Design prototype, approved 24.10.2026** (`docs/design/sprawdz-dzialke-prototype.html`, static HTML, example data). Owner verdicts: the ruler reads faster than the round badge (keep); the serif verdict is too formal (use Plex Sans); the Protokół replaces the cards on the existing site card page too (shared component). Original brief: The sheet, ruler, Protokół and loader in light and
    dark at three widths, for the owner to react to *before* the React code. *Done when* the owner approves or redirects.
 6b. **Web.** Page, polling, loader with progress bar and estimated time, shared card component, empty/loading/error states, map click. Vitest for parsing the
    id list and for each state; one Playwright smoke test (paste a golden id, see a card).

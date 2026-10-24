@@ -1,0 +1,667 @@
+<title>Sprawdź działkę prototyp</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500&family=IBM+Plex+Serif:wght@500&display=swap">
+<style>
+/* Layout: app frame, then one column of work. Result = verdict across the top, a quiet left column and the survey sheet on the right, the Protokół below. */
+:root {
+  --bg: oklch(0.985 0.002 250);
+  --fg: oklch(0.22 0.015 250);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.965 0.004 250);
+  --muted: oklch(0.47 0.015 250);
+  --border: oklch(0.9 0.006 250);
+  --ring: oklch(0.55 0.1 230);
+  --accent: oklch(0.47 0.095 230);
+  --accent-fg: oklch(0.99 0 0);
+  --accent-soft: oklch(0.94 0.03 230);
+  --accent-soft-fg: oklch(0.36 0.08 230);
+  --ok: oklch(0.52 0.12 155);
+  --ok-soft: oklch(0.95 0.04 155);
+  --warn: oklch(0.47 0.11 70);
+  --warn-soft: oklch(0.96 0.05 85);
+  --bad: oklch(0.53 0.17 27);
+  --bad-soft: oklch(0.95 0.03 27);
+  /* survey sheet */
+  --paper: oklch(0.995 0.003 95);
+  --ink: oklch(0.25 0.02 250);
+  --ink-2: oklch(0.52 0.015 250);
+  --ink-3: oklch(0.8 0.008 250);
+  --l-flood: oklch(0.5 0.13 245);
+  --l-forest: oklch(0.45 0.09 150);
+  --l-house: oklch(0.45 0.04 50);
+  --l-grid: oklch(0.25 0.02 250);
+  --f1: oklch(0.93 0.02 130);
+  --f2: oklch(0.91 0.025 85);
+  --f3: oklch(0.94 0.012 160);
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
+  --cond: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --serif: "IBM Plex Serif", Georgia, serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: oklch(0.17 0.01 250); --fg: oklch(0.93 0.006 250); --surface: oklch(0.21 0.012 250);
+    --surface-2: oklch(0.25 0.013 250); --muted: oklch(0.7 0.012 250); --border: oklch(0.32 0.014 250);
+    --ring: oklch(0.72 0.1 230); --accent: oklch(0.74 0.1 225); --accent-fg: oklch(0.18 0.02 250);
+    --accent-soft: oklch(0.3 0.05 230); --accent-soft-fg: oklch(0.86 0.05 225);
+    --ok: oklch(0.76 0.13 155); --ok-soft: oklch(0.3 0.05 155); --warn: oklch(0.8 0.12 80);
+    --warn-soft: oklch(0.32 0.05 80); --bad: oklch(0.74 0.14 27); --bad-soft: oklch(0.32 0.06 27);
+    --paper: oklch(0.2 0.012 250); --ink: oklch(0.9 0.008 250); --ink-2: oklch(0.7 0.012 250);
+    --ink-3: oklch(0.38 0.014 250); --l-flood: oklch(0.72 0.12 235); --l-forest: oklch(0.72 0.11 150);
+    --l-house: oklch(0.72 0.05 60); --l-grid: oklch(0.9 0.008 250);
+    --f1: oklch(0.25 0.02 130); --f2: oklch(0.26 0.025 85); --f3: oklch(0.24 0.012 160);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: oklch(0.17 0.01 250); --fg: oklch(0.93 0.006 250); --surface: oklch(0.21 0.012 250);
+  --surface-2: oklch(0.25 0.013 250); --muted: oklch(0.7 0.012 250); --border: oklch(0.32 0.014 250);
+  --ring: oklch(0.72 0.1 230); --accent: oklch(0.74 0.1 225); --accent-fg: oklch(0.18 0.02 250);
+  --accent-soft: oklch(0.3 0.05 230); --accent-soft-fg: oklch(0.86 0.05 225);
+  --ok: oklch(0.76 0.13 155); --ok-soft: oklch(0.3 0.05 155); --warn: oklch(0.8 0.12 80);
+  --warn-soft: oklch(0.32 0.05 80); --bad: oklch(0.74 0.14 27); --bad-soft: oklch(0.32 0.06 27);
+  --paper: oklch(0.2 0.012 250); --ink: oklch(0.9 0.008 250); --ink-2: oklch(0.7 0.012 250);
+  --ink-3: oklch(0.38 0.014 250); --l-flood: oklch(0.72 0.12 235); --l-forest: oklch(0.72 0.11 150);
+  --l-house: oklch(0.72 0.05 60); --l-grid: oklch(0.9 0.008 250);
+  --f1: oklch(0.25 0.02 130); --f2: oklch(0.26 0.025 85); --f3: oklch(0.24 0.012 160);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14px; line-height: 1.5;
+  font-feature-settings: "tnum" 1; -webkit-font-smoothing: antialiased; }
+button, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+[tabindex="-1"]:focus, [tabindex="-1"]:focus-visible { outline: none; }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* app frame (echoes the real shell) */
+.appbar { display: flex; align-items: center; gap: 16px; height: 52px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.brand { font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
+.appnav { display: flex; gap: 2px; overflow-x: auto; min-width: 0; }
+.appnav span { padding: 6px 10px; border-radius: 6px; color: var(--muted); white-space: nowrap; font-size: 13px; }
+.appnav span.on { background: var(--accent-soft); color: var(--accent-soft-fg); font-weight: 500; }
+
+/* prototype controls */
+.proto { background: var(--surface-2); border-bottom: 1px solid var(--border); padding-block: 10px; }
+.proto-in { max-width: 1180px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; }
+.proto h2 { margin: 0; font-size: 13px; font-weight: 600; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.tabs button, .seg button { border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 5px 10px; cursor: pointer; min-height: 32px; }
+.tabs button[aria-current="page"], .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.seg { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.seg > span { color: var(--muted); font-size: 12px; }
+.note { max-width: 1180px; margin: 0 auto; color: var(--muted); font-size: 12px; padding-top: 6px; }
+
+main { max-width: 1180px; margin: 0 auto; padding-block: 28px 64px; }
+h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; }
+.lead { color: var(--muted); margin: 0 0 20px; max-width: 62ch; }
+h2.sec { font-size: 15px; font-weight: 600; margin: 32px 0 10px; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; border-radius: 6px; padding: 8px 16px; min-height: 40px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); font-weight: 500; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn.primary[disabled] { opacity: .45; cursor: not-allowed; }
+.btn.quiet { border-color: transparent; background: transparent; color: var(--accent); padding-inline: 8px; }
+.btn:hover:not([disabled]) { filter: brightness(0.97); }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+
+/* step 1 */
+.pick { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.field { width: 100%; min-height: 150px; resize: vertical; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); line-height: 1.6; }
+label.l { display: block; font-weight: 500; margin-bottom: 6px; }
+.help { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+.recog { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
+.recog li { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 8px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--border); }
+.recog li:first-child { border-top: 0; }
+.recog code, .id { font-family: var(--cond); font-weight: 500; font-size: 14px; letter-spacing: .01em; overflow-wrap: anywhere; }
+.recog .kind { color: var(--muted); font-size: 12px; margin-left: 6px; }
+.recog .err { color: var(--bad); display: block; font-size: 13px; margin-top: 2px; }
+.glyph { width: 18px; height: 18px; flex: none; }
+.g-ok { color: var(--ok); } .g-bad { color: var(--bad); } .g-est { color: var(--accent); } .g-unk { color: var(--muted); } .g-warn { color: var(--warn); }
+.mapbox { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--paper); }
+.mapbox svg { display: block; width: 100%; height: auto; }
+.recent { margin-top: 36px; }
+.recent ul { list-style: none; padding: 0; margin: 0; }
+.recent li { display: grid; grid-template-columns: 150px minmax(0,1fr) auto; gap: 12px; padding: 9px 0; border-top: 1px solid var(--border); align-items: baseline; }
+.recent li:last-child { border-bottom: 1px solid var(--border); }
+.recent a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+/* step 2 */
+.confirm { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.facts { margin: 0; display: grid; gap: 0; }
+.facts div { display: grid; grid-template-columns: 130px minmax(0,1fr); gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); }
+.facts div:last-child { border-bottom: 1px solid var(--border); }
+.facts dt { color: var(--muted); } .facts dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+/* survey sheet */
+figure.sheet { margin: 0; border: 1px solid var(--ink); background: var(--paper); }
+.sheet svg { display: block; width: 100%; height: auto; }
+.sheet text { font-family: var(--cond); fill: var(--ink-2); }
+.sheet .halo { paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
+.lay { transition: opacity .7s ease; }
+.lay.off { opacity: 0; }
+.sheet-tools { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border-top: 1px solid var(--border); background: var(--surface); }
+.sheet-tools button { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 4px 10px 4px 6px; min-height: 36px; cursor: pointer; font-size: 13px; }
+.sheet-tools button[aria-pressed="false"] { opacity: .55; }
+.sheet-tools svg { width: 22px; height: 18px; border: 1px solid var(--ink-3); background: var(--paper); }
+.tb { display: grid; grid-template-columns: repeat(6, minmax(0, auto)); border-top: 1px solid var(--ink); background: var(--paper); }
+.tb div { padding: 6px 10px; border-left: 1px solid var(--ink); min-width: 0; }
+.tb div:first-child { border-left: 0; }
+.tb small { display: block; font-family: var(--cond); color: var(--ink-2); font-size: 11px; line-height: 1.2; }
+.tb b { font-family: var(--cond); font-weight: 500; font-size: 14px; white-space: nowrap; color: var(--ink); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.tb div.wide { grid-column: span 2; }
+.tb div.wide b { white-space: normal; }
+
+/* result */
+.verdict { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 14px; align-items: start; max-width: 70ch; margin-bottom: 24px; }
+.verdict .vg { width: 34px; height: 34px; }
+.verdict p { font-family: var(--serif); font-weight: 500; font-size: 26px; line-height: 1.3; margin: 0; text-wrap: balance; }
+.verdict .after { grid-column: 2; color: var(--muted); font-size: 13px; margin: 0; }
+.result { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 32px; align-items: start; }
+.col > section + section { margin-top: 28px; }
+.col h3 { font-size: 14px; font-weight: 600; margin: 0 0 8px; }
+.scorebox { display: flex; align-items: baseline; gap: 10px; }
+.scorebox .n { font-size: 44px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.scorebox .n small { font-size: 14px; color: var(--muted); font-weight: 400; margin-left: 2px; }
+.ruler { margin: 14px 0 38px; position: relative; }
+.rtrack { height: 12px; border: 1px solid var(--ink); position: relative; background: var(--paper); }
+.rsolid { position: absolute; inset: 0 auto 0 0; background: var(--ink); }
+.rhatch { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, var(--ink) 0 1.5px, transparent 1.5px 5px); border-left: 0; }
+.tick { position: absolute; top: -5px; width: 0; height: 22px; border-left: 1px solid var(--ink); }
+.tick span { position: absolute; top: 24px; transform: translateX(-50%); font-family: var(--cond); font-size: 11px; color: var(--ink-2); }
+.ruler.dim { opacity: .55; }
+.unknowns { list-style: none; margin: 0; padding: 0; }
+.unknowns li { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); }
+.unknowns li:last-child { border-bottom: 1px solid var(--border); }
+.todo { list-style: none; margin: 0; padding: 0; }
+.todo li { display: grid; grid-template-columns: 22px minmax(0,1fr) auto; gap: 8px; padding: 9px 0; border-top: 1px solid var(--border); align-items: start; }
+.todo li:last-child { border-bottom: 1px solid var(--border); }
+.todo input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--accent); }
+.todo .copy { font-size: 12px; padding: 3px 8px; min-height: 28px; }
+
+/* Protokół */
+.prot { border-top: 2px solid var(--ink); }
+.prot-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+.prot-legend span { display: inline-flex; gap: 6px; align-items: center; }
+.pg { display: grid; grid-template-columns: minmax(0,1fr) auto; padding: 14px 0 6px; border-top: 1px solid var(--ink); }
+.prot > .pg:first-of-type { border-top: 0; }
+.pg h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.pg .sum { color: var(--muted); font-variant-numeric: tabular-nums; }
+.pr { display: grid; grid-template-columns: 24px minmax(150px, 1.1fr) minmax(0, 3fr) 68px; gap: 4px 14px; padding: 9px 0; border-top: 1px solid var(--border); align-items: baseline; }
+.pr .k { font-weight: 500; }
+.pr .why { min-width: 0; }
+.pr .src { color: var(--muted); font-size: 12px; display: block; margin-top: 2px; }
+.pr .pts { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pr .glyph { align-self: start; margin-top: 2px; }
+
+/* running */
+.run { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 32px; align-items: start; }
+.segs { display: grid; grid-template-columns: repeat(9, 1fr); gap: 3px; margin: 10px 0 8px; }
+.segs i { height: 8px; background: var(--surface-2); border: 1px solid var(--border); }
+.segs i.done { background: var(--ink); border-color: var(--ink); }
+.segs i.now { background: repeating-linear-gradient(135deg, var(--ink) 0 2px, transparent 2px 5px); border-color: var(--ink); }
+.eta { font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; margin: 0; }
+.ledger { list-style: none; margin: 18px 0 0; padding: 0; }
+.ledger li { display: grid; grid-template-columns: 24px minmax(0,1fr); gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); }
+.ledger li:last-child { border-bottom: 1px solid var(--border); }
+.ledger li.wait { color: var(--muted); }
+.ledger .find { display: block; color: var(--muted); font-size: 13px; }
+.spin { width: 16px; height: 16px; border: 2px solid var(--ink-3); border-top-color: var(--ink); border-radius: 50%; animation: sp 0.9s linear infinite; margin: 2px 1px; }
+@keyframes sp { to { transform: rotate(360deg); } }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); margin: 8px 6px; }
+.tabmock { display: inline-flex; gap: 8px; align-items: center; border: 1px solid var(--border); border-radius: 6px 6px 0 0; padding: 3px 10px; background: var(--surface); font-size: 12px; color: var(--muted); }
+
+/* many */
+.many { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--ink); }
+.many li { display: grid; grid-template-columns: minmax(150px, 1.3fr) minmax(0, 1fr) minmax(130px, 1fr) minmax(0, 2.2fr); gap: 8px 16px; padding: 14px 0; border-top: 1px solid var(--border); align-items: center; }
+.many li:first-child { border-top: 0; }
+.mini { height: 8px; border: 1px solid var(--ink); position: relative; background: var(--paper); min-width: 90px; }
+.mini .s { position: absolute; inset: 0 auto 0 0; background: var(--ink); }
+.mini .h { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, var(--ink) 0 1.5px, transparent 1.5px 4px); }
+.minin { display: flex; gap: 8px; align-items: center; }
+.vtext { display: grid; grid-template-columns: 20px minmax(0,1fr); gap: 8px; align-items: start; }
+.many .segs { margin: 0; grid-template-columns: repeat(9, 1fr); }
+
+/* errors */
+.errs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 32px; }
+.err-block { border-top: 2px solid var(--ink); padding-top: 10px; }
+.err-block h3 { margin: 0 0 4px; font-size: 14px; }
+.err-block p { margin: 0 0 10px; max-width: 52ch; }
+.err-block .where { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.err-block .sample { border: 1px solid var(--border); background: var(--surface); padding: 10px 12px; margin-bottom: 10px; }
+
+[hidden] { display: none !important; }
+@media (max-width: 860px) {
+  .pick, .confirm, .result, .run, .errs { grid-template-columns: minmax(0, 1fr); }
+  .result, .run { gap: 24px; }
+  .run .sheetcol { order: -1; }
+  .pr { grid-template-columns: 22px minmax(0, 1fr) auto; }
+  .pr .why { grid-column: 2 / 4; grid-row: 2; }
+  .pr .pts { grid-row: 1; grid-column: 3; }
+  .recent li { grid-template-columns: minmax(0,1fr); gap: 2px; }
+  .many li { grid-template-columns: minmax(0, 1fr); }
+  .tb { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tb div { border-top: 1px solid var(--ink); }
+  .tb div:nth-child(odd) { border-left: 0; }
+  .tb div.wide { grid-column: span 2; }
+  .verdict p { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) { .lay { transition: none; } .spin { animation: none; border-top-color: var(--ink-3); } }
+</style>
+
+<!-- shared drawing patterns: hatches carry the meaning, colour only supports it -->
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+  <pattern id="p-flood" width="12" height="8" patternUnits="userSpaceOnUse"><path d="M0 6 Q3 2 6 6 T12 6" fill="none" stroke="var(--l-flood)" stroke-width="1.1"/></pattern>
+  <pattern id="p-forest" width="9" height="9" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.1" fill="var(--l-forest)"/><circle cx="6.5" cy="6.5" r="1.1" fill="var(--l-forest)"/></pattern>
+  <pattern id="p-house" width="6" height="6" patternUnits="userSpaceOnUse"><rect x="1" y="1" width="3.5" height="3.5" fill="none" stroke="var(--l-house)" stroke-width="1"/></pattern>
+  <pattern id="p-nature" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0H8M0 0V8" stroke="var(--l-forest)" stroke-width="1"/></pattern>
+  <symbol id="i-ok" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 9.3l2.4 2.4 4.6-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-est" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2"/><path d="M5.2 9.6c1.2-1.8 2.3-1.8 3.8 0s2.6 1.8 3.8 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-unk" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 7.2c0-1.2.9-1.9 2-1.9s2 .7 2 1.8c0 1.5-2 1.6-2 3.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="9" cy="12.9" r=".95" fill="currentColor"/></symbol>
+  <symbol id="i-bad" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7.5" fill="currentColor" opacity=".12"/><circle cx="9" cy="9" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6.2 6.2l5.6 5.6M11.8 6.2l-5.6 5.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 18 18"><path d="M9 2.2L16.4 15H1.6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 7v3.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="9" cy="12.9" r=".95" fill="currentColor"/></symbol>
+</defs></svg>
+
+<div class="appbar wrap"><span class="brand">DC Land Hunter</span>
+  <nav class="appnav" aria-label="Główna nawigacja (makieta)"><span>Mapa i lista</span><span>Kolejka</span><span class="on">Sprawdź działkę</span><span>Moje projekty</span><span>Eksport</span></nav></div>
+
+<div class="proto wrap"><div class="proto-in">
+  <h2>Prototyp, dane przykładowe</h2>
+  <div class="tabs" id="tabs" role="navigation" aria-label="Ekrany prototypu"></div>
+  <div class="seg" role="group" aria-label="Wynik"><span>Wynik:</span>
+    <button type="button" data-scn="A" aria-pressed="false">Odpada</button>
+    <button type="button" data-scn="B" aria-pressed="true">Wymaga wyjaśnień</button></div>
+  <div class="seg" role="group" aria-label="Pamięć podręczna"><span>Powiat:</span>
+    <button type="button" data-cache="cold" aria-pressed="true">pierwszy raz</button>
+    <button type="button" data-cache="warm" aria-pressed="false">już sprawdzany</button></div>
+  <div class="seg" role="group" aria-label="Motyw"><span>Motyw:</span>
+    <button type="button" data-theme-set="auto" aria-pressed="true">auto</button>
+    <button type="button" data-theme-set="light" aria-pressed="false">jasny</button>
+    <button type="button" data-theme-set="dark" aria-pressed="false">ciemny</button></div>
+</div>
+<p class="note">Makieta do oceny wyglądu i przepływu. Działki, odległości i wyniki są zmyślone. Odliczanie w ekranie „W toku” jest przyspieszone 5 razy.</p></div>
+
+<main class="wrap" id="view"></main>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var state = { view: "wskaz", scn: "B", cache: "cold", timers: [] };
+  var ID = "306201_1.0002.1573";
+
+  var VIEWS = [
+    ["wskaz", "1 Wskaż"], ["potwierdz", "2 Potwierdź"], ["w-toku", "3 W toku"], ["wynik", "4 Wynik"],
+    ["wiele", "Wiele działek"], ["karta", "Karta lokalizacji"], ["bledy", "Błędy"]
+  ];
+
+  /* ---------- helpers ---------- */
+  function icon(kind, cls) { return '<svg class="glyph ' + (cls || "") + '" aria-hidden="true"><use href="#i-' + kind + '"/></svg>'; }
+  var MARK = {
+    ok: { i: "ok", c: "g-ok", t: "sprawdzone" }, est: { i: "est", c: "g-est", t: "szacunek" },
+    unk: { i: "unk", c: "g-unk", t: "brak danych" }, bad: { i: "bad", c: "g-bad", t: "nie spełnia" }
+  };
+  function mark(k) { var m = MARK[k]; return '<span role="img" aria-label="' + m.t + '">' + icon(m.i, m.c) + "</span>"; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function clearTimers() { state.timers.forEach(function (t) { clearTimeout(t); clearInterval(t); }); state.timers = []; }
+  function reduced() { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+  function fmtEta(s) { s = Math.max(0, Math.round(s)); return s >= 60 ? Math.floor(s / 60) + " min " + (s % 60 < 10 ? "0" : "") + (s % 60) + " s" : s + " s"; }
+
+  /* ---------- scenario data ---------- */
+  function data() {
+    var A = state.scn === "A";
+    return {
+      A: A, score: A ? 38 : 58, upside: A ? 61 : 81, mw: 75,
+      verdictState: A ? "bad" : "warn",
+      verdict: A ? "Odpada: 62% działki leży w strefie zalewowej 1%."
+        : "Wymaga wyjaśnień: linia 110&nbsp;kV jest blisko, ale nie ma planu miejscowego ani danych o mocy w GPZ.",
+      after: A ? "Wynik poglądowy, bo twardy filtr wyklucza działkę. Dane z innych warstw zebrano do końca."
+        : "Możesz dojść do 81 pkt, jeśli gmina potwierdzi przeznaczenie i operator poda moc.",
+      unknowns: A ? [
+        ["Plan miejscowy", "Rejestr Urbanistyczny jest niekompletny do 30.11.2026. Brak planu nie znaczy, że go nie ma."],
+        ["Moc w GPZ", "Operator nie publikuje mocy dla najbliższych stacji."]
+      ] : [
+        ["Plan miejscowy", "Rejestr Urbanistyczny jest niekompletny do 30.11.2026. Brak planu nie znaczy, że go nie ma."],
+        ["Moc w GPZ", "Operator nie publikuje mocy dla najbliższych stacji."],
+        ["Liczba właścicieli", "Źródło nie zostało jeszcze zweryfikowane."]
+      ],
+      gates: [
+        ["Powierzchnia co najmniej 10 ha", "12,5 ha", "ok", "EGiB"],
+        ["Strefa zalewowa 1%", A ? "62% działki w strefie zalewowej. To wyklucza działkę." : "Działka poza strefą zalewową 1% (promień 500 m).", A ? "bad" : "ok", "ISOK"],
+        ["Obszary Natura 2000", "Najbliższy obszar w odległości 6,1 km.", "ok", "GDOŚ"],
+        ["Teren górniczy", "Poza terenami górniczymi.", "ok", "MIDAS"],
+        ["Zabudowa mieszkaniowa", "Najbliższy dom 420 m od granicy.", "ok", "BDOT10k"]
+      ]
+    };
+  }
+  var ITEMS = [
+    ["Sieć", "18 z 40", [
+      ["Linia 110 kV", "1,4 km do najbliższej linii. Liczba niezależnych linii nie jest ustalona.", "est", "14 / 20", "OSM, 19.10.2026"],
+      ["GPZ 110/SN", "4,8 km do najbliższej stacji.", "est", "4 / 10", "OSM, 19.10.2026"],
+      ["Moc opublikowana", "Operator nie podaje mocy dla stacji w tym rejonie.", "unk", "0 / 10", "Enea Operator, brak danych"]
+    ]],
+    ["Przeznaczenie", "6 z 20", [
+      ["Plan miejscowy", "Nie ustalono. Punktacja jak dla terenu bez planu. Wymaga zmiany planu.", "unk", "6 / 20", "KIMPZP, 24.10.2026"]
+    ]],
+    ["Teren", "17 z 20", [
+      ["Powierzchnia", "12,5 ha w jednym kawałku.", "ok", "10 / 10", "EGiB, 24.10.2026"],
+      ["Kształt", "Zwartość 0,71. Działka bez wąskich pasów.", "ok", "5 / 6", "EGiB, 24.10.2026"],
+      ["Rozbudowa", "8,2 ha sąsiednich działek pod rozbudowę.", "ok", "2 / 4", "EGiB, 24.10.2026"]
+    ]],
+    ["Dojazd i łączność", "3 z 10", [
+      ["Duże miasto", "12 km do miasta powyżej 100 tys. mieszkańców.", "est", "3 / 10", "PRG, 19.10.2026"]
+    ]],
+    ["Kary", "−5", [
+      ["Las", "6% działki to las. Zalesienie przy granicy.", "ok", "−2", "BDOT10k, 24.10.2026"],
+      ["Gleby klasy III", "Ok. 34% działki. Szacunek z próbek, nie z mapy.", "est", "−3", "KIUG, 24.10.2026"]
+    ]]
+  ];
+  var STEPS = [
+    { l: "Wyszukanie działki w ewidencji", cold: 1, warm: 1, f: function () { return "Działka " + ID + ", Konin, 12,5 ha"; } },
+    { l: "Sąsiednie działki", cold: 2, warm: 1, layer: "neigh", f: function () { return "8,2 ha sąsiednich działek pod rozbudowę"; } },
+    { l: "Sieć energetyczna", cold: 1, warm: 1, layer: "grid", f: function () { return "Linia 110 kV: 1,4 km. GPZ: 4,8 km"; } },
+    { l: "Strefy zalewowe", cold: 6, warm: 3, layer: "FLOOD", f: function (d) { return d.A ? "62% działki w strefie zalewowej 1%" : "Brak strefy zalewowej w promieniu 500 m"; } },
+    { l: "Tereny górnicze", cold: 3, warm: 2, f: function () { return "Poza terenami górniczymi"; } },
+    { l: "Plany miejscowe", cold: 14, warm: 3, f: function () { return "Nie ma planu w rejestrze. To nie znaczy, że go nie ma."; } },
+    { l: "Budynki mieszkalne i lasy", cold: 38, warm: 4, layer: "housing forest", f: function () { return "Najbliższy dom 420 m. Las: 6% działki"; } },
+    { l: "Gleby i przeznaczenie w gminie", cold: 9, warm: 5, f: function () { return "Gleby klasy III: ok. 34% (szacunek)"; } },
+    { l: "Ocena", cold: 1, warm: 1, f: function (d) { return "Wynik " + d.score + " z 100"; } }
+  ];
+
+  /* ---------- the survey sheet ---------- */
+  var P = "105,205 205,190 235,265 190,325 115,315 90,255";
+  function sheet(d, o) {
+    o = o || {};
+    var on = o.on || { neigh: 1, grid: 1, flood: 1, forest: 1, housing: 1 };
+    var ortho = !!o.ortho;
+    function L(name, inner) { return '<g class="lay' + (on[name] ? "" : " off") + '" data-layer="' + name + '">' + inner + "</g>"; }
+    var nb = [
+      ["40,170 85,165 90,255 50,262", "f1"], ["50,262 90,255 115,315 60,330", "f2"], ["60,330 115,315 190,325 175,405 70,410", "f3"],
+      ["85,165 105,205 90,255 85,165", "f2"], ["205,190 240,150 330,160 335,260 235,265", "f1"],
+      ["235,265 335,260 340,350 190,325", "f2"], ["190,325 340,350 330,420 175,405", "f1"], ["85,165 205,150 240,150 205,190 105,205", "f3"]
+    ];
+    var nbSvg = nb.map(function (n) {
+      return '<polygon points="' + n[0] + '" fill="' + (ortho ? "var(--" + n[1] + ")" : "none") + '" stroke="var(--ink-3)" stroke-width="1"/>';
+    }).join("");
+    var cross = "";
+    for (var x = 100; x <= 700; x += 200) for (var y = 100; y <= 500; y += 200) cross += '<path d="M' + (x - 5) + " " + y + "h10M" + x + " " + (y - 5) + 'v10" stroke="var(--ink-3)" stroke-width="1"/>';
+    var floodPath = "M40,262 C90,246 150,262 200,240 C240,228 300,244 346,232 L352,440 L40,452 Z";
+    var forestPoly = d.A ? "40,60 200,50 215,150 120,186 40,150" : "40,60 200,50 215,150 150,214 98,198 40,150";
+    var houses = "";
+    for (var i = 0; i < 4; i++) for (var j = 0; j < 4; j++) if ((i * 3 + j) % 5 !== 4) houses += '<rect x="' + (332 + j * 15) + '" y="' + (300 + i * 15) + '" width="9" height="9" fill="none" stroke="var(--l-house)" stroke-width="1.2"/>';
+    var s = '<svg viewBox="0 0 800 520" role="img" aria-label="Rysunek działki na tle sąsiednich działek, linii 110 kV, stref zalewowych, lasu i zabudowy">' +
+      '<rect width="800" height="520" fill="var(--paper)"/>' + cross +
+      '<g font-size="11"><text x="100" y="14" text-anchor="middle">486 000</text><text x="300" y="14" text-anchor="middle">486 600</text><text x="500" y="14" text-anchor="middle">487 200</text><text x="700" y="14" text-anchor="middle">487 800</text>' +
+      '<text x="4" y="104">372 000</text><text x="4" y="304">371 400</text><text x="4" y="504">370 800</text></g>' +
+      L("neigh", nbSvg) +
+      L("forest", '<polygon points="' + forestPoly + '" fill="url(#p-forest)" stroke="var(--l-forest)" stroke-width="1.2"/><text class="halo" x="96" y="110" font-size="12">las</text>') +
+      (d.A ? L("flood", '<path d="' + floodPath + '" fill="url(#p-flood)" stroke="var(--l-flood)" stroke-width="1.2"/><text class="halo" x="270" y="300" font-size="12" font-style="italic">strefa zalewowa 1%</text>') : "") +
+      L("housing", houses + '<line x1="190" y1="325" x2="330" y2="325" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/><path d="M190 321v8M330 321v8" stroke="var(--ink)"/><text class="halo" x="260" y="318" text-anchor="middle" font-size="12">420 m</text><text class="halo" x="362" y="390" text-anchor="middle" font-size="12">zabudowa mieszkaniowa</text>') +
+      L("grid", '<polyline points="690,0 676,140 700,300 668,430 690,520" fill="none" stroke="var(--l-grid)" stroke-width="1.6" stroke-dasharray="9 5"/>' +
+        '<g stroke="var(--l-grid)" stroke-width="1.6"><path d="M670,140h12M694,300h12M662,430h12"/></g>' +
+        '<line x1="236" y1="268" x2="676" y2="268" stroke="var(--ink)" stroke-width="1" stroke-dasharray="2 4"/><path d="M236 263v10M676 263v10" stroke="var(--ink)"/>' +
+        '<text class="halo" x="456" y="262" text-anchor="middle" font-size="12">1,4 km</text>' +
+        '<text class="halo" x="712" y="90" font-size="13" font-weight="500" fill="var(--ink)" style="fill:var(--ink)">linia 110 kV</text>' +
+        '<text class="halo" x="560" y="512" font-size="12">GPZ 110/SN: 4,8 km, poza arkuszem ↓</text>') +
+      '<polygon points="' + P + '" fill="' + (ortho ? "none" : "var(--accent-soft)") + '" fill-opacity="' + (ortho ? 0 : 0.55) + '" stroke="var(--ink)" stroke-width="2.4" stroke-linejoin="round"/>' +
+      '<text class="halo" x="150" y="262" text-anchor="middle" font-size="15" font-weight="500" style="fill:var(--ink)">1573</text>' +
+      '<text class="halo" x="150" y="278" text-anchor="middle" font-size="11">12,5 ha</text>' +
+      '<g transform="translate(755,48)"><path d="M0 -22 L7 6 L0 0 L-7 6 Z" fill="var(--ink)"/><text x="0" y="22" text-anchor="middle" font-size="12" style="fill:var(--ink)">N</text></g>' +
+      '<g transform="translate(36,486)" font-size="11"><rect x="0" y="0" width="100" height="5" fill="var(--ink)"/><rect x="100" y="0" width="100" height="5" fill="var(--paper)" stroke="var(--ink)"/>' +
+      '<text x="0" y="-5">0</text><text x="100" y="-5" text-anchor="middle">300</text><text x="200" y="-5" text-anchor="end">600 m</text></g>' +
+      "</svg>";
+    return s;
+  }
+  function toolbar(d) {
+    var defs = [["grid", "linia 110 kV", '<line x1="2" y1="14" x2="20" y2="4" stroke="var(--ink)" stroke-width="1.6" stroke-dasharray="4 2"/>'],
+      ["flood", "strefa zalewowa", '<rect width="22" height="18" fill="url(#p-flood)"/>'],
+      ["forest", "las", '<rect width="22" height="18" fill="url(#p-forest)"/>'],
+      ["housing", "zabudowa", '<rect width="22" height="18" fill="url(#p-house)"/>'],
+      ["neigh", "sąsiednie działki", '<rect x="3" y="3" width="16" height="12" fill="none" stroke="var(--ink-2)"/>']];
+    return '<div class="sheet-tools" role="group" aria-label="Warstwy rysunku">' + defs.filter(function (x) { return d.A || x[0] !== "flood"; }).map(function (x) {
+      return '<button type="button" aria-pressed="true" data-toggle="' + x[0] + '"><svg viewBox="0 0 22 18" aria-hidden="true">' + x[2] + "</svg>" + x[1] + "</button>";
+    }).join("") + "</div>";
+  }
+  function titleBlock(d, o) {
+    o = o || {};
+    return '<div class="tb"><div class="wide"><small>' + (o.site ? "lokalizacja" : "działka") + '</small><b>' + (o.site ? "4 działki w obrębie 0002" : ID) + '</b></div>' +
+      "<div><small>gmina, obręb</small><b>Konin, 0002</b></div><div><small>powierzchnia</small><b>12,5 ha</b></div>" +
+      '<div><small>szac. moc</small><b>' + d.mw + " MW</b></div><div><small>" + (o.site ? "ocena z" : "sprawdzono") + "</small><b>24.10.2026</b></div></div>";
+  }
+  function bindToggles(root) {
+    $$("[data-toggle]", root).forEach(function (b) {
+      b.addEventListener("click", function () {
+        var on = b.getAttribute("aria-pressed") !== "true";
+        b.setAttribute("aria-pressed", String(on));
+        var g = $('[data-layer="' + b.dataset.toggle + '"]', root);
+        if (g) g.classList.toggle("off", !on);
+      });
+    });
+  }
+
+  /* ---------- ruler ---------- */
+  function ruler(d) {
+    return '<div class="scorebox"><span class="n" aria-label="Wynik ' + d.score + ' na 100">' + d.score + "<small>/100</small></span>" +
+      '<span class="muted">do <b style="color:var(--fg)">' + d.upside + "</b> pkt po wyjaśnieniu danych</span></div>" +
+      '<div class="ruler' + (d.A ? " dim" : "") + '" role="img" aria-label="Linijka wyniku: ' + d.score + ", potencjał " + d.upside + ', progi 40 i 70">' +
+      '<div class="rtrack"><div class="rsolid" style="width:' + d.score + '%"></div><div class="rhatch" style="left:' + d.score + "%;width:" + (d.upside - d.score) + '%"></div>' +
+      '<span class="tick" style="left:40%"><span>40</span></span><span class="tick" style="left:70%"><span>70</span></span></div></div>';
+  }
+
+  /* ---------- Protokół ---------- */
+  function protokol(d) {
+    var h = '<div class="prot-legend" aria-label="Znaczenie znaków"><span>' + mark("ok") + 'sprawdzone w źródle</span><span>' + mark("est") + 'szacunek</span><span>' + mark("unk") + 'brak danych</span><span>' + mark("bad") + "nie spełnia warunku</span></div><div class=\"prot\">";
+    h += '<div class="pg"><h3>Warunki konieczne</h3><span class="sum">' + (d.A ? "1 niespełniony" : "wszystkie spełnione") + "</span></div>";
+    d.gates.forEach(function (g) {
+      h += '<div class="pr">' + mark(g[2]) + '<span class="k">' + g[0] + '</span><span class="why">' + g[1] + '<span class="src">' + g[3] + ', 24.10.2026</span></span><span class="pts"></span></div>';
+    });
+    ITEMS.forEach(function (grp) {
+      h += '<div class="pg"><h3>' + grp[0] + '</h3><span class="sum">' + grp[1].replace(" z ", " z ") + " pkt</span></div>";
+      grp[2].forEach(function (r) {
+        h += '<div class="pr">' + mark(r[2]) + '<span class="k">' + r[0] + '</span><span class="why">' + r[1] + '<span class="src">' + r[4] + '</span></span><span class="pts">' + r[3] + "</span></div>";
+      });
+    });
+    return h + "</div>";
+  }
+  function copyBtn(text) { return '<button type="button" class="btn quiet copy" data-copy="' + esc(text) + '">Kopiuj treść</button>'; }
+  function todo() {
+    return '<ul class="todo">' + [
+      ["Zapytaj gminę Konin o MPZP lub plan ogólny dla działki 1573", "Dzień dobry, proszę o informację o przeznaczeniu działki 306201_1.0002.1573 w obrębie 0002 w MPZP lub planie ogólnym."],
+      ["Złóż zapytanie do Enea Operator o moc 75 MW w najbliższym GPZ", "Zapytanie o możliwość przyłączenia 75 MW (110 kV) dla działki 306201_1.0002.1573."],
+      ["Sprawdź księgę wieczystą ręcznie w EKW", ""], ["Sprawdź decyzje środowiskowe w Bazie OOŚ", ""]
+    ].map(function (t, i) {
+      return '<li><input type="checkbox" id="td' + i + '"><label for="td' + i + '">' + t[0] + "</label>" + (t[1] ? copyBtn(t[1]) : "<span></span>") + "</li>";
+    }).join("") + "</ul>";
+  }
+  function bindCopy(root) {
+    $$("[data-copy]", root).forEach(function (b) {
+      b.addEventListener("click", function () {
+        var done = function () { b.textContent = "Skopiowano"; setTimeout(function () { b.textContent = "Kopiuj treść"; }, 1600); };
+        try { navigator.clipboard.writeText(b.dataset.copy).then(done, done); } catch (e) { done(); }
+      });
+    });
+  }
+
+  /* ---------- result body, shared by "Wynik" and "Karta lokalizacji" ---------- */
+  function resultBody(d, o) {
+    var vg = d.verdictState === "bad" ? icon("bad", "g-bad vg") : icon("warn", "g-warn vg");
+    return '<div class="verdict" role="group" aria-label="Werdykt" tabindex="-1" id="verdict">' + vg + "<p>" + d.verdict + '</p><p class="after">' + d.after + "</p></div>" +
+      '<div class="result"><div class="col">' +
+      "<section>" + ruler(d) + '<p class="help" style="margin-top:-14px">Szacowana moc 75 MW: 12,5 ha × 6 MW/ha. To szacunek z powierzchni, nie moc przyłączeniowa.</p></section>' +
+      '<section><h3>Nie wiemy</h3><ul class="unknowns">' + d.unknowns.map(function (u) { return "<li>" + mark("unk") + "<span><b>" + u[0] + ".</b> " + u[1] + "</span></li>"; }).join("") + "</ul></section>" +
+      "<section><h3>Następne kroki</h3>" + todo() + "</section></div>" +
+      '<div class="col"><figure class="sheet" id="sheetfig">' + sheet(d) + toolbar(d) + titleBlock(d, o) + "</figure></div></div>" +
+      '<h2 class="sec">Protokół sprawdzenia</h2>' + protokol(d);
+  }
+
+  /* ---------- views ---------- */
+  var VIEW = {};
+
+  VIEW.wskaz = function (root) {
+    root.innerHTML = '<h1>Sprawdź działkę</h1><p class="lead">Wklej numer działki od pośrednika, współrzędne albo link z Map Google. Możesz wkleić kilka naraz.</p>' +
+      '<div class="pick"><div><label class="l" for="inp">Działki do sprawdzenia</label>' +
+      '<textarea class="field" id="inp" aria-describedby="inp-help" spellcheck="false">' + ID + "\n52,2297 20,9511\n141/9</textarea>" +
+      '<p class="help" id="inp-help">Jedna pozycja w wierszu. Pełny identyfikator wygląda tak: ' + ID + ". Najwyżej 20 naraz.</p>" +
+      '<ul class="recog" id="recog" aria-live="polite"></ul>' +
+      '<div class="row" style="margin-top:16px"><button class="btn primary" id="go" type="button">Sprawdź</button><button class="btn" type="button" id="pickmap">Wskaż na mapie</button></div></div>' +
+      '<div><div class="mapbox" aria-label="Mapa do wskazania działki (makieta)">' + sheet(data(), { ortho: true, on: { neigh: 1 } }) + "</div>" +
+      '<p class="help">Kliknij działkę na mapie. Najpierw pokażemy jej obrys do potwierdzenia, dopiero potem ruszy sprawdzanie.</p></div></div>' +
+      '<div class="recent"><h2 class="sec" style="margin-top:0">Ostatnie sprawdzenia</h2><ul>' +
+      "<li><span class=\"id\">" + ID + "</span><span>Konin, 12,5 ha</span><span><a data-go=\"wynik\">Wymaga wyjaśnień, 58 pkt</a></span></li>" +
+      '<li><span class="id">306201_1.0002.1580</span><span>Konin, 3,2 ha</span><span><a data-go="wiele">Odpada: poniżej 10 ha</a></span></li>' +
+      '<li><span class="id">146510_8.0004.211/3</span><span>wczoraj, 18:40</span><span><a data-go="wiele">Odpada: strefa zalewowa</a></span></li></ul></div>';
+    var inp = $("#inp"), rec = $("#recog"), go = $("#go");
+    function parse() {
+      var out = [];
+      inp.value.split(/\n|;/).forEach(function (line) {
+        line = line.trim(); if (!line) return;
+        var ids = line.match(/\d{6}_\d\.\d{4}\.[\w\/]+/g);
+        var gm = /maps\.google|goo\.gl\/maps|google\.[a-z.]+\/maps/.test(line);
+        var co = line.match(/^(\d{2}[.,]\d{2,})[ ,;]+\s*(\d{2}[.,]\d{2,})$/);
+        if (ids) ids.forEach(function (i) { out.push({ ok: true, t: i, kind: "identyfikator TERYT" }); });
+        else if (gm) out.push({ ok: true, t: line, kind: "link z Map Google" });
+        else if (co) out.push({ ok: true, t: co[1] + " N, " + co[2] + " E", kind: "współrzędne" });
+        else if (/^[\p{L} .-]+\s+\d+(\/\d+)?$/u.test(line)) out.push({ ok: true, t: line, kind: "obręb i numer" });
+        else if (/^\d+(\/\d+)?$/.test(line)) out.push({ ok: false, t: line, err: "Brakuje obrębu. Dopisz obręb (na przykład „Wola 141/9”) albo wklej pełny identyfikator." });
+        else out.push({ ok: false, t: line, err: "Nie rozpoznaję tego zapisu. Użyj identyfikatora, współrzędnych, linku z Map Google lub „obręb numer”." });
+      });
+      return out;
+    }
+    function draw() {
+      var r = parse(), n = r.filter(function (x) { return x.ok; }).length;
+      rec.innerHTML = r.map(function (x) {
+        return "<li>" + (x.ok ? icon("ok", "g-ok") : icon("bad", "g-bad")) + "<span><code>" + esc(x.t) + "</code>" + (x.ok ? '<span class="kind">' + x.kind + "</span>" : '<span class="err">' + x.err + "</span>") + "</span></li>";
+      }).join("");
+      go.disabled = n === 0;
+      go.textContent = n > 1 ? "Sprawdź " + n + " działki" : "Sprawdź";
+    }
+    inp.addEventListener("input", draw); inp.addEventListener("blur", draw); draw();
+    go.addEventListener("click", function () { show("potwierdz"); });
+    $("#pickmap").addEventListener("click", function () { show("potwierdz"); });
+  };
+
+  VIEW.potwierdz = function (root) {
+    root.innerHTML = '<h1>Czy to ta działka?</h1><p class="lead">Sprawdzenie potrwa ' + (state.cache === "warm" ? "około 20 sekund" : "około 1 minuty 15 sekund") + ". Upewnij się, że obrys się zgadza.</p>" +
+      '<div class="confirm"><div class="mapbox"><figure class="sheet" style="border:0">' + sheet(data(), { ortho: true, on: { neigh: 1 } }) + '</figure><p class="help" style="padding:0 12px 10px">W wersji docelowej obrys leży na ortofotomapie Geoportalu.</p></div>' +
+      '<div><dl class="facts"><div><dt>Identyfikator</dt><dd><span class="id">' + ID + "</span></dd></div><div><dt>Gmina</dt><dd>Konin</dd></div><div><dt>Obręb</dt><dd>0002</dd></div><div><dt>Numer działki</dt><dd>1573</dd></div><div><dt>Powierzchnia</dt><dd>12,5 ha (z geometrii)</dd></div><div><dt>Poza obszarem?</dt><dd>Nie, leży w obszarze zainteresowania</dd></div></dl>" +
+      '<div class="row" style="margin-top:18px"><button class="btn primary" id="start" type="button">Sprawdź tę działkę</button><button class="btn" id="back" type="button">To nie ta działka</button></div>' +
+      '<p class="help">Sprawdzenie działa w tle. Możesz wyjść z tej strony, wynik zapisze się na liście ostatnich sprawdzeń.</p></div></div>';
+    $("#start").addEventListener("click", function () { show("w-toku"); });
+    $("#back").addEventListener("click", function () { show("wskaz"); });
+  };
+
+  VIEW["w-toku"] = function (root) {
+    var d = data(), warm = state.cache === "warm", key = warm ? "warm" : "cold";
+    var total = STEPS.reduce(function (a, s) { return a + s[key]; }, 0);
+    root.innerHTML = '<div class="run"><div><h1 id="runh" tabindex="-1">Sprawdzam działkę 1573, obręb 0002</h1>' +
+      '<div class="segs" role="progressbar" aria-valuemin="0" aria-valuemax="9" aria-valuenow="0" aria-valuetext="0 z 9 kroków" id="bar">' + STEPS.map(function () { return "<i></i>"; }).join("") + "</div>" +
+      '<p class="eta" id="eta">Szacowany czas: ok. ' + fmtEta(total) + "</p>" +
+      '<p class="help" id="why">' + (warm ? "Dane o tym powiecie są już pobrane, więc to potrwa krócej." : "To pierwsze sprawdzenie w powiecie. Pobieramy dane o budynkach i planach, kolejne będą szybsze (ok. 20 s).") + "</p>" +
+      '<ul class="ledger" id="ledger">' + STEPS.map(function (s, i) { return '<li class="wait" id="st' + i + '"><span><i class="dot"></i></span><span>' + s.l + '<span class="find"></span></span></li>'; }).join("") + "</ul>" +
+      '<div class="row" style="margin-top:18px" id="after" hidden><button class="btn primary" id="see" type="button">Zobacz wynik</button></div>' +
+      '<p class="small muted" style="margin-top:16px">Karta przeglądarki: <span class="tabmock" id="tab">(0/9) Sprawdzam działkę…</span></p></div>' +
+      '<div class="sheetcol"><figure class="sheet">' + sheet(d, { on: {} }) + titleBlock(d) + "</figure></div></div>";
+    var fast = reduced() ? 0 : 5, i = 0, remaining = total;
+    function setDone(n) {
+      $$("#bar i").forEach(function (b, k) { b.className = k < n ? "done" : k === n ? "now" : ""; });
+      $("#bar").setAttribute("aria-valuenow", n); $("#bar").setAttribute("aria-valuetext", n + " z 9 kroków");
+    }
+    function finishStep(k) {
+      var s = STEPS[k], li = $("#st" + k);
+      li.className = ""; var est = k === 2 || k === 7; li.firstChild.innerHTML = icon(k === 3 && d.A ? "bad" : (est ? "est" : "ok"), k === 3 && d.A ? "g-bad" : (est ? "g-est" : "g-ok"));
+      if (k === 5) li.firstChild.innerHTML = icon("unk", "g-unk");
+      li.lastChild.lastChild.textContent = s.f(d);
+      if (s.layer) s.layer.replace("FLOOD", d.A ? "flood" : "").split(" ").forEach(function (n) { var g = $('[data-layer="' + n + '"]', root); if (g) g.classList.remove("off"); });
+      remaining -= s[key];
+      setDone(k + 1);
+      $("#tab").textContent = "(" + (k + 1) + "/9) Sprawdzam działkę…";
+      $("#eta").textContent = "Szacowany czas: ok. " + fmtEta(remaining);
+    }
+    function next() {
+      if (i >= STEPS.length) {
+        $("#eta").textContent = "Gotowe w " + fmtEta(total) + ".";
+        $("#why").hidden = true; $("#tab").textContent = "Gotowe: wymaga wyjaśnień"; if (d.A) $("#tab").textContent = "Gotowe: odpada";
+        $("#after").hidden = false; $("#see").focus();
+        return;
+      }
+      var s = STEPS[i], li = $("#st" + i), k = i;
+      li.className = ""; li.firstChild.innerHTML = '<i class="spin"></i>';
+      setDone(i);
+      var ms = fast ? (s[key] * 1000) / fast : 0;
+      state.timers.push(setTimeout(function () { finishStep(k); i++; next(); }, ms));
+    }
+    setDone(0); next();
+    $("#see").addEventListener("click", function () { show("wynik"); });
+  };
+
+  VIEW.wynik = function (root) {
+    var d = data();
+    root.innerHTML = '<p class="small"><a data-go="wskaz" style="color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:3px">Sprawdź działkę</a> <span class="muted">/ ' + ID + '</span></p>' +
+      resultBody(d) +
+      '<div class="row" style="margin-top:28px"><button class="btn" type="button">Sprawdź ponownie</button><button class="btn" type="button" data-copy="https://example.invalid/sprawdz-dzialke/chk_8f3a">Kopiuj link</button><button class="btn" type="button" disabled title="Pojawi się razem z kanbanem">Dodaj do projektów</button></div>';
+    bindToggles(root); bindCopy(root);
+    $$("[data-copy]", root).forEach(function (b) { if (b.textContent === "Kopiuj link") { b.addEventListener("click", function () { b.textContent = "Skopiowano"; setTimeout(function () { b.textContent = "Kopiuj link"; }, 1600); }); } });
+  };
+
+  VIEW.karta = function (root) {
+    var d = data();
+    root.innerHTML = '<p class="small"><a data-go="wskaz" style="color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:3px">Wszystkie lokalizacje</a></p>' +
+      '<div class="row" style="justify-content:space-between;margin:6px 0 18px"><div><h1>Lokalizacja w obrębie 0002, Konin</h1><p class="muted" style="margin:0">Ocena z nocnego wyszukiwania 24.10.2026. Warstwy o wolniejszym tempie zmian mogą być starsze.</p></div>' +
+      '<div class="row"><button class="btn primary" type="button" data-go="w-toku">Sprawdź na żywo</button></div></div>' +
+      resultBody(d, { site: true });
+    bindToggles(root); bindCopy(root);
+  };
+
+  VIEW.wiele = function (root) {
+    function seg(n) { var s = ""; for (var k = 0; k < 9; k++) s += "<i class=\"" + (k < n ? "done" : k === n ? "now" : "") + '"></i>'; return '<div class="segs" role="progressbar" aria-valuemin="0" aria-valuemax="9" aria-valuenow="' + n + '" aria-valuetext="' + n + ' z 9 kroków">' + s + "</div>"; }
+    function mini(a, b, dim) { return '<div class="minin"><div class="mini" style="' + (dim ? "opacity:.5" : "") + '"><div class="s" style="width:' + a + '%"></div><div class="h" style="left:' + a + "%;width:" + (b - a) + '%"></div></div><b>' + a + "</b></div>"; }
+    root.innerHTML = '<h1>Sprawdzam 4 działki</h1><p class="lead">Każda działka dostaje własną kartę. Gotową możesz otworzyć, zanim skończą się pozostałe.</p>' +
+      '<ul class="many">' +
+      '<li><div><span class="id">' + ID + '</span><br><span class="muted small">Konin, 12,5 ha, 75 MW</span></div><div>' + mini(58, 81) + '</div><div></div><div class="vtext">' + icon("warn", "g-warn") + '<span><b>Wymaga wyjaśnień.</b> Brak planu miejscowego i mocy w GPZ.<br><a data-go="wynik" style="color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:3px">Otwórz kartę</a></span></div></li>' +
+      '<li><div><span class="id">306201_1.0002.1580</span><br><span class="muted small">Konin, 3,2 ha, 19 MW</span></div><div>' + mini(22, 40, true) + '</div><div></div><div class="vtext">' + icon("bad", "g-bad") + '<span><b>Odpada:</b> poniżej 10 ha.<br><a data-go="wynik" style="color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:3px">Otwórz kartę</a></span></div></li>' +
+      '<li><div><span class="id">146510_8.0004.211/3</span><br><span class="muted small">gmina i powierzchnia po zakończeniu</span></div><div></div><div>' + seg(4) + '</div><div class="muted"><span class="spin" style="display:inline-block;vertical-align:-4px;margin-right:8px"></span>Plany miejscowe, 4 z 9, ok. 40 s</div></li>' +
+      '<li><div><span class="id">52,2297 N, 20,9511 E</span><br><span class="muted small">współrzędne</span></div><div></div><div></div><div class="vtext">' + icon("bad", "g-bad") + '<span><b>Serwer GUGiK nie odpowiedział.</b> Spróbuj za chwilę.<br><button class="btn quiet" type="button" style="padding:0;min-height:0">Sprawdź ponownie</button></span></div></li>' +
+      "</ul>" +
+      '<p class="help" style="margin-top:12px">Wiersze układają się według końca sprawdzania. Można przełączyć na sortowanie według wyniku.</p>';
+  };
+
+  VIEW.bledy = function (root) {
+    root.innerHTML = '<h1>Błędy i stany brzegowe</h1><p class="lead">Każdy komunikat mówi, co się stało i co zrobić. Nic nie znika po cichu.</p><div class="errs">' +
+      '<div class="err-block"><h3>Nie znaleziono działki</h3><div class="where">Po „Czy to ta działka?”</div><div class="sample"><div class="vtext">' + icon("bad", "g-bad") + '<span><b>Nie znaleziono działki 141/9.</b> Dopisz obręb albo wklej pełny identyfikator, na przykład ' + ID + ".</span></div></div><button class=\"btn\" type=\"button\">Popraw zapis</button></div>" +
+      '<div class="err-block"><h3>Działka poza obszarem zainteresowania</h3><div class="where">Wynik jest liczony i opisany</div><div class="sample"><div class="vtext">' + icon("warn", "g-warn") + '<span><b>Ta działka leży na wschód od Wisły.</b> Sprawdzamy ją normalnie, ale nie pojawi się w wyszukiwaniu.</span></div></div></div>' +
+      '<div class="err-block"><h3>Jedna warstwa nie odpowiedziała</h3><div class="where">Wynik powstaje, warstwa trafia do „Nie wiemy”</div><div class="sample"><div class="vtext">' + icon("unk", "g-unk") + '<span><b>Strefy zalewowe: nie sprawdzono.</b> Serwer ISOK nie odpowiedział. Bez tego nie wiemy, czy działka jest bezpieczna.<br><button class="btn quiet" type="button" style="padding:0;min-height:0">Spróbuj tę warstwę jeszcze raz</button></span></div></div><p class="small muted" style="margin:0">Werdykt w takiej sytuacji nigdy nie mówi „warto”, tylko „wymaga wyjaśnień”.</p></div>' +
+      '<div class="err-block"><h3>Sprawdzenie przerwane</h3><div class="where">Restart serwera w trakcie pracy</div><div class="sample"><div class="vtext">' + icon("bad", "g-bad") + '<span><b>Sprawdzenie przerwał restart serwera.</b> Uruchom je ponownie. Dane pobrane wcześniej są zapisane, więc drugi raz pójdzie szybciej.</span></div></div><button class="btn primary" type="button">Sprawdź ponownie</button></div>' +
+      '<div class="err-block"><h3>Za dużo działek naraz</h3><div class="where">Pole wprowadzania</div><div class="sample"><div class="vtext">' + icon("warn", "g-warn") + '<span><b>Wklejono 27 pozycji, sprawdzimy pierwsze 20.</b> Pozostałe 7 wklej w osobnym sprawdzeniu.</span></div></div></div>' +
+      '<div class="err-block"><h3>Pusta lista</h3><div class="where">Ostatnie sprawdzenia</div><div class="sample"><b>Jeszcze nic nie sprawdzano.</b><br>Wklej numer działki od pośrednika.</div></div>' +
+      "</div>";
+  };
+
+  /* ---------- router ---------- */
+  function show(v) {
+    clearTimers();
+    state.view = v;
+    var root = $("#view");
+    VIEW[v](root);
+    $$("#tabs button").forEach(function (b) { b.removeAttribute("aria-current"); if (b.dataset.v === v) b.setAttribute("aria-current", "page"); });
+    try { history.replaceState(null, "", "#" + v); } catch (e) {}
+    $$("[data-go]", root).forEach(function (a) { a.addEventListener("click", function () { show(a.dataset.go); }); });
+    if (v === "wynik" || v === "karta") { var vd = $("#verdict"); if (vd) vd.focus({ preventScroll: true }); }
+    if (v === "w-toku") $("#runh").focus({ preventScroll: true });
+  }
+  $("#tabs").innerHTML = VIEWS.map(function (x) { return '<button type="button" data-v="' + x[0] + '">' + x[1] + "</button>"; }).join("");
+  $$("#tabs button").forEach(function (b) { b.addEventListener("click", function () { show(b.dataset.v); }); });
+  $$("[data-scn]").forEach(function (b) { b.addEventListener("click", function () {
+    state.scn = b.dataset.scn; $$("[data-scn]").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); }); show(state.view); }); });
+  $$("[data-cache]").forEach(function (b) { b.addEventListener("click", function () {
+    state.cache = b.dataset.cache; $$("[data-cache]").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); }); show(state.view); }); });
+  $$("[data-theme-set]").forEach(function (b) { b.addEventListener("click", function () {
+    var t = b.dataset.themeSet; $$("[data-theme-set]").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+    if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t); }); });
+  var h = (location.hash || "").slice(1);
+  show(VIEW[h] ? h : "wskaz");
+})();
+</script>
