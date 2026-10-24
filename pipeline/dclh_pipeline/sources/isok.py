@@ -10,10 +10,10 @@ cover them. `zones_with_probability()` splits the answer. A snapshot from before
 
 Zones are whole river reaches (13 zones near Warsaw are 22 MB), so the connector fetches one bbox (a powiat),
 pages with startIndex and checks the total against numberMatched. The answer to
-`srsName=urn:ogc:def:crs:EPSG::2180` is northing-first; `parse()` swaps the axes and then checks that every
-zone touches the requested bbox, so a wrong axis order fails loudly instead of putting the river in the wrong
-place. Zones are clipped to the bbox: the search only needs that area, and a whole reach is slow to overlay on
-every site.
+`srsName=urn:ogc:def:crs:EPSG::2180` is northing-first; `parse()` swaps the axes and then checks that the
+zones' extents reach the requested bbox, so a wrong axis order fails loudly instead of putting the river in
+the wrong place. Zones are clipped to the bbox: the search only needs that area, and a whole reach is slow to
+overlay on every site.
 """
 
 from __future__ import annotations
@@ -143,12 +143,13 @@ class IsokConnector(Source):
             pd.concat(frames, ignore_index=True), geometry="geometry", crs=f"EPSG:{EPSG}"
         )
         table = table[np.isin(table[PROBABILITY_FIELD].to_numpy(), PROBABILITIES)]
-        # The server selected the zones by the bbox, so they must touch it. A server may match on envelopes,
-        # so one zone outside is possible; none inside means swapped axes or a wrong CRS. Fail rather than
-        # load a river in the wrong place.
-        if not table.empty and not table.geometry.intersects(area).any():
+        # The server selected the zones by the bbox, so their extents must reach it. It matches on envelopes:
+        # a long reach can lie around a small box without touching it (a parcel check asks for a few hundred
+        # metres), and that is a real "no flood zone here". Swapped axes put every zone far outside the box,
+        # so no envelope reaches it: fail rather than load a river in the wrong place.
+        if not table.empty and not table.geometry.envelope.intersects(area).any():
             raise ValueError(
-                f"ISOK: none of the {len(table)} zones touches the requested bbox; "
+                f"ISOK: none of the {len(table)} zones reaches the requested bbox; "
                 "check the axis order (EPSG:2180, the service answers northing-first)"
             )
         clipped = table.geometry.clip_by_rect(*request["bbox"])

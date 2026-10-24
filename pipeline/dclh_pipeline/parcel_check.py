@@ -74,7 +74,8 @@ HARD_FILTER_ORDER = (
     "heritage_register",
     "residential_within_m",
 )
-# What each hard filter needs, as the loading step that feeds it (None: a saved snapshot or no public source).
+# The loading step that feeds each hard filter. The soil filter (class I-II) has none: KIUG gives only the
+# class III share, which feeds a penalty, so that filter stays "nie sprawdzono" whatever happens.
 FILTER_LABEL_PL = {
     "area_below_min": "Minimalna powierzchnia",
     "protected_nature_pct_over": "Natura 2000, park narodowy, rezerwat",
@@ -89,7 +90,6 @@ FILTER_STEP = {
     "flood_10_or_1_pct": "flood",
     "mining_area_active": "mining",
     "forest_pct_over": "bdot10k",
-    "soil_class_I_II_pct_over": "kiug",
     "residential_within_m": "bdot10k",
 }
 
@@ -103,7 +103,7 @@ STEP_LABELS_PL = {
     "bdot10k": "Budynki mieszkalne i lasy (BDOT10k)",
     "zoning": "Plany miejscowe i plan ogólny (RU)",
     "kimpzp": "Plan miejscowy w punkcie działki (KIMPZP)",
-    "kiug": "Klasy gleb (KIUG)",
+    "kiug": "Gleby klasy III (KIUG)",
     "scoring": "Ocena",
 }
 STEP_ORDER = tuple(STEP_LABELS_PL)
@@ -575,7 +575,7 @@ def check_parcel(
         sampled = replace(sampled, soil_iii=soil)
         fact = soil.get(site.site_id)
         finding = (
-            f"Gleby klas I–II (próbka punktów): {_pct(fact.value)}."
+            f"Gleby klasy III (próbka punktów): {_pct(fact.value)}."
             if fact
             else "Brak klas gleb w próbce punktów."
         )
