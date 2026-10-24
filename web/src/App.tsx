@@ -7,11 +7,13 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider } from "@/lib/auth";
 import { JobsPage } from "@/pages/JobsPage";
 import { LoginPage } from "@/pages/LoginPage";
+import { CheckPage } from "@/pages/CheckPage";
 import { HomePage } from "@/pages/HomePage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { PowiatyPage } from "@/pages/PowiatyPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+import { SprawdzDzialkePage } from "@/pages/SprawdzDzialkePage";
 import { SiteCardPage } from "@/pages/SiteCardPage";
 
 export function AppRoutes() {
@@ -38,21 +40,8 @@ export function AppRoutes() {
             />
           }
         />
-        <Route
-          path="sprawdz-dzialke"
-          element={
-            <PlaceholderPage
-              title="Sprawdź działkę"
-              phase={4}
-              description="Ktoś zaproponował działkę? Sprawdź, czy nadaje się pod centrum danych."
-              bullets={[
-                "Wklej identyfikator działki (TERYT) lub kilka identyfikatorów",
-                "Albo kliknij działkę na mapie",
-                "Pełna ocena i karta lokalizacji w mniej niż 30 sekund",
-              ]}
-            />
-          }
-        />
+        <Route path="sprawdz-dzialke" element={<SprawdzDzialkePage />} />
+        <Route path="sprawdz-dzialke/:checkId" element={<CheckPage />} />
         <Route
           path="projekty"
           element={

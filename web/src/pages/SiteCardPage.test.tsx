@@ -92,6 +92,19 @@ describe("SiteCardPage", () => {
     expect(within(groups[1]!).getByText("Brak danych")).toBeInTheDocument();
   });
 
+  it("links to a check of the same parcels with live layers (the id goes into the address)", async () => {
+    mockFetch({ "/api/sites/site-a": detail });
+    renderCard("/lokalizacje/site-a");
+    const link = await screen.findByRole("link", { name: "Sprawdź te działki z aktualnymi danymi" });
+    expect(link).toHaveAttribute("href", `/sprawdz-dzialke?q=${encodeURIComponent("1\n2")}`);
+  });
+
+  it("offers the check for a single parcel in the singular", async () => {
+    mockFetch({ "/api/sites/site-a": { ...detail, parcel_ids: ["306201_1.0002.1573"] } });
+    renderCard("/lokalizacje/site-a");
+    expect(await screen.findByRole("link", { name: "Sprawdź tę działkę z aktualnymi danymi" })).toBeInTheDocument();
+  });
+
   it("lists exclusion reasons for an excluded site", async () => {
     mockFetch({
       "/api/sites/site-a": {

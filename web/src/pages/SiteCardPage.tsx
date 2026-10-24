@@ -36,6 +36,16 @@ function SiteCard({ site }: { site: SiteDetail }) {
               Pokaż w Mapach Google
             </a>
           </p>
+          {parcels > 0 && parcels <= 20 && (
+            <p className="mt-1 text-sm">
+              <Link
+                to={`/sprawdz-dzialke?q=${encodeURIComponent(site.parcel_ids.join("\n"))}`}
+                className="text-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                {parcels === 1 ? "Sprawdź tę działkę" : "Sprawdź te działki"} z aktualnymi danymi
+              </Link>
+            </p>
+          )}
           <div className="mt-2 flex flex-wrap gap-1.5">
             <Badge variant={site.grid_badge === "Opublikowana moc" ? "ok" : site.grid_badge === "Bliskość sieci" ? "accent" : "neutral"}>
               {site.grid_badge}
