@@ -181,6 +181,266 @@ to say which ones come first.
 **Done when:** saving 0805 in the tab makes the next `plan_searches` queue it first, and the page shows it as checked
 after its search succeeds.
 
+## Sprawdź działkę (plan of 24.10.2026)
+
+**Problem.** "Someone offered me this plot. Is it any good?" The nightly search only finds land inside the grid
+pre-filter and writes it per powiat. The team has no way to ask about one given parcel, and no way to test every
+layer on land whose answer they already know (golden set).
+
+**Users.** All logged-in users, desktop first, phone for a quick look.
+
+**What exists.** `uldk.py` parses `GetParcelByXY` only. `search_powiat` loads everything for a whole powiat (flood,
+mining, BDOT10k housing, RU, plus three OSM parses of the full extract) and `run_search` drops parcels under
+`min_parcel_ha` and clusters under `ha_min`. `write_sites` replaces a powiat's rows. The site card and
+`GET /api/sites/{id}` already render a scored site from `sites.detail`.
+
+**Assumptions (to verify in step 1, none are measured yet)**
+- A: a check can reuse the scorer unchanged. It can: `score_candidates(sites, layers, cfg)` takes any `Site`.
+- B: the heavy part is loading layers, not scoring. Per-powiat downloads (BDOT10k, flood, RU) and the OSM parses
+  are too slow and too big for 30 s on the 1.9 GB VPS if repeated per request (R7).
+- C: ULDK `GetParcelById` returns the same `SRID=2180` geometry as `GetParcelByXY` (only the XY form is confirmed live).
+
+### Design
+
+1. **Pipeline, new `dclh_pipeline/parcel_check.py`.** `check_parcels(ids_or_points) -> list[ParcelCheck]`:
+   ULDK resolves each input to a parcel (id and geometry); each parcel is its own site and card (decision 2).
+   No grid pre-filter, no `min_parcel_ha` drop, no `ha_min` drop: a small or far-away parcel is scored and shown with
+   its hard-filter reasons ("poniżej 10 ha"), not silently omitted.
+2. **Layer loading, split in two.** Refactor `search_powiat` into (a) *static layers* from saved snapshots (grid,
+   gas, runways, industrial, residential clusters, GDOŚ, DSO/PSE capacity, heat, PSI, cities), built once per worker
+   process and cached in memory, and (b) *area layers* downloaded for a bbox (flood, mining, RU, BDOT10k, EGiB
+   neighbours for `expansion_ha`, KIMPZP and KIUG points). For a check the bbox is the parcel buffered by the
+   largest distance any constraint needs. `search_powiat` keeps its behaviour and calls the same two functions, so
+   there is one implementation (PLAN key decision).
+   - BDOT10k is per powiat (a big download). Use the existing 40-day response cache; the first check in a powiat is
+     "cold" and slower, which the loader and estimate cover (decision 4). No OSM fallback.
+3. **Async by job.** New job kind `check_parcel` (payload: inputs, `requested_by`). The API creates a `parcel_checks`
+   row (`pending`) and returns its id; the page polls it. Progress is a list of layer steps with status, so a cold
+   run shows "Pobieranie: strefy zalewowe…" rather than a frozen spinner. Worker poll is 10 s today: add a short
+   poll for this kind, or a wake-up, so a warm check is not 10 s late.
+4. **Storage, migration `0009`.** Tables `check_step_stats` (loader estimates), `parcel_checks` (`id`, `requested_by`, `created_at`, `status`, `steps` jsonb,
+   `inputs` text[], `error`) and `parcel_check_sites` (one row per resulting site: the same columns as `sites`,
+   including `detail` and `geom`). Not the `sites` table: its writer deletes by powiat. Parcel ids and geometry
+   only; no owner data, no notes (brief 9.6). Checks are visible to all users.
+5. **API.** `POST /api/parcels/resolve` (inputs → parcel id, outline, gmina, obręb, registered area, within the
+   seconds; synchronous, no job; powers the "Czy to ta działka?" screen and the map click). `POST /api/checks` (body: `parcels: string[]` or `point: {x,y}`; max 20 ids; 422 on malformed ids),
+   `GET /api/checks/{id}` (status, steps, sites), `GET /api/checks/{id}/sites/{n}` (same shape as
+   `SiteDetail`), `GET /api/checks` (my recent). A map click calls `POST` with a point; ULDK is reached only from
+   the worker, never from the browser.
+6. **Web.** `/sprawdz-dzialke`: textarea (ids separated by space, comma or newline) and "Wskaż na mapie", recent
+   checks list. `/sprawdz-dzialke/:checkId`: progress, then the result cards. The site card body is extracted from
+   `SiteCardPage` into a shared component so both routes render the same thing. The card says "Sprawdzenie
+   jednej działki, poza wyszukiwaniem" and shows the layer ages. All text Polish, `12,5 ha`, `dd.mm.rrrr`.
+7. **Honesty rules.**
+   - A layer that failed or was skipped is `missing`, and an inactive hard filter is listed as "nie sprawdzono"
+     (R13). A check never reports "no flood" because the flood download failed.
+   - A parcel outside the AOI is scored and labelled "poza obszarem zainteresowania" (decision 1 below).
+   - Zoning "unknown" stays "unknown", not "bad" (brief 3).
+   - The card carries the manual next steps (KW, MPZP query to the gmina, DSO query), as for any site.
+
+### UI and UX design
+
+**Why this needs its own design.** The app today is the standard kit: cool grey, steel-blue accent, round score
+badge, a stack of identical bordered cards. Sprawdź działkę is the screen where someone holds a broker's message and
+a decision to make, so it gets a point of view instead of the default.
+
+**The person and the moment.** A partner gets "I have a plot for you, id 141906_2.0001.141/9" in a chat, often on a
+phone. They want, in this order: (1) is this the plot I think it is, (2) should I spend time on it, (3) why, (4) what
+do I do next. Waiting up to two minutes is acceptable only if the wait shows real progress and teaches them
+something.
+
+**Design idea: the check is a survey drawing that fills in as the work is done.** Cadastral and utility maps are
+this domain's own visual language: thin ink outlines, hatch patterns for zones, a scale bar, a north arrow, and a
+title block in the corner. One big drawing, centred on the parcel, is the memorable element. Everything around it
+stays quiet. The loader *is* that drawing: each finished step lays its layer onto the sheet and writes its finding
+into the ledger beside it, so the wait is the investigation happening in front of the user.
+
+**Flow (three screens, one URL each)**
+
+1. `/sprawdz-dzialke` **Wskaż działkę.** One field that takes what people really have: a TERYT id
+   (`306201_1.0002.1573`), "obręb + numer", coordinates, a Google Maps link, or several of these pasted at once. A map
+   beside it takes a click. Both lead to the same next step.
+2. **Czy to ta działka?** (a confirmation, before any expensive work). A fast lookup (seconds) draws the outline on
+   the orthophoto with gmina, obręb and registered area. Wrong id or wrong click costs two seconds, not two minutes.
+   Only then "Sprawdź" starts the job.
+3. `/sprawdz-dzialke/:checkId` **Wynik**, which first shows the progress state and then becomes the result in place,
+   so the URL never changes under the user and can be shared with a partner.
+
+**Wireframes (desktop; mobile stacks the columns in the same order)**
+
+Step 1, input:
+```
+ Sprawdź działkę
+ ┌──────────────────────────────────────────────┐   ┌───────────────────────────┐
+ │ Wklej numer działki, współrzędne lub link     │   │                           │
+ │ z Map Google. Możesz wkleić kilka naraz.      │   │   map (click to pick)     │
+ │                                               │   │                           │
+ └──────────────────────────────────────────────┘   └───────────────────────────┘
+  Rozpoznano: [306201_1.0002.1573  identyfikator]  [52,13 N 20,80 E  współrzędne]
+  ✕ „141/9": brak obrębu. Dopisz obręb albo wklej pełny identyfikator.
+                                           [ Sprawdź działki ]
+  Ostatnie sprawdzenia
+  141/9 Jawczyce      24.10.2026   odpada: strefa zalewowa
+  ...
+```
+Step 3, running (the drawing fills in):
+```
+ ┌─ sheet ─────────────────────────────────────┐  Sprawdzam działkę 1573, obręb 0002
+ │      N↑                 ┄┄┄┄ 110 kV (laid)   │  ████████░░░░  5 z 9 · ok. 1 min 10 s
+ │   ░░░░ flood hatch (laid)  ┌────┐           │  ✓ Linia 110 kV: 1,4 km
+ │                            │parc│           │  ✓ Strefa zalewowa: brak
+ │   ▒▒▒ forest (waiting…)    └────┘           │  ⟳ Budynki mieszkalne (BDOT10k)
+ │ ─────── 0   250   500 m                     │  · Plany miejscowe
+ └─ 1573 · Jawczyce · 12,5 ha · 24.10.2026 ────┘  Możesz wyjść z tej strony. Wynik zapisze się
+                                                  na liście „Ostatnie sprawdzenia".
+```
+Step 3, result:
+```
+ Odpada: 62% działki leży w strefie zalewowej 1%.          (verdict, one sentence, the reason first)
+ ┌ sheet (large, layer toggles) ──────────┐  Wynik 38 ├──────●────┼──────────┤
+ │                                        │             0   40    70       100
+ │                                        │  do 61 pkt po wyjaśnieniu danych (hatched part of the ruler)
+ └ title block: id · gmina · ha · MW · date┘  Nie wiemy: plan miejscowy, grunty rolne klasy I–II
+                                              Następne kroki (checklist)
+ Protokół sprawdzenia (full width, below): one row per criterion, finding + source + mark
+```
+
+**What makes it not the standard kit (each one encodes information)**
+- *The sheet.* Hatches, not colour fills: flood = wave lines, forest = stipple, protected nature = cross-hatch,
+  housing = small squares, 110 kV = dashed ink line with its voltage written on it, nodes 220/400 kV = solid.
+  Colour-blind safe by construction, and it prints well for the PDF one-pager later.
+- *The title block* in the sheet's corner (parcel id, gmina, obręb, area, estimated MW, check date, who asked) is
+  the card's header. It replaces the "Lokalizacja: 12,5 ha" heading and the round badge.
+- *The ruler instead of a round badge.* The score sits on a 0–100 ruler with ticks at the 40 and 70 thresholds. The
+  solid part runs to the score, the hatched part to the "after the data is clarified" potential. Current and
+  potential are the two numbers the user needs; the ruler shows both at a glance.
+- *The verdict is a sentence, not a colour.* Written first, the deciding reason leading. Three outcomes, derived
+  from existing logic only (no new thresholds): "Odpada: …" when a hard filter fires; "Wymaga wyjaśnień: …" when no
+  filter fires but completeness is low or the grid is proxy-only; "Warto sprawdzać dalej: …" otherwise. State is
+  carried by words and a shape (✕, ?, ✓) as well as colour.
+- *The Protokół instead of category cards.* A ruled table like an inspection record: criterion, finding in plain
+  Polish, mark, source and date in a quieter second line. Marks: ✓ sprawdzone, ≈ szacunek, ? brak danych (the brief's
+  ✓ / ~ / ?). Rows with no data are grouped under "Nie wiemy" at the top, not hidden at the bottom.
+- *One boldness budget.* The sheet gets the character. Buttons, inputs and tables stay on the existing shadcn
+  components and tokens. No gradients, no all-caps labels, no numbered steps (the flow is a flow, but the user
+  never needs to count it), no cards of equal weight.
+
+**Type and colour.** Keep IBM Plex Sans for the UI and tabular numbers (already in the app). Add *IBM Plex Sans
+Condensed* for the sheet's annotations, which is close to technical drafting lettering. The verdict sentence is
+plain IBM Plex Sans (owner, 24.10.2026: the serif looked too formal). Both faces are in `@fontsource` (no new
+service). Tokens: reuse `--ok/--warn/--bad` and `--accent`; add `--ink` (sheet lines, = foreground), `--paper`
+(sheet background, = surface, slightly lifted from the page), `--layer-flood`, `--layer-forest`, `--layer-nature`,
+`--layer-housing`, `--layer-grid`, each defined for light and dark. Contrast pairs checked for AA in both themes,
+and hatches stay legible at 1× and 2× zoom.
+
+**Waiting well (the loader)**
+- Real progress only: the bar is steps done over steps total, never a fake animation. The estimate comes from the
+  history table (decision 4) and says *why* when slow ("pierwsze sprawdzenie w tym powiecie pobiera dane o
+  budynkach"). The first useful number appears within 2 s; before then the page says "Sprawdzam…" with no figure.
+- Each step, when it ends, adds its layer to the sheet and its finding to the ledger. This needs the pipeline to
+  return, per step, a short finding string and a simplified geometry clipped to the sheet (cap about 500 KB per
+  check; if over the cap the layer is listed but not drawn).
+- The browser tab title carries the state ("(5/9) Sprawdzam…", then "Gotowe: …") so people can switch tabs. The
+  job continues if they leave. No push or email in this scope.
+- Failure is visible and local: a failed step shows ✕ in the ledger with the reason and a "Spróbuj tę warstwę
+  jeszcze raz" action; the check still completes with that layer under "Nie wiemy".
+
+**Several parcels.** One card per parcel (decision 2). The result page becomes a compact comparison list while they
+run: one row per parcel (id, gmina, ha, MW, verdict, ruler) with its own mini progress; a finished row opens its
+full result immediately. Rows sort by completion, then can sort by score. Duplicates collapse with a note. More than
+20 ids: the form says how many were kept and why.
+
+**Map click.** Hover does nothing (a lookup per hover would hammer ULDK). Click drops a pin, resolves the parcel,
+outlines it and offers "Sprawdź tę działkę". The same "Sprawdź tę działkę" action is added to map popups and the
+site card, so an existing site can be re-checked with fresh live layers.
+
+**Accessibility and input quality**
+- Everything the sheet shows is also in the ledger as text, so the sheet is never the only carrier of information.
+- Progress is `role="progressbar"` with `aria-valuetext` ("5 z 9 kroków, ok. 1 min 10 s"); step changes go to one
+  polite live region, not once per second. After submit, focus moves to the progress heading; after completion, to
+  the verdict.
+- Input errors are inline, tied to the field with `aria-describedby`, name the exact token and say how to fix it. A
+  focusable summary appears when several tokens fail. Validation runs on paste and blur, not per keystroke.
+- Touch targets 44 px, the textarea works with mobile paste, the map is optional on phones (the id path is
+  primary), layers toggles are buttons not a drag. `prefers-reduced-motion`: layers appear without animation.
+- Polish formatting through `format.ts`; dates `dd.mm.rrrr`; ids selectable and with a "Kopiuj" button.
+
+**Copy (Polish, sentence case, one name per action)**
+Actions: "Sprawdź", "Sprawdź ponownie", "Kopiuj link", "Dodaj do projektów". Errors say what happened and what to do:
+"Nie znaleziono działki 141/9. Dopisz obręb albo wklej pełny identyfikator, np. 306201_1.0002.1573." "Serwer
+GUGiK nie odpowiedział. Spróbuj za chwilę." "Sprawdzenie przerwane przez restart serwera. Uruchom je ponownie."
+Empty list: "Jeszcze nic nie sprawdzano. Wklej numer działki od pośrednika."
+
+**Look-and-feel check before merging web code.** Screenshots (Playwright) at 390, 768 and 1440 px in light and
+dark, for: empty, recognised input, invalid input, confirm, running (cold and warm), done (odpada / wymaga wyjaśnień /
+warto), partial failure, multi-parcel, ULDK error. Reviewed against the list under "What makes it not the standard
+kit" and the owner's reaction; `axe` run on each state.
+
+### Steps (one PR each, stacked in this order)
+
+1. **Spike and measurement (no feature code).** `dclh check-spike <id>`: ULDK by id, then time each area layer
+   for one parcel in Reguły (Pruszków, golden set) and one far from the existing powiats. Record the seconds,
+   peak memory and cold/warm difference in STATUS.md; confirm assumptions B and C; save the ULDK `GetParcelById`
+   answers as fixtures. *Done when* the numbers seed the loader's default estimates and say what "warm" costs.
+2. **ULDK by id, by point and by "obręb + numer"** (name search unverified: the spike checks `GetParcelByIdOrNr`) (`parse_by_id`, `fetch_by_id`/`by_xy` through `PoliteClient`) with tests on the live fixtures:
+   ok, not found, malformed id, multi-record, ULDK error text, geometry in EPSG:2180.
+3. **Refactor `search_powiat` into static + area layers** with no behaviour change. *Done when* the existing
+   search tests pass unchanged and a powiat search produces the same sites as before on the fixture.
+4. **`check_parcels` + `dclh check <ids>` CLI.** Prints the score breakdown. *Done when* the consistency test
+   passes: checking the parcels of a site already in `sites` gives the same score and features as the search did.
+5. **Migration `0009`, job `check_parcel`, step tracking and estimate, API.** Tests: 401 without login, 422 on bad input, the 20-id cap,
+   a failing source gives `missing` and an "nie sprawdzono" line, DB tests under `*_test` only.
+6a. **[x] Design prototype, approved 24.10.2026** (`docs/design/sprawdz-dzialke-prototype.html`, static HTML, example data). Owner verdicts: the ruler reads faster than the round badge (keep); the serif verdict is too formal (use Plex Sans); the Protokół replaces the cards on the existing site card page too (shared component). Original brief: The sheet, ruler, Protokół and loader in light and
+   dark at three widths, for the owner to react to *before* the React code. *Done when* the owner approves or redirects.
+6b. **Web.** Page, polling, loader with progress bar and estimated time, shared card component, empty/loading/error states, map click. Vitest for parsing the
+   id list and for each state; one Playwright smoke test (paste a golden id, see a card).
+7. **Polish.** "Sprawdź ponownie", "Dodaj do projektów" (arrives with the Moje projekty kanban, so only a stub link
+   until then), check history.
+
+### Test cases that matter (beyond the happy path)
+Malformed and duplicated ids, an id that does not exist, ids from different powiats in one request, two
+adjacent parcels (two cards), a parcel under 1 ha, a parcel over 80 ha (split suggestion), a parcel straddling a powiat
+border, a parcel outside the AOI (labelled, not refused), outside Poland (ULDK error), ULDK or one area source down (partial result, not a
+failed check), the worker restarting mid-check (`fail_interrupted` marks it failed, the page shows it), two users
+checking the same parcel at once, and a parcel in a powiat with no saved snapshots.
+
+### Risks
+| Risk | Mitigation |
+|---|---|
+| Cold powiat takes minutes (BDOT10k, RU) and the 30 s promise breaks | Measure in step 1; loader with estimated time; promise 30 s only for warm checks |
+| Memory: static layers held in the worker on a 1.9 GB VPS | Build lazily, drop after idle, measure peak in step 1; the worker already runs one job at a time |
+| ULDK blocks non-Polish IPs and rate-limits | Runs on the VPS only; `PoliteClient` rate limit; tests use fixtures |
+| A check and a nightly search disagree on the same land | The consistency test in step 4 |
+| Scoring a small or off-grid parcel looks like a recommendation | Hard-filter reasons shown first; the "poza wyszukiwaniem" and "poza obszarem" labels; no rank, only a score and its explanation |
+
+### Decisions (owner, 24.10.2026)
+1. A parcel outside the AOI is scored and labelled "poza obszarem zainteresowania".
+2. Adjacent ids are **not** merged: one card per parcel for now. Step 1 of "Design" therefore drops the clustering
+   of inputs; `expansion_ha` still counts neighbouring parcels. Combining parcels is a later option.
+3. "Check only on demand" (interpreted): a check runs only when a user asks. No automatic re-check or refresh, and
+   no expiry job; a result is re-run by pressing "Sprawdź ponownie". The card always shows the check date and
+   layer ages. *To confirm with the owner: does this also mean old checks are kept indefinitely?*
+4. BDOT10k housing stays, with no OSM fallback. A cold powiat is slow, so the page must show a loader with an
+   estimated time instead of shortening the check (below).
+
+### Loader and estimated time
+- The job writes `steps` as it goes: `[{key, label_pl, status: waiting|running|done|failed|skipped, started_at,
+  seconds}]`, in layer order (ULDK, EGiB neighbours, flood, mining, RU, BDOT10k housing and forest, KIMPZP, KIUG,
+  scoring). The page polls every 2 s and shows a progress bar (done steps over all), the running step's Polish
+  label ("Pobieranie budynków mieszkalnych (BDOT10k)…") and a step list with ticks.
+- Estimate: a table `check_step_stats` (`step_key`, `warm`, `seconds`, `at`) filled by every check. The estimate
+  is the median of the last 10 runs of each step, **cold** when the powiat's BDOT10k/RU answers are not in the
+  response cache and **warm** otherwise, summed over the steps still to do. Before any history exists, the step 1
+  spike numbers are the defaults. The page shows "Szacowany czas: ok. 2 min (pierwsze sprawdzenie w tym powiecie)"
+  or "ok. 25 s", counts down, and says "trwa dłużej niż zwykle" when it overruns instead of showing 100% early.
+- The user can leave the page: the job continues and the check shows in the recent list ("w trakcie").
+- Tests: estimate from history, default without history, cold vs warm, a failed or skipped step counts as done
+  for progress, and the overrun message.
+
+**Done when:** pasting the golden-set parcel of Data4 Jawczyce or Reguły returns a card with all layers and their
+confidence in under 30 s (warm), the card equals the search result for the same land, and a layer failure shows as
+"nie sprawdzono".
+
 ## Phase 6: Hardening and deploy
 
 Tasks: Polish VPS, Caddy HTTPS, nightly `pg_dump` to off-site storage (30 days) plus a restore test, RUNBOOK, performance (first paint under 2 s, filter under 300 ms, Lighthouse ≥ 85), axe a11y, final golden-set and manual-review report.
