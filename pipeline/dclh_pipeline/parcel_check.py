@@ -339,10 +339,15 @@ def verdict(score: SiteScore) -> Verdict:
             "wymaga_wyjasnien",
             f"Wymaga wyjaśnień: brakuje danych ({what}); po uzupełnieniu do {score.upside_score:.0f} pkt.",
         )
-    weakest = sorted((i for i in score.items if i.max_points > 0), key=lambda i: i.points / i.max_points)[:2]
-    what = ", ".join(i.label_pl.lower() for i in weakest)
+    # Not excluded, data mostly there, but below the "worth it" score: say where the points are missing.
+    lost = sorted((i for i in score.items if i.max_points > i.points), key=lambda i: i.points - i.max_points)[
+        :2
+    ]
+    where = "; ".join(i.label_pl for i in lost)
     return Verdict(
-        "wymaga_wyjasnien", f"Wymaga wyjaśnień: niski wynik ({score.score:.0f} pkt), najsłabsze: {what}."
+        "wymaga_wyjasnien",
+        f"Wymaga wyjaśnień: wynik {score.score:.0f} pkt, a „warto” zaczyna się od {STRONG_SCORE:.0f}; "
+        f"najwięcej punktów brakuje w: {where}.",
     )
 
 
@@ -359,7 +364,8 @@ def unknowns(scored: ScoredSite, cfg: ScoringConfig, failed_steps: Sequence[str]
             if step in failed_steps
             else "brak publicznego źródła danych, ten warunek nie został sprawdzony"
         )
-        out.append(Unknown(f"Nie sprawdzono: {FILTER_LABEL_PL[key].lower()}", why))
+        label = FILTER_LABEL_PL[key]
+        out.append(Unknown(f"Nie sprawdzono: {label[0].lower()}{label[1:]}", why))
     for item in scored.score.items:
         if item.confidence is Confidence.MISSING:
             out.append(Unknown(item.label_pl, item.explanation_pl))

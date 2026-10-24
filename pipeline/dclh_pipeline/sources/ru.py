@@ -171,11 +171,12 @@ class _RuWfs(Source):
         table = gpd.GeoDataFrame(
             pd.concat(frames, ignore_index=True), geometry="geometry", crs=f"EPSG:{EPSG}"
         )
-        # A server may match on envelopes, so one feature outside is possible; none touching the bbox means
-        # swapped axes or a wrong CRS. Fail rather than put plans in the wrong place.
-        if not table.geometry.intersects(box(*request["bbox"])).any():
+        # The server matches on envelopes, so a feature can surround a small box (a parcel check asks for a
+        # few hundred metres) without touching it: a real "no plan here". Swapped axes put every feature
+        # far outside the box, so no extent reaches it: fail rather than put plans in the wrong place.
+        if not table.geometry.envelope.intersects(box(*request["bbox"])).any():
             raise ValueError(
-                f"RU: none of the {len(table)} features touches the requested bbox; "
+                f"RU: none of the {len(table)} features reaches the requested bbox; "
                 "check the axis order (EPSG:2180, the service answers northing-first)"
             )
         # Plans are drawn by gminas; an invalid ring would break the overlay with the sites.
