@@ -17,47 +17,24 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from dclh_pipeline.config import SourcesConfig, load_scoring, load_sources
+from dclh_pipeline.config import load_scoring, load_sources
 from dclh_pipeline.db.models import JobRow, SearchRunRow
-from dclh_pipeline.grid_capacity import load_grid_capacity
 from dclh_pipeline.http import PoliteClient
-from dclh_pipeline.model.features import (
-    POWERED_BROWNFIELD_NEAR_M,
-    GeomIndex,
-    Layer,
-    SiteLayers,
-    ZoningLayer,
-    build_grid_index,
+from dclh_pipeline.layers import (
+    build_site_layers,
+    load_area_layers,
+    load_industrial,
+    load_static_layers,
+    powiat_unit,
+    soil_sampler,
+    zoning_sampler,
 )
-from dclh_pipeline.model.provenance import Confidence
-from dclh_pipeline.model.sites import Site
-from dclh_pipeline.model.zoning import mpzp_outline_kind, plan_ogolny_kind
 from dclh_pipeline.response_cache import ResponseCache
-from dclh_pipeline.scoring.types import Fact
 from dclh_pipeline.search import SearchResult, run_search
 from dclh_pipeline.settings import Settings, get_settings
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
-from dclh_pipeline.sources.bdot10k import Bdot10kConnector
-from dclh_pipeline.sources.egib import BBox, EgibConnector
-from dclh_pipeline.sources.gdos import GdosConnector, landscape_areas, protected_areas
-from dclh_pipeline.sources.heat import heat_town_layer
-from dclh_pipeline.sources.isok import (
-    PROBABILITY_02PCT,
-    PROBABILITY_1PCT,
-    IsokConnector,
-    zones_with_probability,
-)
-from dclh_pipeline.sources.kimpzp import KimpzpConnector, site_points
-from dclh_pipeline.sources.kimpzp import zoning_layer as kimpzp_zoning_layer
-from dclh_pipeline.sources.kiug import KiugConnector, site_soil_points, soil_iii_facts
-from dclh_pipeline.sources.midas import MidasConnector
-from dclh_pipeline.sources.osm_industrial import industrial_layer, read_industrial
-from dclh_pipeline.sources.osm_infra import airport_ols_layer, gas_zone_layer, read_infra
-from dclh_pipeline.sources.osm_power import OsmPowerConnector, to_grid
-from dclh_pipeline.sources.osm_res import read_res, res_cluster_layer
-from dclh_pipeline.sources.prg import PrgConnector, big_city_layer
-from dclh_pipeline.sources.psi import load_psi_layer
-from dclh_pipeline.sources.ru import RuMpzpConnector, RuPlanOgolnyConnector
+from dclh_pipeline.sources.egib import EgibConnector
+from dclh_pipeline.sources.prg import PrgConnector
 
 WARSAW = ZoneInfo("Europe/Warsaw")
 # Answers are reused this long, so a monthly refresh reads last month's downloads instead of asking again.
@@ -79,12 +56,12 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
 
     DSO capacity and the PSE lists are used when a good snapshot exists (`grid_capacity.py`).
 
-    The powiat's flood zones (`isok`, 1% and 0.2%), mining areas (`midas`), residential buildings (`bdot10k`)
-    and RU plans (`ru`: MPZP outlines and plan ogólny zones) are downloaded now, like the parcels. A failed
-    download fails the search: without them the flood, mining and housing filters would silently not apply and
-    zoning would read "unknown", and the nightly
-    planner retries the powiat later. KIMPZP is asked per kept site; a gmina server that does not answer
-    leaves that point without a plan.
+    The layers come from `layers.py`, which a single-parcel check shares. The powiat's flood zones (`isok`, 1%
+    and 0.2%), mining areas (`midas`), residential buildings (`bdot10k`) and RU plans (`ru`: MPZP outlines and
+    plan ogólny zones) are downloaded now, like the parcels. A failed download fails the search: without them
+    the flood, mining and housing filters would silently not apply and zoning would read "unknown", and the
+    nightly planner retries the powiat later. KIMPZP is asked per kept site; a gmina server that does not
+    answer leaves that point without a plan.
     """
     started = time.monotonic()
     settings = settings or get_settings()
@@ -94,50 +71,10 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
     cfg = load_scoring()
     store = SnapshotStore(settings.raw_dir)
 
-    prg_snapshot, osm_snapshot = store.latest("prg"), store.latest("osm_power")
-    gdos_snapshot = store.latest("gdos")
-    # gdos is required too: without it the protected-area exclusion would silently never apply.
-    for name, snap in (("prg", prg_snapshot), ("osm_power", osm_snapshot), ("gdos", gdos_snapshot)):
-        if snap is None:
-            raise ValueError(f"no saved snapshot of {name!r}; run `dclh fetch {name}` first")
-    assert prg_snapshot is not None and osm_snapshot is not None and gdos_snapshot is not None
-
-    admin = PrgConnector(config.get("prg")).parse(prg_snapshot)
-    units = admin[
-        (admin["level"] == "powiat") & (admin["teryt"].astype(str).str.lstrip("0") == teryt.lstrip("0"))
-    ]
-    if units.empty:
-        raise ValueError(f"no powiat with TERYT {teryt!r} in the PRG snapshot")
-    area = units.geometry.iloc[0]
-
-    substations, lines = to_grid(OsmPowerConnector(config.get("osm_power")).parse(osm_snapshot))
-    grid = build_grid_index(substations, lines, as_of=osm_snapshot.fetched_at, source_id="osm_power")
-    # Gas pipelines and runways from the same extract: estimated proxies, no public source exists.
-    infra = read_infra(osm_snapshot.path)
-    gas_layer = gas_zone_layer(infra, cfg.proxies.gas_zone_m, osm_snapshot.fetched_at)
-    ols_layer = airport_ols_layer(infra, cfg.proxies.runway_min_m, osm_snapshot.fetched_at)
-    # Industrial and brownfield areas around the powiat: powered brownfields and the zoning fallback.
-    industrial_bounds = tuple(area.buffer(POWERED_BROWNFIELD_NEAR_M).bounds)
-    industrial = industrial_layer(
-        read_industrial(osm_snapshot.path, industrial_bounds), osm_snapshot.fetched_at
-    )
-    res_layer = res_cluster_layer(read_res(osm_snapshot.path), osm_snapshot.fetched_at)
-    # DSO capacity and PSE lists: optional; a source never fetched or imported stays missing in the scores.
-    grid_capacity = load_grid_capacity(store, config, substations, cfg)
-    gdos = GdosConnector(config.get("gdos")).parse(gdos_snapshot)
-    protected_layer = Layer(
-        source_id="gdos",
-        index=GeomIndex(protected_areas(gdos).geometry),
-        as_of=gdos_snapshot.fetched_at,
-        confidence=Confidence.VERIFIED,
-    )
-    # Penalty only: landscape parks and OChK must never reach the protected-area exclusion.
-    landscape_layer = Layer(
-        source_id="gdos",
-        index=GeomIndex(landscape_areas(gdos).geometry),
-        as_of=gdos_snapshot.fetched_at,
-        confidence=Confidence.VERIFIED,
-    )
+    static = load_static_layers(settings, config, cfg, store)
+    unit = powiat_unit(static, teryt)
+    area = unit.geometry
+    industrial = load_industrial(static, area)
 
     with PoliteClient(
         user_agent=settings.user_agent,
@@ -146,78 +83,9 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
         retries=2,
         cache=ResponseCache(settings.data_dir / "http-cache", SEARCH_CACHE_TTL),
     ) as client:
-        flood_connector = IsokConnector(config.get("isok"), bbox=tuple(area.bounds))
-        flood_snapshot = flood_connector.fetch(client, store)
-        flood = flood_connector.parse(flood_snapshot)
-        store.mark_good(flood_snapshot)
-        flood_layer = Layer(
-            source_id="isok",
-            index=GeomIndex(zones_with_probability(flood, PROBABILITY_1PCT)),
-            as_of=flood_snapshot.fetched_at,
-            confidence=Confidence.VERIFIED,
+        area_layers = load_area_layers(
+            client, config, store, tuple(area.bounds), teryt, powiat_area=area, strict=True
         )
-        flood_02_layer = Layer(
-            source_id="isok",
-            index=GeomIndex(zones_with_probability(flood, PROBABILITY_02PCT)),
-            as_of=flood_snapshot.fetched_at,
-            confidence=Confidence.VERIFIED,
-        )
-        midas_connector = MidasConnector(config.get("midas"), bbox=tuple(area.bounds))
-        midas_snapshot = midas_connector.fetch(client, store)
-        midas = midas_connector.parse(midas_snapshot)
-        store.mark_good(midas_snapshot)
-        mining = {
-            kind: Layer(
-                source_id="midas",
-                index=GeomIndex(midas.geometry[midas["kind"] == kind]),
-                as_of=midas_snapshot.fetched_at,
-                confidence=Confidence.VERIFIED,
-            )
-            for kind in ("mining_area", "mining_terrain")
-        }
-        housing_connector = Bdot10kConnector(config.get("bdot10k"), teryt=teryt)
-        housing_snapshot = housing_connector.fetch(client, store)
-        housing = housing_connector.parse(housing_snapshot)
-        store.mark_good(housing_snapshot)
-        # A box can't prove the axis order: the powiat's own buildings must lie in the powiat.
-        if housing.empty or not housing.geometry.intersects(area).any():
-            raise ValueError(f"BDOT10k: no residential building of powiat {teryt} lies inside it")
-        housing_layer = Layer(
-            source_id="bdot10k",
-            index=GeomIndex(housing.geometry),
-            as_of=housing_snapshot.fetched_at,
-            confidence=Confidence.VERIFIED,
-        )
-        forest_layer = Layer(
-            source_id="bdot10k",
-            index=GeomIndex(housing_connector.parse_forest(housing_snapshot).geometry),
-            as_of=housing_snapshot.fetched_at,
-            confidence=Confidence.VERIFIED,
-        )
-
-        zoning = _ru_zoning_layers(config, client, store, tuple(area.bounds))
-        # Bonus layers from saved snapshots (`dclh fetch heat|psi`); a source never fetched stays missing.
-        gminas = admin[admin["level"] == "gmina"]
-        heat = heat_town_layer(store, config.get("heat"), gminas)
-        psi = load_psi_layer(store, config.get("psi"), gminas)
-        big_cities = big_city_layer(gminas, cfg.connectivity.cities, prg_snapshot.fetched_at)
-
-        def sample_zoning(sites: list[Site]) -> tuple[ZoningLayer, dict[str, int]]:
-            connector = KimpzpConnector(config.get("kimpzp"), points=site_points(sites))
-            snapshot = connector.fetch(client, store)
-            answers = connector.parse(snapshot)
-            store.mark_good(snapshot)
-            counts = {str(k): int(v) for k, v in answers["status"].value_counts().items()}
-            return kimpzp_zoning_layer(sites, answers, snapshot.fetched_at), counts
-
-        def sample_soil(sites: list[Site]) -> tuple[dict[str, Fact[float]], dict[str, int]]:
-            points = site_soil_points(sites, cfg.search.soil_points_per_site)
-            connector = KiugConnector(config.get("kiug"), points=points)
-            snapshot = connector.fetch(client, store)
-            answers = connector.parse(snapshot)
-            store.mark_good(snapshot)
-            counts = {str(k): int(v) for k, v in answers["status"].value_counts().items()}
-            return soil_iii_facts(answers, snapshot.fetched_at), counts
 
         def fetch_parcels(tiles):  # type: ignore[no-untyped-def]
             connector = EgibConnector(config.get("egib"), bboxes=tiles)
@@ -225,70 +93,20 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
 
         result = run_search(
             area,
-            SiteLayers(
-                grid=grid,
-                zoning=zoning,
-                residential=housing_layer,
-                industrial=industrial,
-                constraints={
-                    "protected_nature": protected_layer,
-                    "flood_10_or_1": flood_layer,
-                    "flood_0_2": flood_02_layer,
-                    "landscape_park_or_ochk": landscape_layer,
-                    "gas_pipeline_zone": gas_layer,
-                    "airport_ols": ols_layer,
-                    "forest": forest_layer,
-                    **mining,
-                },
-                capacity=grid_capacity.capacity,
-                pse_closed=grid_capacity.pse_closed,
-                pse_odb=grid_capacity.pse_odb,
-                pse_planned=grid_capacity.pse_planned,
-                heat=heat,
-                psi=psi,
-                big_cities=big_cities,
-                res_clusters=res_layer,
-            ),
+            build_site_layers(static, area_layers, industrial),
             cfg,
             fetch_parcels,
             parcels_as_of=None,
-            sample_zoning=sample_zoning,
-            sample_soil=sample_soil,
+            sample_zoning=zoning_sampler(client, config, store),
+            sample_soil=soil_sampler(client, config, store, cfg),
         )
     return PowiatSearch(
-        teryt=str(units.iloc[0]["teryt"]),
-        name=str(units.iloc[0]["name"]),
+        teryt=str(unit["teryt"]),
+        name=str(unit["name"]),
         result=result,
         scored_at=datetime.now(UTC),
         seconds=time.monotonic() - started,
     )
-
-
-def _ru_zoning_layers(
-    config: SourcesConfig, client: PoliteClient, store: SnapshotStore, bbox: BBox
-) -> tuple[ZoningLayer, ...]:
-    """The RU zoning layers of one bbox, in order of precedence: MPZP procedures, then plan ogólny zones.
-
-    An MPZP outline in force has no designations, so it does not decide the zoning (KIMPZP does, ahead of
-    these layers). Plan ogólny drafts count only as a procedure for a strefa gospodarcza
-    (`plan_ogolny_kind`).
-    """
-    mpzp = RuMpzpConnector(config.get("ru"), bbox=bbox)
-    pog = RuPlanOgolnyConnector(config.get("ru"), bbox=bbox)
-    layers = []
-    for connector in (mpzp, pog):
-        snapshot = connector.fetch(client, store)
-        table = connector.parse(snapshot)
-        store.mark_good(snapshot)
-        if connector is pog:
-            kinds = [
-                plan_ogolny_kind(z, s) for z, s in zip(table["zone_href"], table["status_href"], strict=True)
-            ]
-        else:
-            kinds = [mpzp_outline_kind(s) for s in table["status_href"]]
-        zones = tuple((k, g) for k, g in zip(kinds, table.geometry, strict=True) if k is not None)
-        layers.append(ZoningLayer("ru", snapshot.fetched_at, zones))
-    return tuple(layers)
 
 
 def record_attempt(

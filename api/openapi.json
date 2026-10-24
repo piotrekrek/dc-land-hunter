@@ -524,6 +524,202 @@
           }
         }
       }
+    },
+    "/api/parcels/resolve": {
+      "post": {
+        "tags": [
+          "checks"
+        ],
+        "summary": "Resolve",
+        "description": "Ask ULDK what was pasted before any expensive work (\"Czy to ta działka?\"). Short and synchronous.",
+        "operationId": "resolve_api_parcels_resolve_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolveOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/checks": {
+      "get": {
+        "tags": [
+          "checks"
+        ],
+        "summary": "Recent Checks",
+        "operationId": "recent_checks_api_checks_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "checks"
+        ],
+        "summary": "Start Check",
+        "description": "Queue a check. The worker does the work; the page polls `GET /api/checks/{id}`.",
+        "operationId": "start_check_api_checks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/checks/{check_id}": {
+      "get": {
+        "tags": [
+          "checks"
+        ],
+        "summary": "Get Check",
+        "operationId": "get_check_api_checks__check_id__get",
+        "parameters": [
+          {
+            "name": "check_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Check Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/checks/{check_id}/sites/{n}": {
+      "get": {
+        "tags": [
+          "checks"
+        ],
+        "summary": "Get Check Site",
+        "operationId": "get_check_site_api_checks__check_id__sites__n__get",
+        "parameters": [
+          {
+            "name": "check_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Check Id"
+            }
+          },
+          {
+            "name": "n",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "N"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckSiteDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -605,6 +801,500 @@
           "upside_points"
         ],
         "title": "CategoryOut"
+      },
+      "CheckIn": {
+        "properties": {
+          "parcels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Parcels"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/PointIn"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Points"
+          }
+        },
+        "type": "object",
+        "title": "CheckIn"
+      },
+      "CheckList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CheckListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "CheckList"
+      },
+      "CheckListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "requested_by": {
+            "type": "string",
+            "title": "Requested By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "parcels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Parcels"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerdictOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "requested_by",
+          "created_at",
+          "parcels",
+          "verdict",
+          "score"
+        ],
+        "title": "CheckListItem"
+      },
+      "CheckOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "requested_by": {
+            "type": "string",
+            "title": "Requested By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/StepOut"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "estimate_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimate Seconds"
+          },
+          "sites": {
+            "items": {
+              "$ref": "#/components/schemas/CheckSiteSummary"
+            },
+            "type": "array",
+            "title": "Sites"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "requested_by",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "error",
+          "steps",
+          "estimate_seconds",
+          "sites"
+        ],
+        "title": "CheckOut"
+      },
+      "CheckSiteDetail": {
+        "properties": {
+          "site_id": {
+            "type": "string",
+            "title": "Site Id"
+          },
+          "zone_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zone Id"
+          },
+          "area_ha": {
+            "type": "number",
+            "title": "Area Ha"
+          },
+          "estimated_mw": {
+            "type": "number",
+            "title": "Estimated Mw"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "upside_score": {
+            "type": "number",
+            "title": "Upside Score"
+          },
+          "completeness": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Completeness"
+          },
+          "excluded": {
+            "type": "boolean",
+            "title": "Excluded"
+          },
+          "grid_badge": {
+            "type": "string",
+            "enum": [
+              "Opublikowana moc",
+              "Bliskość sieci",
+              "Brak danych"
+            ],
+            "title": "Grid Badge"
+          },
+          "large_campus": {
+            "type": "boolean",
+            "title": "Large Campus"
+          },
+          "split_suggested": {
+            "type": "boolean",
+            "title": "Split Suggested"
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Flags"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "mw_fact": {
+            "$ref": "#/components/schemas/FactOut"
+          },
+          "parcel_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Parcel Ids"
+          },
+          "scored_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Scored At"
+          },
+          "exclusions": {
+            "items": {
+              "$ref": "#/components/schemas/ExclusionOut"
+            },
+            "type": "array",
+            "title": "Exclusions"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryOut"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ScoreItemOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "features": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/FactOut"
+            },
+            "type": "object",
+            "title": "Features"
+          },
+          "geometry": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Geometry"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "check_id": {
+            "type": "string",
+            "title": "Check Id"
+          },
+          "requested_by": {
+            "type": "string",
+            "title": "Requested By"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Checked At"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/VerdictOut"
+          },
+          "outside_aoi": {
+            "type": "boolean",
+            "title": "Outside Aoi"
+          },
+          "unknowns": {
+            "items": {
+              "$ref": "#/components/schemas/UnknownOut"
+            },
+            "type": "array",
+            "title": "Unknowns"
+          },
+          "next_steps": {
+            "items": {
+              "$ref": "#/components/schemas/NextStepOut"
+            },
+            "type": "array",
+            "title": "Next Steps"
+          },
+          "sheet": {
+            "$ref": "#/components/schemas/SheetOut"
+          },
+          "layer_ages": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Layer Ages"
+          },
+          "parcel": {
+            "$ref": "#/components/schemas/ParcelInfoOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "site_id",
+          "zone_id",
+          "area_ha",
+          "estimated_mw",
+          "score",
+          "upside_score",
+          "completeness",
+          "excluded",
+          "grid_badge",
+          "large_campus",
+          "split_suggested",
+          "flags",
+          "lon",
+          "lat",
+          "mw_fact",
+          "parcel_ids",
+          "scored_at",
+          "exclusions",
+          "categories",
+          "items",
+          "features",
+          "geometry",
+          "n",
+          "check_id",
+          "requested_by",
+          "checked_at",
+          "verdict",
+          "outside_aoi",
+          "unknowns",
+          "next_steps",
+          "sheet",
+          "layer_ages",
+          "parcel"
+        ],
+        "title": "CheckSiteDetail",
+        "description": "A scored parcel: what the site card shows, plus the verdict, the sheet and the manual next steps."
+      },
+      "CheckSiteSummary": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "parcel_id": {
+            "type": "string",
+            "title": "Parcel Id"
+          },
+          "commune": {
+            "type": "string",
+            "title": "Commune"
+          },
+          "obreb": {
+            "type": "string",
+            "title": "Obreb"
+          },
+          "area_ha": {
+            "type": "number",
+            "title": "Area Ha"
+          },
+          "estimated_mw": {
+            "type": "number",
+            "title": "Estimated Mw"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "upside_score": {
+            "type": "number",
+            "title": "Upside Score"
+          },
+          "completeness": {
+            "type": "number",
+            "title": "Completeness"
+          },
+          "excluded": {
+            "type": "boolean",
+            "title": "Excluded"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/VerdictOut"
+          },
+          "outside_aoi": {
+            "type": "boolean",
+            "title": "Outside Aoi"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n",
+          "parcel_id",
+          "commune",
+          "obreb",
+          "area_ha",
+          "estimated_mw",
+          "score",
+          "upside_score",
+          "completeness",
+          "excluded",
+          "verdict",
+          "outside_aoi"
+        ],
+        "title": "CheckSiteSummary"
       },
       "ConnectionCost": {
         "properties": {
@@ -788,6 +1478,19 @@
           "areas"
         ],
         "title": "CoverageOut"
+      },
+      "CreatedOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "CreatedOut"
       },
       "DiscoverIn": {
         "properties": {
@@ -1119,6 +1822,24 @@
         ],
         "title": "Health"
       },
+      "IssueOut": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "message_pl": {
+            "type": "string",
+            "title": "Message Pl"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "message_pl"
+        ],
+        "title": "IssueOut"
+      },
       "JobCounts": {
         "properties": {
           "pending": {
@@ -1313,6 +2034,36 @@
         ],
         "title": "LoginIn"
       },
+      "NextStepOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "title_pl": {
+            "type": "string",
+            "title": "Title Pl"
+          },
+          "copy_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Copy Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "title_pl",
+          "copy_text"
+        ],
+        "title": "NextStepOut"
+      },
       "OpsJobs": {
         "properties": {
           "counts": {
@@ -1345,6 +2096,49 @@
           "recent"
         ],
         "title": "OpsJobs"
+      },
+      "ParcelInfoOut": {
+        "properties": {
+          "parcel_id": {
+            "type": "string",
+            "title": "Parcel Id"
+          },
+          "voivodeship": {
+            "type": "string",
+            "title": "Voivodeship"
+          },
+          "county": {
+            "type": "string",
+            "title": "County"
+          },
+          "commune": {
+            "type": "string",
+            "title": "Commune"
+          },
+          "obreb": {
+            "type": "string",
+            "title": "Obreb"
+          },
+          "powiat_teryt": {
+            "type": "string",
+            "title": "Powiat Teryt"
+          },
+          "registered_area_ha": {
+            "type": "number",
+            "title": "Registered Area Ha"
+          }
+        },
+        "type": "object",
+        "required": [
+          "parcel_id",
+          "voivodeship",
+          "county",
+          "commune",
+          "obreb",
+          "powiat_teryt",
+          "registered_area_ha"
+        ],
+        "title": "ParcelInfoOut"
       },
       "Penalties": {
         "properties": {
@@ -1389,6 +2183,28 @@
           "airport_ols"
         ],
         "title": "Penalties"
+      },
+      "PointIn": {
+        "properties": {
+          "lat": {
+            "type": "number",
+            "maximum": 55.5,
+            "minimum": 48.5,
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "maximum": 24.5,
+            "minimum": 13.5,
+            "title": "Lon"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lat",
+          "lon"
+        ],
+        "title": "PointIn"
       },
       "PowiatItem": {
         "properties": {
@@ -1591,6 +2407,130 @@
         "title": "Proxies",
         "description": "Settings of the OSM proxies for penalties that have no public source (`sources/osm_infra.py`)."
       },
+      "ResolveIn": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 4000,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "ResolveIn"
+      },
+      "ResolveOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedParcelOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/IssueOut"
+            },
+            "type": "array",
+            "title": "Issues"
+          },
+          "dropped": {
+            "type": "integer",
+            "title": "Dropped"
+          },
+          "duplicates": {
+            "type": "integer",
+            "title": "Duplicates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "issues",
+          "dropped",
+          "duplicates"
+        ],
+        "title": "ResolveOut"
+      },
+      "ResolvedParcelOut": {
+        "properties": {
+          "parcel_id": {
+            "type": "string",
+            "title": "Parcel Id"
+          },
+          "powiat_teryt": {
+            "type": "string",
+            "title": "Powiat Teryt"
+          },
+          "voivodeship": {
+            "type": "string",
+            "title": "Voivodeship"
+          },
+          "county": {
+            "type": "string",
+            "title": "County"
+          },
+          "commune": {
+            "type": "string",
+            "title": "Commune"
+          },
+          "obreb": {
+            "type": "string",
+            "title": "Obreb"
+          },
+          "area_ha": {
+            "type": "number",
+            "title": "Area Ha"
+          },
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "in_aoi": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Aoi"
+          },
+          "source_text": {
+            "type": "string",
+            "title": "Source Text"
+          },
+          "outline": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Outline"
+          }
+        },
+        "type": "object",
+        "required": [
+          "parcel_id",
+          "powiat_teryt",
+          "voivodeship",
+          "county",
+          "commune",
+          "obreb",
+          "area_ha",
+          "lat",
+          "lon",
+          "in_aoi",
+          "source_text",
+          "outline"
+        ],
+        "title": "ResolvedParcelOut"
+      },
       "ScoreItemOut": {
         "properties": {
           "key": {
@@ -1776,6 +2716,94 @@
         "additionalProperties": false,
         "type": "object",
         "title": "SearchParams"
+      },
+      "SheetLayerOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label_pl": {
+            "type": "string",
+            "title": "Label Pl"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "paths": {
+            "items": {
+              "items": {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Paths"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label_pl",
+          "kind",
+          "paths",
+          "truncated"
+        ],
+        "title": "SheetLayerOut"
+      },
+      "SheetOut": {
+        "properties": {
+          "origin_2180": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Origin 2180"
+          },
+          "bbox_m": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Bbox M"
+          },
+          "parcel": {
+            "items": {
+              "items": {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Parcel"
+          },
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/SheetLayerOut"
+            },
+            "type": "array",
+            "title": "Layers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "origin_2180",
+          "bbox_m",
+          "parcel",
+          "layers"
+        ],
+        "title": "SheetOut"
       },
       "SiteDetail": {
         "properties": {
@@ -2274,6 +3302,83 @@
         ],
         "title": "SourcesList"
       },
+      "StepOut": {
+        "properties": {
+          "parcel": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parcel"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label_pl": {
+            "type": "string",
+            "title": "Label Pl"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "waiting",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seconds"
+          },
+          "finding_pl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finding Pl"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "parcel",
+          "key",
+          "label_pl",
+          "status",
+          "seconds",
+          "finding_pl",
+          "error"
+        ],
+        "title": "StepOut"
+      },
       "Target": {
         "properties": {
           "mw_min": {
@@ -2324,6 +3429,24 @@
           "large_site_split_ha"
         ],
         "title": "Target"
+      },
+      "UnknownOut": {
+        "properties": {
+          "label_pl": {
+            "type": "string",
+            "title": "Label Pl"
+          },
+          "why_pl": {
+            "type": "string",
+            "title": "Why Pl"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label_pl",
+          "why_pl"
+        ],
+        "title": "UnknownOut"
       },
       "UserOut": {
         "properties": {
@@ -2382,6 +3505,29 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VerdictOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "odpada",
+              "wymaga_wyjasnien",
+              "warto"
+            ],
+            "title": "Kind"
+          },
+          "text_pl": {
+            "type": "string",
+            "title": "Text Pl"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "text_pl"
+        ],
+        "title": "VerdictOut"
       },
       "Weights": {
         "properties": {
