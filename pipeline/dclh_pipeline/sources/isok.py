@@ -11,7 +11,7 @@ cover them. `zones_with_probability()` splits the answer. A snapshot from before
 Zones are whole river reaches (13 zones near Warsaw are 22 MB), so the connector fetches one bbox (a powiat),
 pages with startIndex and checks the total against numberMatched. The answer to
 `srsName=urn:ogc:def:crs:EPSG::2180` is northing-first; `parse()` swaps the axes and then checks that the
-zones' extents reach the requested bbox, so a wrong axis order fails loudly instead of putting the river in
+zones lie near the requested bbox, so a wrong axis order fails loudly instead of putting the river in
 the wrong place. Zones are clipped to the bbox: the search only needs that area, and a whole reach is slow to
 overlay on every site.
 """
@@ -30,12 +30,12 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 from pyogrio import read_dataframe
-from shapely import box
 
 from dclh_pipeline.config import SourceSpec
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
 from dclh_pipeline.sources.base import Source
+from dclh_pipeline.sources.bbox_check import features_near_bbox
 from dclh_pipeline.sources.egib import BBox
 
 WFS_URL = "https://wody.isok.gov.pl/wss/INSPIRE/INSPIRE_HY_10k_2019_WFS"
@@ -136,20 +136,17 @@ class IsokConnector(Source):
             frames = [_read_page(archive.read(name)) for name in pages]
         if PROBABILITY_02PCT not in request.get("probabilities", []):
             raise ValueError("ISOK: the snapshot predates the 0.2% zones; fetch ISOK again")
-        area = box(*request["bbox"])
         if not frames:
             return _empty()
         table = gpd.GeoDataFrame(
             pd.concat(frames, ignore_index=True), geometry="geometry", crs=f"EPSG:{EPSG}"
         )
         table = table[np.isin(table[PROBABILITY_FIELD].to_numpy(), PROBABILITIES)]
-        # The server selected the zones by the bbox, so their extents must reach it. It matches on envelopes:
-        # a long reach can lie around a small box without touching it (a parcel check asks for a few hundred
-        # metres), and that is a real "no flood zone here". Swapped axes put every zone far outside the box,
-        # so no envelope reaches it: fail rather than load a river in the wrong place.
-        if not table.empty and not table.geometry.envelope.intersects(area).any():
+        # The server selected the zones by the bbox, so some must lie near it; none near means swapped axes or
+        # a wrong CRS (see `bbox_check`). Fail rather than load a river in the wrong place.
+        if not features_near_bbox(table, request["bbox"]):
             raise ValueError(
-                f"ISOK: none of the {len(table)} zones reaches the requested bbox; "
+                f"ISOK: none of the {len(table)} zones lies near the requested bbox; "
                 "check the axis order (EPSG:2180, the service answers northing-first)"
             )
         clipped = table.geometry.clip_by_rect(*request["bbox"])
