@@ -30,6 +30,10 @@ BBOX = (620_000.0, 470_000.0, 630_000.0, 480_000.0)  # easting, northing (around
 def zone(i: int, x0: float, y0: float, side: float, probability: str = "0.01") -> str:
     """One NZ.Fluvial member written the way the service writes it: northing first."""
     ring = [(x0, y0), (x0 + side, y0), (x0 + side, y0 + side), (x0, y0 + side), (x0, y0)]
+    return ring_zone(i, ring, probability)
+
+
+def ring_zone(i: int, ring: list[tuple[float, float]], probability: str = "0.01") -> str:
     pos = " ".join(f"{y} {x}" for x, y in ring)
     return f"""<wfs:member><wms_nz-core:NZ.Fluvial gml:id="NZ.Fluvial.{i}">
 <wms_nz-core:validityperiod_end>2025-12-21T23:00:00Z</wms_nz-core:validityperiod_end>
@@ -128,6 +132,27 @@ def test_easting_first_answer_is_rejected(tmp_path: Path, make_client: ClientFac
     )
     with pytest.raises(ValueError, match="axis order"):
         IsokConnector(SPEC, bbox=BBOX).parse(snapshot)
+
+
+def test_a_reach_that_surrounds_a_small_box_without_touching_it_is_no_flood_not_an_error(
+    tmp_path: Path, make_client: ClientFactory
+) -> None:
+    # A parcel check asks for a few hundred metres. The server matches on envelopes, so a long L-shaped reach whose
+    # extent covers the box is returned although the zone itself is nowhere near it: that is "no flood here".
+    l_shape = [
+        (600_000, 460_000),
+        (640_000, 460_000),
+        (640_000, 465_000),
+        (605_000, 465_000),
+        (605_000, 500_000),
+        (600_000, 500_000),
+        (600_000, 460_000),
+    ]
+    snapshot = IsokConnector(SPEC, bbox=BBOX).fetch(
+        make_client(serve([page([ring_zone(1, l_shape)], 1)], [])), SnapshotStore(tmp_path)
+    )
+    table = IsokConnector(SPEC, bbox=BBOX).parse(snapshot)
+    assert table.empty and table.crs.to_epsg() == 2180
 
 
 def test_short_answer_is_rejected(tmp_path: Path, make_client: ClientFactory) -> None:

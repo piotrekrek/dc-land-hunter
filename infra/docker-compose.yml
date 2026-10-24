@@ -85,7 +85,7 @@ services:
   check-worker:
     <<: *python
     command: ["dclh", "worker", "--kinds", "check_parcel", "--interval", "2"]
-    mem_limit: 800m
+    mem_limit: 1200m # measured: the static layers and one check peak at about 750 MB
     depends_on:
       migrate: { condition: service_completed_successfully }
 

@@ -29,12 +29,12 @@ from typing import ClassVar
 import geopandas as gpd
 import pandas as pd
 from pyogrio import read_dataframe
-from shapely import box
 
 from dclh_pipeline.config import SourceSpec
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
 from dclh_pipeline.sources.base import Source
+from dclh_pipeline.sources.bbox_check import features_near_bbox
 from dclh_pipeline.sources.egib import BBox
 
 log = logging.getLogger(__name__)
@@ -171,11 +171,11 @@ class _RuWfs(Source):
         table = gpd.GeoDataFrame(
             pd.concat(frames, ignore_index=True), geometry="geometry", crs=f"EPSG:{EPSG}"
         )
-        # A server may match on envelopes, so one feature outside is possible; none touching the bbox means
-        # swapped axes or a wrong CRS. Fail rather than put plans in the wrong place.
-        if not table.geometry.intersects(box(*request["bbox"])).any():
+        # Some features must lie near the bbox; none near means swapped axes or a wrong CRS (`bbox_check`).
+        # Fail rather than put plans in the wrong place.
+        if not features_near_bbox(table, request["bbox"]):
             raise ValueError(
-                f"RU: none of the {len(table)} features touches the requested bbox; "
+                f"RU: none of the {len(table)} features lies near the requested bbox; "
                 "check the axis order (EPSG:2180, the service answers northing-first)"
             )
         # Plans are drawn by gminas; an invalid ring would break the overlay with the sites.

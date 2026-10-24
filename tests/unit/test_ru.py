@@ -8,6 +8,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from shapely.geometry import box
 
 from dclh_pipeline.config import SourceSpec
 from dclh_pipeline.http import PoliteClient
@@ -38,6 +39,10 @@ SP_ZONE = """<wfs:member><app-pog:StrefaPlanistyczna gml:id="PL.ZIPPZP.9846_1432
 def sp_zone(i: int, x0: float, y0: float, side: float) -> str:
     """One strefa gospodarcza written the way the service writes it: northing first."""
     ring = [(x0, y0), (x0 + side, y0), (x0 + side, y0 + side), (x0, y0 + side), (x0, y0)]
+    return SP_ZONE.format(i=i, pos=" ".join(f"{y} {x}" for x, y in ring))
+
+
+def sp_ring(i: int, ring: list[tuple[float, float]]) -> str:
     return SP_ZONE.format(i=i, pos=" ".join(f"{y} {x}" for x, y in ring))
 
 
@@ -141,6 +146,28 @@ def test_easting_first_answer_is_rejected(tmp_path: Path, make_client: ClientFac
     snapshot = connector.fetch(make_client(serve([page(members, 1)], [])), SnapshotStore(tmp_path))
     with pytest.raises(ValueError, match="axis order"):
         connector.parse(snapshot)
+
+
+def test_a_zone_that_surrounds_a_small_box_without_touching_it_is_no_plan_not_an_error(
+    tmp_path: Path, make_client: ClientFactory
+) -> None:
+    # A parcel check asks for a few hundred metres. The server matches on envelopes, so a long L-shaped zone whose
+    # extent covers the box is returned although the zone itself is nowhere near it.
+    l_shape = [
+        (600_000, 460_000),
+        (660_000, 460_000),
+        (660_000, 465_000),
+        (605_000, 465_000),
+        (605_000, 500_000),
+        (600_000, 500_000),
+        (600_000, 460_000),
+    ]
+    connector = RuPlanOgolnyConnector(SPEC, bbox=BBOX)
+    snapshot = connector.fetch(
+        make_client(serve([page([sp_ring(1, l_shape)], 1)], [])), SnapshotStore(tmp_path)
+    )
+    table = connector.parse(snapshot)
+    assert len(table) == 1 and not table.geometry.intersects(box(*BBOX)).any()
 
 
 def test_no_plans_is_a_real_empty_layer(tmp_path: Path, make_client: ClientFactory) -> None:

@@ -87,12 +87,15 @@ class TestVerdict:
         assert result.kind == "wymaga_wyjasnien"
         assert "A" in result.text_pl and "85" in result.text_pl
 
-    def test_a_weak_but_complete_score_is_not_called_worth_it(self) -> None:
-        result = verdict(
-            make_score(score=30.0, completeness=0.95, items=[item("x", 1, 20), item("y", 9, 10)])
+    def test_a_decent_but_not_strong_score_says_where_the_points_are_missing(self) -> None:
+        score = make_score(
+            score=67.0, completeness=0.95, items=[item("x", 1, 20), item("y", 9, 10), item("z", 3, 8)]
         )
-        assert result.kind == "wymaga_wyjasnien" and "niski wynik" in result.text_pl
-        assert "x" in result.text_pl  # the weakest criterion is named
+        result = verdict(score)
+        assert result.kind == "wymaga_wyjasnien"
+        assert "wynik 67 pkt" in result.text_pl and "od 70" in result.text_pl
+        assert "X; Z" in result.text_pl  # the two criteria that lose the most points, by what they lose
+        assert "niski" not in result.text_pl  # 67 is not called low
 
     def test_the_strong_threshold_is_inclusive(self) -> None:
         assert verdict(make_score(score=70.0, completeness=0.7)).kind == "warto"
@@ -119,6 +122,7 @@ class TestUnknowns:
     def test_a_filter_that_could_not_be_evaluated_is_listed_never_read_as_fine(self) -> None:
         labels = [u.label_pl for u in unknowns(self.scored(), CFG, failed_steps=[])]
         assert "Nie sprawdzono: strefa zalewowa" in labels
+        assert "Nie sprawdzono: gleby klas I–II" in labels  # the roman numerals keep their case
         assert "Nie sprawdzono: las" in labels
         assert "Nie sprawdzono: zabudowa mieszkaniowa" in labels
         assert "Nie sprawdzono: minimalna powierzchnia" not in labels  # the area is known
