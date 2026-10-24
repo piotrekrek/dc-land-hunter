@@ -716,6 +716,7 @@ def check_spike_cmd(
     for line in parcel_spike.summary_lines(timings):
         console.print(line)
     if out:
+        out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(
             json.dumps([t.__dict__ for t in timings], indent=2, ensure_ascii=False), encoding="utf-8"
         )
