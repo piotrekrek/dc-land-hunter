@@ -270,18 +270,18 @@ first version draws the sheet on a plain background); checks are kept indefinite
 
 | # | Step | Needs |
 |---|---|---|
-| 0 | Docs: this addendum | none |
+| 0 | **[x]** Docs: this addendum | none |
 | 1 | **[x] done 24.10.2026.** Run `dclh check-spike` on the VPS; numbers in STATUS; ULDK by-id fixtures. Result: warm 8 to 12 s, cold about 1 min, assumption C holds, name search unusable, static-layer memory still to measure in step 3 | 0 |
-| 2 | Worker kinds, scoped `fail_interrupted`, idle `check-worker` service | 0 |
-| 3 | Layer-loading refactor, no behaviour change | 1 |
-| 4 | `parcel_check`, `dclh check`, verdict, findings and sheet geometry; consistency test | 3 |
-| 5 | Migration `0010`, job, progress, estimates, API, contract fixtures | 2, 4 |
-| 6 | Web foundations: fonts, tokens, `Protokol` and `Ruler` extracted from the site card | 0 |
-| 7 | Web: the `Sheet` SVG component from fixtures | 6 |
-| 8 | Web: input, confirmation, recent list, map click | 6, API contract |
-| 9 | Web: progress, result, several parcels, partial failure, a11y, Playwright smoke | 5, 7, 8 |
-| 10 | Polish: "Sprawdź ponownie", "Sprawdź tę działkę" from popups and the card, history | 9 |
-| 11 | Orthophoto (proxy and terms check) | 9 |
+| 2 | **[x]** Worker kinds, scoped `fail_interrupted`, `check-worker` service (#102) | 0 |
+| 3 | **[x]** Layer-loading refactor, no behaviour change (#104; 540 of 540 sites of powiat 0213 identical) | 1 |
+| 4 | **[x]** `parcel_check`, `dclh check`, verdict, findings and sheet geometry (#104; same scores as the search on three real parcels) | 3 |
+| 5 | **[x]** Migration `0010`, job, progress, estimates, API (#104; no JSON contract fixtures: the web tests carry typed ones) | 2, 4 |
+| 6 | **[x]** Web foundations: fonts, tokens, `Protokol` and `Ruler` (#103) | 0 |
+| 7 | **[x]** Web: the `Sheet` SVG component (#105) | 6 |
+| 8 | **[x]** Web: input, confirmation, recent list, map click (#105) | 6, API contract |
+| 9 | **[x]** Web: progress, result, several parcels, partial failure, a11y, Playwright smoke of the page (#105) | 5, 7, 8 |
+| 10 | **[x]** "Sprawdź ponownie" and "Sprawdź tę działkę" on the site card, history list (#105). **Left:** the action in map popups, "Dodaj do projektów" (needs the kanban) | 9 |
+| 11 | Orthophoto (proxy and terms check). **Not started** | 9 |
 
 Backend (1 to 5) and web (6 to 8) can run in parallel. The UI/UX audit section above (its step 1 changes the site card
 header, its step 5 adds a map block to the card) overlaps step 6 and step 7: do step 6 first or rebase.
@@ -628,3 +628,12 @@ Acceptance: deployed, restore tested, all checks green, no blockers in STATUS.md
 | R10 | AOI split topology: the Vistula centreline has gaps, braids and reservoirs. | Wrong in/out decisions near the river. | Longest-chain main stem, snapping, explicit test cities, and owner-editable AOI in Settings. |
 | R11 | **The GitHub repo is public.** | Code, docs and the brief are visible to anyone. | No secrets, contact emails or personal data in the repo (`.env` is gitignored). The owner can decide whether to make the repo private. |
 | R12 | Golden-set coordinates are approximate (press releases). | False alarms in the sanity check. | Verify on Geoportal and treat as a sanity check, not ground truth. |
+
+**State after 25.10.2026.** Steps 0 to 10 are deployed (#102 to #107). Follow-ups found while building:
+- the sheet is saved per parcel, so it appears when a parcel finishes, not layer by layer;
+- a check that is queued while a nightly search runs can wait for host memory (the OSM parse needs 800 MB free); it waits
+  up to 3 minutes and then says so;
+- the general worker and the scheduler were not restarted after the last two fixes (a nightly search was running); they pick up
+  the new code at their next restart, which changes nothing for the search;
+- not browser-checked by the author: the pages were tested with jsdom, one Playwright smoke test and an accessibility scan.
+
