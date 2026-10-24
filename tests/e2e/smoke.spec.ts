@@ -74,7 +74,8 @@ test("admin sees 'Uruchom teraz' and can queue a check", async ({ page }, testIn
   test.skip(testInfo.project.name !== "desktop", "queues the shared discovery job once; desktop covers it");
   await page.goto("/ustawienia");
   await page.getByRole("button", { name: "Uruchom teraz" }).click();
-  await expect(page.getByRole("status")).toContainText("dodane do kolejki");
+  // Other loading indicators on the page are also role="status": pick the message by its text.
+  await expect(page.getByRole("status").filter({ hasText: "dodane do kolejki" })).toBeVisible();
 });
 
 test("logging out returns to the login page and protects the app", async ({ page }) => {
