@@ -489,6 +489,118 @@ checking the same parcel at once, and a parcel in a powiat with no saved snapsho
 confidence in under 30 s (warm), the card equals the search result for the same land, and a layer failure shows as
 "nie sprawdzono".
 
+## UX improvements from the 23.10.2026 audit
+
+Source: a walkthrough of the live site (desktop and 390 px). Five steps, one PR each, in this order. Every step follows
+the repo rules: UI text in Polish, tests with the change, `docs/STATUS.md` updated, `api/openapi.json` and
+`web/src/api/schema.d.ts` regenerated when the API changes.
+
+Corrections to the audit after reading the code: the layers panel already starts collapsed on a phone (it looked open only
+because the window was resized after load), and clicking a candidate on the map already selects its list row
+(`onSiteClick`, `scrollIntoView`). What is missing is hover highlight and the list following the map.
+
+### Step 1: say where a site is (small, API + web)
+
+**Problem.** List rows and the card say only "21 ha · 126,1 MW". `parcel_ids` is in `SiteDetail` but never shown.
+
+**Work**
+1. API: add `gmina`, `powiat`, `voivodeship` (names, nullable) to `SiteSummary`. Resolve with the same join the coverage
+   endpoint uses (`admin_units`, `ST_Covers(a.geom, ST_PointOnSurface(s.geom))`).
+   *Decide first:* join at query time for the 50-row page (needs a GiST index on `admin_units.geom`; check with
+   `EXPLAIN`) or store the three names in `sites` at scoring time (migration + backfill, cheaper reads). Prefer the join
+   if a page stays under about 50 ms.
+2. API: optional `powiat` and `voivodeship` filters on `GET /api/sites` (TERYT codes).
+3. Web: one muted line under the headline in `SiteRow` ("gm. X, pow. Y"); the same plus województwo in the card header.
+4. Web: powiat/województwo select in `SiteFilterBar`, kept in the URL like the other filters (`lib/sites.ts`).
+5. Web, card: a map block with the site polygon (`detail.geometry` is already WGS84 GeoJSON), a switch to the Geoportal
+   orthophoto (the plan already names it for the card), and the plot IDs with a copy button and a Geoportal link.
+
+**Tests.** API: names resolve for a fixture site and are null outside any unit; filter returns only that powiat.
+Web: row shows the place line; filter writes and reads the URL; card renders plot IDs.
+**Done when:** the top of the list shows places, and filtering by powiat narrows the list and the URL is shareable.
+**Risk:** polygons straddling a border; use the point-on-surface, as coverage does, and say "główna gmina" only if the
+team asks.
+
+### Step 2: connect the map and the list (small to medium, web, one API param)
+
+**Work**
+1. List follows the map: a "Szukaj w tym obszarze" toggle that adds `bbox` (west,south,east,north, EPSG:4326) to
+   `GET /api/sites`; the count line reads "w widoku: N z 3400". Off by default, so today's behaviour stays.
+2. Hover on a row highlights its pin (a feature-state or a second highlight layer) and the reverse.
+3. Layers panel: remember open/closed in `localStorage` (wrapped in try/catch), group "Sieć" (110/220/400 kV, stations)
+   under one switch so the blue dots do not bury the candidates; keep the panel open only on first visit.
+4. Show the weakest factor on each row ("najsłabsze: węzeł 220/400 kV 28,7 km"), from the lowest `points/max_points`
+   item in the detail. Needs the summary to carry it (add `weakest_label_pl`), or a second request only for visible rows;
+   prefer the summary field.
+5. More filters: grid badge (Opublikowana moc / Bliskość sieci), "Duży kampus", "Do podziału".
+
+**Tests.** API: bbox filter and total. Web: toggle changes the query key; hover sets the highlight; panel state restores.
+**Done when:** panning with the toggle on changes the list, and a user can find "the best in this powiat view" without scrolling 3400 rows.
+**Risk:** bbox on a keyset cursor: the cursor must be reset when the bbox changes (same as filters today).
+
+### Step 3: honest navigation and a Kolejka limited to the AOI (small)
+
+**Work**
+1. Placeholders: a `soon` flag in `nav.ts`; those items show a small "wkrótce" tag and a muted style, the bell loses its
+   dead-end look the same way. Routes stay, so deep links keep working. `PlaceholderPage` keeps its scope list.
+2. Kolejka: add `in_aoi` to `PowiatItem` (powiat geometry intersects the AOI polygon). *Check first* whether
+   `plan_searches` already skips powiats outside the AOI; if not, that is a bug in the nightly plan (it searches
+   lubelskie), so fix it there and cover it with a test before touching the UI.
+3. Kolejka UI: hide powiats outside the AOI by default with a "pokaż poza obszarem" switch; replace the two lists
+   (Priorytetowa 5, Następne 4) with one list, each row showing its state (sprawdzony / następny o 01:00 / poza obszarem);
+   show "Niezapisane zmiany" next to Zapisz when staged changes exist.
+4. Page titles: set `document.title` per route ("Kolejka · DC Land Hunter"), including the 404.
+
+**Tests.** API: `in_aoi` for a west and an east powiat. Web: outside-AOI rows are hidden and revealed; titles change.
+**Done when:** Kolejka shows only the AOI by default and the nightly plan matches what the page claims.
+**Risk:** the AOI is owner-editable (brief 2.1), so compute `in_aoi` from the stored AOI, never from a hard-coded list.
+
+### Step 4: make the card actionable (medium, API + web, migration)
+
+**Work**
+1. Data model (migration `0009`): `watches(user_id, site_id, created_at)` and `project_cards(site_id, stage, owner_note,
+   updated_at, updated_by)` with the brief-8 stages. Notes are personal data: RODO notice and full delete (Phase 4).
+   This is the table Step 5's kanban reads, so settle the stage list here.
+2. API: `PUT/DELETE /api/sites/{id}/watch`, `PUT /api/sites/{id}/project` (stage), both idempotent; the list and detail
+   carry `watched` and `stage`.
+3. Card: "Obserwuj" and "Dodaj do projektu" buttons, a stage select once added.
+4. Card: "Do sprawdzenia" block at the top, built from every `confidence = missing` item and each with a static
+   "who to ask and how" line (gmina for MPZP, operator for grid, starostwo for soil classes, UKE). Lives in one config
+   file keyed by score-item key; the "po wyjaśnieniu do N pkt" figure is split per item so the list is ordered by points
+   to gain.
+5. Card: connection-cost calculator from the brief (fee 1 PLN/kW max 100k; advance 60 PLN/kW max 6 mln; security
+   30 PLN/kW up to 100 MW), figures from config, MW pre-filled from the estimate and editable, label "wymaga weryfikacji
+   prawnej". Pure function in `lib/`, unit tested with the 60 MW example (about 5,4 mln PLN frozen).
+6. List: "Obserwowane" filter and a small marker on watched rows.
+
+**Tests.** API: watch/unwatch idempotent, per-user; stage change recorded. Web: buttons toggle; checklist ordering;
+calculator numbers incl. caps.
+**Done when:** from a card a user can watch it, put it in a stage and see what to phone about and what 60 MW costs.
+**Risk:** the calculator figures are legal interpretations (R8): config-driven and labelled, never hard-coded.
+
+### Step 5: Sprawdź działkę, Moje projekty, Eksport (large, Phase 4; split into three PRs)
+
+**5a Sprawdź działkę.** Input: TERYT parcel IDs (one or several) or a click on the map. Backend: ULDK lookup, then the
+shared scoring code from `dclh_pipeline` on the fly (one implementation, per the key decisions) against cached layers;
+return the same `SiteDetail` shape so the card page renders it. Target under 30 s, shown with a progress state; a failed
+source is shown as "nie sprawdzono" and not as a pass. Needs the `uldk` source (verified) and the cached layers from Phase 1.
+*Test:* fixture parcel scored equal to the batch result for the same parcel.
+
+**5b Moje projekty.** Kanban over `project_cards` with the brief stages, drag and drop (use a standard library such as
+dnd-kit, plus a "Przenieś do…" menu for keyboard and phone), column counts and hectares, notes and history. *Test:*
+move persists, history records who and when.
+
+**5c Eksport.** XLSX of the current list view (same filters as the URL) and a one-page PDF per site (map, score,
+key facts, next steps, sources; WeasyPrint). Needs the map image rendered server side; decide static tiles vs a drawn
+polygon on a plain background before starting. *Test:* the XLSX row count equals the list total; the PDF renders on a fixture.
+
+**Dependencies.** Steps 1 to 3 are independent and can run in parallel in separate branches (different files, except
+`lib/sites.ts` and `SiteList.tsx` shared by 1 and 2, so do those two in order). Step 4 comes after 1 (card header)
+and gives 5b its table. 5a can start any time after 1.
+
+**Release checks for every step:** `uv run ruff check . && uv run ruff format --check . && uv run mypy`, `uv run pytest`,
+`cd web && pnpm lint && pnpm typecheck && pnpm test`, then a check on the live site after the deploy.
+
 ## Phase 6: Hardening and deploy
 
 Tasks: Polish VPS, Caddy HTTPS, nightly `pg_dump` to off-site storage (30 days) plus a restore test, RUNBOOK, performance (first paint under 2 s, filter under 300 ms, Lighthouse ≥ 85), axe a11y, final golden-set and manual-review report.
