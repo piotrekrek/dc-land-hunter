@@ -102,3 +102,11 @@ export const CATEGORY_LABEL: Record<string, string> = {
   bonus: "Bonusy",
   penalty: "Kary",
 };
+
+/** The marks of the Protokół: ✓ checked, ≈ estimate, ? no data, ✕ condition not met. */
+export type MarkKind = "ok" | "est" | "unk" | "bad";
+
+export function markForConfidence(confidence: Confidence): MarkKind {
+  return confidence === "verified" ? "ok" : confidence === "estimated" ? "est" : "unk";
+}
+

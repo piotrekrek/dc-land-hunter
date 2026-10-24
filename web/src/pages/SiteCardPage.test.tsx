@@ -81,6 +81,9 @@ describe("SiteCardPage", () => {
     expect(await screen.findByRole("heading", { name: /Lokalizacja: 32.ha/ })).toBeInTheDocument();
     expect(screen.getByText(/Szacowana moc 192 MW/)).toBeInTheDocument();
     expect(screen.getByText("Duży kampus: wymaga węzła 220/400 kV")).toBeInTheDocument();
+    // The ruler replaces the round badge: the score, the potential and the thresholds are in one figure.
+    expect(screen.getByRole("img", { name: "Linijka wyniku: 81, potencjał 84, progi 40 i 70" })).toBeInTheDocument();
+    expect(screen.queryByTestId("gates-group")).not.toBeInTheDocument();
 
     const groups = screen.getAllByTestId("breakdown-group");
     expect(within(groups[0]!).getByRole("heading", { name: "Sieć energetyczna" })).toBeInTheDocument();
@@ -99,7 +102,12 @@ describe("SiteCardPage", () => {
     });
     renderCard("/lokalizacje/site-a");
     expect(await screen.findByText("Powierzchnia poniżej 10 ha.")).toBeInTheDocument();
-    expect(screen.getByText("Lokalizacja nie spełnia warunków minimalnych")).toBeInTheDocument();
+    const gates = screen.getByTestId("gates-group");
+    expect(within(gates).getByRole("heading", { name: "Warunki konieczne" })).toBeInTheDocument();
+    expect(within(gates).getByText("niespełnione: 1")).toBeInTheDocument();
+    expect(within(gates).getByRole("img", { name: "nie spełnia warunku" })).toBeInTheDocument();
+    expect(within(gates).getByText("−30 pkt")).toBeInTheDocument();
+    expect(screen.getByTestId("ruler")).toBeInTheDocument();
   });
 
   it("says so when the site is not in the list any more", async () => {
