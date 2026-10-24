@@ -6,7 +6,7 @@ import json
 import logging
 import os
 import resource
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
@@ -14,10 +14,11 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from dclh_pipeline import __version__, capture, followup
+from dclh_pipeline import __version__, capture, followup, parcel_spike
 from dclh_pipeline.config import load_aoi_config, load_scoring, load_sources
 from dclh_pipeline.discovery import STATUS_ICON, discover, render_markdown, save_report, update_sources_doc
 from dclh_pipeline.http import PoliteClient
+from dclh_pipeline.response_cache import ResponseCache
 from dclh_pipeline.settings import REPO_ROOT, get_settings
 from dclh_pipeline.snapshots import SnapshotStore
 from dclh_pipeline.sources.base import Source
@@ -677,3 +678,45 @@ def user_list() -> None:
 
 if __name__ == "__main__":
     app()
+
+
+@app.command("check-spike")
+def check_spike_cmd(
+    parcel_id: Annotated[str, typer.Argument(help="Parcel id, for example 306201_1.0002.1573")],
+    name_query: Annotated[
+        str | None, typer.Option("--name", help='Also try the unverified name search, e.g. "Konin 0002 1573"')
+    ] = None,
+    out: Annotated[Path | None, typer.Option(help="Write the timings as JSON to this file")] = None,
+) -> None:
+    """Time every Sprawdź działkę layer for one parcel, cold and warm. Run from Poland. No database writes."""
+    settings = get_settings()
+    if settings.contact_email.endswith(".invalid"):
+        raise typer.BadParameter("set DCLH_CONTACT_EMAIL first (it goes into the User-Agent)")
+    config = load_sources()
+    store = SnapshotStore(settings.data_dir / "spike-raw")  # apart from the real snapshots the search uses
+    with PoliteClient(
+        user_agent=settings.user_agent,
+        rate_limit_per_s=config.defaults.rate_limit_per_s,
+        timeout_s=config.defaults.timeout_s,
+        retries=1,
+        cache=ResponseCache(settings.data_dir / "spike-cache", timedelta(hours=1)),
+    ) as client:
+        timings = parcel_spike.run_spike(client, config, store, parcel_id, name_query=name_query)
+    table = Table("step", "pass", "s", "ok", "MB", "detail")
+    for t in timings:
+        table.add_row(
+            t.step,
+            str(t.pass_no),
+            f"{t.seconds:.2f}",
+            "ok" if t.ok else "FAIL",
+            f"{t.peak_rss_mb:.0f}",
+            t.detail,
+        )
+    console.print(table)
+    for line in parcel_spike.summary_lines(timings):
+        console.print(line)
+    if out:
+        out.write_text(
+            json.dumps([t.__dict__ for t in timings], indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        console.print(f"Saved: {out}")
