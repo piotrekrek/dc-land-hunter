@@ -29,6 +29,19 @@
   --bad-soft: oklch(0.95 0.03 27);
 
   --radius: 0.5rem;
+
+  /* Survey sheet and Protokół (Sprawdź działkę). Hatches carry the meaning, colour only helps. */
+  --paper: oklch(0.995 0.003 95);
+  --ink: oklch(0.25 0.02 250);
+  --ink-2: oklch(0.52 0.015 250);
+  --ink-3: oklch(0.8 0.008 250);
+  --layer-flood: oklch(0.5 0.13 245);
+  --layer-forest: oklch(0.45 0.09 150);
+  --layer-housing: oklch(0.45 0.04 50);
+  --layer-grid: oklch(0.25 0.02 250);
+  --fill-1: oklch(0.93 0.02 130);
+  --fill-2: oklch(0.91 0.025 85);
+  --fill-3: oklch(0.94 0.012 160);
 }
 
 .dark {
@@ -51,11 +64,25 @@
   --warn-soft: oklch(0.32 0.05 80);
   --bad: oklch(0.74 0.14 27);
   --bad-soft: oklch(0.32 0.06 27);
+
+  --paper: oklch(0.2 0.012 250);
+  --ink: oklch(0.9 0.008 250);
+  --ink-2: oklch(0.7 0.012 250);
+  --ink-3: oklch(0.38 0.014 250);
+  --layer-flood: oklch(0.72 0.12 235);
+  --layer-forest: oklch(0.72 0.11 150);
+  --layer-housing: oklch(0.72 0.05 60);
+  --layer-grid: oklch(0.9 0.008 250);
+  --fill-1: oklch(0.25 0.02 130);
+  --fill-2: oklch(0.26 0.025 85);
+  --fill-3: oklch(0.24 0.012 160);
 }
 
 @theme inline {
   --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  /* Annotations on the sheet: close to technical drafting lettering. */
+  --font-cond: "IBM Plex Sans Condensed", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -74,6 +101,10 @@
   --color-warn-soft: var(--warn-soft);
   --color-bad: var(--bad);
   --color-bad-soft: var(--bad-soft);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
 
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);

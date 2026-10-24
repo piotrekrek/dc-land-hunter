@@ -706,3 +706,15 @@ What this settles for the plan:
 - The Zadania page labels the new kind "Sprawdzenie działki".
 - Deploying adds one idle container; no migration.
 
+## Sprawdź działkę, step 6: web foundations (24.10.2026; not yet deployed)
+
+- Tokens for the survey sheet (`--paper`, `--ink`, `--ink-2`, `--ink-3`, `--layer-*`, `--fill-*`) in light and dark, and
+  the font IBM Plex Sans Condensed (`@fontsource/ibm-plex-sans-condensed` 5.3.0, 400 and 500) for sheet annotations.
+- Shared components in `web/src/components/site/`: `Mark` and `MarkLegend` (✓ ≈ ? ✕, each a shape and a word),
+  `Ruler` (score on a 0 to 100 ruler with the potential hatched and ticks at 40 and 70) and `Protokol` (the ruled
+  inspection table, with failed conditions first).
+- **The site card page now uses them** (owner verdict, 24.10.2026): the round badge becomes the ruler, the stack of
+  category cards becomes the Protokół, and the "Lokalizacja nie spełnia warunków minimalnych" card becomes the
+  "Warunki konieczne" group. The list keeps its round badge.
+- Not done on purpose: the verdict sentence (needs the pipeline, step 4), the sheet (step 7), a visual review in a browser.
+
