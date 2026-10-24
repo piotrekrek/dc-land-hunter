@@ -203,8 +203,7 @@ mining, BDOT10k housing, RU, plus three OSM parses of the full extract) and `run
 ### Design
 
 1. **Pipeline, new `dclh_pipeline/parcel_check.py`.** `check_parcels(ids_or_points) -> list[ParcelCheck]`:
-   ULDK resolves each input to a parcel (id and geometry). Adjacent parcels (gap ≤ 5 m, same rule as
-   `cluster_sites`) become one site, others separate sites, so "I was offered parcels 12/1 and 12/2" gives one card.
+   ULDK resolves each input to a parcel (id and geometry); each parcel is its own site and card (decision 2).
    No grid pre-filter, no `min_parcel_ha` drop, no `ha_min` drop: a small or far-away parcel is scored and shown with
    its hard-filter reasons ("poniżej 10 ha"), not silently omitted.
 2. **Layer loading, split in two.** Refactor `search_powiat` into (a) *static layers* from saved snapshots (grid,
@@ -214,13 +213,12 @@ mining, BDOT10k housing, RU, plus three OSM parses of the full extract) and `run
    largest distance any constraint needs. `search_powiat` keeps its behaviour and calls the same two functions, so
    there is one implementation (PLAN key decision).
    - BDOT10k is per powiat (a big download). Use the existing 40-day response cache; the first check in a powiat is
-     "cold" and slower. Step 1 measures this and decides whether housing falls back to `osm_res` for checks (then
-     marked `estimated`).
+     "cold" and slower, which the loader and estimate cover (decision 4). No OSM fallback.
 3. **Async by job.** New job kind `check_parcel` (payload: inputs, `requested_by`). The API creates a `parcel_checks`
    row (`pending`) and returns its id; the page polls it. Progress is a list of layer steps with status, so a cold
    run shows "Pobieranie: strefy zalewowe…" rather than a frozen spinner. Worker poll is 10 s today: add a short
    poll for this kind, or a wake-up, so a warm check is not 10 s late.
-4. **Storage, migration `0009`.** Table `parcel_checks` (`id`, `requested_by`, `created_at`, `status`, `steps` jsonb,
+4. **Storage, migration `0009`.** Tables `check_step_stats` (loader estimates), `parcel_checks` (`id`, `requested_by`, `created_at`, `status`, `steps` jsonb,
    `inputs` text[], `error`) and `parcel_check_sites` (one row per resulting site: the same columns as `sites`,
    including `detail` and `geom`). Not the `sites` table: its writer deletes by powiat. Parcel ids and geometry
    only; no owner data, no notes (brief 9.6). Checks are visible to all users.
@@ -244,41 +242,59 @@ mining, BDOT10k housing, RU, plus three OSM parses of the full extract) and `run
 1. **Spike and measurement (no feature code).** `dclh check-spike <id>`: ULDK by id, then time each area layer
    for one parcel in Reguły (Pruszków, golden set) and one far from the existing powiats. Record the seconds,
    peak memory and cold/warm difference in STATUS.md; confirm assumptions B and C; save the ULDK `GetParcelById`
-   answers as fixtures. *Done when* the numbers decide the BDOT10k question and the 30 s budget is realistic.
+   answers as fixtures. *Done when* the numbers seed the loader's default estimates and say what "warm" costs.
 2. **ULDK by id** (`parse_by_id`, `fetch_by_id`/`by_xy` through `PoliteClient`) with tests on the live fixtures:
    ok, not found, malformed id, multi-record, ULDK error text, geometry in EPSG:2180.
 3. **Refactor `search_powiat` into static + area layers** with no behaviour change. *Done when* the existing
    search tests pass unchanged and a powiat search produces the same sites as before on the fixture.
 4. **`check_parcels` + `dclh check <ids>` CLI.** Prints the score breakdown. *Done when* the consistency test
    passes: checking the parcels of a site already in `sites` gives the same score and features as the search did.
-5. **Migration `0009`, job `check_parcel`, API.** Tests: 401 without login, 422 on bad input, the 20-id cap,
+5. **Migration `0009`, job `check_parcel`, step tracking and estimate, API.** Tests: 401 without login, 422 on bad input, the 20-id cap,
    a failing source gives `missing` and an "nie sprawdzono" line, DB tests under `*_test` only.
-6. **Web.** Page, polling, shared card component, empty/loading/error states, map click. Vitest for parsing the
+6. **Web.** Page, polling, loader with progress bar and estimated time, shared card component, empty/loading/error states, map click. Vitest for parsing the
    id list and for each state; one Playwright smoke test (paste a golden id, see a card).
-7. **Polish.** "Dodaj do projektów" (arrives with the Moje projekty kanban, so only a stub link until then),
-   check history, cache a result by parcel id for a short time.
+7. **Polish.** "Sprawdź ponownie", "Dodaj do projektów" (arrives with the Moje projekty kanban, so only a stub link
+   until then), check history.
 
 ### Test cases that matter (beyond the happy path)
 Malformed and duplicated ids, an id that does not exist, ids from different powiats in one request, two
-non-adjacent parcels, a parcel under 1 ha, a parcel over 80 ha (split suggestion), a parcel straddling a powiat
-border, a parcel outside the AOI, outside Poland (ULDK error), ULDK or one area source down (partial result, not a
+adjacent parcels (two cards), a parcel under 1 ha, a parcel over 80 ha (split suggestion), a parcel straddling a powiat
+border, a parcel outside the AOI (labelled, not refused), outside Poland (ULDK error), ULDK or one area source down (partial result, not a
 failed check), the worker restarting mid-check (`fail_interrupted` marks it failed, the page shows it), two users
 checking the same parcel at once, and a parcel in a powiat with no saved snapshots.
 
 ### Risks
 | Risk | Mitigation |
 |---|---|
-| Cold powiat takes minutes (BDOT10k, RU) and the 30 s promise breaks | Measure in step 1; show progress; state "do 30 s po pierwszym sprawdzeniu w powiecie"; housing fallback to OSM marked `estimated` |
+| Cold powiat takes minutes (BDOT10k, RU) and the 30 s promise breaks | Measure in step 1; loader with estimated time; promise 30 s only for warm checks |
 | Memory: static layers held in the worker on a 1.9 GB VPS | Build lazily, drop after idle, measure peak in step 1; the worker already runs one job at a time |
 | ULDK blocks non-Polish IPs and rate-limits | Runs on the VPS only; `PoliteClient` rate limit; tests use fixtures |
 | A check and a nightly search disagree on the same land | The consistency test in step 4 |
-| Scoring a small or off-grid parcel looks like a recommendation | Hard-filter reasons shown first; the "poza wyszukiwaniem" label; no rank, only a score and its explanation |
+| Scoring a small or off-grid parcel looks like a recommendation | Hard-filter reasons shown first; the "poza wyszukiwaniem" and "poza obszarem" labels; no rank, only a score and its explanation |
 
-### Decisions for the owner
-1. A parcel outside the AOI (east of the Vistula): score it with a label (recommended), or refuse?
-2. Several adjacent ids: one combined site (recommended), or always one card per parcel?
-3. Keep checks forever, or expire them after N days?
-4. If the spike shows BDOT10k is too slow for a cold powiat: accept the OSM-buildings housing estimate for checks?
+### Decisions (owner, 24.10.2026)
+1. A parcel outside the AOI is scored and labelled "poza obszarem zainteresowania".
+2. Adjacent ids are **not** merged: one card per parcel for now. Step 1 of "Design" therefore drops the clustering
+   of inputs; `expansion_ha` still counts neighbouring parcels. Combining parcels is a later option.
+3. "Check only on demand" (interpreted): a check runs only when a user asks. No automatic re-check or refresh, and
+   no expiry job; a result is re-run by pressing "Sprawdź ponownie". The card always shows the check date and
+   layer ages. *To confirm with the owner: does this also mean old checks are kept indefinitely?*
+4. BDOT10k housing stays, with no OSM fallback. A cold powiat is slow, so the page must show a loader with an
+   estimated time instead of shortening the check (below).
+
+### Loader and estimated time
+- The job writes `steps` as it goes: `[{key, label_pl, status: waiting|running|done|failed|skipped, started_at,
+  seconds}]`, in layer order (ULDK, EGiB neighbours, flood, mining, RU, BDOT10k housing and forest, KIMPZP, KIUG,
+  scoring). The page polls every 2 s and shows a progress bar (done steps over all), the running step's Polish
+  label ("Pobieranie budynków mieszkalnych (BDOT10k)…") and a step list with ticks.
+- Estimate: a table `check_step_stats` (`step_key`, `warm`, `seconds`, `at`) filled by every check. The estimate
+  is the median of the last 10 runs of each step, **cold** when the powiat's BDOT10k/RU answers are not in the
+  response cache and **warm** otherwise, summed over the steps still to do. Before any history exists, the step 1
+  spike numbers are the defaults. The page shows "Szacowany czas: ok. 2 min (pierwsze sprawdzenie w tym powiecie)"
+  or "ok. 25 s", counts down, and says "trwa dłużej niż zwykle" when it overruns instead of showing 100% early.
+- The user can leave the page: the job continues and the check shows in the recent list ("w trakcie").
+- Tests: estimate from history, default without history, cold vs warm, a failed or skipped step counts as done
+  for progress, and the overrun message.
 
 **Done when:** pasting the golden-set parcel of Data4 Jawczyce or Reguły returns a card with all layers and their
 confidence in under 30 s (warm), the card equals the search result for the same land, and a layer failure shows as
