@@ -7,11 +7,11 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -143,10 +143,23 @@ def enqueue(
     return job
 
 
-def claim_next(session: Session) -> JobRow | None:
+def _kind_filter(kinds: Collection[str] | None, exclude: Collection[str]) -> list[ColumnElement[bool]]:
+    """Conditions on `JobRow.kind`: only `kinds` when given, never `exclude`; none means every kind."""
+    conditions: list[ColumnElement[bool]] = []
+    if kinds is not None:
+        conditions.append(JobRow.kind.in_(tuple(kinds)))
+    if exclude:
+        conditions.append(JobRow.kind.not_in(tuple(exclude)))
+    return conditions
+
+
+def claim_next(
+    session: Session, kinds: Collection[str] | None = None, exclude: Collection[str] = ()
+) -> JobRow | None:
+    """Claim the oldest pending job, optionally only of some kinds (a worker that serves one kind)."""
     job = session.scalars(
         select(JobRow)
-        .where(JobRow.status == "pending")
+        .where(JobRow.status == "pending", *_kind_filter(kinds, exclude))
         .order_by(JobRow.created_at, JobRow.id)
         .limit(1)
         .with_for_update(skip_locked=True)
@@ -157,25 +170,37 @@ def claim_next(session: Session) -> JobRow | None:
     return job
 
 
-def fail_interrupted(session: Session) -> int:
+def fail_interrupted(
+    session: Session, kinds: Collection[str] | None = None, exclude: Collection[str] = ()
+) -> int:
     """Mark jobs left 'running' by a dead worker as failed, and close their runs. Returns how many.
 
-    Only call this when no other worker is executing jobs (at worker start-up): the queue has one worker.
+    Call this only at worker start-up. With several workers, pass the kinds this worker serves (the same
+    `kinds` and `exclude` as for `claim_next`): another worker's running job is alive, not interrupted.
+    Without arguments every running job counts, as when there is one worker.
     """
     now = datetime.now(UTC)
     error = "interrupted: worker stopped before the job finished"
-    stale = session.scalars(select(JobRow).where(JobRow.status == "running")).all()
+    stale = session.scalars(
+        select(JobRow).where(JobRow.status == "running", *_kind_filter(kinds, exclude))
+    ).all()
     for job in stale:
         job.status, job.error, job.finished_at = "failed", error, now
         run_row = session.get(RunRow, job.run_id) if job.run_id is not None else None
         if run_row is not None and run_row.status == "running":
             run_row.status, run_row.finished_at = "failed", now
             run_row.summary = {"error": error}
-    # A run can also be left open when the worker died before the job row pointed at it.
+    # A run can also be left open when the worker died before the job row pointed at it (same kind).
     for run_row in session.scalars(select(RunRow).where(RunRow.status == "running")):
+        if not _run_in_scope(run_row.kind, kinds, exclude):
+            continue
         run_row.status, run_row.finished_at = "failed", now
         run_row.summary = {"error": error}
     return len(stale)
+
+
+def _run_in_scope(kind: str, kinds: Collection[str] | None, exclude: Collection[str]) -> bool:
+    return (kinds is None or kind in kinds) and kind not in exclude
 
 
 def execute(job_id: int) -> None:
@@ -207,16 +232,26 @@ def execute(job_id: int) -> None:
             run_row.summary = summary | ({"error": error} if error else {})
 
 
-def work(*, once: bool = False, interval_s: float = 10.0) -> int:
-    """Poll for jobs. Returns the number of jobs executed (useful with once=True)."""
+def work(
+    *,
+    once: bool = False,
+    interval_s: float = 10.0,
+    kinds: Collection[str] | None = None,
+    exclude: Collection[str] = (),
+) -> int:
+    """Poll for jobs. Returns the number of jobs executed (useful with once=True).
+
+    `kinds` and `exclude` split the queue between workers (the check worker serves only `check_parcel`); with
+    neither, the worker takes every kind.
+    """
     executed = 0
     with session_scope() as session:
-        interrupted = fail_interrupted(session)
+        interrupted = fail_interrupted(session, kinds, exclude)
     if interrupted:
         log.warning("marked %d interrupted job(s) as failed", interrupted)
     while True:
         with session_scope() as session:
-            job = claim_next(session)
+            job = claim_next(session, kinds, exclude)
             job_id = job.id if job else None
         if job_id is not None:
             log.info("running job %s", job_id)
