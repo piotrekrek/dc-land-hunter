@@ -74,6 +74,10 @@ class SiteSummary(BaseModel):
     voivodeship: str | None
     # estimated_mw is area × density from config: a derived value, so it carries its provenance too.
     mw_fact: FactOut
+    # Category per investor profile; null for a site stored before profiles existed, and for parcel checks.
+    profile_categories: (
+        dict[Literal["built", "container"], Literal["green", "yellow", "red", "manual"]] | None
+    ) = None
 
 
 class SitesPage(BaseModel):
