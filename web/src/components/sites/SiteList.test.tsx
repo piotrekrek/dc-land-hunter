@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -27,6 +27,9 @@ const site = (over: Partial<SiteSummary>): SiteSummary => ({
   flags: [],
   lon: 19.9,
   lat: 52.1,
+  gmina: null,
+  powiat: null,
+  voivodeship: null,
   mw_fact: { value: estimated_mw_default, source_id: "egib", as_of: null, confidence: "estimated" },
   ...over,
 });
@@ -225,5 +228,57 @@ describe("SiteList", () => {
     renderWithProviders(<SiteList onSelect={() => {}} />, { route: "/?excluded=1" });
     expect(await screen.findByText("Wykluczona")).toBeInTheDocument();
     expect(screen.getByText(/po wyjaśnieniu brakujących danych do 30 pkt/)).toBeInTheDocument();
+  });
+
+  it("says where each site is under the headline, and leaves the line out when no place is known", async () => {
+    mockFetch({
+      "/api/sites": {
+        total: 2,
+        offset: 0,
+        limit: 50,
+        items: [
+          site({ gmina: "Brwinów", powiat: "powiat pruszkowski", voivodeship: "mazowieckie" }),
+          site({ site_id: "site-b" }),
+        ],
+      },
+    });
+    renderWithProviders(<SiteList onSelect={() => {}} />);
+    const rows = await screen.findAllByTestId("site-row");
+    expect(within(rows[0]!).getByText("gm. Brwinów, pow. pruszkowski")).toBeInTheDocument();
+    expect(within(rows[1]!).queryByText(/gm\.|pow\./)).not.toBeInTheDocument();
+  });
+
+  it("filters by powiat: the choice goes to the API and the address, and the list is asked again", async () => {
+    const area = (teryt: string, name: string) => ({ teryt, name, sites: 3, with_data: 1, total: 4, share: 0.25, by_item: {} });
+    const asked: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, "http://localhost");
+      asked.push(url.pathname + url.search);
+      const body =
+        url.pathname === "/api/coverage"
+          ? {
+              level: url.searchParams.get("level"),
+              item: "all",
+              areas:
+                url.searchParams.get("level") === "powiat"
+                  ? [area("1421", "powiat pruszkowski"), area("2401", "powiat będziński")]
+                  : [area("14", "mazowieckie"), area("24", "śląskie")],
+            }
+          : { total: 1, offset: 0, limit: 50, items: [site({})] };
+      return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
+    });
+    renderWithProviders(<SiteList onSelect={() => {}} />);
+    await screen.findAllByTestId("site-row");
+    await screen.findByRole("option", { name: "powiat pruszkowski" });
+
+    await userEvent.selectOptions(screen.getByLabelText("Powiat"), "1421");
+    await waitFor(() => expect(asked.some((u) => u.startsWith("/api/sites") && u.includes("powiat=1421"))).toBe(true));
+    expect(screen.getByLabelText("Powiat")).toHaveValue("1421");
+
+    // Another voivodeship leaves the powiat outside it: the powiat is cleared and its list narrowed.
+    await userEvent.selectOptions(screen.getByLabelText("Województwo"), "24");
+    expect(screen.getByLabelText("Powiat")).toHaveValue("");
+    expect(screen.queryByRole("option", { name: "powiat pruszkowski" })).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "powiat będziński" })).toBeInTheDocument();
   });
 });

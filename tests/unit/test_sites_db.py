@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -145,3 +146,112 @@ def test_unknown_site_is_404(seeded: None, client: TestClient) -> None:
 def test_sites_require_login() -> None:
     with TestClient(create_app()) as anonymous:
         assert anonymous.get("/api/sites").status_code == 401
+
+
+# (teryt, level, name, parent, x0, x1) as full-height strips around the seeded sites, EPSG:2180
+_UNITS = [
+    ("14", "voivodeship", "mazowieckie", None, 600_000, 700_000),
+    ("1421", "powiat", "powiat pruszkowski", "14", 600_000, 700_000),
+    ("1421011", "gmina", "Brwinów", "1421", 600_000, 643_000),
+    ("1421022", "gmina", "Nadarzyn", "1421", 643_000, 700_000),
+]
+
+
+@pytest.fixture
+def places() -> Iterator[None]:
+    with session_scope() as session:
+        for teryt, level, name, parent, x0, x1 in _UNITS:
+            session.execute(
+                text(
+                    "INSERT INTO admin_units (teryt, level, name, parent_teryt, geom) VALUES (:teryt, :level,"
+                    " :name, :parent, ST_Multi(ST_MakeEnvelope(:x0, 400000, :x1, 600000, 2180)))"
+                ),
+                {"teryt": teryt, "level": level, "name": name, "parent": parent, "x0": x0, "x1": x1},
+            )
+    yield
+    with session_scope() as session:
+        session.execute(text("DELETE FROM admin_units"))
+
+
+def test_list_and_card_name_the_gmina_powiat_and_voivodeship(
+    seeded: None, places: None, client: TestClient
+) -> None:
+    items = client.get("/api/sites", params={"include_excluded": "true"}).json()["items"]
+    by_gmina = {item["gmina"]: item for item in items}
+    # Two sites lie west of x = 643 000, the 15 ha one east of it.
+    assert sorted(by_gmina) == ["Brwinów", "Nadarzyn"]
+    assert all(i["powiat"] == "powiat pruszkowski" and i["voivodeship"] == "mazowieckie" for i in items)
+    card = client.get(f"/api/sites/{items[0]['site_id']}").json()
+    assert (card["gmina"], card["powiat"], card["voivodeship"]) == (
+        items[0]["gmina"],
+        "powiat pruszkowski",
+        "mazowieckie",
+    )
+
+
+def test_places_are_null_outside_any_unit(seeded: None, client: TestClient) -> None:
+    body = client.get("/api/sites").json()
+    assert body["total"] == 2
+    assert all(i["gmina"] is None and i["powiat"] is None and i["voivodeship"] is None for i in body["items"])
+
+
+def test_list_filters_by_powiat_and_voivodeship(seeded: None, places: None, client: TestClient) -> None:
+    assert client.get("/api/sites", params={"powiat": "1421"}).json()["total"] == 2
+    assert client.get("/api/sites", params={"powiat": "1425"}).json()["total"] == 0
+    assert client.get("/api/sites", params={"voivodeship": "14"}).json()["total"] == 2
+    assert client.get("/api/sites", params={"voivodeship": "22"}).json()["total"] == 0
+    # The count and the page agree under a filter, also with a cursor.
+    page = client.get("/api/sites", params={"powiat": "1421", "limit": 1}).json()
+    assert page["total"] == 2 and len(page["items"]) == 1 and page["next_cursor"] is not None
+
+
+@pytest.mark.parametrize("params", [{"powiat": "14"}, {"powiat": "abcd"}, {"voivodeship": "1421"}])
+def test_malformed_teryt_filters_are_rejected(client: TestClient, params: dict[str, str]) -> None:
+    assert client.get("/api/sites", params=params).status_code == 422
+
+
+def test_card_carries_the_outline_in_metres_around_its_origin(seeded: None, client: TestClient) -> None:
+    site_id = client.get("/api/sites").json()["items"][0]["site_id"]
+    frame = client.get(f"/api/sites/{site_id}").json()["map"]
+    x0, y0, x1, y1 = frame["bbox_m"]
+    ring = frame["parcel"][0]
+    assert all(x0 < x < x1 and y0 < y < y1 for x, y in ring)
+    # The seeded 32 ha site is 800 x 400 m: the box adds the margin on every side.
+    assert x1 - x0 > 800 and y1 - y0 > 400
+
+
+def test_the_card_orthophoto_is_asked_for_exactly_the_maps_box(
+    seeded: None, client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dclh_api.routers import sites
+
+    asked: list[Any] = []
+
+    def fake(wanted: Any, *, user_agent: str, cache: Any) -> bytes:
+        asked.append(wanted)
+        return b"\xff\xd8\xff\xe0"
+
+    monkeypatch.setattr(sites, "build_client", lambda settings: (None, None))
+    monkeypatch.setattr(sites, "fetch_orthophoto", fake)
+    site_id = client.get("/api/sites").json()["items"][0]["site_id"]
+    frame = client.get(f"/api/sites/{site_id}").json()["map"]
+    response = client.get(f"/api/sites/{site_id}/orthophoto")
+    assert response.status_code == 200 and response.headers["content-type"] == "image/jpeg"
+    (ox, oy), (bx0, by0, bx1, by1) = frame["origin_2180"], frame["bbox_m"]
+    assert list(asked[0].bbox) == pytest.approx([ox + bx0, oy + by0, ox + bx1, oy + by1], abs=0.1)
+
+
+def test_orthophoto_failure_is_a_polish_502_and_unknown_site_a_404(
+    seeded: None, client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dclh_api.routers import sites
+    from dclh_pipeline.orthophoto import OrthophotoUnavailable
+
+    def down(wanted: Any, *, user_agent: str, cache: Any) -> bytes:
+        raise OrthophotoUnavailable("HTTP 404, 0 bytes")
+
+    monkeypatch.setattr(sites, "build_client", lambda settings: (None, None))
+    monkeypatch.setattr(sites, "fetch_orthophoto", down)
+    site_id = client.get("/api/sites").json()["items"][0]["site_id"]
+    assert client.get(f"/api/sites/{site_id}/orthophoto").status_code == 502
+    assert client.get("/api/sites/nope/orthophoto").status_code == 404

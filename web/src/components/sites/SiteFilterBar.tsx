@@ -1,3 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
+
+import { api, unwrap } from "@/api/client";
 import { MW_OPTIONS, SORT_OPTIONS, type SiteFilters } from "@/lib/sites";
 
 interface Props {
@@ -7,8 +10,20 @@ interface Props {
 
 const selectClass = "h-9 rounded-md border bg-surface px-2 text-sm";
 
+/** Areas that hold at least one kept site, by name; the coverage endpoint already leaves the empty ones out. */
+function useAreas(level: "wojewodztwo" | "powiat") {
+  const areas = useQuery({
+    queryKey: ["site-areas", level],
+    queryFn: () => unwrap(api.GET("/api/coverage", { params: { query: { level, item: "all" } } })),
+    staleTime: 10 * 60_000,
+  });
+  return [...(areas.data?.areas ?? [])].sort((a, b) => a.name.localeCompare(b.name, "pl"));
+}
+
 /** Filters for the ranked list. Labels are Polish; the values are written to the URL by the parent. */
 export function SiteFilterBar({ filters, onChange }: Props) {
+  const voivodeships = useAreas("wojewodztwo");
+  const powiats = useAreas("powiat").filter((a) => !filters.voivodeship || a.teryt.startsWith(filters.voivodeship));
   return (
     <form className="flex flex-wrap items-end gap-3" aria-label="Filtry lokalizacji" onSubmit={(e) => e.preventDefault()}>
       <label className="flex flex-col gap-1 text-xs text-muted-foreground">
@@ -27,6 +42,33 @@ export function SiteFilterBar({ filters, onChange }: Props) {
           {MW_OPTIONS.map((mw) => (
             <option key={mw} value={mw}>
               {mw === 0 ? "dowolna" : `${mw} MW`}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+        Województwo
+        <select
+          className={selectClass}
+          value={filters.voivodeship}
+          // Another voivodeship leaves the chosen powiat outside it, so the powiat goes back to "any".
+          onChange={(e) => onChange({ ...filters, voivodeship: e.target.value, powiat: "" })}
+        >
+          <option value="">dowolne</option>
+          {voivodeships.map((a) => (
+            <option key={a.teryt} value={a.teryt}>
+              {a.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+        Powiat
+        <select className={selectClass} value={filters.powiat} onChange={(e) => onChange({ ...filters, powiat: e.target.value })}>
+          <option value="">dowolny</option>
+          {powiats.map((a) => (
+            <option key={a.teryt} value={a.teryt}>
+              {a.name}
             </option>
           ))}
         </select>

@@ -6,11 +6,13 @@ import { api, shouldRetry, unwrap } from "@/api/client";
 import { EmptyState } from "@/components/EmptyState";
 import { mapsUrl } from "@/components/map/popup";
 import { PageScroll } from "@/components/PageScroll";
+import { Sheet } from "@/components/check/Sheet";
+import { ParcelIds } from "@/components/site/ParcelIds";
 import { Protokol } from "@/components/site/Protokol";
 import { Ruler } from "@/components/site/Ruler";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatHa, formatMW, formatPercent } from "@/lib/format";
-import { CONFIDENCE_LABEL, type SiteDetail } from "@/lib/sites";
+import { CONFIDENCE_LABEL, placeLine, type SiteDetail } from "@/lib/sites";
 
 function SiteCard({ site }: { site: SiteDetail }) {
   const parcels = site.parcel_ids.length;
@@ -19,6 +21,7 @@ function SiteCard({ site }: { site: SiteDetail }) {
       <div className="flex flex-wrap items-start gap-4">
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold">Lokalizacja: {formatHa(site.area_ha)}</h1>
+          {placeLine(site, true) && <p className="mt-1 text-sm text-muted-foreground">{placeLine(site, true)}</p>}
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             Szacowana moc {formatMW(site.estimated_mw)}
             <Badge variant="accent">{CONFIDENCE_LABEL[site.mw_fact.confidence]}</Badge>
@@ -60,6 +63,10 @@ function SiteCard({ site }: { site: SiteDetail }) {
         </div>
       </div>
 
+      <section className="mt-6" aria-label="Mapa lokalizacji">
+        <Sheet sheet={{ ...site.map, layers: [] }} photoUrl={`/api/sites/${encodeURIComponent(site.site_id)}/orthophoto`} />
+      </section>
+
       <section className="mt-6" aria-label="Wynik">
         <Ruler score={site.score} upside={site.upside_score} dim={site.excluded} />
       </section>
@@ -69,6 +76,8 @@ function SiteCard({ site }: { site: SiteDetail }) {
         <Fact label="Kompletność danych" value={formatPercent(site.completeness)} />
         <Fact label="Dane z" value={formatDate(site.scored_at)} />
       </dl>
+
+      <ParcelIds ids={site.parcel_ids} />
 
       <h2 className="mt-6 text-base font-semibold">Dlaczego ta punktacja?</h2>
       <p className="mt-1 mb-3 text-sm text-muted-foreground">
