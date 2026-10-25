@@ -16,6 +16,7 @@ const item = (over: Partial<PowiatItem>): PowiatItem => ({
   sites: null,
   error: null,
   priority: false,
+  in_aoi: true,
   ...over,
 });
 

@@ -1,7 +1,7 @@
-import { screen, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { NAV_ITEMS } from "@/components/layout/nav";
+import { NAV_ITEMS, pageTitle } from "@/components/layout/nav";
 import { mockFetch, renderWithProviders } from "@/test/render";
 
 import { AppRoutes } from "./App";
@@ -25,14 +25,36 @@ describe("App shell", () => {
     // Nowości, Ustawienia and Zadania are icon-only links on the right, named by aria-label and title.
     for (const item of NAV_ITEMS.filter((i) => i.iconOnly && !i.adminOnly)) {
       expect(nav).not.toHaveTextContent(item.label);
-      const link = within(screen.getByRole("navigation", { name: "Skróty" })).getByRole("link", { name: item.label });
-      expect(link).toHaveAttribute("title", item.label);
+      const name = item.soon ? `${item.label} (wkrótce)` : item.label;
+      const link = within(screen.getByRole("navigation", { name: "Skróty" })).getByRole("link", { name });
+      expect(link).toHaveAttribute("title", name);
       expect(link).toHaveAttribute("href", item.to);
     }
     expect(screen.queryByRole("link", { name: /Zadania/ })).not.toBeInTheDocument();
     expect(screen.getByText("Brak lokalizacji dla tych filtrów")).toBeInTheDocument();
     expect(screen.getByTestId("map")).toBeInTheDocument();
     expect(await screen.findByText("Połączono z API")).toBeInTheDocument();
+  });
+
+  it("tags the unfinished screens as wkrótce and only those", async () => {
+    mockFetch({
+      "/api/auth/me": { email: "ala@example.org", role: "member" },
+      "/api/sites": { total: 0, offset: 0, limit: 50, items: [] },
+    });
+    renderWithProviders(<AppRoutes />);
+    const nav = (await screen.findAllByRole("navigation", { name: "Główna nawigacja" }))[0]!;
+    const tagged = within(nav).getAllByRole("link").filter((l) => l.textContent?.includes("wkrótce"));
+    expect(tagged.map((l) => l.getAttribute("href"))).toEqual(["/projekty", "/eksport"]);
+    expect(NAV_ITEMS.filter((i) => i.soon).map((i) => i.to)).toEqual(["/projekty", "/eksport", "/nowosci"]);
+  });
+
+  it("sets the tab title per route, including the not-found page", async () => {
+    mockFetch({ "/api/auth/me": { email: "ala@example.org", role: "member" } });
+    renderWithProviders(<AppRoutes />, { route: "/kolejka" });
+    await waitFor(() => expect(document.title).toBe("Kolejka · DC Land Hunter"));
+    cleanup();
+    renderWithProviders(<AppRoutes />, { route: "/nie-ma-takiej-strony" });
+    await waitFor(() => expect(document.title).toBe("Nie znaleziono strony · DC Land Hunter"));
   });
 
   it("puts Kolejka right after the map and keeps Źródła danych off the navbar", () => {
@@ -72,5 +94,20 @@ describe("App shell", () => {
     renderWithProviders(<AppRoutes />, { route: "/ustawienia" });
     expect(await screen.findByRole("heading", { name: "Logowanie" })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Główna nawigacja" })).not.toBeInTheDocument();
+  });
+});
+
+describe("pageTitle", () => {
+  it.each([
+    ["/", "Mapa i lista · DC Land Hunter"],
+    ["/kolejka", "Kolejka · DC Land Hunter"],
+    ["/kolejka/", "Kolejka · DC Land Hunter"],
+    ["/sprawdz-dzialke/abc", "Sprawdź działkę · DC Land Hunter"],
+    ["/lokalizacje/12", "Karta lokalizacji · DC Land Hunter"],
+    ["/logowanie", "Logowanie · DC Land Hunter"],
+    ["/ustawienia", "Ustawienia · DC Land Hunter"],
+    ["/nie-ma", "Nie znaleziono strony · DC Land Hunter"],
+  ])("%s", (path, title) => {
+    expect(pageTitle(path)).toBe(title);
   });
 });

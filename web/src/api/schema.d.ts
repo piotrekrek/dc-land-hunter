@@ -919,6 +919,8 @@ export interface components {
             error: string | null;
             /** Priority */
             priority: boolean;
+            /** In Aoi */
+            in_aoi: boolean;
         };
         /** PowiatList */
         PowiatList: {

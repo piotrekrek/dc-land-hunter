@@ -14,7 +14,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from dclh_pipeline.config import load_scoring, load_sources
@@ -146,6 +146,27 @@ def pick_powiats(
         key=lambda t: (t in last_attempt, last_attempt.get(t, EPOCH), t),
     )
     return (urgent + rest)[:limit]
+
+
+def powiats_outside_aoi(session: Session) -> set[str]:
+    """Powiats whose area does not reach the stored AOI (brief 2.1), for example those east of the Vistula.
+
+    A powiat the river cuts through counts as inside, and one that only touches the AOI's edge as outside.
+    Read from the `aoi` table, which the owner can edit, so no list of codes is kept anywhere. With no AOI
+    loaded nothing is outside: the planner then searches every powiat, as before the AOI existed.
+    """
+    rows = session.execute(
+        text(
+            """
+            SELECT p.teryt FROM admin_units p
+            WHERE p.level = 'powiat' AND EXISTS (SELECT 1 FROM aoi)
+              AND NOT EXISTS (
+                SELECT 1 FROM aoi a WHERE ST_Intersects(p.geom, a.geom) AND NOT ST_Touches(p.geom, a.geom)
+              )
+            """
+        )
+    )
+    return {str(t) for t in rows.scalars()}
 
 
 def merge_priority(from_payload: Sequence[object], saved: Sequence[str]) -> list[str]:

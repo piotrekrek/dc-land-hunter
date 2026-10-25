@@ -18,6 +18,7 @@ function powiat(over: Partial<PowiatItem> & Pick<PowiatItem, "teryt" | "name">):
     sites: null,
     error: null,
     priority: false,
+    in_aoi: true,
     ...over,
   };
 }
@@ -32,7 +33,7 @@ const items: PowiatItem[] = [
 const me = { email: "ala@example.org", role: "member" };
 
 /** Answers the GETs and records the PUT body; the PUT echoes the list back with the new priorities. */
-function mockApi(list: PowiatItem[] = items, nextUp: string[] = ["0805", "1465"]) {
+function mockApi(list: PowiatItem[] = items, nextUp: string[] = []) {
   const puts: unknown[] = [];
   const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const request = input instanceof Request ? input : new Request(String(input), init);
@@ -84,11 +85,11 @@ describe("PowiatyPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Priorytet: powiat słubicki" }));
     expect(screen.getByRole("button", { name: "Zapisz (2)" })).toBeEnabled();
-    expect(within(screen.getByTestId("priority-queue")).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(screen.getByTestId("queue")).getAllByRole("listitem")).toHaveLength(2);
 
     await user.click(screen.getByRole("button", { name: "Cofnij" }));
     expect(screen.getByRole("button", { name: "Zapisz" })).toBeDisabled();
-    expect(within(screen.getByTestId("priority-queue")).getAllByRole("listitem")).toHaveLength(1);
+    expect(within(screen.getByTestId("queue")).getAllByRole("listitem")).toHaveLength(1);
 
     await user.click(screen.getByRole("button", { name: "Priorytet: powiat słubicki" }));
     await user.click(screen.getByRole("button", { name: "Zapisz (2)" }));
@@ -101,11 +102,11 @@ describe("PowiatyPage", () => {
     const user = userEvent.setup();
     renderWithProviders(<PowiatyPage />);
     await screen.findByTestId("checked-count");
-    const queue = screen.getByTestId("priority-queue");
+    const queue = screen.getByTestId("queue");
     expect(within(queue).getAllByRole("listitem")).toHaveLength(1);
 
     await user.click(within(queue).getByRole("button", { name: "Usuń z kolejki: powiat pruszkowski" }));
-    expect(screen.queryByTestId("priority-queue")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("queue")).not.toBeInTheDocument();
     expect(puts).toEqual([]); // nothing is sent until Zapisz
     await user.click(screen.getByRole("button", { name: "Zapisz (0)" }));
     await waitFor(() => expect(puts).toEqual([{ teryts: [] }]));
@@ -118,7 +119,7 @@ describe("PowiatyPage", () => {
     await screen.findByTestId("checked-count");
     await user.click(screen.getByRole("button", { name: "Usuń z kolejki: powiat pruszkowski" }));
     await user.click(screen.getByRole("button", { name: "Cofnij" }));
-    expect(within(screen.getByTestId("priority-queue")).getAllByRole("listitem")).toHaveLength(1);
+    expect(within(screen.getByTestId("queue")).getAllByRole("listitem")).toHaveLength(1);
   });
 
   it("filters to the powiats that are not checked", async () => {
@@ -144,12 +145,59 @@ describe("PowiatyPage", () => {
     expect(screen.getByRole("button", { name: "Zapisz (2)" })).toBeEnabled();
   });
 
-  it("lists the next powiats the planner will take, tagged priority or rotation", async () => {
-    mockApi(items, ["1421", "0805"]);
+  it("shows one queue where each row says its state", async () => {
+    mockApi(
+      [...items, powiat({ teryt: "0601", name: "powiat bialski", voivodeship_teryt: "06", voivodeship_name: "lubelskie", in_aoi: false, priority: true })],
+      ["1421", "0805"],
+    );
     renderWithProviders(<PowiatyPage />);
-    const next = await screen.findByTestId("next-up");
-    const rows = within(next).getAllByRole("listitem");
-    expect(rows.map((r) => r.textContent)).toEqual(["1.powiat pruszkowskipriorytet", "2.powiat słubickirotacja"]);
+    const queue = await screen.findByTestId("queue");
+    const rows = within(queue).getAllByTestId("queue-row");
+    expect(rows.map((r) => r.textContent)).toEqual([
+      "1.powiat pruszkowskinastępny o 01:00 · priorytet",
+      "2.powiat słubickinastępny o 01:00",
+      "3.powiat bialskipoza obszarem",
+    ]);
+    expect(screen.queryByText("Kolejka priorytetowa", { exact: false })).not.toBeInTheDocument();
+    expect(screen.queryByText("Następne w kolejce", { exact: false })).not.toBeInTheDocument();
+  });
+
+  it("shows Niezapisane zmiany next to Zapisz only while changes are staged", async () => {
+    mockApi();
+    const user = userEvent.setup();
+    renderWithProviders(<PowiatyPage />);
+    await screen.findByTestId("checked-count");
+    expect(screen.queryByText("Niezapisane zmiany")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Usuń z kolejki: powiat pruszkowski" }));
+    expect(screen.getByText("Niezapisane zmiany")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cofnij" }));
+    expect(screen.queryByText("Niezapisane zmiany")).not.toBeInTheDocument();
+  });
+
+  it("hides powiats outside the AOI until asked", async () => {
+    const east = powiat({ teryt: "0601", name: "powiat bialski", voivodeship_teryt: "06", voivodeship_name: "lubelskie", in_aoi: false });
+    mockApi([...items, east]);
+    const user = userEvent.setup();
+    renderWithProviders(<PowiatyPage />);
+    expect(await screen.findByTestId("checked-count")).toHaveTextContent("Sprawdzone: 1 z 4");
+    expect(screen.queryByText("lubelskie")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: /pokaż poza obszarem/ }));
+    expect(screen.getByTestId("checked-count")).toHaveTextContent("Sprawdzone: 1 z 5");
+    await user.click(screen.getByText("lubelskie"));
+    const row = screen.getByText("powiat bialski").closest("[data-testid=powiat-row]") as HTMLElement;
+    expect(within(row).getByText("Poza obszarem")).toBeInTheDocument();
+    expect(within(row).queryByRole("button", { name: /Priorytet/ })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: /pokaż poza obszarem/ }));
+    expect(screen.queryByText("lubelskie")).not.toBeInTheDocument();
+  });
+
+  it("offers no switch when every powiat is inside the AOI", async () => {
+    mockApi();
+    renderWithProviders(<PowiatyPage />);
+    await screen.findByTestId("checked-count");
+    expect(screen.queryByRole("checkbox", { name: /pokaż poza obszarem/ })).not.toBeInTheDocument();
   });
 
   it("says the preview updates after saving when there are unsaved changes", async () => {
@@ -157,10 +205,10 @@ describe("PowiatyPage", () => {
     const user = userEvent.setup();
     renderWithProviders(<PowiatyPage />);
     await screen.findByTestId("checked-count");
-    expect(screen.queryByText(/Zaktualizuje się po zapisaniu/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/zaktualizuje się po zapisaniu/)).not.toBeInTheDocument();
     await user.click(screen.getByText("lubuskie"));
     await user.click(screen.getByRole("button", { name: "Priorytet: powiat słubicki" }));
-    expect(screen.getByText(/Zaktualizuje się po zapisaniu/)).toBeInTheDocument();
+    expect(screen.getByText(/zaktualizuje się po zapisaniu/)).toBeInTheDocument();
   });
 });
 

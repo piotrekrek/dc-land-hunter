@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from dclh_api.deps import db_session
 from dclh_api.security import current_user
 from dclh_pipeline.db.models import PowiatPriorityRow, UserRow
-from dclh_pipeline.powiat_search import pick_powiats, queued_powiats
+from dclh_pipeline.powiat_search import pick_powiats, powiats_outside_aoi, queued_powiats
 
 router = APIRouter(tags=["powiats"], dependencies=[Depends(current_user)])
 
@@ -34,6 +34,8 @@ class PowiatItem(BaseModel):
     sites: int | None
     error: str | None
     priority: bool
+    # The powiat reaches the stored AOI. The nightly plan skips the ones where this is false.
+    in_aoi: bool
 
 
 class PowiatList(BaseModel):
@@ -63,7 +65,7 @@ _POWIATS = text(
 
 def _next_up(session: Session, items: list[PowiatItem]) -> list[str]:
     """The planner's own choice (`pick_powiats`), so the preview cannot drift from the nightly run."""
-    busy = queued_powiats(session)
+    busy = queued_powiats(session) | {i.teryt for i in items if not i.in_aoi}
     saved = session.scalars(
         select(PowiatPriorityRow.teryt).order_by(PowiatPriorityRow.added_at, PowiatPriorityRow.teryt)
     )
@@ -78,7 +80,8 @@ def _next_up(session: Session, items: list[PowiatItem]) -> list[str]:
 
 def _list(session: Session) -> PowiatList:
     rows = session.execute(_POWIATS, {"chars": ERROR_CHARS}).mappings()
-    items = [PowiatItem(**row) for row in rows]
+    outside = powiats_outside_aoi(session)
+    items = [PowiatItem(**row, in_aoi=row["teryt"] not in outside) for row in rows]
     return PowiatList(items=items, next_up=_next_up(session, items))
 
 

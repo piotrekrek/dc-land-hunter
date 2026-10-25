@@ -1,0 +1,16 @@
+{
+  "started_at": "2026-10-25T14:54:11.081177+00:00",
+  "finished_at": "2026-10-25T14:54:11.081209+00:00",
+  "user_agent": "DCLandHunter/0.1 (+mailto:unset@example.invalid)",
+  "ran_from": "worker",
+  "sources": [
+    {
+      "source_id": "ekw",
+      "name": "Księgi wieczyste (EKW)",
+      "plan": "manual",
+      "status": "not_checked",
+      "probes": [],
+      "notes": null
+    }
+  ]
+}

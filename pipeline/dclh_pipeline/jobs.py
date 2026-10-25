@@ -26,6 +26,7 @@ from dclh_pipeline.powiat_search import (
     next_window_end,
     pick_powiats,
     powiats_from_prg,
+    powiats_outside_aoi,
     queued_powiats,
     record_attempt,
     search_powiat,
@@ -115,7 +116,8 @@ def _job_plan_searches(session: Session, payload: dict[str, Any]) -> dict[str, A
     )
     priority = merge_priority(payload.get("priority", []), list(saved))
     busy = queued_powiats(session)
-    teryts = [t for t in powiats_from_prg(snapshot) if t not in busy]
+    outside = powiats_outside_aoi(session)  # also drops outside powiats that were put on the priority list
+    teryts = [t for t in powiats_from_prg(snapshot) if t not in busy and t not in outside]
     runs = list(session.scalars(select(SearchRunRow)))
     last = {row.teryt: row.last_attempt_at for row in runs}
     searched_ok = {row.teryt for row in runs if row.last_ok_at is not None}
