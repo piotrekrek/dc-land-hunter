@@ -301,8 +301,9 @@ def test_a_saved_check_returns_both_profile_verdicts(client: TestClient) -> None
         save_result(session, check_id, 0, parcel_check(), datetime(2026, 10, 25, tzinfo=UTC))
     body = client.get(f"/api/checks/{check_id}/sites/0").json()
     assert set(body["profiles"]) == {"built", "container"}
-    # Nothing is loaded for this parcel, so no answer can be better than "manual".
-    assert {v["category"] for v in body["profiles"].values()} == {"manual"}
+    # The fixture parcel is 1 ha with nothing loaded: too small for a built DC, an open question for a container.
+    assert body["profiles"]["built"]["category"] == "red"
+    assert body["profiles"]["container"]["category"] == "manual"
 
 
 # ------------------------------------------------------------------------------------------ progress
