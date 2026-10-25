@@ -580,7 +580,7 @@ calculator numbers incl. caps.
 
 ### Step 5: Sprawdź działkę, Moje projekty, Eksport (large, Phase 4; split into three PRs)
 
-**5a Sprawdź działkę.** Input: TERYT parcel IDs (one or several) or a click on the map. Backend: ULDK lookup, then the
+**5a Sprawdź działkę.** *Done (#102 to #117, see the "Sprawdź działkę" plan above and STATUS; only "Dodaj do projektów" waits for 5b).* Input: TERYT parcel IDs (one or several) or a click on the map. Backend: ULDK lookup, then the
 shared scoring code from `dclh_pipeline` on the fly (one implementation, per the key decisions) against cached layers;
 return the same `SiteDetail` shape so the card page renders it. Target under 30 s, shown with a progress state; a failed
 source is shown as "nie sprawdzono" and not as a pass. Needs the `uldk` source (verified) and the cached layers from Phase 1.

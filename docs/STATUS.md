@@ -827,3 +827,8 @@ Deployed with #113, #114 and #115 (plan in PLAN.md, "Next round").
   800 x 600 m sheet. Not yet seen in a browser by the author (only the picture itself was looked at).
 - **Last night.** Of the nightly list, 3021 (Poznań) was interrupted at 23:00 by our own deploy, and 0223 to 0225 were
   skipped because the 04:00 UTC window had closed. Queued by hand at 10:50 UTC (jobs 113 to 116).
+
+
+## Sprawdź działkę: 5a closed (25.10.2026)
+
+The UX plan's step 5a was already built by the Sprawdź działkę steps above (#102 to #117). What was missing was the stated test: `test_a_checked_parcel_scores_the_same_as_the_batch_site_for_the_same_land` scores one piece of land as a batch cluster and as a checked parcel against the same layers and compares the results. Still open: "Dodaj do projektów" on the result (needs the kanban, 5b).
