@@ -305,3 +305,34 @@ def test_a_parcel_is_one_site_whatever_its_size(area_ha: float) -> None:
     assert site.parcel_ids == ("p1",) and abs(site.area_ha - area_ha) < 1e-6
     assert "check" in site.flags and "split_cluster" not in site.flags  # a big parcel is kept whole
     assert site.needs_split_suggestion == (area_ha > CFG.target.large_site_split_ha)
+
+
+def test_a_checked_parcel_scores_the_same_as_the_batch_site_for_the_same_land() -> None:
+    """One scorer for both paths: the search clusters parcels, the check takes one parcel, same land, same score."""
+    from dclh_pipeline.model.features import Substation, build_grid_index
+    from dclh_pipeline.model.grid import SubstationClass
+    from dclh_pipeline.parcel_check import _single_site
+    from dclh_pipeline.scoring.run import score_candidates
+
+    land = box(0, 0, 400, 300)  # 12 ha
+    layers = SiteLayers(
+        grid=build_grid_index(
+            [Substation(1, SubstationClass.GPZ_110_SN, (600, 150), Point(600, 150), name="GPZ Test")],
+            [],
+            source_id="osm_power",
+        )
+    )
+    batch = cluster_sites(
+        [Parcel("p1", None, land)],
+        mw_per_ha=CFG.target.mw_per_ha,
+        split_suggestion_ha=CFG.target.large_site_split_ha,
+        max_site_ha=CFG.target.large_site_split_ha,
+        min_piece_ha=CFG.target.ha_min,
+    )
+    checked = _single_site(SimpleNamespace(parcel_id="p1", geom=land), CFG)  # type: ignore[arg-type]
+    assert batch[0].site_id == checked.site_id
+
+    from_batch = score_candidates(batch, layers, CFG)[0].score
+    from_check = score_candidates([checked], layers, CFG)[0].score
+    assert from_check == from_batch
+    assert from_check.score > 0 and not from_check.excluded  # the comparison is not between two empty results
