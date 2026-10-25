@@ -367,6 +367,8 @@ def test_hide_red_drops_the_sites_the_profile_rejects(seeded: None, client: Test
     everything = client.get("/api/sites", params={"include_excluded": "true"}).json()["items"]
     victim = everything[0]["site_id"]
     with session_scope() as session:
+        # The seeded sites get their own verdicts; make them all green so only the victim is red.
+        session.execute(text("UPDATE sites SET verdict_built = 'green', verdict_container = 'green'"))
         session.execute(text("UPDATE sites SET verdict_built = 'red' WHERE site_id = :id"), {"id": victim})
     params = {"include_excluded": "true", "profile": "built", "hide_red": "true"}
     kept = [i["site_id"] for i in client.get("/api/sites", params=params).json()["items"]]
