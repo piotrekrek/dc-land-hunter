@@ -72,6 +72,24 @@ Example for 60 MW: 60 000 PLN application fee, 3.6 mln PLN advance, 1.8 mln PLN 
 Open question: whether "30 PLN/kW up to 100 MW" caps the secured capacity at 100 MW or limits the
 obligation to connections up to 100 MW (to confirm with a lawyer before the calculator ships).
 
+## Investor profiles (DC budowane / DC kontenerowe)
+
+A lens on the same features as the score (`pipeline/dclh_pipeline/profiles.py`, values in `config/profiles.yaml`). It does
+not change the score. Each profile gets a category: **green** (worth pursuing), **yellow** (conditional), **red** (a blocker
+or a low soft score) or **manual** (a missing answer decides it, mostly the zoning).
+
+- **Blockers** use data we have: area below the profile minimum (10 ha built, 0.15 ha container), overlap with Natura
+  2000 / park / reserve, flood zones Q10/Q1, forest, mining area, heritage register. `built` also blocks on a zoning
+  that is neither production nor service; for `container` that is "to check" (we cannot tell U from other symbols yet).
+- **Soft score** (0-100): distance to housing (400 m built, 150 m container, zero at 250/80 m), distance to a 110 kV GPZ,
+  published GPZ headroom, soil classes. An input with no data counts 50 and is listed, never passed silently.
+- **To check** is always shown: road access, closed areas (MON), MPZP text (container and temporary-structure bans,
+  minimum intensity and height), land register. A plan ogólny zone caps the result at yellow until OUZ is confirmed.
+- Not covered yet because no data feeds it: the raw MPZP symbol, MPZP text parsing, OUZ, road access, closed areas,
+  fibre, an acoustic calculator. All numbers are practice assumptions from the desk research, not law; legal questions
+  (is a container DC a building, is a data centre "infrastruktura techniczna", art. 5b ugrl) are for a lawyer and an urban planner.
+- A container used permanently is a building for building-law purposes; the 180-day notification route is not offered.
+
 ## What is not built yet
 
 The engine scores whatever features it is given. `model/features.py` now computes the grid, zoning, brownfield,

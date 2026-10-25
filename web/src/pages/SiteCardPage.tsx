@@ -9,6 +9,7 @@ import { PageScroll } from "@/components/PageScroll";
 import { Sheet } from "@/components/check/Sheet";
 import { ConnectionCostCalculator } from "@/components/site/ConnectionCostCalculator";
 import { ParcelIds } from "@/components/site/ParcelIds";
+import { ProfileCards } from "@/components/site/ProfileCards";
 import { ProjectActions } from "@/components/site/ProjectActions";
 import { Protokol } from "@/components/site/Protokol";
 import { Ruler } from "@/components/site/Ruler";
@@ -76,6 +77,8 @@ function SiteCard({ site }: { site: SiteDetail }) {
       <section className="mt-6" aria-label="Wynik">
         <Ruler score={site.score} upside={site.upside_score} dim={site.excluded} />
       </section>
+
+      <ProfileCards profiles={site.profiles} className="mt-6" />
 
       <dl className="grid grid-cols-3 gap-3">
         <Fact label="Działki" value={`${parcels}`} />

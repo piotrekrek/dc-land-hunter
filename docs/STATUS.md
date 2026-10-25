@@ -1,4 +1,16 @@
 # Status
+
+## Investor profiles: DC budowane and DC kontenerowe (25.10.2026, PRs #123, #124, #127; not deployed)
+
+- **What works:** a verdict per profile (green / yellow / red / manual) with blockers, things to check and positives, computed from
+  existing features (`profiles.py`, `config/profiles.yaml`). Sprawdź działkę shows two cards with a "Dlaczego?" (source and date per
+  reason). The list has a profile switch, "Ukryj odrzucone" and a per-row badge; the site card shows the same cards.
+- **Stubbed / missing:** no MPZP text parsing, raw MPZP symbol, OUZ, road access, closed areas, fibre or acoustic calculator; those
+  appear as "do sprawdzenia". The map does not follow the profile. Container sites under 10 ha are not searched in bulk, only checked.
+- **Not verified:** migrations 0012 and 0013 and the DB tests ran only in CI; the UI was not opened in a browser.
+- **To deploy:** merge in order #123, then #124 and #127 (#122 is superseded by #123), migrate, run `dclh reprofile` (RUNBOOK).
+- All thresholds are assumptions (docs/SCORING.md, "Investor profiles"); legal items need a lawyer and an urban planner.
+
 ## Step 4 of the UX plan: an actionable site card (25.10.2026, tested on PostGIS; not yet deployed)
 
 - Migration `0011`: `watches(user_id, site_id)` (per user) and `project_cards(site_id, stage, owner_note, updated_at, updated_by)`
