@@ -1,5 +1,5 @@
 import { formatDate, formatNumber } from "@/lib/format";
-import { CATEGORY_LABEL, CONFIDENCE_LABEL, markForConfidence, type SiteDetail } from "@/lib/sites";
+import { CATEGORY_LABEL, CONFIDENCE_LABEL, NOT_YET_KEYS, markForConfidence, type SiteDetail } from "@/lib/sites";
 
 import { Mark, MarkLegend } from "./Mark";
 
@@ -38,11 +38,15 @@ function Row({ mark, label, finding, source, points }: { mark: React.ReactNode; 
  * source and date in a quieter second line. Replaces the stack of equal cards (owner verdict, 24.10.2026).
  */
 export function Protokol({ site }: { site: ProtokolSite }) {
+  // Criteria nothing feeds yet are folded into one line below the table: they always read "brak danych, 0 pkt".
+  const noData = site.items.filter((i) => NOT_YET_KEYS.has(i.key) && i.confidence === "missing");
+  const shown = site.items.filter((i) => !noData.includes(i));
   const groups = CATEGORY_ORDER.map((cat) => ({
     cat,
-    items: site.items.filter((i) => i.category === cat),
+    items: shown.filter((i) => i.category === cat),
     summary: site.categories.find((c) => c.category === cat),
   })).filter((g) => g.items.length > 0);
+  const noDataMax = noData.reduce((sum, i) => sum + i.max_points, 0);
 
   return (
     <div data-testid="protokol">
@@ -93,6 +97,28 @@ export function Protokol({ site }: { site: ProtokolSite }) {
           </Group>
         ))}
       </div>
+      {noData.length > 0 && (
+        <details className="mt-3 border-y py-2 text-sm" data-testid="no-data-group">
+          <summary className="cursor-pointer">
+            <span className="font-medium">Kryteria bez danych w tej wersji ({noData.length})</span>{" "}
+            <span className="text-muted-foreground">
+              do {formatNumber(noDataMax, 1)} pkt, liczone jako 0
+            </span>
+          </summary>
+          <ul className="m-0 mt-2 list-none p-0">
+            {noData.map((item) => (
+              <li key={item.key} className="grid grid-cols-[22px_minmax(0,1fr)_auto] gap-x-3 border-t py-2">
+                <Mark kind="unk" />
+                <span>
+                  <span className="font-medium">{item.label_pl}</span>
+                  <span className="block text-xs text-muted-foreground">{item.explanation_pl}</span>
+                </span>
+                <span className="text-right whitespace-nowrap tabular-nums">0 / {formatNumber(item.max_points, 1)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }

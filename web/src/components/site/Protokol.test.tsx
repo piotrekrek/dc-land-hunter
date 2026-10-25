@@ -69,3 +69,39 @@ describe("Protokol", () => {
     expect(screen.queryByTestId("gates-group")).not.toBeInTheDocument();
   });
 });
+
+describe("Protokol: criteria that no data feeds yet", () => {
+  const withNoData = {
+    ...site,
+    items: [
+      ...site.items,
+      { key: "conn_telecom", category: "connectivity", label_pl: "Węzeł telekomunikacyjny w pobliżu", points: 0, max_points: 2.5, upside_points: 2.5, confidence: "missing" as const, source_id: null, as_of: null, explanation_pl: "Brak danych: węzły telekomunikacyjne (UKE). Liczone jako 0 pkt.", value: null },
+      { key: "bonus_env", category: "bonus", label_pl: "Decyzja środowiskowa", points: 0, max_points: 3, upside_points: 3, confidence: "missing" as const, source_id: null, as_of: null, explanation_pl: "Brak danych: decyzje środowiskowe. Liczone jako 0 pkt.", value: null },
+    ],
+  };
+
+  it("folds them into one collapsed line instead of one row each", () => {
+    render(<Protokol site={withNoData} />);
+    const folded = screen.getByTestId("no-data-group");
+    expect(folded).toHaveTextContent("Kryteria bez danych w tej wersji (2)");
+    expect(folded).toHaveTextContent("do 5,5 pkt, liczone jako 0");
+    expect(folded).not.toHaveAttribute("open"); // collapsed, but the rows are one click away
+    expect(within(folded).getByText("Węzeł telekomunikacyjny w pobliżu")).toBeInTheDocument();
+    const rows = screen.getAllByTestId("breakdown-group").map((g) => g.textContent);
+    expect(rows.join(" ")).not.toContain("Węzeł telekomunikacyjny"); // and no longer a row of the table
+    expect(rows.join(" ")).not.toContain("Decyzja środowiskowa");
+  });
+
+  it("keeps a criterion that has data, even if it is on the list", () => {
+    const measured = { ...withNoData, items: withNoData.items.map((i) => (i.key === "bonus_env" ? { ...i, confidence: "verified" as const, points: 3 } : i)) };
+    render(<Protokol site={measured} />);
+    expect(screen.getByTestId("no-data-group")).toHaveTextContent("(1)");
+    expect(screen.getAllByTestId("breakdown-group").map((g) => g.textContent).join(" ")).toContain("Decyzja środowiskowa");
+  });
+
+  it("shows no folded line when every criterion has data", () => {
+    render(<Protokol site={site} />);
+    expect(screen.queryByTestId("no-data-group")).not.toBeInTheDocument();
+  });
+});
+

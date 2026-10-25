@@ -93,6 +93,12 @@ FILTER_STEP = {
     "residential_within_m": "bdot10k",
 }
 
+# Criteria no data feeds in this version (docs/SOURCES.md): UKE cannot be downloaded, environmental
+# decisions and public sellers are manual-only, and the PSE planned load stations are not loaded yet.
+# They always count as 0 points, so "Nie wiemy" leaves them out: nobody can resolve them by asking. The web
+# groups them the same way (`NOT_YET_KEYS` in lib/sites.ts).
+NO_DATA_YET = frozenset({"conn_telecom", "bonus_env", "bonus_seller", "grid_planned_station"})
+
 # Step keys and their Polish labels, in the order the loader shows them.
 STEP_LABELS_PL = {
     "static": "Sieć, ochrona przyrody i dane z migawek",
@@ -367,7 +373,7 @@ def unknowns(scored: ScoredSite, cfg: ScoringConfig, failed_steps: Sequence[str]
         label = FILTER_LABEL_PL[key]
         out.append(Unknown(f"Nie sprawdzono: {label[0].lower()}{label[1:]}", why))
     for item in scored.score.items:
-        if item.confidence is Confidence.MISSING:
+        if item.confidence is Confidence.MISSING and item.key not in NO_DATA_YET:
             out.append(Unknown(item.label_pl, item.explanation_pl))
     return out
 

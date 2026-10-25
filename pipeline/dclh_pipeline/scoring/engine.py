@@ -349,11 +349,15 @@ def _zoning_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
         ]  # fmt: skip
     kind = f.zoning.value
     pts = table[kind]
-    conf = Confidence.MISSING if kind is ZoningKind.UNKNOWN else f.zoning.confidence
+    unknown = kind is ZoningKind.UNKNOWN
+    conf = Confidence.MISSING if unknown else f.zoning.confidence
+    # An unknown zoning has no source: the fact may carry the layer that was looked at (an OSM industrial area, an
+    # empty register), but nothing there says what the land is zoned for, and "źródło: osm_power" would suggest it does.
+    source, as_of = (None, None) if unknown else (f.zoning.source_id, f.zoning.as_of)
     return [
         _Draft(
             "zoning", "zoning", "Przeznaczenie terenu", pts, 100.0, table[ZoningKind.MPZP_PRODUCTION] if conf is Confidence.MISSING else pts,
-            conf, f.zoning.source_id, f.zoning.as_of, f"{_ZONING_LABEL[kind].capitalize()}: {_n(pts, 0)}% maksymalnej punktacji za przeznaczenie.", kind.value,
+            conf, source, as_of, f"{_ZONING_LABEL[kind].capitalize()}: {_n(pts, 0)}% maksymalnej punktacji za przeznaczenie.", kind.value,
         )
     ]  # fmt: skip
 
