@@ -811,3 +811,19 @@ run nothing; `stack.yml` (Docker + Playwright) runs on pushes to `main`, by hand
 `tests/e2e/`; jobs have timeouts. If the allowance runs out again: wait for the monthly reset, set a small budget in GitHub
 Billing, or run the checks locally (RUNBOOK).
 
+
+## PSE planned stations, map popups, orthophoto (25.10.2026)
+
+Deployed with #113, #114 and #115 (plan in PLAN.md, "Next round").
+
+- **PSE planned load stations.** `pse_avail` was imported from the 30.09.2026 PDF: 8 stations placed (MKA Legnica,
+  LWN and WRS Opole, KUZ Złoczew, ZER Poznań, GNA Konin, DSC Trójmiasto, DZO Toruń), 6 left out and logged (NOR, WIG,
+  WYP, EPK east of the Vistula; REM, SWR "w rejonie Warszawy"). Positions are town centres, so the bonus is an estimate.
+  The criterion left the "no data yet" list. Sites already stored take it at their next scoring; searches and checks
+  use it at once. Import again each month (RUNBOOK).
+- **Map popups.** Station, line and bare-map clicks offer "Sprawdź działkę w tym miejscu".
+- **Orthophoto.** Toggle "Ortofotomapa" on the sheet. The Geoportal WMS gives an empty 404 to about one valid request
+  in four, and its cookie pins a client to the bad node; each attempt is cookie-free, up to 5. Measured 1.2 s for a
+  800 x 600 m sheet. Not yet seen in a browser by the author (only the picture itself was looked at).
+- **Last night.** Of the nightly list, 3021 (Poznań) was interrupted at 23:00 by our own deploy, and 0223 to 0225 were
+  skipped because the 04:00 UTC window had closed. Queued by hand at 10:50 UTC (jobs 113 to 116).
