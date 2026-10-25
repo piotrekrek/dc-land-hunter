@@ -353,3 +353,25 @@ def test_note_is_kept_across_stage_changes_and_deleted_with_the_project(
     assert body["stage"] is None and body["project_note"] is None
     with session_scope() as session:
         assert session.execute(text("SELECT count(*) FROM project_cards")).scalar_one() == 0
+
+
+def test_written_sites_carry_profile_verdicts(seeded: None, client: TestClient) -> None:
+    body = client.get("/api/sites", params={"include_excluded": "true"}).json()
+    for item in body["items"]:
+        assert set(item["profile_categories"]) == {"built", "container"}
+    detail = client.get(f"/api/sites/{body['items'][0]['site_id']}").json()
+    assert set(detail["profiles"]) == {"built", "container"}
+
+
+def test_hide_red_drops_the_sites_the_profile_rejects(seeded: None, client: TestClient) -> None:
+    everything = client.get("/api/sites", params={"include_excluded": "true"}).json()["items"]
+    victim = everything[0]["site_id"]
+    with session_scope() as session:
+        session.execute(text("UPDATE sites SET verdict_built = 'red' WHERE site_id = :id"), {"id": victim})
+    params = {"include_excluded": "true", "profile": "built", "hide_red": "true"}
+    kept = [i["site_id"] for i in client.get("/api/sites", params=params).json()["items"]]
+    assert victim not in kept and len(kept) == len(everything) - 1
+    # The other profile is untouched, and without a profile the switch has nothing to apply to.
+    other = client.get("/api/sites", params={**params, "profile": "container"}).json()["items"]
+    assert victim in [i["site_id"] for i in other]
+    assert client.get("/api/sites", params={"hide_red": "true"}).status_code == 422

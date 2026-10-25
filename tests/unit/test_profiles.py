@@ -152,3 +152,15 @@ def test_verdicts_serialise_into_the_api_model() -> None:
         assert out.profile == name
         assert out.category == "red"
         assert out.blockers[0].key == "flood"
+
+
+def test_features_survive_the_stored_json_round_trip() -> None:
+    from dclh_pipeline.profiles import features_from_detail
+    from dclh_pipeline.scoring.run import to_jsonable
+
+    original = full_features(
+        flood_10_or_1_pct=F(5.0), zoning=F(ZoningKind.PLAN_OGOLNY_SG), mining_area_pct=None
+    )
+    rebuilt = features_from_detail(to_jsonable(original))
+    assert rebuilt == original
+    assert profile_verdicts(rebuilt, CFG) == profile_verdicts(original, CFG)

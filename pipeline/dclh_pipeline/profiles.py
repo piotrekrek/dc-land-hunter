@@ -7,11 +7,13 @@ See docs/SCORING.md.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from dclh_pipeline.config import ProfilesConfig, ProfileSpec
+from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.scoring.engine import ramp_down
 from dclh_pipeline.scoring.types import Fact, SiteFeatures, ZoningKind
 
@@ -195,6 +197,21 @@ def profile_verdict(f: SiteFeatures, name: str, cfg: ProfilesConfig) -> ProfileV
     return ProfileVerdict(name, category, round(score, 1), blockers, to_check, positives[:3])
 
 
+def features_from_detail(stored: dict[str, Any]) -> SiteFeatures:
+    """Rebuild `SiteFeatures` from the `detail.features` JSON of a stored site, so profiles can be recomputed
+    without a new search."""
+    built: dict[str, Fact[Any] | None] = {}
+    for fld in fields(SiteFeatures):
+        raw = stored.get(fld.name)
+        if raw is None:
+            built[fld.name] = None
+            continue
+        value = ZoningKind(raw["value"]) if fld.name == "zoning" else raw["value"]
+        as_of = datetime.fromisoformat(raw["as_of"]) if raw.get("as_of") else None
+        built[fld.name] = Fact(value, raw["source_id"], as_of, Confidence(raw["confidence"]))
+    return SiteFeatures(**built)
+
+
 def profile_verdicts(f: SiteFeatures, cfg: ProfilesConfig) -> dict[str, ProfileVerdict]:
     return {name: profile_verdict(f, name, cfg) for name in ("built", "container")}
 
@@ -205,6 +222,7 @@ __all__ = [
     "ProfileVerdict",
     "Reason",
     "ToCheck",
+    "features_from_detail",
     "profile_verdict",
     "profile_verdicts",
 ]

@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { api, unwrap } from "@/api/client";
-import { MW_OPTIONS, SORT_OPTIONS, type SiteFilters } from "@/lib/sites";
+import { cn } from "@/lib/utils";
+import { MW_OPTIONS, PROFILE_OPTIONS, SORT_OPTIONS, type SiteFilters } from "@/lib/sites";
 
 interface Props {
   filters: SiteFilters;
@@ -26,6 +27,31 @@ export function SiteFilterBar({ filters, onChange }: Props) {
   const powiats = useAreas("powiat").filter((a) => !filters.voivodeship || a.teryt.startsWith(filters.voivodeship));
   return (
     <form className="flex flex-wrap items-end gap-3" aria-label="Filtry lokalizacji" onSubmit={(e) => e.preventDefault()}>
+      <div role="group" aria-label="Profil inwestora" className="flex flex-col gap-1 text-xs text-muted-foreground">
+        Profil
+        <span className="inline-flex overflow-hidden rounded-md border">
+          {PROFILE_OPTIONS.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              aria-pressed={filters.profile === o.value}
+              onClick={() => onChange({ ...filters, profile: o.value, hideRed: o.value === "" ? false : filters.hideRed })}
+              className={cn(
+                "h-9 px-3 text-sm text-foreground",
+                filters.profile === o.value ? "bg-accent-soft font-medium text-accent-soft-foreground" : "bg-surface hover:bg-surface-2",
+              )}
+            >
+              {o.label}
+            </button>
+          ))}
+        </span>
+      </div>
+      {filters.profile && (
+        <label className="flex h-9 items-center gap-2 self-end text-sm">
+          <input type="checkbox" checked={filters.hideRed} onChange={(e) => onChange({ ...filters, hideRed: e.target.checked })} />
+          Ukryj odrzucone
+        </label>
+      )}
       <label className="flex flex-col gap-1 text-xs text-muted-foreground">
         Sortuj według
         <select className={selectClass} value={filters.sort} onChange={(e) => onChange({ ...filters, sort: e.target.value as SiteFilters["sort"] })}>

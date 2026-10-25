@@ -293,6 +293,36 @@
             }
           },
           {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "built",
+                    "container"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          },
+          {
+            "name": "hide_red",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Hide Red"
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -1418,6 +1448,32 @@
           },
           "mw_fact": {
             "$ref": "#/components/schemas/FactOut"
+          },
+          "profile_categories": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string",
+                  "enum": [
+                    "green",
+                    "yellow",
+                    "red",
+                    "manual"
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "built",
+                    "container"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Categories"
           },
           "parcel_ids": {
             "items": {
@@ -3510,6 +3566,32 @@
           "mw_fact": {
             "$ref": "#/components/schemas/FactOut"
           },
+          "profile_categories": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string",
+                  "enum": [
+                    "green",
+                    "yellow",
+                    "red",
+                    "manual"
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "built",
+                    "container"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Categories"
+          },
           "parcel_ids": {
             "items": {
               "type": "string"
@@ -3789,6 +3871,32 @@
           },
           "mw_fact": {
             "$ref": "#/components/schemas/FactOut"
+          },
+          "profile_categories": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string",
+                  "enum": [
+                    "green",
+                    "yellow",
+                    "red",
+                    "manual"
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "built",
+                    "container"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Categories"
           }
         },
         "type": "object",

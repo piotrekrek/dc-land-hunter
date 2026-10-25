@@ -18,9 +18,10 @@ from shapely import wkb
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from dclh_pipeline.config import ScoringConfig
+from dclh_pipeline.config import ProfilesConfig, ScoringConfig, load_profiles
 from dclh_pipeline.model.features import SiteLayers, build_site_features
 from dclh_pipeline.model.sites import Site
+from dclh_pipeline.profiles import profile_verdicts
 from dclh_pipeline.scoring.engine import score_site
 from dclh_pipeline.scoring.types import SiteFeatures, SiteScore
 
@@ -66,19 +67,22 @@ _INSERT = text(
     """
     INSERT INTO sites (
         site_id, powiat, zone_id, parcel_ids, area_ha, compactness, estimated_mw, score, upside_score,
-        completeness, excluded, grid_badge, large_campus, split_suggested, flags, detail, scored_at, geom
+        completeness, excluded, grid_badge, large_campus, split_suggested, flags, detail, scored_at, geom,
+        profiles, verdict_built, verdict_container
     ) VALUES (
         :site_id, :powiat, :zone_id, :parcel_ids, :area_ha, :compactness, :estimated_mw, :score,
         :upside_score, :completeness, :excluded, :grid_badge, :large_campus, :split_suggested, :flags,
         CAST(:detail AS jsonb),
-        :scored_at, ST_SetSRID(ST_GeomFromWKB(:wkb), 2180)
+        :scored_at, ST_SetSRID(ST_GeomFromWKB(:wkb), 2180),
+        CAST(:profiles AS jsonb), :verdict_built, :verdict_container
     )
     """
 )
 
 
-def _row(item: ScoredSite, scored_at: datetime, powiat: str) -> dict[str, Any]:
+def _row(item: ScoredSite, scored_at: datetime, powiat: str, profiles: ProfilesConfig) -> dict[str, Any]:
     s, sc = item.site, item.score
+    verdicts = profile_verdicts(item.features, profiles)
     detail = {"score": to_jsonable(sc), "features": to_jsonable(item.features)}
     return {
         "site_id": s.site_id,
@@ -99,15 +103,26 @@ def _row(item: ScoredSite, scored_at: datetime, powiat: str) -> dict[str, Any]:
         "detail": json.dumps(detail, ensure_ascii=False),
         "scored_at": scored_at,
         "wkb": wkb.dumps(s.geom),
+        "profiles": json.dumps(to_jsonable(verdicts), ensure_ascii=False),
+        "verdict_built": verdicts["built"].category.value,
+        "verdict_container": verdicts["container"].category.value,
     }
 
 
-def write_sites(session: Session, scored: Sequence[ScoredSite], *, scored_at: datetime, powiat: str) -> int:
+def write_sites(
+    session: Session,
+    scored: Sequence[ScoredSite],
+    *,
+    scored_at: datetime,
+    powiat: str,
+    profiles: ProfilesConfig | None = None,
+) -> int:
     """Replace the sites of one powiat with this run's results; other powiats are kept.
 
     Runs inside the caller's transaction.
     """
     session.execute(text("DELETE FROM sites WHERE powiat = :powiat"), {"powiat": powiat})
     if scored:
-        session.execute(_INSERT, [_row(item, scored_at, powiat) for item in scored])
+        profiles = profiles or load_profiles()
+        session.execute(_INSERT, [_row(item, scored_at, powiat, profiles) for item in scored])
     return len(scored)
