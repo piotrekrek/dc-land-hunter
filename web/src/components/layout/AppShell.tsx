@@ -37,16 +37,14 @@ function AttentionBadge({ count, className }: { count: number; className?: strin
   );
 }
 
-const iconLinkClass = (soon?: boolean) => ({ isActive }: { isActive: boolean }) =>
+const iconLinkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    soon && "opacity-60",
     "relative flex size-9 items-center justify-center rounded-md transition-colors",
     isActive ? "bg-accent-soft text-accent-soft-foreground" : "text-muted-foreground hover:bg-surface-2 hover:text-foreground",
   );
 
-const linkClass = (soon?: boolean) => ({ isActive }: { isActive: boolean }) =>
+const linkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    soon && "opacity-70",
     "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
     isActive ? "bg-accent-soft font-medium text-accent-soft-foreground" : "text-muted-foreground hover:bg-surface-2 hover:text-foreground",
   );
@@ -68,7 +66,7 @@ export function AppShell() {
         <Brand />
         <nav aria-label="Główna nawigacja" className="hidden flex-1 items-center gap-1 lg:flex">
           {labelled.map(({ to, label, icon: Icon, soon }) => (
-            <NavLink key={to} to={to} className={linkClass(soon)} end={to === "/"}>
+            <NavLink key={to} to={to} className={linkClass} end={to === "/"}>
               <Icon className="size-4" aria-hidden />
               {label}
               {soon && <SoonTag />}
@@ -84,7 +82,7 @@ export function AppShell() {
                 <NavLink
                   key={to}
                   to={to}
-                  className={iconLinkClass(soon)}
+                  className={iconLinkClass}
                   title={name}
                   aria-label={count > 0 ? `${label}: ${count} do sprawdzenia` : name}
                 >
@@ -133,7 +131,7 @@ export function AppShell() {
       {menuOpen && (
         <nav id="mobile-nav" aria-label="Główna nawigacja" className="flex flex-col gap-1 border-b bg-surface p-2 lg:hidden">
           {items.map(({ to, label, icon: Icon, soon }) => (
-            <NavLink key={to} to={to} end={to === "/"} className={linkClass(soon)} onClick={() => setMenuOpen(false)}>
+            <NavLink key={to} to={to} end={to === "/"} className={linkClass} onClick={() => setMenuOpen(false)}>
               <Icon className="size-4" aria-hidden />
               {label}
               {soon && <SoonTag />}
