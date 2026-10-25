@@ -21,7 +21,7 @@ from shapely import wkb
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from dclh_pipeline.config import load_scoring, load_sources
+from dclh_pipeline.config import load_profiles, load_scoring, load_sources
 from dclh_pipeline.db import session_scope
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.layers import cached_static_layers, release_static_layers
@@ -243,13 +243,13 @@ _INSERT_SITE = text(
     INSERT INTO parcel_check_sites (
         check_id, n, site_id, powiat, parcel_ids, zone_id, area_ha, compactness, estimated_mw, score,
         upside_score, completeness, excluded, grid_badge, large_campus, split_suggested, flags, detail,
-        scored_at, geom, verdict, outside_aoi, unknowns, next_steps, sheet, layer_ages, parcel
+        scored_at, geom, verdict, outside_aoi, unknowns, next_steps, sheet, layer_ages, parcel, profiles
     ) VALUES (
         :check_id, :n, :site_id, :powiat, :parcel_ids, :zone_id, :area_ha, :compactness, :estimated_mw,
         :score, :upside_score, :completeness, :excluded, :grid_badge, :large_campus, :split_suggested, :flags,
         CAST(:detail AS jsonb), :scored_at, ST_SetSRID(ST_GeomFromWKB(:wkb), 2180), CAST(:verdict AS jsonb),
         :outside_aoi, CAST(:unknowns AS jsonb), CAST(:next_steps AS jsonb), CAST(:sheet AS jsonb),
-        CAST(:layer_ages AS jsonb), CAST(:parcel AS jsonb)
+        CAST(:layer_ages AS jsonb), CAST(:parcel AS jsonb), CAST(:profiles AS jsonb)
     )
     ON CONFLICT (check_id, n) DO NOTHING
     """
@@ -291,6 +291,7 @@ def save_result(session: Session, check_id: str, n: int, result: ParcelCheck, sc
             "next_steps": _json(result.next_steps),
             "sheet": json.dumps(result.sheet, ensure_ascii=False),
             "layer_ages": _json(result.layer_ages),
+            "profiles": _json(result.profiles),
             "parcel": json.dumps(
                 {
                     "parcel_id": parcel.parcel_id,
@@ -383,7 +384,9 @@ def _run(check_id: str) -> dict[str, Any]:
                 seconds=round(time.monotonic() - started, 2),
                 finding="Dane z migawek wczytane.",
             )
-        ctx = CheckContext(config=config, cfg=cfg, store=store, client=client, static=static)
+        ctx = CheckContext(
+            config=config, cfg=cfg, profiles=load_profiles(), store=store, client=client, static=static
+        )
         done = 0
         for index, parcel in enumerate(resolution.items):
             result = check_parcel(parcel, index, ctx, reporter)

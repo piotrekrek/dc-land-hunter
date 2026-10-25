@@ -321,6 +321,7 @@ def _site_detail(row: RowMapping) -> SiteDetail:
         features=_fact_map(detail["features"]),
         geometry=json.loads(row["geojson"]),
         map=SiteMapOut(**build_sheet(wkb.loads(row["geom"], hex=True), [], margin_m=MAP_MARGIN_M)),
+        profiles=row.get("profiles"),
     )
 
 

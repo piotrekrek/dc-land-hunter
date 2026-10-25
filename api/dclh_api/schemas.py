@@ -130,6 +130,30 @@ class SiteMapOut(BaseModel):
     parcel: list[list[list[float]]]
 
 
+class ProfileReasonOut(BaseModel):
+    key: str
+    text_pl: str
+    source_id: str | None
+    as_of: datetime | None
+
+
+class ProfileToCheckOut(BaseModel):
+    key: str
+    text_pl: str
+    blocking: bool
+
+
+class ProfileVerdictOut(BaseModel):
+    """One investor profile's verdict: green / yellow / red, or manual when a missing answer decides it."""
+
+    profile: Literal["built", "container"]
+    category: Literal["green", "yellow", "red", "manual"]
+    score: float
+    blockers: list[ProfileReasonOut]
+    to_check: list[ProfileToCheckOut]
+    positives: list[ProfileReasonOut]
+
+
 class SiteDetail(SiteSummary):
     parcel_ids: list[str]
     scored_at: datetime
@@ -139,6 +163,7 @@ class SiteDetail(SiteSummary):
     features: dict[str, FactOut]
     geometry: dict[str, Any]  # GeoJSON polygon, WGS84
     map: SiteMapOut
+    profiles: dict[str, ProfileVerdictOut] | None = None  # None for a site stored before profiles existed
     # Per the requesting user (watched) and shared by the team (stage, note); only the site card fills them.
     watched: bool = False
     stage: ProjectStage | None = None

@@ -139,3 +139,16 @@ def test_config_rejects_bad_values() -> None:
     del raw["profiles"]["container"]
     with pytest.raises(ValueError, match="exactly"):
         ProfilesConfig.model_validate(raw)
+
+
+def test_verdicts_serialise_into_the_api_model() -> None:
+    from dclh_api.schemas import ProfileVerdictOut
+    from dclh_pipeline.scoring.run import to_jsonable
+
+    stored = to_jsonable(profile_verdicts(full_features(flood_10_or_1_pct=F(5.0)), CFG))
+    assert set(stored) == {"built", "container"}
+    for name, raw in stored.items():
+        out = ProfileVerdictOut.model_validate(raw)
+        assert out.profile == name
+        assert out.category == "red"
+        assert out.blockers[0].key == "flood"
