@@ -546,6 +546,8 @@ export interface components {
             powiat: string | null;
             /** Voivodeship */
             voivodeship: string | null;
+            /** Weakest Label Pl */
+            weakest_label_pl: string | null;
             mw_fact: components["schemas"]["FactOut"];
             /** Parcel Ids */
             parcel_ids: string[];
@@ -1248,6 +1250,8 @@ export interface components {
             powiat: string | null;
             /** Voivodeship */
             voivodeship: string | null;
+            /** Weakest Label Pl */
+            weakest_label_pl: string | null;
             mw_fact: components["schemas"]["FactOut"];
             /** Parcel Ids */
             parcel_ids: string[];
@@ -1335,6 +1339,8 @@ export interface components {
             powiat: string | null;
             /** Voivodeship */
             voivodeship: string | null;
+            /** Weakest Label Pl */
+            weakest_label_pl: string | null;
             mw_fact: components["schemas"]["FactOut"];
         };
         /** SitesPage */
@@ -1693,6 +1699,13 @@ export interface operations {
                 include_excluded?: boolean;
                 powiat?: string | null;
                 voivodeship?: string | null;
+                /** @description west,south,east,north, WGS84 */
+                bbox?: string | null;
+                grid_badge?: ("Opublikowana moc" | "Bliskość sieci" | "Brak danych") | null;
+                /** @description Only sites flagged 'duży kampus' */
+                large_campus?: boolean;
+                /** @description Only sites that should be split */
+                split_suggested?: boolean;
                 limit?: number;
                 offset?: number;
                 cursor?: string | null;

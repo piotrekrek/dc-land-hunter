@@ -72,6 +72,8 @@ class SiteSummary(BaseModel):
     gmina: str | None
     powiat: str | None
     voivodeship: str | None
+    # The scored item furthest from its maximum (not bonuses or penalties); null if none falls short.
+    weakest_label_pl: str | None
     # estimated_mw is area × density from config: a derived value, so it carries its provenance too.
     mw_fact: FactOut
 

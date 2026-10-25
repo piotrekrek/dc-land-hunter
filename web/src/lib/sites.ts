@@ -9,6 +9,7 @@ export interface MapFocus {
   lat: number;
 }
 
+export type GridBadge = SiteSummary["grid_badge"];
 export type Confidence = components["schemas"]["FactOut"]["confidence"];
 
 export const SORT_OPTIONS = [
@@ -19,6 +20,9 @@ export const SORT_OPTIONS = [
   { value: "mw", label: "Szacowana moc" },
 ] as const;
 export type SortKey = (typeof SORT_OPTIONS)[number]["value"];
+
+/** The grid badges a filter can pick; "Brak danych" is what remains, so it is not offered. */
+export const GRID_BADGE_OPTIONS = ["Opublikowana moc", "Bliskość sieci"] as const satisfies readonly GridBadge[];
 
 /** Brief 2.2: the target is 60 MW and 10 ha. The filters start there; the user can lower them. */
 export const MW_OPTIONS = [0, 60, 100, 150] as const;
@@ -32,6 +36,11 @@ export interface SiteFilters {
   /** TERYT code of the voivodeship (2 digits) and of the powiat (4 digits); "" means any. A powiat lies in one voivodeship. */
   voivodeship: string;
   powiat: string;
+  /** "" means any badge. */
+  gridBadge: "" | (typeof GRID_BADGE_OPTIONS)[number];
+  /** Only sites flagged "Duży kampus" / "Do podziału". */
+  largeCampus: boolean;
+  splitSuggested: boolean;
 }
 
 export const DEFAULT_FILTERS: SiteFilters = {
@@ -41,6 +50,9 @@ export const DEFAULT_FILTERS: SiteFilters = {
   includeExcluded: false,
   voivodeship: "",
   powiat: "",
+  gridBadge: "",
+  largeCampus: false,
+  splitSuggested: false,
 };
 
 /** A TERYT code from the URL, kept only when it has the right shape: anything else would only earn a 422. */
@@ -65,6 +77,9 @@ export function parseFilters(params: URLSearchParams): SiteFilters {
     // The powiat code starts with its voivodeship's, so a powiat in the URL also fixes the voivodeship.
     voivodeship: powiat ? powiat.slice(0, 2) : terytOption(params.get("woj"), 2),
     powiat,
+    gridBadge: GRID_BADGE_OPTIONS.find((b) => b === params.get("siec")) ?? "",
+    largeCampus: params.get("kampus") === "1",
+    splitSuggested: params.get("podzial") === "1",
   };
 }
 
@@ -77,6 +92,9 @@ export function toParams(filters: SiteFilters): URLSearchParams {
   if (filters.includeExcluded) params.set("excluded", "1");
   if (filters.voivodeship) params.set("woj", filters.voivodeship);
   if (filters.powiat) params.set("powiat", filters.powiat);
+  if (filters.gridBadge) params.set("siec", filters.gridBadge);
+  if (filters.largeCampus) params.set("kampus", "1");
+  if (filters.splitSuggested) params.set("podzial", "1");
   return params;
 }
 
@@ -90,13 +108,16 @@ export const isDefaultFilters = (filters: SiteFilters): boolean =>
  */
 export function describeFilters(filters: SiteFilters): string {
   const filtersAtDefault =
-    filters.minMw === DEFAULT_FILTERS.minMw && filters.minHa === DEFAULT_FILTERS.minHa && !filters.includeExcluded && !filters.voivodeship;
+    filters.minMw === DEFAULT_FILTERS.minMw && filters.minHa === DEFAULT_FILTERS.minHa && !filters.includeExcluded && !filters.voivodeship && !filters.gridBadge && !filters.largeCampus && !filters.splitSuggested;
   if (filtersAtDefault) return `Filtry domyślne: od ${DEFAULT_FILTERS.minMw} MW`;
   const parts = [filters.minMw > 0 ? `od ${filters.minMw} MW` : "moc dowolna"];
   if (filters.minHa > 0) parts.push(`powierzchnia od ${filters.minHa} ha`);
   if (filters.includeExcluded) parts.push("z wykluczonymi");
   if (filters.powiat) parts.push("wybrany powiat");
   else if (filters.voivodeship) parts.push("wybrane województwo");
+  if (filters.gridBadge) parts.push(`sieć: ${filters.gridBadge.toLowerCase()}`);
+  if (filters.largeCampus) parts.push("duży kampus");
+  if (filters.splitSuggested) parts.push("do podziału");
   return `Filtry: ${parts.join(", ")}`;
 }
 

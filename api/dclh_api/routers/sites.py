@@ -17,6 +17,7 @@ from dclh_api.deps import db_session
 from dclh_api.pagination import CursorError, decode_cursor, encode_cursor
 from dclh_api.schemas import (
     FactOut,
+    GridBadgeLabel,
     ProjectBody,
     ProjectState,
     SiteDetail,
@@ -46,7 +47,7 @@ SORT_COLUMNS: dict[str, str] = {
 
 _SUMMARY_COLUMNS = """
     site_id, zone_id, area_ha, estimated_mw, score, upside_score, completeness, excluded, grid_badge,
-    large_campus, split_suggested, flags, scored_at,
+    large_campus, split_suggested, flags, scored_at, detail,
     ST_X(ST_Transform(ST_PointOnSurface(geom), 4326)) AS lon,
     ST_Y(ST_Transform(ST_PointOnSurface(geom), 4326)) AS lat
 """
@@ -70,6 +71,18 @@ _PLACE_JOINS = """
 MAP_MARGIN_M = 200.0
 
 
+def _parse_bbox(raw: str) -> tuple[float, float, float, float]:
+    """`west,south,east,north` in degrees; anything else is a 422 rather than an empty list."""
+    try:
+        west, south, east, north = (float(part) for part in raw.split(","))
+    except ValueError:
+        raise HTTPException(422, "Obszar (bbox) ma postać: zachód,południe,wschód,północ.") from None
+    in_range = -180 <= west < east <= 180 and -90 <= south < north <= 90
+    if not in_range:
+        raise HTTPException(422, "Obszar (bbox) jest poza zakresem lub ma odwrócone krawędzie.")
+    return west, south, east, north
+
+
 def _unavailable() -> HTTPException:
     return HTTPException(503, "Baza danych jest niedostępna.")
 
@@ -84,6 +97,10 @@ def list_sites(
     include_excluded: bool = False,
     powiat: Annotated[str | None, Query(pattern=r"^\d{4}$")] = None,
     voivodeship: Annotated[str | None, Query(pattern=r"^\d{2}$")] = None,
+    bbox: Annotated[str | None, Query(max_length=100, description="west,south,east,north, WGS84")] = None,
+    grid_badge: GridBadgeLabel | None = None,
+    large_campus: Annotated[bool, Query(description="Only sites flagged 'duży kampus'")] = False,
+    split_suggested: Annotated[bool, Query(description="Only sites that should be split")] = False,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     cursor: Annotated[str | None, Query(max_length=512)] = None,
@@ -96,6 +113,22 @@ def list_sites(
     if voivodeship is not None:
         where += " AND left(powiat, 2) = :voivodeship"
         params["voivodeship"] = voivodeship
+    if bbox is not None:
+        # A site is in view when its polygon touches the box; the box is densified before it is projected, so
+        # its north and south edges follow the parallels in EPSG:2180 instead of cutting straight across.
+        west, south, east, north = _parse_bbox(bbox)
+        where += (
+            " AND ST_Intersects(geom, ST_Transform(ST_Segmentize("
+            "ST_MakeEnvelope(:bbox_w, :bbox_s, :bbox_e, :bbox_n, 4326), 0.01), 2180))"
+        )
+        params |= {"bbox_w": west, "bbox_s": south, "bbox_e": east, "bbox_n": north}
+    if grid_badge is not None:
+        where += " AND grid_badge = :grid_badge"
+        params["grid_badge"] = grid_badge
+    if large_campus:
+        where += " AND large_campus"
+    if split_suggested:
+        where += " AND split_suggested"
     column = SORT_COLUMNS[sort]
     direction = "ASC" if order == "asc" else "DESC"
     # Keyset: the rows strictly after the cursor's row in this order; site_id (always ascending) breaks ties.
@@ -148,13 +181,41 @@ def _mw_fact(row: Mapping[str, Any]) -> FactOut:
     )
 
 
+# Score items no data feeds yet (they always score 0), and categories that only add or subtract: neither is a
+# "weak point" of the site. Same keys as `NOT_YET_KEYS` in web/src/lib/sites.ts.
+_NOT_WEAKEST_KEYS = frozenset({"conn_telecom", "bonus_env", "bonus_seller"})
+_NOT_WEAKEST_CATEGORIES = frozenset({"bonus", "penalty"})
+
+
+def weakest_label(items: list[dict[str, Any]]) -> str | None:
+    """The scored item furthest from its maximum, as a short Polish label; null when nothing falls short.
+
+    Ties go to the item worth more points. A missing item says so, since "no data" is not the same as "bad".
+    """
+    candidates = [
+        i
+        for i in items
+        if i["max_points"] > 0
+        and i["key"] not in _NOT_WEAKEST_KEYS
+        and i["category"] not in _NOT_WEAKEST_CATEGORIES
+        and i["points"] < i["max_points"]
+    ]
+    if not candidates:
+        return None
+    worst = min(candidates, key=lambda i: (i["points"] / i["max_points"], -i["max_points"]))
+    suffix = " (brak danych)" if worst["confidence"] == "missing" else ""
+    return f"{worst['label_pl']}{suffix}"
+
+
 def _summary(row: Mapping[str, Any]) -> SiteSummary:
     # Parcel checks are not placed in a gmina: their rows carry no place columns.
     place_fields = ("gmina", "powiat", "voivodeship")
+    derived = ("mw_fact", "weakest_label_pl")
     fields = {
-        k: row.get(k) if k in place_fields else row[k] for k in SiteSummary.model_fields if k != "mw_fact"
+        k: row.get(k) if k in place_fields else row[k] for k in SiteSummary.model_fields if k not in derived
     }
-    return SiteSummary(**fields, mw_fact=_mw_fact(row))
+    weakest = weakest_label(row["detail"]["score"]["items"])
+    return SiteSummary(**fields, mw_fact=_mw_fact(row), weakest_label_pl=weakest)
 
 
 def _fact_map(features: dict[str, Any]) -> dict[str, FactOut]:
@@ -294,7 +355,7 @@ def _site_row(session: Session, site_id: str) -> RowMapping | None:
             session.execute(
                 text(
                     f"SELECT p.*, {_PLACE_COLUMNS} FROM ("
-                    f"SELECT {_SUMMARY_COLUMNS}, {_PLACE_SOURCE}, geom, parcel_ids, detail, "
+                    f"SELECT {_SUMMARY_COLUMNS}, {_PLACE_SOURCE}, geom, parcel_ids, "
                     "ST_AsGeoJSON(ST_Transform(geom, 4326)) AS geojson FROM sites WHERE site_id = :site_id"
                     f") p {_PLACE_JOINS}"
                 ),

@@ -18,6 +18,8 @@ export interface LayerGroup {
   label: string;
   defaultOn: boolean;
   layerIds: string[];
+  /** A group shown under another one: it is drawn only while its parent is on as well. */
+  parent?: string;
   /** Legend swatch, for layers drawn in one colour. */
   color?: string;
   /** Legend entries, for layers drawn in several colours. */
@@ -86,6 +88,8 @@ const COVERAGE_COLOR_EXPRESSION: ExpressionSpecification = [
 export const SITE_FILL_ID = "sites-fill";
 /** The selected site's outline, drawn on top; its filter picks one site by `site_id`. */
 export const SITE_HIGHLIGHT_ID = "sites-selected";
+/** The site under the pointer (list row or map), drawn above the selection outline. */
+export const SITE_HOVER_ID = "sites-hover";
 export const SITE_CLUSTER_ID = "site-clusters";
 export const SITE_CLUSTER_LABEL_ID = "site-clusters-count";
 
@@ -117,6 +121,9 @@ export function siteHighlightFilter(siteId: string | null): FilterSpecification 
   // Site ids are never empty, so a null selection matches nothing.
   return ["==", ["get", "site_id"], siteId ?? ""];
 }
+
+/** Id of the group that switches every grid layer (lines and stations) at once. */
+export const GRID_GROUP_ID = "grid";
 
 /** The focus a click on a site polygon selects: the same shape as picking its row in the list. */
 export function siteFocus(props: TileProps, at: { lng: number; lat: number }): MapFocus | null {
@@ -278,6 +285,14 @@ export const LAYERS: LayerSpecification[] = [
     filter: siteHighlightFilter(null),
     paint: { "line-color": "#ffffff", "line-width": 3 },
   },
+  {
+    id: SITE_HOVER_ID,
+    type: "line",
+    source: "sites",
+    "source-layer": "sites",
+    filter: siteHighlightFilter(null),
+    paint: { "line-color": "#2563eb", "line-width": 4 },
+  },
 ];
 
 const SITE_LEGEND: NonNullable<LayerGroup["legend"]> = [
@@ -298,7 +313,7 @@ export const LAYER_GROUPS: LayerGroup[] = [
     id: "sites",
     label: "Kandydaci (działki)",
     defaultOn: true,
-    layerIds: [SITE_FILL_ID, "sites-line", SITE_HIGHLIGHT_ID, SITE_CLUSTER_ID, SITE_CLUSTER_LABEL_ID],
+    layerIds: [SITE_FILL_ID, "sites-line", SITE_HIGHLIGHT_ID, SITE_HOVER_ID, SITE_CLUSTER_ID, SITE_CLUSTER_LABEL_ID],
     legend: SITE_LEGEND,
   },
   {
@@ -308,18 +323,28 @@ export const LAYER_GROUPS: LayerGroup[] = [
     layerIds: [COVERAGE_FILL_ID, COVERAGE_LINE_ID],
     legend: COVERAGE_LEGEND,
   },
+  // One switch for the whole grid, so the lines and the station dots can be cleared off the candidates at once.
+  { id: GRID_GROUP_ID, label: "Sieć energetyczna", defaultOn: true, layerIds: [] },
   ...LINE_BANDS.map((band) => ({
     id: band.id,
     label: `Linie ${band.label}`,
     defaultOn: true,
     layerIds: [band.id],
     color: band.color,
+    parent: GRID_GROUP_ID,
   })),
-  { id: "substations", label: "Stacje (GPZ, węzły)", defaultOn: true, layerIds: ["substations-circle"] },
+  {
+    id: "substations",
+    label: "Stacje (GPZ, węzły)",
+    defaultOn: true,
+    layerIds: ["substations-circle"],
+    parent: GRID_GROUP_ID,
+  },
   {
     id: "substations-unknown",
     label: "Stacje o nieznanym napięciu",
     defaultOn: false,
+    parent: GRID_GROUP_ID,
     layerIds: [UNKNOWN_STATIONS_ID],
     color: "#ffffff",
   },
@@ -352,7 +377,7 @@ export function addGridLayers(
   for (const layer of LAYERS) {
     if (!map.getLayer(layer.id)) map.addLayer(layer);
   }
-  for (const group of LAYER_GROUPS) setGroupVisibility(map, group, visible[group.id] ?? group.defaultOn);
+  applyVisibility(map, visible);
   setSiteHighlight(map, selectedSiteId);
 }
 
@@ -366,8 +391,32 @@ export function setSiteHighlight(map: MapLibreMap, siteId: string | null) {
   if (map.getLayer(SITE_HIGHLIGHT_ID)) map.setFilter(SITE_HIGHLIGHT_ID, siteHighlightFilter(siteId));
 }
 
+/** The hovered site's outline (list row or pointer on the map); null clears it. */
+export function setSiteHover(map: MapLibreMap, siteId: string | null) {
+  if (map.getLayer(SITE_HOVER_ID)) map.setFilter(SITE_HOVER_ID, siteHighlightFilter(siteId));
+}
+
+/** Whether a group is drawn: its own switch, and its parent's when it has one. */
+export function groupOn(group: LayerGroup, visible: Record<string, boolean>): boolean {
+  const own = visible[group.id] ?? group.defaultOn;
+  if (!group.parent) return own;
+  const parent = LAYER_GROUPS.find((g) => g.id === group.parent);
+  return own && (parent ? groupOn(parent, visible) : true);
+}
+
+/** Applies every group's visibility; a parent switch changes its children too, so all are set again. */
+export function applyVisibility(map: MapLibreMap, visible: Record<string, boolean>) {
+  for (const group of LAYER_GROUPS) setGroupVisibility(map, group, groupOn(group, visible));
+}
+
 export function setGroupVisibility(map: MapLibreMap, group: LayerGroup, on: boolean) {
   for (const id of group.layerIds) {
     if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
   }
+}
+
+/** The visible box as "west,south,east,north", rounded to about 100 m so a nudge does not refetch the list. */
+export function viewBbox(map: Pick<MapLibreMap, "getBounds">): string {
+  const b = map.getBounds();
+  return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].map((n) => n.toFixed(3)).join(",");
 }

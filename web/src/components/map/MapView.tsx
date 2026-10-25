@@ -13,10 +13,12 @@ import {
   SITE_FILL_ID,
   STATION_LAYER_IDS,
   addGridLayers,
+  applyVisibility,
   setCoverageData,
-  setGroupVisibility,
   setSiteHighlight,
+  setSiteHover,
   siteFocus,
+  viewBbox,
   clusterZoomTarget,
 } from "./layers";
 import { coverageCollection, type CoverageItem, type CoverageLevel, type CoverageCollection } from "@/lib/coverage";
@@ -79,15 +81,28 @@ function fallbackStyle(theme: Theme): StyleSpecification {
 
 export function MapView({
   focus = null,
+  hover = null,
   onSiteClick,
+  onSiteHover,
+  onViewChange,
 }: {
   focus?: MapFocus | null;
+  /** The site under the pointer in the list: outlined on the map. */
+  hover?: MapFocus | null;
   /** A click on a site polygon picks that site, as picking its row in the list does. */
   onSiteClick?: (focus: MapFocus) => void;
+  /** The pointer moved onto a site polygon (or off all of them: null). */
+  onSiteHover?: (hover: MapFocus | null) => void;
+  /** The visible box after every move, as "west,south,east,north". */
+  onViewChange?: (bbox: string) => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const onSiteClickRef = useRef(onSiteClick);
   onSiteClickRef.current = onSiteClick;
+  const onSiteHoverRef = useRef(onSiteHover);
+  onSiteHoverRef.current = onSiteHover;
+  const onViewChangeRef = useRef(onViewChange);
+  onViewChangeRef.current = onViewChange;
   const selectedSiteRef = useRef<string | null>(null);
   const [basemapFailed, setBasemapFailed] = useState(false);
   const [basemapIssue, setBasemapIssue] = useState<string | null>(null);
@@ -110,9 +125,10 @@ export function MapView({
   const coverageRef = useRef<CoverageCollection>(coverageCollection([]));
 
   const toggle = useCallback((groupId: string, on: boolean) => {
-    setVisible((v) => ({ ...v, [groupId]: on }));
-    const group = LAYER_GROUPS.find((g) => g.id === groupId);
-    if (mapRef.current && group) setGroupVisibility(mapRef.current, group, on);
+    const next = { ...visibleRef.current, [groupId]: on };
+    visibleRef.current = next;
+    setVisible(next);
+    if (mapRef.current) applyVisibility(mapRef.current, next);
   }, []);
 
   useEffect(() => {
@@ -177,9 +193,28 @@ export function MapView({
         .setDOMContent(renderPopup(model, !isStation))
         .addTo(map);
     });
+    let hoveredSite: string | null = null;
     map.on("mousemove", (e: maplibregl.MapMouseEvent) => {
-      map.getCanvas().style.cursor = bubbleAt(map, e.point) || featureAt(map, e.point) ? "pointer" : "";
+      const feature = featureAt(map, e.point);
+      map.getCanvas().style.cursor = bubbleAt(map, e.point) || feature ? "pointer" : "";
+      // Tell the list which candidate is under the pointer, only when that changes.
+      const over = feature?.layer.id === SITE_FILL_ID ? siteFocus(feature.properties ?? {}, e.lngLat) : null;
+      if ((over?.siteId ?? null) !== hoveredSite) {
+        hoveredSite = over?.siteId ?? null;
+        onSiteHoverRef.current?.(over);
+      }
     });
+    map.on("mouseout", () => {
+      if (hoveredSite !== null) onSiteHoverRef.current?.(null);
+      hoveredSite = null;
+    });
+    // The list can follow the map ("Szukaj w tym obszarze"): report the box once the map is ready and after each move.
+    // A map hidden on a phone has no size, so its box means nothing and is not reported.
+    const reportView = () => {
+      if (container.current?.clientWidth) onViewChangeRef.current?.(viewBbox(map));
+    };
+    map.on("load", reportView);
+    map.on("moveend", reportView);
 
     // Fall back when the basemap style fails to load, or hangs (blocked networks often drop silently).
     let settled = false;
@@ -281,6 +316,21 @@ export function MapView({
       marker.remove();
     };
   }, [focus]);
+
+  // Outline the site hovered in the list, and ring its position so it shows from far out, where sites are bubbles.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !hover) return;
+    setSiteHover(map, hover.siteId);
+    const ring = document.createElement("div");
+    ring.className = "pointer-events-none size-5 rounded-full border-[3px] border-[#2563eb] bg-white/40";
+    ring.dataset.testid = "hover-ring";
+    const marker = new maplibregl.Marker({ element: ring }).setLngLat([hover.lon, hover.lat]).addTo(map);
+    return () => {
+      marker.remove();
+      setSiteHover(map, null);
+    };
+  }, [hover]);
 
   return (
     <div className="relative h-full w-full">

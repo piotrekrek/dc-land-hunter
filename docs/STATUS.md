@@ -19,6 +19,26 @@
   `stage` are not on `GET /api/sites` yet. The Playwright smoke has no site card (the e2e database has no sites), so the card is
   covered by jsdom tests only; axe contrast of the new blocks was not scanned in a browser.
 
+## Step 2 of the UX plan: the map and the list talk to each other (25.10.2026, API tested on PostGIS, web unit tests; Playwright not run locally; not yet deployed)
+
+- `GET /api/sites` takes `bbox=west,south,east,north` (WGS84; a site counts when its polygon touches the box, the box is densified before
+  it is projected to 2180), `grid_badge`, `large_campus` and `split_suggested`. A malformed or reversed box is a 422. `total` follows the
+  filters, so the cursor logic is unchanged; the web keys the query on the box, so a new box restarts from page one.
+- `SiteSummary.weakest_label_pl`: the scored item with the lowest points/max_points (ties go to the one worth more points), skipping
+  bonuses, penalties and the three criteria no data feeds yet; "(brak danych)" is appended for a missing item; null when nothing falls
+  short. It is the item's label only: the value is not in the label because items have no unit field. Rows show "najsłabsze: …".
+  `detail` is now read for every listed row (50 per page).
+- List: "Szukaj w tym obszarze" checkbox (off by default, not in the URL: the box changes with every pan). On, the list asks with the
+  map's box (rounded to about 100 m, reported on load and moveend, not while the map is hidden on a phone) and the line reads
+  "W widoku: N z <all>" (a second `limit=1` request without the box). An empty view has its own message.
+- Hover: a row outlines its site on the map (`sites-hover` layer) and rings its position (a marker, so it shows from far out where sites
+  are bubbles); the pointer on a site on the map highlights and scrolls to its row.
+- Layers panel: open/closed is kept in `localStorage` (`dclh.layersOpen`, try/catch; the breakpoint default only decides the first
+  visit). New "Sieć energetyczna" switch above the 110/220/400 kV lines and the stations; while off the children are disabled and hidden.
+  Defaults are unchanged (grid on).
+- Filters in the URL: `siec` (Opublikowana moc / Bliskość sieci), `kampus=1`, `podzial=1`.
+- Not done: the "best in this powiat" view still needs the user to pick the powiat and sort; no map-fit to the powiat filter.
+
 ## Honest navigation and a Kolejka limited to the AOI (UX plan step 3, 25.10.2026, tested on PostGIS; not yet deployed)
 
 - **Bug fixed in the nightly plan:** `plan_searches` took every powiat from the PRG snapshot, so it also searched ones east of the

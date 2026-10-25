@@ -85,6 +85,9 @@ vi.mock("maplibre-gl", () => {
     getZoom() {
       return h.zoom;
     }
+    getBounds() {
+      return { getWest: () => 20.00049, getSouth: () => 52.1, getEast: () => 21.5, getNorth: () => 52.9 };
+    }
   }
   class FakeMarker {
     setLngLat(ll: unknown) {
@@ -476,6 +479,60 @@ describe("MapView site selection", () => {
     expect(h.filters.at(-1)).toEqual({ layer: "sites-selected", filter: ["==", ["get", "site_id"], "site-a"] });
     rerender(<MapView focus={{ siteId: "site-b", lon: 17.0, lat: 51.1 }} />);
     expect(h.filters.at(-1)).toEqual({ layer: "sites-selected", filter: ["==", ["get", "site_id"], "site-b"] });
+  });
+});
+
+describe("MapView and the list", () => {
+  const site = { layer: { id: "sites-fill" }, properties: { site_id: "site-a", score: 80 }, geometry: { type: "Polygon" } };
+  const move = { point: { x: 10, y: 10 }, lngLat: { lng: 20.9, lat: 52.1 } };
+
+  beforeEach(() => {
+    h.setStyle = vi.fn();
+    h.resize = vi.fn();
+    h.features = [];
+    h.filters = [];
+    h.markers = [];
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it("tells the list which site the pointer is on, once per site, and when it leaves", () => {
+    const onSiteHover = vi.fn();
+    h.features = [site];
+    render(<MapView onSiteHover={onSiteHover} />);
+    act(() => emit("mousemove", move));
+    act(() => emit("mousemove", move));
+    expect(onSiteHover).toHaveBeenCalledTimes(1);
+    expect(onSiteHover).toHaveBeenCalledWith({ siteId: "site-a", lon: 20.9, lat: 52.1 });
+    h.features = [];
+    act(() => emit("mousemove", move));
+    expect(onSiteHover).toHaveBeenLastCalledWith(null);
+  });
+
+  it("outlines and rings the site hovered in the list, and clears both when the pointer leaves the row", () => {
+    const { rerender } = render(<MapView hover={{ siteId: "site-a", lon: 20.9, lat: 52.1 }} />);
+    expect(h.filters.at(-1)).toEqual({ layer: "sites-hover", filter: ["==", ["get", "site_id"], "site-a"] });
+    expect(h.markers.at(-1)).toMatchObject({ lngLat: [20.9, 52.1], removed: false });
+    rerender(<MapView hover={null} />);
+    expect(h.filters.at(-1)).toEqual({ layer: "sites-hover", filter: ["==", ["get", "site_id"], ""] });
+    expect(h.markers.at(-1)?.removed).toBe(true);
+  });
+
+  it("reports the visible box, rounded to about 100 m, once loaded and after each move", () => {
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(800);
+    const onViewChange = vi.fn();
+    render(<MapView onViewChange={onViewChange} />);
+    act(() => emit("load"));
+    expect(onViewChange).toHaveBeenLastCalledWith("20.000,52.100,21.500,52.900");
+    act(() => emit("moveend"));
+    expect(onViewChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not report a box while the map is hidden (no size)", () => {
+    const onViewChange = vi.fn();
+    render(<MapView onViewChange={onViewChange} />);
+    act(() => emit("moveend"));
+    expect(onViewChange).not.toHaveBeenCalled();
   });
 });
 
