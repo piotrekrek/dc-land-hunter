@@ -97,6 +97,24 @@ describe("SiteCardPage", () => {
     expect(within(groups[1]!).getByText("Brak danych")).toBeInTheDocument();
   });
 
+  it("shows both profile cards when the site has profiles, and none when it has not", async () => {
+    const profiles = {
+      built: { profile: "built", category: "yellow", score: 66, blockers: [], to_check: [], positives: [] },
+      container: { profile: "container", category: "green", score: 81, blockers: [], to_check: [], positives: [] },
+    };
+    mockFetch({ "/api/sites/site-a": { ...detail, profiles } });
+    renderCard("/lokalizacje/site-a");
+    expect(await screen.findByTestId("profile-built")).toHaveTextContent("Warunkowo");
+    expect(screen.getByTestId("profile-container")).toHaveTextContent("Warto");
+  });
+
+  it("shows no profile cards for a site stored before profiles existed", async () => {
+    mockFetch({ "/api/sites/site-a": detail });
+    renderCard("/lokalizacje/site-a");
+    await screen.findByRole("heading", { name: /Lokalizacja: 32.ha/ });
+    expect(screen.queryByTestId("profiles")).not.toBeInTheDocument();
+  });
+
   it("links to a check of the same parcels with live layers (the id goes into the address)", async () => {
     mockFetch({ "/api/sites/site-a": detail });
     renderCard("/lokalizacje/site-a");

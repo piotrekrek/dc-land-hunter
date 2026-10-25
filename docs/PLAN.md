@@ -661,3 +661,12 @@ działkę" in map popups, (4) the orthophoto background on the sheet. Each is it
    site. The sheet gets a toggle "Ortofotomapa" (off by default, so nothing is downloaded until asked) and the credit
    "Źródło: Geoportal, GUGiK". The photo sits under a pale veil so the hatching stays readable.
 
+
+### Investor profiles (25.10.2026)
+
+Two verdict lenses, DC budowane and DC kontenerowe, over the existing site features (plan agreed with the owner: container works
+first in Sprawdź działkę, existing data only). Steps, each its own PR: (1) engine and `config/profiles.yaml`, (2) Sprawdź działkę
+backend and migration 0011, (3) profile cards in the result, (4) list switch, hide rejected, migration 0012 and `dclh reprofile`,
+(5) site card and docs. Next, each needing data work: MPZP symbol and text rules (container bans, minima), OUZ and plan ogólny
+zones, road access (OSM), closed areas (MON), fibre, acoustic calculator, bulk search of small plots for containers, profile
+colours on the map.

@@ -117,6 +117,17 @@ uv run alembic -c api/alembic.ini upgrade head
 uv run alembic -c api/alembic.ini revision -m "add substations"   # then edit the new file
 ```
 
+## Investor profile verdicts (backfill)
+
+`dclh search` writes the profile verdicts with every site. Sites stored before migration 0012 have none until:
+
+```bash
+uv run alembic -c api/alembic.ini upgrade head
+uv run dclh reprofile        # recomputes every stored site from detail.features, no new search
+```
+
+Run it again after editing `config/profiles.yaml`. Until then a profile filter does not hide those rows (no verdict is not red).
+
 ## Adding a source connector
 
 1. Add or update the entry in `config/sources.yaml` (id, plan, cadence, probes).
