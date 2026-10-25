@@ -7,7 +7,7 @@ import statistics
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -19,6 +19,7 @@ from dclh_api.schemas import SiteDetail
 from dclh_api.security import current_user
 from dclh_pipeline.check_job import DEFAULT_STEP_SECONDS, HISTORY, build_client, create_check
 from dclh_pipeline.db.models import UserRow
+from dclh_pipeline.orthophoto import OrthophotoUnavailable, fetch_orthophoto, request_for_sheet
 from dclh_pipeline.parcel_check import load_aoi, resolve_parcels
 from dclh_pipeline.parcel_input import MAX_INPUTS, parse_inputs
 from dclh_pipeline.settings import get_settings
@@ -448,4 +449,43 @@ def get_check_site(
         sheet=SheetOut(**site["sheet"]),
         layer_ages={k: v for k, v in site["layer_ages"].items()},
         parcel=ParcelInfoOut(**site["parcel"]),
+    )
+
+
+@router.get(
+    "/checks/{check_id}/sites/{n}/orthophoto",
+    response_class=Response,
+    responses={200: {"content": {"image/jpeg": {}}}},
+)
+def get_check_orthophoto(
+    check_id: str,
+    n: int,
+    session: Annotated[Session, Depends(db_session)],
+    user: Annotated[UserRow, Depends(current_user)],
+) -> Response:
+    """The Geoportal orthophoto for exactly the sheet's box, asked for only when the sheet shows it."""
+    _check_row(session, check_id, user)
+    sheet = session.execute(
+        text("SELECT sheet FROM parcel_check_sites WHERE check_id = CAST(:id AS uuid) AND n = :n"),
+        {"id": check_id, "n": n},
+    ).scalar_one_or_none()
+    if sheet is None:
+        raise HTTPException(404, "Nie ma takiej działki w tym sprawdzeniu.")
+    try:
+        wanted = request_for_sheet(tuple(sheet["origin_2180"]), tuple(sheet["bbox_m"]))
+    except (KeyError, TypeError, ValueError) as exc:
+        logger.exception("Sheet of check %s/%s has no usable box", check_id, n)
+        raise HTTPException(404, "Ten rysunek nie ma ortofotomapy.") from exc
+    settings = get_settings()
+    _, cache = build_client(settings)
+    try:
+        picture = fetch_orthophoto(wanted, user_agent=settings.user_agent, cache=cache)
+    except OrthophotoUnavailable as exc:
+        raise HTTPException(
+            502, "Geoportal nie zwrócił ortofotomapy dla tego miejsca. Spróbuj za chwilę."
+        ) from exc
+    return Response(
+        picture,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "private, max-age=86400"},
     )

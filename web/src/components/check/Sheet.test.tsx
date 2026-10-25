@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -53,5 +53,50 @@ describe("Sheet", () => {
   it("draws a scale bar that is a round length for the width of the sheet", () => {
     render(<Sheet sheet={sheet} />);
     expect(screen.getByTestId("scale-label")).toHaveTextContent("250 m"); // 1100 m wide: a quarter is 275 m
+  });
+});
+
+describe("Sheet orthophoto", () => {
+  const photoUrl = "/api/checks/abc/sites/0/orthophoto";
+
+  it("offers no toggle without a photo address", () => {
+    render(<Sheet sheet={sheet} />);
+    expect(screen.queryByRole("button", { name: "Ortofotomapa" })).not.toBeInTheDocument();
+  });
+
+  it("asks for nothing until the toggle is pressed", () => {
+    const { container } = render(<Sheet sheet={sheet} photoUrl={photoUrl} />);
+    expect(container.querySelector("image")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ortofotomapa" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("lays the photo under the drawing across the whole box, then credits the Geoportal", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<Sheet sheet={sheet} photoUrl={photoUrl} />);
+    await user.click(screen.getByRole("button", { name: "Ortofotomapa" }));
+    const image = container.querySelector("image")!;
+    expect(image.getAttribute("href")).toBe(photoUrl);
+    const [x0, y0, x1, y1] = sheet.bbox_m as [number, number, number, number];
+    expect([image.getAttribute("x"), image.getAttribute("y")]).toEqual([`${x0}`, `${-y1}`]);
+    expect([image.getAttribute("width"), image.getAttribute("height")]).toEqual([`${x1 - x0}`, `${y1 - y0}`]);
+    expect(screen.getByRole("status")).toHaveTextContent("Wczytuję ortofotomapę");
+    // The photo is drawn first, so the parcel outline stays on top of it.
+    const order = [...container.querySelectorAll("svg > g, svg > path")].map((el) => el.getAttribute("data-layer") ?? el.getAttribute("data-testid"));
+    expect(order.indexOf("orthophoto")).toBeLessThan(order.indexOf("parcel"));
+    fireEvent.load(image);
+    expect(await screen.findByText(/Źródło ortofotomapy: Geoportal, GUGiK/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Ortofotomapa" }));
+    expect(container.querySelector("image")).not.toBeInTheDocument();
+  });
+
+  it("says so when the photo cannot be fetched, and tries again on the next press", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<Sheet sheet={sheet} photoUrl={photoUrl} />);
+    await user.click(screen.getByRole("button", { name: "Ortofotomapa" }));
+    fireEvent.error(container.querySelector("image")!);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Nie udało się pobrać ortofotomapy");
+    expect(container.querySelector("image")).not.toBeInTheDocument(); // no broken-image icon on the drawing
+    await user.click(screen.getByRole("button", { name: "Ortofotomapa" }));
+    expect(screen.getByRole("status")).toBeInTheDocument();
   });
 });

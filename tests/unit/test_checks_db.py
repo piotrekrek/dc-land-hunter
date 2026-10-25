@@ -24,6 +24,7 @@ from dclh_pipeline.db.models import JobRow, UserRow
 from dclh_pipeline.jobs import CHECK_INTERRUPTED_PL, claim_next, fail_interrupted
 from dclh_pipeline.model.features import SiteLayers, build_site_features
 from dclh_pipeline.model.sites import Parcel, cluster_sites
+from dclh_pipeline.orthophoto import OrthophotoUnavailable
 from dclh_pipeline.parcel_check import (
     ParcelCheck,
     Resolution,
@@ -615,3 +616,66 @@ def test_the_idle_hook_is_not_called_while_jobs_are_running(stubbed: pytest.Monk
     calls: list[float] = []
     assert jobs.work(once=True, kinds=["check_parcel"], on_idle=calls.append) == 1
     assert len(calls) == 1  # once, after the queue emptied
+
+
+# ------------------------------------------------------------------------------------------- orthophoto
+
+JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 40
+
+
+def stub_geoportal(monkeypatch: pytest.MonkeyPatch, result: bytes | Exception = JPEG) -> list[Any]:
+    from dclh_api.routers import checks
+
+    asked: list[Any] = []
+
+    def fake(wanted: Any, *, user_agent: str, cache: Any) -> bytes:
+        asked.append(wanted)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    monkeypatch.setattr(checks, "build_client", lambda settings: (None, None))
+    monkeypatch.setattr(checks, "fetch_orthophoto", fake)
+    return asked
+
+
+def done_check(by: str = "ala@example.org") -> str:
+    check_id = open_check(by=by)
+    with session_scope() as session:
+        save_result(session, check_id, 0, parcel_check(), datetime(2026, 10, 25, 9, 0, tzinfo=UTC))
+    return check_id
+
+
+def test_the_orthophoto_is_asked_for_exactly_the_sheets_box(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    asked = stub_geoportal(monkeypatch)
+    check_id = done_check()
+    sheet = client.get(f"/api/checks/{check_id}/sites/0").json()["sheet"]
+    response = client.get(f"/api/checks/{check_id}/sites/0/orthophoto")
+    assert response.status_code == 200 and response.headers["content-type"] == "image/jpeg"
+    assert response.content == JPEG and "private" in response.headers["cache-control"]
+    (ox, oy), (bx0, by0, bx1, by1) = sheet["origin_2180"], sheet["bbox_m"]
+    assert list(asked[0].bbox) == pytest.approx([ox + bx0, oy + by0, ox + bx1, oy + by1], abs=0.1)
+
+
+def test_a_geoportal_failure_is_a_502_in_polish_not_a_broken_image(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stub_geoportal(monkeypatch, OrthophotoUnavailable("HTTP 404, 0 bytes"))
+    check_id = done_check()
+    response = client.get(f"/api/checks/{check_id}/sites/0/orthophoto")
+    assert response.status_code == 502 and "Geoportal" in response.json()["detail"]
+
+
+def test_the_orthophoto_follows_the_visibility_of_the_check(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stub_geoportal(monkeypatch)
+    theirs = done_check(by="ola@example.org")
+    assert client.get(f"/api/checks/{theirs}/sites/0/orthophoto").status_code == 404  # a member: not found
+    admin = as_user("admin@example.org", "admin")
+    assert admin.get(f"/api/checks/{theirs}/sites/0/orthophoto").status_code == 200
+    mine = done_check()
+    assert client.get(f"/api/checks/{mine}/sites/9/orthophoto").status_code == 404  # no such parcel
+    assert client.get("/api/checks/not-a-uuid/sites/0/orthophoto").status_code == 404

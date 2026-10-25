@@ -80,13 +80,20 @@ function Swatch({ layerKey, prefix }: { layerKey: string; prefix: string }) {
   );
 }
 
-export function Sheet({ sheet, className }: { sheet: SheetData; className?: string }) {
+type PhotoState = "off" | "loading" | "shown" | "failed";
+
+/**
+ * `photoUrl` is the orthophoto for exactly the drawing's box (the server asks the Geoportal). It is requested only
+ * when the person turns it on, so a sheet nobody looks at on a photo costs nothing.
+ */
+export function Sheet({ sheet, photoUrl, className }: { sheet: SheetData; photoUrl?: string; className?: string }) {
   const prefix = useId().replace(/:/g, "");
   const [x0, y0, x1, y1] = sheet.bbox_m as [number, number, number, number];
   const width = x1 - x0;
   const height = y1 - y0;
   const drawable = sheet.layers.filter((l) => l.paths.length > 0 || l.truncated);
   const [hidden, setHidden] = useState<Record<string, boolean>>({});
+  const [photo, setPhoto] = useState<PhotoState>("off");
   const scale = niceLength(width);
   const unit = Math.min(width, height) / 40; // font and mark size that scales with the drawing
   const label = `Rysunek: obrys działki i okolica, bok rysunku ok. ${Math.round(width)} m. ${drawable
@@ -99,6 +106,22 @@ export function Sheet({ sheet, className }: { sheet: SheetData; className?: stri
       <div className="overflow-hidden border border-ink bg-paper">
         <svg viewBox={`${x0} ${-y1} ${width} ${height}`} role="img" aria-label={label} className="block h-auto w-full" preserveAspectRatio="xMidYMid meet">
           <Patterns prefix={prefix} />
+          {photoUrl && (photo === "loading" || photo === "shown") && (
+            <g data-testid="orthophoto">
+              <image
+                href={photoUrl}
+                x={x0}
+                y={-y1}
+                width={width}
+                height={height}
+                preserveAspectRatio="none"
+                onLoad={() => setPhoto("shown")}
+                onError={() => setPhoto("failed")}
+              />
+              {/* A pale veil: the ink lines and hatches stay readable on a dark photo. */}
+              <rect x={x0} y={-y1} width={width} height={height} fill="var(--paper)" opacity="0.35" />
+            </g>
+          )}
           {sheet.layers.map((layer) => {
             if (hidden[layer.key] || layer.paths.length === 0) return null;
             const style = styleOf(layer.key, prefix);
@@ -145,6 +168,32 @@ export function Sheet({ sheet, className }: { sheet: SheetData; className?: stri
         </svg>
       </div>
       <figcaption className="mt-2">
+        {photoUrl && (
+          <div className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <button
+              type="button"
+              aria-pressed={photo === "loading" || photo === "shown"}
+              onClick={() => setPhoto((p) => (p === "off" || p === "failed" ? "loading" : "off"))}
+              className={cn(
+                "inline-flex min-h-8 items-center rounded-md border px-2 py-1 text-xs hover:bg-surface-2",
+                photo === "loading" || photo === "shown" ? "text-foreground" : "text-muted-foreground",
+              )}
+            >
+              Ortofotomapa
+            </button>
+            {photo === "loading" && (
+              <span role="status" className="text-xs text-muted-foreground">
+                Wczytuję ortofotomapę…
+              </span>
+            )}
+            {photo === "failed" && (
+              <span role="alert" className="text-xs text-bad">
+                Nie udało się pobrać ortofotomapy. Spróbuj za chwilę.
+              </span>
+            )}
+            {photo === "shown" && <span className="text-xs text-muted-foreground">Źródło ortofotomapy: Geoportal, GUGiK.</span>}
+          </div>
+        )}
         <div role="group" aria-label="Warstwy rysunku" className="flex flex-wrap gap-1.5">
           {drawable.map((layer) => (
             <button

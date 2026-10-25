@@ -176,6 +176,15 @@ file or calling the endpoint, as described here.
     it names applicants and sometimes their addresses, so do not store them.
   - `…/media/3193/wykaz-gpz.pdf`: GPZs under the MV generation-connection criteria (generation only, not loads).
 
+### Orthophoto (Sprawdź działkę, not a scored source)
+
+- **Geoportal orthophoto WMS ✓ (25.10.2026).** `https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution`,
+  layer `Raster`, `SRS=EPSG:2180`, WMS 1.1.1 (1.3.0 swaps the axes for EPSG:2180), JPEG up to 4096 px. Capabilities:
+  `Fees` "Brak opłat", no access constraints. A picture of the sheet's own box is fetched by the API
+  (`orthophoto.py`, cached 40 days) when someone turns on "Ortofotomapa"; the page credits "Geoportal, GUGiK".
+  **Flaky:** about one request in four gets an empty `404`, and the node's cookie then pins a client to the bad node,
+  so every attempt is cookie-free and retried up to 5 times.
+
 ### Bonus layers
 
 - **`heat` ✓.** URE concession register JSON: `https://api.ure.gov.pl/api/ConcessionOtherFuel?rodzajKoncesji=PCC`
