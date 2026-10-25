@@ -162,6 +162,10 @@ file or calling the endpoint, as described here.
   stations** with MW (e.g. WYP Wypędy 200, MKA Legnica 1000, ZER Poznań 500, GNA Konin 500, DZO Toruń 1000; 24 rows),
   given by region name, not coordinates. pdfplumber reads the table cleanly. Geocode the ~24 stations by hand
   into `data/manual/` (estimated confidence).
+  **Loader done 25.10.2026** (stan na 30.09.2026): `dclh import-manual pse_avail <pdf>` reads section 5, first table (14
+  stations dedicated to new customers; the second table, stations for reliability and generation, is skipped) and places
+  them from `data/manual/pse_planned_station_coords.csv`. 8 of the 14 have a row: the 6 left out are NOR, WIG, WYP,
+  EPK (east of the Vistula) and REM, SWR ("w rejonie Warszawy", no place named).
 - **`enea` – manual CSV only (owner decision 19.10.2026).** "Mapa Dostępnych Mocy Przyłączeniowych" is a public Power BI
   report (`app.powerbi.com/view?r=…`), with no file or stable API. Its own disclaimer says the values are for **MV/LV end
   users and do not apply to connection group II** (110 kV), the group for a 60 MW site. So Enea stays a weak signal,

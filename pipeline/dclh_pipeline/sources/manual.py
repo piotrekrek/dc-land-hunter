@@ -16,7 +16,8 @@ PSE point lists (`pse_closed`, `pse_odb`, `pse_avail`), columns:
     `pse_closed` and `pse_odb` also take PSE's own XLSX as published (`sources/pse.py`). Those lists have no
     coordinates: the rows keep an empty geometry and are located by station name later. What is stored is
     the reduced table (as CSV), never PSE's file, so the applicant names in the art. 7 ust. 8l list are not
-    kept anywhere.
+    kept anywhere. `pse_avail` also takes PSE's PDF as published: its planned stations get approximate
+    coordinates from `data/manual/pse_planned_station_coords.csv`.
 
 Headers are matched case-insensitively with spaces turned into underscores. Rows that break a rule fail
 the whole import with the row number, so a partly-read file never reaches the scores.
@@ -43,7 +44,7 @@ from dclh_pipeline.model.grid import parse_osm_ref
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
 from dclh_pipeline.sources.base import Source
 from dclh_pipeline.sources.prg import EPSG, POLAND_BOUNDS
-from dclh_pipeline.sources.pse import read_pse_closed, read_pse_odb
+from dclh_pipeline.sources.pse import read_pse_avail, read_pse_closed, read_pse_odb
 
 CAPACITY_COLUMNS = ("dso", "gpz_name", "published_mw", "as_of")
 POINT_COLUMNS = ("name", "as_of")
@@ -291,6 +292,9 @@ class PseAvailPoints(ManualPointsSource):
     """`pse_avail` is the PSE availability report; the planned load stations in it feed the grid bonus."""
 
     id = "pse_avail"
+
+    def native(self, path: Path) -> pd.DataFrame | None:
+        return read_pse_avail(path)
 
 
 MANUAL_CAPACITY: dict[str, type[ManualCapacitySource]] = {

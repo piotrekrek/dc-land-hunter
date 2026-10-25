@@ -5,6 +5,12 @@
   `Rozdzielnia`, `Liczba dostępnych miejsc przyłączenia`. Only the first table is read: the tables below it
   list planned switchyards by their position in the development plan ("III.33"), which have no name or
   place to find.
+- `pse_avail`: the monthly PDF "Informacja o dostępności mocy przyłączeniowej do sieci przesyłowej". Section 5
+  lists the new stations "dedicated to new customers" (symbol, name, MW). The PDF gives a region, not
+  coordinates, so each station is placed from a committed table
+  (`data/manual/pse_planned_station_coords.csv`) at the centre of the town it names. A station with no row
+  there is left out. The second table of that section (stations for network reliability and generation) is
+  not read: it is not the load list the brief means.
 - `pse_odb`: "Informacje publikowane zgodnie z Art. 7 ust. 8l ustawy PE" (monthly). Only rows whose
   installation type is `ODB` (loads, mostly data centres) are kept.
 
@@ -18,12 +24,17 @@ stores the reduced table, not PSE's file.
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+
+from dclh_pipeline.settings import REPO_ROOT
+
+log = logging.getLogger(__name__)
 
 _DATE = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4})")
 _HEADER_SCAN_ROWS = 15
@@ -141,3 +152,75 @@ def _date_text(value: str) -> str:
     if value in ("", "-"):
         return ""
     return value[:10] if re.match(r"\d{4}-\d{2}-\d{2}", value) else value
+
+
+PLANNED_STATION_COORDS = REPO_ROOT / "data" / "manual" / "pse_planned_station_coords.csv"
+_MONTH_NAMES = (  # genitive, as in "30 września 2026"
+    "stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca",
+    "lipca", "sierpnia", "września", "października", "listopada", "grudnia",
+)  # fmt: skip
+_MONTHS = {name: number for number, name in enumerate(_MONTH_NAMES, start=1)}
+_AS_OF_TITLE = re.compile(r"STAN NA (\d{1,2}) ([A-ZĄĆĘŁŃÓŚŹŻ]+) (\d{4})", re.IGNORECASE)
+_STATION_ROW = re.compile(r"^\d+\.\s+([A-Z0-9]{2,4})\s+[–-]\s+(.+?)\s+(\d+)$")
+_LOAD_TABLE_START = re.compile(
+    r"^5\.\s+Zestawienie dostępnych mocy przyłączeniowych odbiorczych\s*$", re.MULTILINE
+)
+_OTHER_TABLE_START = "Oprócz wyżej wymienionych stacji"
+
+
+def parse_planned_stations(text: str) -> tuple[date, list[tuple[str, str, int]]]:
+    """(as-of date, [(symbol, name, MW)]) from the PDF's text: the first table of section 5 only."""
+    title = _AS_OF_TITLE.search(text)
+    month = _MONTHS.get(title.group(2).lower()) if title else None
+    if title is None or month is None:
+        raise ValueError("PSE availability PDF: no 'STAN NA d miesiąca rrrr' on the title page")
+    as_of = date(int(title.group(3)), month, int(title.group(1)))
+    start = _LOAD_TABLE_START.search(text)
+    if start is None:
+        raise ValueError("PSE availability PDF: section 5 (odbiorcze) not found")
+    section = text[start.end() :]
+    section = section.split(_OTHER_TABLE_START, 1)[0]
+    stations = [
+        (m.group(1), " ".join(m.group(2).split()), int(m.group(3)))
+        for line in section.splitlines()
+        if (m := _STATION_ROW.match(line.strip()))
+    ]
+    if not stations:
+        raise ValueError("PSE availability PDF: no stations under 'Zestawienie ... odbiorczych'")
+    return as_of, stations
+
+
+def _pdf_text(path: Path) -> str:
+    import pdfplumber
+
+    with pdfplumber.open(path) as pdf:
+        return "\n".join(page.extract_text() or "" for page in pdf.pages)
+
+
+def read_pse_avail(path: Path, coords_path: Path | None = None) -> pd.DataFrame | None:
+    """Planned load stations as `name, as_of, lat, lon, symbol, odb_mw`; None when the file is not a PDF."""
+    if path.suffix.lower() != ".pdf":
+        return None
+    as_of, stations = parse_planned_stations(_pdf_text(path))
+    coords = pd.read_csv(coords_path or PLANNED_STATION_COORDS, dtype=str).set_index("symbol")
+    rows: list[dict[str, Any]] = []
+    unplaced: list[str] = []
+    for symbol, name, mw in stations:
+        if symbol not in coords.index:
+            unplaced.append(symbol)
+            continue
+        rows.append(
+            {
+                "name": f"{symbol} {name}",
+                "as_of": pd.Timestamp(as_of),
+                "lat": coords.at[symbol, "lat"],
+                "lon": coords.at[symbol, "lon"],
+                "symbol": symbol,
+                "odb_mw": str(mw),
+            }
+        )
+    if unplaced:
+        log.warning("PSE planned stations without coordinates, left out: %s", ", ".join(unplaced))
+    if not rows:
+        raise ValueError("PSE availability PDF: no station has a row in the coordinates table")
+    return pd.DataFrame(rows, columns=["name", "as_of", "lat", "lon", "symbol", "odb_mw"])
