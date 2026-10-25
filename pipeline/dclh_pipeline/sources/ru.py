@@ -46,7 +46,9 @@ EPSG = 2180
 SRS = "urn:ogc:def:crs:EPSG::2180"
 PAGE_SIZE = 10  # the server's CountDefault; it never returns more per request
 MAX_PAGES = 2000
-MAX_SKIPPED = 20  # broken features skipped per layer and bbox before the fetch fails instead
+MAX_SKIPPED = (
+    60  # features skipped per layer and powiat (refused or timing out) before the fetch fails instead
+)
 # A powiat is asked for in tiles of at most this side: the service times out (504) on large areas, and a
 # failed tile costs a few pages, not the whole powiat. A request for a smaller area is a single tile.
 TILE_M = 30_000.0
