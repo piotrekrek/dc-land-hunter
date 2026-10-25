@@ -118,3 +118,34 @@ def test_fail_interrupted_without_arguments_fails_everything_as_before() -> None
     with session_scope() as session:
         assert fail_interrupted(session) == 2
     assert status_of(*a) == ("failed", "failed") and status_of(*b) == ("failed", "failed")
+
+
+class Stop(Exception):
+    pass
+
+
+def test_a_worker_that_has_run_a_job_exits_once_idle_so_its_memory_is_given_back() -> None:
+    from dclh_pipeline.jobs import work
+
+    with session_scope() as session:
+        enqueue(session, "discover", {"sources": ["ekw"]})  # a manual source: runs without a network
+    assert work(kinds=["discover"], interval_s=0.01, exit_after_idle_s=0.05) == 1
+
+
+def test_a_worker_that_has_run_nothing_keeps_waiting() -> None:
+    from dclh_pipeline import jobs
+
+    sleeps = {"n": 0}
+
+    def sleep(seconds: float) -> None:
+        sleeps["n"] += 1
+        if sleeps["n"] >= 5:
+            raise Stop
+
+    original = jobs.time.sleep
+    jobs.time.sleep = sleep  # type: ignore[assignment]
+    try:
+        with pytest.raises(Stop):  # it is still polling after five idle rounds: restarting would free nothing
+            jobs.work(kinds=["discover"], interval_s=0, exit_after_idle_s=0.0)
+    finally:
+        jobs.time.sleep = original

@@ -251,12 +251,18 @@ def work(
     kinds: Collection[str] | None = None,
     exclude: Collection[str] = (),
     on_idle: Callable[[float], None] | None = None,
+    exit_after_idle_s: float | None = None,
 ) -> int:
     """Poll for jobs. Returns the number of jobs executed (useful with once=True).
 
     `kinds` and `exclude` split the queue between workers (the check worker serves only `check_parcel`);
     with neither, the worker takes every kind. `on_idle` is called after every empty poll with the seconds
     since the last job (or the start): the check worker uses it to release memory it does not need.
+
+    `exit_after_idle_s` ends the loop once the worker has run a job and then sat idle that long. A long-lived
+    Python process keeps the memory a job used, and on a small host that starves the next job (the OSM parse
+    refuses to start below 800 MB free); the container restarts and starts lean. A worker that has run nothing
+    keeps waiting: restarting it would free nothing.
     """
     executed = 0
     with session_scope() as session:
@@ -274,8 +280,16 @@ def work(
             executed += 1
             idle_since = time.monotonic()
             continue
+        idle = time.monotonic() - idle_since
         if on_idle is not None:
-            on_idle(time.monotonic() - idle_since)
+            on_idle(idle)
         if once:
+            return executed
+        if exit_after_idle_s is not None and executed > 0 and idle >= exit_after_idle_s:
+            log.info(
+                "idle for %.0f s after %d job(s): exiting so the container restarts with fresh memory",
+                idle,
+                executed,
+            )
             return executed
         time.sleep(interval_s)

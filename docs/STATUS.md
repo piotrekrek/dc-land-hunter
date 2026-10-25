@@ -773,3 +773,12 @@ first time after a worker start, then 8 to 10 s of area layers). What the first 
   (first check peaked at about 740 MB).
 - The first check after a worker restart is slower (the static layers are loaded again); the estimate counts that step.
 
+## Workers exit when idle (25.10.2026)
+
+A Python worker keeps the memory a job used: after a nightly search the general worker held about 790 MB, which left too little
+for a check's OSM parse (it refuses to start below 800 MB free), and the first check of the day failed. `dclh worker
+--exit-after-idle N` now ends the loop once the worker has run a job and then sat idle N seconds; `restart: unless-stopped`
+starts the container lean. Compose: general worker 900 s, check worker 600 s (the release of the static layers did not shrink
+its process, so it restarts too). A worker that has run nothing keeps waiting. The cost is one restart per quiet spell and
+a 16 s static-layer load on the first check after it.
+
