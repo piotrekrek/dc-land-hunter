@@ -1,4 +1,4 @@
-import { CircleAlert, CircleCheck, Clock, ListOrdered, LoaderCircle, Search, ServerCrash, X } from "lucide-react";
+import { CircleAlert, CircleCheck, ListOrdered, LoaderCircle, Search, ServerCrash, X } from "lucide-react";
 import { useState } from "react";
 
 import type { PowiatItem } from "@/api/client";
@@ -41,7 +41,16 @@ function sameSet(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
   return a.size === b.size && [...a].every((t) => b.has(t));
 }
 
+/** One state per queue row. Outside the AOI wins: the nightly plan skips such a powiat, whatever else is true. */
+function QueueState({ item, nextUp, staged }: { item: PowiatItem; nextUp: boolean; staged: boolean }) {
+  if (!item.in_aoi) return <Badge variant="warn" title="Poza obszarem poszukiwań: nocny plan go pomija">poza obszarem</Badge>;
+  if (nextUp) return <Badge variant="accent">{item.priority && !item.checked ? "następny o 01:00 · priorytet" : "następny o 01:00"}</Badge>;
+  if (item.checked) return <Badge variant="ok">sprawdzony</Badge>;
+  return <Badge>{staged ? "priorytet · czeka" : "czeka"}</Badge>;
+}
+
 function StatusBadge({ item }: { item: PowiatItem }) {
+  if (!item.in_aoi) return <Badge variant="warn">Poza obszarem</Badge>;
   if (item.checked) return <Badge variant="ok">Sprawdzony</Badge>;
   if (item.status === "failed") return <Badge variant="bad">Błąd wyszukiwania</Badge>;
   return <Badge>Niesprawdzony</Badge>;
@@ -58,7 +67,7 @@ function PowiatRow({ item, selected, onToggle }: { item: PowiatItem; selected: b
       <span className="w-36 text-xs text-muted-foreground">
         {item.checked ? `${formatDateTime(item.last_ok_at)} · ${item.sites ?? 0} lok.` : item.last_attempt_at ? `próba: ${formatDateTime(item.last_attempt_at)}` : "—"}
       </span>
-      {item.checked ? (
+      {item.checked || !item.in_aoi ? (
         <span className="w-28" />
       ) : (
         <Button
@@ -84,19 +93,26 @@ export function PowiatyPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [opened, setOpened] = useState<Record<string, boolean>>({});
   const [rawQuery, setRawQuery] = useState("");
+  const [showOutside, setShowOutside] = useState(false);
   const query = activeQuery(rawQuery);
 
-  const items = data?.items ?? [];
-  const saved = new Set(items.filter((i) => i.priority).map((i) => i.teryt));
+  const all = data?.items ?? [];
+  // Powiats outside the AOI are never searched, so they are out of the counts and lists unless asked for.
+  const items = showOutside ? all : all.filter((i) => i.in_aoi);
+  const outsideCount = all.length - all.filter((i) => i.in_aoi).length;
+  const saved = new Set(all.filter((i) => i.priority).map((i) => i.teryt));
   const selected = staged ?? saved;
   const dirty = staged !== null && !sameSet(staged, saved);
   const checkedCount = items.filter((i) => i.checked).length;
-  const queue = items.filter((i) => selected.has(i.teryt));
   const visible = items.filter(
     (i) => (filter === "all" || (filter === "checked") === i.checked) && (query === null || matchesQuery(i, query)),
   );
-  const byCode = new Map(items.map((i) => [i.teryt, i]));
-  const nextUp = (data?.next_up ?? []).flatMap((t) => byCode.get(t) ?? []);
+  // One queue: what the next night takes first, then the other priority powiats. A priority powiat outside the AOI
+  // stays in it, marked, so the owner sees why it will not run. A removal staged but not yet saved leaves at once.
+  const byCode = new Map(all.map((i) => [i.teryt, i]));
+  const nextUpSet = new Set(data?.next_up ?? []);
+  const queueCodes = [...new Set([...(data?.next_up ?? []), ...all.filter((i) => selected.has(i.teryt)).map((i) => i.teryt)])];
+  const queue = queueCodes.flatMap((t) => byCode.get(t) ?? []).filter((i) => selected.has(i.teryt) || !i.priority);
   const groups = groupByVoivodeship(visible);
 
   const toggle = (teryt: string) => {
@@ -113,7 +129,8 @@ export function PowiatyPage() {
         <h1 className="text-xl font-semibold">Kolejka</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
           Powiat jest „sprawdzony”, gdy ma udane wyszukiwanie. Zaznacz „Priorytet” przy powiatach, które mają być przeszukane
-          najpierw, i zapisz listę. Nocny plan (01:00) weźmie je przed resztą, aż każdy z nich zostanie sprawdzony.
+          najpierw, i zapisz listę. Nocny plan (01:00) weźmie je przed resztą, aż każdy z nich zostanie sprawdzony. Lista
+          obejmuje tylko obszar poszukiwań (lewy brzeg Wisły); powiatów poza nim plan nie przeszukuje.
         </p>
 
         {isPending && <EmptyState icon={LoaderCircle} title="Wczytuję powiaty…" className="[&_svg]:animate-spin" />}
@@ -148,6 +165,12 @@ export function PowiatyPage() {
               <span className="text-sm" data-testid="checked-count">
                 Sprawdzone: {checkedCount} z {items.length}
               </span>
+              {outsideCount > 0 && (
+                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <input type="checkbox" checked={showOutside} onChange={(e) => setShowOutside(e.target.checked)} />
+                  pokaż poza obszarem ({outsideCount})
+                </label>
+              )}
               <div role="group" aria-label="Filtr powiatów" className="ml-auto flex gap-1">
                 {FILTERS.map(({ key, label }) => (
                   <Button key={key} type="button" size="sm" variant={filter === key ? "default" : "outline"} aria-pressed={filter === key} onClick={() => setFilter(key)}>
@@ -157,14 +180,13 @@ export function PowiatyPage() {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <Card className="p-3" aria-labelledby="queue-heading" role="region">
+            <Card className="mt-4 p-3" aria-labelledby="queue-heading" role="region">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 id="queue-heading" className="flex items-center gap-2 text-sm font-semibold">
-                  <ListOrdered className="size-4" aria-hidden /> Kolejka priorytetowa ({queue.length})
+                  <ListOrdered className="size-4" aria-hidden /> Kolejka ({queue.length})
                 </h2>
-                {dirty && <Badge variant="warn">niezapisane zmiany</Badge>}
-                <div className="ml-auto flex gap-2">
+                <div className="ml-auto flex items-center gap-2">
+                  {dirty && <span className="text-xs font-medium text-warn">Niezapisane zmiany</span>}
                   {dirty && (
                     <Button type="button" size="sm" variant="ghost" onClick={() => setStaged(null)} disabled={save.isPending}>
                       Cofnij
@@ -175,25 +197,31 @@ export function PowiatyPage() {
                   </Button>
                 </div>
               </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Nocny plan (01:00) przeszuka je w tej kolejności: najpierw priorytety, potem powiaty przeszukane najdawniej.
+                {dirty && " Kolejność zaktualizuje się po zapisaniu zmian."}
+              </p>
               {queue.length === 0 ? (
-                <p className="mt-2 text-sm text-muted-foreground">Brak. Nocny plan wybiera powiaty, które były przeszukane najdawniej.</p>
+                <p className="mt-2 text-sm text-muted-foreground">Brak powiatów do przeszukania.</p>
               ) : (
-                <ol className="mt-2 flex flex-wrap gap-1.5" data-testid="priority-queue">
-                  {queue.map((i) => (
-                    <li key={i.teryt}>
-                      <Badge variant="accent" className="gap-1 pr-1">
-                        {i.name}
+                <ol className="mt-2 flex flex-col gap-1" data-testid="queue">
+                  {queue.map((i, n) => (
+                    <li key={i.teryt} className="flex items-center gap-2 text-sm" data-testid="queue-row">
+                      <span className="w-5 text-xs text-muted-foreground">{n + 1}.</span>
+                      <span className="min-w-0 flex-1 truncate">{i.name}</span>
+                      <QueueState item={i} nextUp={nextUpSet.has(i.teryt)} staged={selected.has(i.teryt)} />
+                      {selected.has(i.teryt) && (
                         <button
                           type="button"
                           aria-label={`Usuń z kolejki: ${i.name}`}
                           title="Usuń z kolejki"
                           disabled={save.isPending}
                           onClick={() => toggle(i.teryt)}
-                          className="rounded-sm p-0.5 hover:bg-accent/20 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
+                          className="rounded-sm p-0.5 hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50 [&_svg]:size-3.5"
                         >
                           <X aria-hidden />
                         </button>
-                      </Badge>
+                      )}
                     </li>
                   ))}
                 </ol>
@@ -210,35 +238,11 @@ export function PowiatyPage() {
               )}
             </Card>
 
-            <Card className="p-3" aria-labelledby="next-heading" role="region">
-              <h2 id="next-heading" className="flex items-center gap-2 text-sm font-semibold">
-                <Clock className="size-4" aria-hidden /> Następne w kolejce ({nextUp.length})
-              </h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Tyle powiatów plan nocny (01:00) przeszuka jako pierwsze, według zapisanej listy.
-                {dirty && " Zaktualizuje się po zapisaniu zmian."}
-              </p>
-              {nextUp.length === 0 ? (
-                <p className="mt-2 text-sm text-muted-foreground">Brak powiatów do przeszukania.</p>
-              ) : (
-                <ol className="mt-2 flex flex-col gap-1" data-testid="next-up">
-                  {nextUp.map((i, n) => (
-                    <li key={i.teryt} className="flex items-center gap-2 text-sm">
-                      <span className="w-4 text-xs text-muted-foreground">{n + 1}.</span>
-                      <span className="min-w-0 flex-1 truncate">{i.name}</span>
-                      {i.priority && !i.checked ? <Badge variant="accent">priorytet</Badge> : <Badge>rotacja</Badge>}
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </Card>
-            </div>
-
             <div className="mt-4 flex flex-col gap-2">
               {groups.map((group) => {
-                const all = items.filter((i) => (i.voivodeship_teryt ?? "") === group.key);
+                const inGroup = items.filter((i) => (i.voivodeship_teryt ?? "") === group.key);
                 // While searching, every group with a result is open so the match is visible at once.
-                const isOpen = query !== null || (opened[group.key] ?? all.some((i) => saved.has(i.teryt)));
+                const isOpen = query !== null || (opened[group.key] ?? inGroup.some((i) => saved.has(i.teryt)));
                 return (
                   <details
                     key={group.key}
@@ -253,7 +257,7 @@ export function PowiatyPage() {
                     <summary className="flex cursor-pointer flex-wrap items-center gap-2 px-3 py-2 text-sm font-semibold">
                       <span>{group.name}</span>
                       <span className={cn("text-xs font-normal text-muted-foreground")}>
-                        sprawdzone {all.filter((i) => i.checked).length} z {all.length}
+                        sprawdzone {inGroup.filter((i) => i.checked).length} z {inGroup.length}
                       </span>
                     </summary>
                     <ul className="border-t">

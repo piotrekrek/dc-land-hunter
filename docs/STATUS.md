@@ -1,4 +1,19 @@
 # Status
+## Honest navigation and a Kolejka limited to the AOI (UX plan step 3, 25.10.2026, tested on PostGIS; not yet deployed)
+
+- **Bug fixed in the nightly plan:** `plan_searches` took every powiat from the PRG snapshot, so it also searched ones east of the
+  Vistula (lubelskie and others) and spent search slots there. It now drops powiats that do not reach the stored `aoi` table
+  (`powiats_outside_aoi`; a powiat the river cuts through stays in, one that only touches the edge is out; with no AOI loaded nothing
+  is dropped). A priority powiat outside the AOI is skipped too. Needs the owner's attention: powiats already searched outside the
+  AOI keep their sites in the database; this change only stops new searches.
+- `GET /api/powiats` items carry `in_aoi` (same function as the planner); `next_up` no longer lists outside powiats.
+- Kolejka hides powiats outside the AOI by default ("pokaż poza obszarem (N)" checkbox, shown only when some exist). One queue list
+  replaces "Kolejka priorytetowa" and "Następne w kolejce"; rows say `następny o 01:00` / `sprawdzony` / `poza obszarem` / `czeka`.
+  "Niezapisane zmiany" sits next to Zapisz while changes are staged.
+- Nav: `soon` flag in `nav.ts`; Moje projekty, Eksport and the Nowości bell show "wkrótce" and a muted style. **Sprawdź działkę is not
+  tagged**: it is a working screen since #105 (the plan listed it from the audit time). Routes are unchanged.
+- `document.title` per route ("Kolejka · DC Land Hunter"), also for the login and 404 pages.
+
 ## Forest filter live: `dclh search 1421` on main (22.10.2026, VPS)
 
 - Forest (`forest_pct_over`, 30%) is fed from the BDOT10k land cover (`rodzaj = "las"`, PR #81, merged and deployed as dc92df1).

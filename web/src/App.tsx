@@ -1,8 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router";
+import { useEffect } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router";
 
 import { shouldRetry } from "@/api/client";
 import { AppShell } from "@/components/layout/AppShell";
+import { pageTitle } from "@/components/layout/nav";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider } from "@/lib/auth";
 import { JobsPage } from "@/pages/JobsPage";
@@ -16,8 +18,19 @@ import { SettingsPage } from "@/pages/SettingsPage";
 import { SprawdzDzialkePage } from "@/pages/SprawdzDzialkePage";
 import { SiteCardPage } from "@/pages/SiteCardPage";
 
+/** Keeps the tab title in step with the route, so browser history and tab lists name the screen. */
+function TitleSync() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    document.title = pageTitle(pathname);
+  }, [pathname]);
+  return null;
+}
+
 export function AppRoutes() {
   return (
+    <>
+    <TitleSync />
     <Routes>
       <Route path="logowanie" element={<LoginPage />} />
       <Route element={<RequireAuth />}>
@@ -78,6 +91,7 @@ export function AppRoutes() {
       </Route>
       </Route>
     </Routes>
+    </>
   );
 }
 

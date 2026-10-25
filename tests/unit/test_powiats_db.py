@@ -165,6 +165,32 @@ def test_next_up_skips_powiats_that_already_have_a_search_job_waiting(client: Te
             session.execute(text("DELETE FROM jobs"))
 
 
+def test_in_aoi_follows_the_stored_aoi_and_next_up_skips_powiats_outside(client: TestClient) -> None:
+    # AOI = x 0..100: 0801 (west, inside) and 1465 (east, outside); the fixture's squares sit at the origin.
+    with session_scope() as session:
+        session.execute(text("DELETE FROM aoi"))
+        session.execute(text("UPDATE admin_units SET geom = ST_Translate(geom, 500, 0) WHERE teryt = '1465'"))
+        session.execute(
+            text(
+                "INSERT INTO aoi (geom) VALUES "
+                "(ST_Multi(ST_GeomFromText('POLYGON((-10 -10, 100 -10, 100 100, -10 100, -10 -10))', 2180)))"
+            )
+        )
+    try:
+        by_code = items(client)
+        assert by_code["0801"]["in_aoi"] is True and by_code["0805"]["in_aoi"] is True
+        assert by_code["1465"]["in_aoi"] is False
+        put = client.put("/api/powiats/priority", json={"teryts": ["1465"]}).json()
+        assert "1465" not in put["next_up"]  # the nightly plan skips it, so the preview must too
+    finally:
+        with session_scope() as session:
+            session.execute(text("DELETE FROM aoi"))
+
+
+def test_in_aoi_is_true_for_everything_when_no_aoi_is_loaded(client: TestClient) -> None:
+    assert all(i["in_aoi"] for i in items(client).values())
+
+
 def test_next_up_shows_at_most_four() -> None:
     from dclh_api.routers.powiats import NEXT_UP
 

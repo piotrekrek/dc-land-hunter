@@ -9,7 +9,7 @@ import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 import { ApiStatus } from "./ApiStatus";
-import { NAV_ITEMS } from "./nav";
+import { NAV_ITEMS, SOON_TAG } from "./nav";
 
 function Brand() {
   return (
@@ -18,6 +18,10 @@ function Brand() {
       <span>DC Land Hunter</span>
     </NavLink>
   );
+}
+
+function SoonTag() {
+  return <span className="rounded border px-1 text-[10px] font-medium leading-4 text-muted-foreground">{SOON_TAG}</span>;
 }
 
 function AttentionBadge({ count, className }: { count: number; className?: string }) {
@@ -33,14 +37,16 @@ function AttentionBadge({ count, className }: { count: number; className?: strin
   );
 }
 
-const iconLinkClass = ({ isActive }: { isActive: boolean }) =>
+const iconLinkClass = (soon?: boolean) => ({ isActive }: { isActive: boolean }) =>
   cn(
+    soon && "opacity-60",
     "relative flex size-9 items-center justify-center rounded-md transition-colors",
     isActive ? "bg-accent-soft text-accent-soft-foreground" : "text-muted-foreground hover:bg-surface-2 hover:text-foreground",
   );
 
-const linkClass = ({ isActive }: { isActive: boolean }) =>
+const linkClass = (soon?: boolean) => ({ isActive }: { isActive: boolean }) =>
   cn(
+    soon && "opacity-70",
     "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
     isActive ? "bg-accent-soft font-medium text-accent-soft-foreground" : "text-muted-foreground hover:bg-surface-2 hover:text-foreground",
   );
@@ -61,24 +67,26 @@ export function AppShell() {
       <header className="flex h-14 shrink-0 items-center gap-4 border-b bg-surface px-4">
         <Brand />
         <nav aria-label="Główna nawigacja" className="hidden flex-1 items-center gap-1 lg:flex">
-          {labelled.map(({ to, label, icon: Icon }) => (
-            <NavLink key={to} to={to} className={linkClass} end={to === "/"}>
+          {labelled.map(({ to, label, icon: Icon, soon }) => (
+            <NavLink key={to} to={to} className={linkClass(soon)} end={to === "/"}>
               <Icon className="size-4" aria-hidden />
               {label}
+              {soon && <SoonTag />}
             </NavLink>
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
           <nav aria-label="Skróty" className="hidden items-center gap-1 lg:flex">
-            {icons.map(({ to, label, icon: Icon }) => {
+            {icons.map(({ to, label, icon: Icon, soon }) => {
               const count = attention(to);
+              const name = soon ? `${label} (${SOON_TAG})` : label;
               return (
                 <NavLink
                   key={to}
                   to={to}
-                  className={iconLinkClass}
-                  title={label}
-                  aria-label={count > 0 ? `${label}: ${count} do sprawdzenia` : label}
+                  className={iconLinkClass(soon)}
+                  title={name}
+                  aria-label={count > 0 ? `${label}: ${count} do sprawdzenia` : name}
                 >
                   <Icon className="size-5" aria-hidden />
                   <AttentionBadge count={count} className="absolute -right-1 -top-1 min-w-5 px-1 text-center text-[11px] leading-5" />
@@ -124,10 +132,11 @@ export function AppShell() {
       )}
       {menuOpen && (
         <nav id="mobile-nav" aria-label="Główna nawigacja" className="flex flex-col gap-1 border-b bg-surface p-2 lg:hidden">
-          {items.map(({ to, label, icon: Icon }) => (
-            <NavLink key={to} to={to} end={to === "/"} className={linkClass} onClick={() => setMenuOpen(false)}>
+          {items.map(({ to, label, icon: Icon, soon }) => (
+            <NavLink key={to} to={to} end={to === "/"} className={linkClass(soon)} onClick={() => setMenuOpen(false)}>
               <Icon className="size-4" aria-hidden />
               {label}
+              {soon && <SoonTag />}
               <AttentionBadge count={attention(to)} />
             </NavLink>
           ))}
