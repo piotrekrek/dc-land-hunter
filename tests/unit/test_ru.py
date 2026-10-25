@@ -333,3 +333,24 @@ def test_a_dropped_connection_counts_like_a_timeout(tmp_path: Path, make_client:
     connector = RuPlanOgolnyConnector(SPEC, bbox=BBOX)
     snapshot = connector.fetch(make_client(handler, retries=0), SnapshotStore(tmp_path))
     assert (0, 1) in calls and len(connector.parse(snapshot)) == 1
+
+
+def test_up_to_sixty_skipped_features_are_tolerated_and_one_more_fails_the_fetch(
+    tmp_path: Path, make_client: ClientFactory
+) -> None:
+    def run(broken: int) -> None:
+        total = (
+            10 + broken + 5
+        )  # a good first page, then `broken` features the server refuses, then five good
+        zones = [sp_zone(i, 621_000 + 10 * i, 471_000, 5) for i in range(total)]
+        good: dict[tuple[int, int], bytes] = {(0, 10): page(zones[:10], total)}
+        for i in range(
+            10 + broken, total + 10
+        ):  # every other page is refused, so it is asked feature by feature
+            good[(i, 1)] = page([zones[i]] if i < total else [], total)
+        connector = RuPlanOgolnyConnector(SPEC, bbox=BBOX)
+        connector.fetch(make_client(refusing(good)), SnapshotStore(tmp_path / str(broken)))
+
+    run(60)
+    with pytest.raises(ValueError, match="refused 61 features"):
+        run(61)
