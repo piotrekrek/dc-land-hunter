@@ -802,3 +802,12 @@ not every operator publishes it), PSI (22%, gmina matching).
 - An unknown zoning no longer shows "źródło: osm_power" (it came from the industrial area the site lies in, which says
   nothing about zoning). Sites already stored keep the old text until the next search of their powiat.
 
+## CI minutes (25.10.2026)
+
+The repo is private, and GitHub's free Actions allowance for a private repo (2,000 minutes a month on the Free plan) ran out in one
+day of PRs: every PR ran Python, web and the slow Docker + Playwright job (about 16 job-minutes, roughly 100 runs). Jobs then
+refused to start ("recent account payments have failed or your spending limit needs to be increased"). Now: docs-only changes
+run nothing; `stack.yml` (Docker + Playwright) runs on pushes to `main`, by hand, and on PRs touching `web/`, `api/`, `infra/` or
+`tests/e2e/`; jobs have timeouts. If the allowance runs out again: wait for the monthly reset, set a small budget in GitHub
+Billing, or run the checks locally (RUNBOOK).
+
