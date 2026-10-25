@@ -266,7 +266,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Recent Checks */
+        /**
+         * Recent Checks
+         * @description A member sees their own checks; an admin sees everyone's.
+         */
         get: operations["recent_checks_api_checks_get"];
         put?: never;
         /**

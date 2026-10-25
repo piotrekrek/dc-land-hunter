@@ -304,16 +304,20 @@ def _remaining_seconds(session: Session, steps: list[dict[str, Any]], parcels: i
 
 
 @router.get("/checks", response_model=CheckList)
-def recent_checks(session: Annotated[Session, Depends(db_session)]) -> CheckList:
+def recent_checks(
+    session: Annotated[Session, Depends(db_session)], user: Annotated[UserRow, Depends(current_user)]
+) -> CheckList:
+    """A member sees their own checks; an admin sees everyone's."""
     try:
         rows = session.execute(
             text(
                 "SELECT c.id::text AS id, c.status, c.requested_by, c.created_at, c.inputs, "
                 "s.verdict, s.score FROM parcel_checks c "
                 "LEFT JOIN parcel_check_sites s ON s.check_id = c.id AND s.n = 0 "
+                "WHERE (:all OR c.requested_by = :me) "
                 "ORDER BY c.created_at DESC LIMIT :n"
             ),
-            {"n": RECENT_CHECKS},
+            {"n": RECENT_CHECKS, "all": user.role == "admin", "me": user.email},
         ).mappings()
         items = [
             CheckListItem(
@@ -332,7 +336,7 @@ def recent_checks(session: Annotated[Session, Depends(db_session)]) -> CheckList
     return CheckList(items=items)
 
 
-def _check_row(session: Session, check_id: str) -> dict[str, Any]:
+def _check_row(session: Session, check_id: str, user: UserRow) -> dict[str, Any]:
     try:
         row = (
             session.execute(
@@ -350,12 +354,19 @@ def _check_row(session: Session, check_id: str) -> dict[str, Any]:
         raise HTTPException(404, "Nie ma takiego sprawdzenia.") from exc
     if row is None:
         raise HTTPException(404, "Nie ma takiego sprawdzenia.")
+    # Somebody else's check is "not found", not "forbidden": a member learns nothing about other checks.
+    if user.role != "admin" and row["requested_by"] != user.email:
+        raise HTTPException(404, "Nie ma takiego sprawdzenia.")
     return dict(row)
 
 
 @router.get("/checks/{check_id}", response_model=CheckOut)
-def get_check(check_id: str, session: Annotated[Session, Depends(db_session)]) -> CheckOut:
-    row = _check_row(session, check_id)
+def get_check(
+    check_id: str,
+    session: Annotated[Session, Depends(db_session)],
+    user: Annotated[UserRow, Depends(current_user)],
+) -> CheckOut:
+    row = _check_row(session, check_id, user)
     steps = list(row["steps"])
     open_check = row["status"] in ("pending", "running")
     sites = session.execute(
@@ -398,9 +409,12 @@ def get_check(check_id: str, session: Annotated[Session, Depends(db_session)]) -
 
 @router.get("/checks/{check_id}/sites/{n}", response_model=CheckSiteDetail)
 def get_check_site(
-    check_id: str, n: int, session: Annotated[Session, Depends(db_session)]
+    check_id: str,
+    n: int,
+    session: Annotated[Session, Depends(db_session)],
+    user: Annotated[UserRow, Depends(current_user)],
 ) -> CheckSiteDetail:
-    row = _check_row(session, check_id)
+    row = _check_row(session, check_id, user)
     site = (
         session.execute(
             text(
