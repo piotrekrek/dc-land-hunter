@@ -45,3 +45,9 @@ def test_every_handled_kind_has_exactly_one_worker() -> None:
             and kind not in option(cmd, "--exclude-kinds")
         ]
         assert len(takers) == 1, f"{kind} is taken by {takers}"
+
+
+def test_both_workers_exit_after_a_quiet_spell_so_the_container_restarts_lean() -> None:
+    commands = services()
+    assert option(commands["worker"], "--exit-after-idle") == ["900"]
+    assert option(commands["check-worker"], "--exit-after-idle") == ["600"]

@@ -76,15 +76,17 @@ services:
 
   # Two workers split the queue by job kind: a check is asked for by a person and must not wait behind a nightly
   # search that runs for hours. The general worker takes everything except checks, so a new kind is never orphaned.
+  # Both exit after a quiet spell and `restart: unless-stopped` starts them lean: a Python process keeps the memory
+  # a job used (a search leaves about 800 MB), and the next job needs it.
   worker:
     <<: *python
-    command: ["dclh", "worker", "--exclude-kinds", "check_parcel"]
+    command: ["dclh", "worker", "--exclude-kinds", "check_parcel", "--exit-after-idle", "900"]
     depends_on:
       migrate: { condition: service_completed_successfully }
 
   check-worker:
     <<: *python
-    command: ["dclh", "worker", "--kinds", "check_parcel", "--interval", "2"]
+    command: ["dclh", "worker", "--kinds", "check_parcel", "--interval", "2", "--exit-after-idle", "600"]
     mem_limit: 1200m # measured: the static layers and one check peak at about 750 MB
     depends_on:
       migrate: { condition: service_completed_successfully }

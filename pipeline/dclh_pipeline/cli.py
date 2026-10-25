@@ -634,6 +634,10 @@ def worker_cmd(
         str | None, typer.Option(help="Only take these job kinds (comma list), e.g. check_parcel")
     ] = None,
     exclude_kinds: Annotated[str | None, typer.Option(help="Never take these job kinds (comma list)")] = None,
+    exit_after_idle: Annotated[
+        float | None,
+        typer.Option(help="Exit after this many idle seconds once a job has run (the container restarts)"),
+    ] = None,
 ) -> None:
     """Poll the jobs table and execute jobs one at a time. Several workers can split the queue by kind."""
     from dclh_pipeline.check_job import KIND as CHECK_KIND
@@ -651,6 +655,7 @@ def worker_cmd(
         exclude=names(exclude_kinds) or (),
         # The check worker keeps the static layers between checks but gives them back when it has been idle.
         on_idle=release_when_idle if only and CHECK_KIND in only else None,
+        exit_after_idle_s=exit_after_idle,
     )
     console.print(f"executed {executed} job(s)")
 
