@@ -20,6 +20,7 @@ from __future__ import annotations
 import io
 import json
 import logging
+import math
 import re
 import tempfile
 import zipfile
@@ -27,6 +28,7 @@ from pathlib import Path
 from typing import ClassVar
 
 import geopandas as gpd
+import httpx
 import pandas as pd
 from pyogrio import read_dataframe
 
@@ -45,6 +47,9 @@ SRS = "urn:ogc:def:crs:EPSG::2180"
 PAGE_SIZE = 10  # the server's CountDefault; it never returns more per request
 MAX_PAGES = 2000
 MAX_SKIPPED = 20  # broken features skipped per layer and bbox before the fetch fails instead
+# A powiat is asked for in tiles of at most this side: the service times out (504) on large areas, and a
+# failed tile costs a few pages, not the whole powiat. A request for a smaller area is a single tile.
+TILE_M = 30_000.0
 # A fixed member date, so identical pages make an identical zip and the store keeps one object.
 _ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 
@@ -77,6 +82,17 @@ def getfeature_params(layer: str, bbox: BBox, *, start: int, count: int) -> dict
     }
 
 
+def tiles(bbox: BBox, side_m: float = TILE_M) -> list[BBox]:
+    """`bbox` cut into equal tiles whose sides are at most `side_m`; one tile when it is small enough."""
+    x0, y0, x1, y1 = bbox
+    nx = max(1, math.ceil((x1 - x0) / side_m))
+    ny = max(1, math.ceil((y1 - y0) / side_m))
+    dx, dy = (x1 - x0) / nx, (y1 - y0) / ny
+    return [
+        (x0 + i * dx, y0 + j * dy, x0 + (i + 1) * dx, y0 + (j + 1) * dy) for j in range(ny) for i in range(nx)
+    ]
+
+
 class _RuWfs(Source):
     """Pages one RU layer over a bbox. Subclasses name the layer and the columns they keep."""
 
@@ -99,57 +115,75 @@ class _RuWfs(Source):
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             _write(archive, "request.json", json.dumps({"layer": self.layer, "bbox": self.bbox}).encode())
-            start, got, matched, written = 0, 0, None, 0
-            skipped: list[int] = []
+            got, written = 0, 0
+            skipped: list[tuple[int, int]] = []  # (tile, feature index)
 
-            def keep(body: bytes) -> int:
-                nonlocal matched, got, written
-                matched, returned = _counts(body)
-                if returned:
-                    _write(archive, f"page_{written:05d}.gml", body)
-                    written += 1
-                    got += returned
-                return returned
+            for tile_no, tile in enumerate(tiles(self.bbox)):
+                start, matched, tile_got = 0, None, 0
+                skipped_here = 0
 
-            for _ in range(MAX_PAGES):
-                body = self._page(client, start, self.page_size)
-                if body is not None:
-                    returned = keep(body)
-                    start += returned
-                    if returned == 0 or start >= (matched or 0):
+                def keep(body: bytes, tile_no: int = tile_no) -> int:
+                    nonlocal matched, got, written, tile_got
+                    matched, returned = _counts(body)
+                    if returned:
+                        _write(archive, f"page_{written:05d}.gml", body)
+                        written += 1
+                        got += returned
+                        tile_got += returned
+                    return returned
+
+                for _ in range(MAX_PAGES):
+                    body = self._page(client, tile, start, self.page_size)
+                    if body is not None:
+                        returned = keep(body)
+                        start += returned
+                        if returned == 0 or start >= (matched or 0):
+                            break
+                        continue
+                    # The server refuses a page, or times out on it, when one feature on it is broken or too
+                    # heavy (19.10.2026: one MPZP outline in the 1421 bbox; 25.10.2026: 504 on heavy pages).
+                    # Ask that page one feature at a time; skip only the ones that still fail.
+                    for i in range(start, start + self.page_size):
+                        one = self._page(client, tile, i, 1)
+                        if one is None:
+                            skipped.append((tile_no, i))
+                            skipped_here += 1
+                        else:
+                            keep(one)
+                    if matched is None or len(skipped) > MAX_SKIPPED:
+                        raise ValueError(
+                            f"RU: the server refused {len(skipped)} features of {self.layer} for bbox {tile}"
+                        )
+                    start += self.page_size
+                    if start >= matched:
                         break
-                    continue
-                # The server refuses a whole page when one feature on it is broken (19.10.2026: one MPZP
-                # outline in the 1421 bbox). Ask that page one feature at a time; skip only the broken ones.
-                for i in range(start, start + self.page_size):
-                    one = self._page(client, i, 1)
-                    if one is None:
-                        skipped.append(i)
-                    else:
-                        keep(one)
-                if matched is None or len(skipped) > MAX_SKIPPED:
+                else:
+                    raise ValueError(f"RU: more than {MAX_PAGES} pages of {self.layer} for bbox {tile}")
+                if matched is None or tile_got + skipped_here < matched:
                     raise ValueError(
-                        f"RU: the server refused {len(skipped)} features of {self.layer} for bbox {self.bbox}"
+                        f"RU: got {tile_got} of {matched} features of {self.layer} in tile {tile_no}; "
+                        "the response is incomplete"
                     )
-                start += self.page_size
-                if start >= matched:
-                    break
-            else:
-                raise ValueError(f"RU: more than {MAX_PAGES} pages of {self.layer} for bbox {self.bbox}")
-            if matched is None or got + len(skipped) < matched:
-                raise ValueError(
-                    f"RU: got {got} of {matched} features of {self.layer}; the response is incomplete"
-                )
             if skipped:
-                log.warning("RU: skipped %d broken features of %s at %s", len(skipped), self.layer, skipped)
+                log.warning("RU: skipped %d features of %s at %s", len(skipped), self.layer, skipped)
                 _write(archive, "skipped.json", json.dumps(skipped).encode())
         return store.save(
             self.id, buffer.getvalue(), suffix=".zip", url=self.url, content_type="application/zip"
         )
 
-    def _page(self, client: PoliteClient, start: int, count: int) -> bytes | None:
-        """One answer without its timestamp, or None when the server refuses it (400 "Invalid request")."""
-        resp = client.get(self.url, params=getfeature_params(self.layer, self.bbox, start=start, count=count))
+    def _page(self, client: PoliteClient, bbox: BBox, start: int, count: int) -> bytes | None:
+        """One answer without its timestamp, or None when the server refuses it (400 "Invalid request") or
+        keeps timing out on it (5xx after the client's own retries)."""
+        try:
+            resp = client.get(self.url, params=getfeature_params(self.layer, bbox, start=start, count=count))
+        except httpx.TransportError as exc:  # a timeout or reset that outlasted the client's retries
+            log.warning("RU %s: %s at startIndex %d, count %d", self.layer, type(exc).__name__, start, count)
+            return None
+        if resp.status_code >= 500:
+            log.warning(
+                "RU %s: HTTP %d at startIndex %d, count %d", self.layer, resp.status_code, start, count
+            )
+            return None
         if resp.status_code == 400:
             return None
         resp.raise_for_status()

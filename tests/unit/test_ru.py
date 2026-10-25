@@ -14,7 +14,7 @@ from dclh_pipeline.config import SourceSpec
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.model.zoning import plan_ogolny_kind
 from dclh_pipeline.snapshots import SnapshotStore
-from dclh_pipeline.sources.ru import RuMpzpConnector, RuPlanOgolnyConnector
+from dclh_pipeline.sources.ru import RuMpzpConnector, RuPlanOgolnyConnector, tiles
 
 ClientFactory = Callable[..., PoliteClient]
 
@@ -227,7 +227,7 @@ def test_a_broken_feature_is_skipped_and_the_rest_of_its_page_kept(
     assert len(table) == 12
     assert "1POG-11SP" not in set(table["local_id"])
     with zipfile.ZipFile(snapshot.path) as archive:
-        assert json.loads(archive.read("skipped.json")) == [11]
+        assert json.loads(archive.read("skipped.json")) == [[0, 11]]  # (tile, feature index)
 
 
 def test_a_server_that_refuses_everything_fails_instead_of_returning_an_empty_layer(
@@ -235,3 +235,101 @@ def test_a_server_that_refuses_everything_fails_instead_of_returning_an_empty_la
 ) -> None:
     with pytest.raises(ValueError, match="refused 10 features"):
         RuMpzpConnector(SPEC, bbox=BBOX).fetch(make_client(refusing({})), SnapshotStore(tmp_path))
+
+
+def test_a_small_area_is_one_tile_and_a_big_one_is_cut_into_equal_tiles() -> None:
+    assert tiles(BBOX) == [BBOX]  # 25 km: one request series, as before
+    cut = tiles((0.0, 0.0, 70_000.0, 25_000.0))
+    assert len(cut) == 3 and all(x1 - x0 <= 30_000.0 for x0, _, x1, _ in cut)
+    assert cut[0][0] == 0.0 and cut[-1][2] == 70_000.0 and cut[0][2] == cut[1][0]  # no gap, no overlap
+    assert len(tiles((0.0, 0.0, 61_000.0, 61_000.0))) == 9
+
+
+def test_a_big_powiat_is_asked_for_tile_by_tile_and_the_zones_are_all_there(
+    tmp_path: Path, make_client: ClientFactory
+) -> None:
+    big = (620_000.0, 470_000.0, 680_000.0, 495_000.0)  # 60 km wide: two tiles of 30 km
+    asked: list[tuple[float, ...]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        y0, x0, y1, x1 = (float(v) for v in str(request.url.params["bbox"]).split(",")[:4])
+        asked.append((x0, y0, x1, y1))
+        i = 1 if x0 < 650_000 else 2
+        return httpx.Response(200, content=page([sp_zone(i, x0 + 1_000, 471_000, 500)], matched=1))
+
+    connector = RuPlanOgolnyConnector(SPEC, bbox=big)
+    table = connector.parse(connector.fetch(make_client(handler), SnapshotStore(tmp_path)))
+    assert sorted({(a[0], a[2]) for a in asked}) == [(620_000.0, 650_000.0), (650_000.0, 680_000.0)]
+    assert len(table) == 2
+
+
+def timing_out(
+    good: dict[tuple[int, int], bytes], status: int = 504
+) -> Callable[[httpx.Request], httpx.Response]:
+    """Answers (startIndex, count) from `good`; anything else is the gateway timeout seen on 25.10.2026."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        key = (int(request.url.params["startIndex"]), int(request.url.params["count"]))
+        if key in good:
+            return httpx.Response(200, content=good[key])
+        return httpx.Response(status, content=b"Gateway Timeout")
+
+    return handler
+
+
+def test_a_page_that_times_out_is_asked_again_one_feature_at_a_time(
+    tmp_path: Path, make_client: ClientFactory
+) -> None:
+    zones = [sp_zone(i, 621_000 + 600 * i, 471_000, 500) for i in range(12)]
+    good = {(0, 10): page(zones[:10], 12)}  # the page at 10 times out as a whole, but each feature is fine
+    good[(10, 1)], good[(11, 1)] = page([zones[10]], 12), page([zones[11]], 12)
+    for i in range(12, 20):
+        good[(i, 1)] = page([], 12)
+    connector = RuPlanOgolnyConnector(SPEC, bbox=BBOX)
+    snapshot = connector.fetch(make_client(timing_out(good), retries=0), SnapshotStore(tmp_path))
+    assert len(connector.parse(snapshot)) == 12  # nothing lost to the timeout
+
+
+def test_a_feature_that_always_times_out_is_skipped_and_recorded(
+    tmp_path: Path, make_client: ClientFactory
+) -> None:
+    zones = [sp_zone(i, 621_000 + 600 * i, 471_000, 500) for i in range(12)]
+    good = {(0, 10): page(zones[:10], 12), (10, 1): page([zones[10]], 12)}  # feature 11 never answers
+    for i in range(12, 20):
+        good[(i, 1)] = page([], 12)
+    connector = RuPlanOgolnyConnector(SPEC, bbox=BBOX)
+    snapshot = connector.fetch(make_client(timing_out(good), retries=0), SnapshotStore(tmp_path))
+    assert len(connector.parse(snapshot)) == 11
+    with zipfile.ZipFile(snapshot.path) as archive:
+        assert json.loads(archive.read("skipped.json")) == [[0, 11]]
+
+
+def test_a_service_that_is_down_for_every_feature_still_fails_the_fetch(
+    tmp_path: Path, make_client: ClientFactory
+) -> None:
+    with pytest.raises(ValueError, match="refused"):
+        RuMpzpConnector(SPEC, bbox=BBOX).fetch(
+            make_client(timing_out({}), retries=0), SnapshotStore(tmp_path)
+        )
+
+
+def test_a_dropped_connection_counts_like_a_timeout(tmp_path: Path, make_client: ClientFactory) -> None:
+    calls: list[tuple[int, int]] = []
+    zone = page([sp_zone(1, 621_000, 471_000, 500)], 1)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        key = (int(request.url.params["startIndex"]), int(request.url.params["count"]))
+        calls.append(key)
+        if key == (0, 10):
+            raise httpx.ReadTimeout("slow", request=request)
+        return httpx.Response(200, content=zone)
+
+    connector = RuPlanOgolnyConnector(SPEC, bbox=BBOX)
+    snapshot = connector.fetch(make_client(handler, retries=0), SnapshotStore(tmp_path))
+    assert (0, 1) in calls and len(connector.parse(snapshot)) == 1
