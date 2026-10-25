@@ -133,8 +133,9 @@ class TestUnknowns:
             "Węzeł telekomunikacyjny w pobliżu",
             "Decyzja środowiskowa",
             "Sprzedający publiczny",
-            "Planowana stacja odbiorcza PSE",
         } & set(labels)
+        # The PSE stations are loaded now: with that layer missing, the gap is real and is listed.
+        assert "Planowana stacja odbiorcza PSE" in labels
         assert "Przeznaczenie terenu" in labels  # zoning can be found out: ask the gmina
 
     def test_the_reason_says_whether_the_download_failed_or_no_source_exists(self) -> None:

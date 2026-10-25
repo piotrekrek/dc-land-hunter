@@ -7,15 +7,18 @@ the same layout with a made-up applicant.
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
+import pytest
 from openpyxl import Workbook
 
 from dclh_pipeline.config import load_sources
 from dclh_pipeline.snapshots import SnapshotStore
-from dclh_pipeline.sources.manual import PseClosedPoints, PseOdbPoints
-from dclh_pipeline.sources.pse import read_pse_closed, read_pse_odb
+from dclh_pipeline.sources import pse
+from dclh_pipeline.sources.manual import PseAvailPoints, PseClosedPoints, PseOdbPoints
+from dclh_pipeline.sources.pse import parse_planned_stations, read_pse_avail, read_pse_closed, read_pse_odb
 
 LIVE = Path(__file__).parents[1] / "fixtures/live/source-verification-2026-10-19"
 APPLICANT = "Jan Kowalski Inwestycje"
@@ -162,3 +165,72 @@ def test_closed_list_imports_through_the_manual_path(tmp_path: Path) -> None:
     assert len(table) == 37
     assert store.latest_good("pse_closed") == snapshot
     assert (LIVE / "pse_closed_20260204.xlsx").exists()  # the original stays where it was
+
+
+PLANNED_TEXT = """INFORMACJA
+O DOSTĘPNOŚCI MOCY PRZYŁĄCZENIOWEJ
+(STAN NA 30 WRZEŚNIA 2026 ROKU)
+SPIS TREŚCI
+5. ZESTAWIENIE DOSTĘPNYCH MOCY PRZYŁĄCZENIOWYCH
+ODBIORCZYCH ....................... 12
+5. Zestawienie dostępnych mocy przyłączeniowych odbiorczych
+Dostępna moc
+L.p. Stacje
+przyłączeniowa
+1. NOR – Norki 100
+3. WYP – stacja w rejonie Warszawy (Wypędy) 200
+4. MKA – stacja w rejonie Legnicy 1000
+11. ZER – stacja w rejonie Poznania 500
+Oprócz wyżej wymienionych stacji elektroenergetycznych PSE S.A. zaplanowały budowę innych.
+1. CPK – stacja w rejonie Portu Polska 250
+8. PSC – stacja w rejonie Poznania 500
+"""
+
+
+def test_planned_stations_come_from_the_first_table_only() -> None:
+    as_of, stations = parse_planned_stations(PLANNED_TEXT)
+    assert as_of == date(2026, 9, 30)
+    assert stations == [
+        ("NOR", "Norki", 100),
+        ("WYP", "stacja w rejonie Warszawy (Wypędy)", 200),
+        ("MKA", "stacja w rejonie Legnicy", 1000),
+        ("ZER", "stacja w rejonie Poznania", 500),
+    ]
+
+
+def test_planned_stations_text_without_the_section_is_refused() -> None:
+    with pytest.raises(ValueError, match="section 5"):
+        parse_planned_stations("(STAN NA 30 WRZEŚNIA 2026 ROKU)\nnothing here")
+    with pytest.raises(ValueError, match="STAN NA"):
+        parse_planned_stations("5. Zestawienie dostępnych mocy przyłączeniowych odbiorczych\n")
+
+
+def test_planned_stations_are_placed_from_the_table_and_the_rest_left_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(pse, "_pdf_text", lambda _path: PLANNED_TEXT)
+    pdf = tmp_path / "avail.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    table = read_pse_avail(pdf)
+    assert table is not None
+    assert list(table["symbol"]) == ["MKA", "ZER"]  # NOR and WYP have no row in the committed table
+    assert table["odb_mw"].tolist() == ["1000", "500"]
+    assert "NOR, WYP" in caplog.text
+    assert read_pse_avail(tmp_path / "list.xlsx") is None  # not a PDF: some other format's job
+
+
+def test_planned_stations_import_stores_a_csv_that_parses_to_points(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(pse, "_pdf_text", lambda _path: PLANNED_TEXT)
+    pdf = tmp_path / "avail.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    spec = next(s for s in load_sources().sources if s.id == "pse_avail")
+    store = SnapshotStore(tmp_path / "raw")
+    snapshot, table = PseAvailPoints(spec, pdf).import_file(store)
+    assert snapshot.path.suffix == ".csv"  # the PDF itself is not kept
+    assert len(table) == 2 and table.geometry.notna().all()
+    again = PseAvailPoints(spec, snapshot.path).parse(snapshot)  # what the scoring run reads back
+    assert list(again["name"]) == list(table["name"])
+    zer = again[again["name"].str.startswith("ZER")].geometry.iloc[0]
+    assert 350_000 < zer.x < 400_000 and 480_000 < zer.y < 520_000  # Poznań in EPSG:2180

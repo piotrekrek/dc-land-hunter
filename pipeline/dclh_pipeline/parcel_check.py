@@ -94,10 +94,11 @@ FILTER_STEP = {
 }
 
 # Criteria no data feeds in this version (docs/SOURCES.md): UKE cannot be downloaded, environmental
-# decisions and public sellers are manual-only, and the PSE planned load stations are not loaded yet.
+# decisions and public sellers are manual-only. (The PSE planned load stations are loaded since 25.10.2026;
+# without that snapshot the criterion is "Nie wiemy" again.)
 # They always count as 0 points, so "Nie wiemy" leaves them out: nobody can resolve them by asking. The web
 # groups them the same way (`NOT_YET_KEYS` in lib/sites.ts).
-NO_DATA_YET = frozenset({"conn_telecom", "bonus_env", "bonus_seller", "grid_planned_station"})
+NO_DATA_YET = frozenset({"conn_telecom", "bonus_env", "bonus_seller"})
 
 # Step keys and their Polish labels, in the order the loader shows them.
 STEP_LABELS_PL = {

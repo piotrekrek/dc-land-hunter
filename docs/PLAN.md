@@ -637,3 +637,27 @@ Acceptance: deployed, restore tested, all checks green, no blockers in STATUS.md
   the new code at their next restart, which changes nothing for the search;
 - not browser-checked by the author: the pages were tested with jsdom, one Playwright smoke test and an accessibility scan.
 
+### Next round (25.10.2026): PSE planned stations, map popups, orthophoto
+
+Owner's order: (1) the PSE planned-stations loader, (2) a look at the nightly search of powiat 3021, (3) "Sprawdź tę
+działkę" in map popups, (4) the orthophoto background on the sheet. Each is its own PR, merged and deployed in turn.
+
+1. **PSE planned stations (`pse_avail`).** PSE's monthly PDF lists new stations "dedicated to new customers" (section
+   5, first table: symbol, name, MW, 14 rows on 30.09.2026) and a second table of stations for network reliability
+   and generation. Only the first table is read: those are the load stations the brief means. The PDF gives a region,
+   not coordinates ("stacja w rejonie Poznania"), so a committed table `data/manual/pse_planned_station_coords.csv`
+   (`symbol, lat, lon, basis`) places each station at the centre of the town it names, labelled `estimated`. A station
+   without a row in that table is left out and logged (Warsaw stations REM and SWR have no named place; stations east
+   of the Vistula cannot reach the area of interest). `dclh import-manual pse_avail <pdf>` stores the reduced CSV, as for
+   the other PSE lists. Nothing is scored differently except `grid_planned_station` (bonus) leaving the "no data yet"
+   set; sites already stored pick it up at their next scoring.
+2. **Nightly 3021.** Read the 01:00 run's log and the job row; report. No code unless the failure is ours.
+3. **Map popups.** Clicking an empty spot or a station or line on the main map opens a popup with a link "Sprawdź
+   działkę w tym miejscu" to `/sprawdz-dzialke?q=<lat> <lon>`, which the page already resolves (ULDK by point). A click
+   on a site polygon still picks the site (its card has the link already).
+4. **Orthophoto.** `GET /api/checks/{id}/sites/{n}/orthophoto` fetches one JPEG from the Geoportal WMS
+   (`mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution`, EPSG:2180, free of charge per its
+   capabilities) for exactly the sheet's box, through the response cache, behind the same owner/admin rule as the
+   site. The sheet gets a toggle "Ortofotomapa" (off by default, so nothing is downloaded until asked) and the credit
+   "Źródło: Geoportal, GUGiK". The photo sits under a pale veil so the hatching stays readable.
+

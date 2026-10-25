@@ -144,13 +144,24 @@ uv run dclh import-manual pse_odb ~/Informacje_publikowane_zgodnie_z_Art_7_ust_8
 rm ~/Informacje_publikowane_*.xlsx   # it names applicants; only the reduced table is stored
 ```
 
+The planned load stations come from PSE's monthly PDF "Informacja o dostępności mocy przyłączeniowej do sieci
+przesyłowej" (link on `…/krajowy-system-elektroenergetyczny/informacja-o-dostepnosci-mocy-przylaczeniowej`). Import
+the PDF as it is; the stations are placed from `data/manual/pse_planned_station_coords.csv` and any station without a
+row there is reported in the log and left out:
+
+```bash
+uv run dclh import-manual pse_avail ~/informacja_o_dostepnosci_mocy_przylaczeniowej_do_sieci_przesylowej.pdf
+```
+
+Sites already stored pick the new layer up at their next scoring; a new search or check uses it at once.
+
 `pse_odb` keeps only the `ODB` rows and only station, voltage, MW, status and dates: the applicant column is
 never read, and the snapshot is the reduced CSV, not PSE's file. Enea (owner decision) and anything else without
 a connector still go through the canonical CSV/XLSX columns (`data/manual/README.md`):
 
 ```bash
 uv run dclh import-manual enea  data/manual/enea_2026-10.csv     # or energa, tauron as a fallback
-uv run dclh import-manual pse_avail  data/manual/pse_avail_2026-10.csv   # planned stations, with coordinates
+uv run dclh import-manual pse_avail  data/manual/pse_avail_2026-10.csv   # planned stations as a CSV with coordinates (or PSE's PDF)
 ```
 
 The command checks every row first and stores a snapshot under `data/raw/<source>/` only if all are valid (the
