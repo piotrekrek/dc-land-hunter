@@ -1,0 +1,83 @@
+name: Stack
+
+# The compose stack and the Playwright smoke test: the slowest job (about 10 minutes). It runs on every push to main
+# and by hand, and on a pull request only when the change can affect the running stack. Python-only changes in
+# `pipeline/` are covered by the unit tests in ci.yml.
+on:
+  push:
+    branches: [master, main]
+    paths-ignore: ["docs/**", "**.md", ".claude/**"]
+  pull_request:
+    paths:
+      - "web/**"
+      - "api/**"
+      - "infra/**"
+      - "tests/e2e/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/stack.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: stack-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  stack:
+    name: Docker images + Playwright smoke
+    timeout-minutes: 25
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images
+        run: docker compose -f infra/docker-compose.yml build
+      - name: Start stack
+        run: |
+          docker compose -f infra/docker-compose.yml up -d
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/api/health | grep -q '"status":"ok"'; then echo "stack is up"; exit 0; fi
+            sleep 3
+          done
+          echo "stack did not become healthy" && exit 1
+      - name: Tiles refuse anonymous requests
+        run: test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/tiles/health)" = "401"
+      - name: API docs are off by default
+        run: test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/docs)" = "404"
+      - name: Seed an admin user for the smoke test
+        env:
+          E2E_PASSWORD: e2e-password-123
+        run: |
+          docker compose -f infra/docker-compose.yml exec -T -e E2E_PASSWORD api \
+            dclh user create e2e-admin@example.org --role admin --password-env E2E_PASSWORD
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: tests/e2e/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: tests/e2e/pnpm-lock.yaml
+      - name: Install Playwright
+        working-directory: tests/e2e
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+          pnpm exec playwright install --with-deps chromium
+      - name: Playwright smoke test
+        working-directory: tests/e2e
+        run: pnpm test
+      - name: Compose logs
+        if: failure()
+        run: docker compose -f infra/docker-compose.yml logs --no-color --tail 200
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: tests/e2e/playwright-report
+          retention-days: 7
+      - name: Stop stack
+        if: always()
+        run: docker compose -f infra/docker-compose.yml down -v

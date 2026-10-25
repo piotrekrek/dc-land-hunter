@@ -60,7 +60,9 @@ uv run uvicorn dclh_api.main:app --reload --port 8000
 cd web && pnpm install && pnpm dev       # http://localhost:5173, proxies /api to :8000
 ```
 
-Checks (run before every commit; CI runs the same):
+Checks (run before every commit; CI runs the same; `ci.yml` runs Python and web on every PR except docs-only ones, `stack.yml` the
+Docker + Playwright smoke test on `main` and on PRs that touch `web/`, `api/`, `infra/` or `tests/e2e/`; GitHub's free minutes for a
+private repo are limited, see STATUS.md):
 
 ```bash
 uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest
