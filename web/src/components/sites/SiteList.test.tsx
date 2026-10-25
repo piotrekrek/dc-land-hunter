@@ -1,7 +1,9 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router";
 
 import type { components } from "@/api/schema";
 import { mockFetch, renderWithProviders } from "@/test/render";
@@ -30,6 +32,7 @@ const site = (over: Partial<SiteSummary>): SiteSummary => ({
   gmina: null,
   powiat: null,
   voivodeship: null,
+  weakest_label_pl: null,
   mw_fact: { value: estimated_mw_default, source_id: "egib", as_of: null, confidence: "estimated" },
   ...over,
 });
@@ -281,4 +284,122 @@ describe("SiteList", () => {
     expect(screen.queryByRole("option", { name: "powiat pruszkowski" })).not.toBeInTheDocument();
     expect(screen.getByRole("option", { name: "powiat będziński" })).toBeInTheDocument();
   });
+
+  it("shows the weakest factor on a row and nothing when there is none", async () => {
+    mockFetch({
+      "/api/sites": {
+        total: 2,
+        offset: 0,
+        limit: 50,
+        items: [site({ weakest_label_pl: "Węzeł 220/400 kV PSE w pobliżu" }), site({ site_id: "site-b" })],
+      },
+    });
+    renderWithProviders(<SiteList onSelect={() => {}} />);
+    const rows = await screen.findAllByTestId("site-row");
+    expect(within(rows[0]!).getByText("najsłabsze: Węzeł 220/400 kV PSE w pobliżu")).toBeInTheDocument();
+    expect(within(rows[1]!).queryByText(/najsłabsze/)).not.toBeInTheDocument();
+  });
+
+  it("reports the row under the pointer and marks the row the map is hovering", async () => {
+    mockFetch({ "/api/sites": { total: 2, offset: 0, limit: 50, items: [site({}), site({ site_id: "site-b", lon: 20.5, lat: 51.2 })] } });
+    const onHover = vi.fn();
+    renderWithProviders(<SiteList onSelect={() => {}} onHover={onHover} />);
+    const rows = await screen.findAllByTestId("site-row");
+    await userEvent.hover(rows[1]!);
+    expect(onHover).toHaveBeenLastCalledWith(expect.objectContaining({ site_id: "site-b", lon: 20.5, lat: 51.2 }));
+    await userEvent.unhover(rows[1]!);
+    expect(onHover).toHaveBeenLastCalledWith(null);
+    expect(rows[0]).not.toHaveAttribute("data-hovered");
+  });
+
+  it("highlights the row of the site hovered on the map", async () => {
+    mockFetch({ "/api/sites": { total: 2, offset: 0, limit: 50, items: [site({}), site({ site_id: "site-b" })] } });
+    renderWithProviders(<SiteList onSelect={() => {}} hoveredId="site-b" />);
+    const rows = await screen.findAllByTestId("site-row");
+    expect(rows[1]).toHaveAttribute("data-hovered", "true");
+    expect(rows[0]).not.toHaveAttribute("data-hovered");
+  });
+
+  it("filters by grid badge, large campus and split, in the address and in the request", async () => {
+    const spy = mockFetch({ "/api/sites": { total: 1, offset: 0, limit: 50, items: [site({})] } });
+    renderWithProviders(<SiteList onSelect={() => {}} />, { route: "/?siec=Bliskość sieci&kampus=1&podzial=1" });
+    await screen.findAllByTestId("site-row");
+    expect(screen.getByLabelText("Dane o sieci")).toHaveValue("Bliskość sieci");
+    expect(screen.getByLabelText("Duży kampus")).toBeChecked();
+    expect(screen.getByLabelText("Do podziału")).toBeChecked();
+    const urls = spy.mock.calls.map(([input]) => new URL(input instanceof Request ? input.url : String(input), "http://localhost"));
+    const asked = urls.find((u) => u.pathname === "/api/sites")!.searchParams;
+    expect(asked.get("grid_badge")).toBe("Bliskość sieci");
+    expect(asked.get("large_campus")).toBe("true");
+    expect(asked.get("split_suggested")).toBe("true");
+    await userEvent.click(screen.getByLabelText("Duży kampus"));
+    expect(screen.getByLabelText("Duży kampus")).not.toBeChecked();
+  });
+
+  describe("Szukaj w tym obszarze", () => {
+    const BOX = "20.000,52.100,21.500,52.900";
+    const asked: URLSearchParams[] = [];
+    const answer = (inView: number, everywhere: number) =>
+      vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+        const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, "http://localhost");
+        asked.push(url.searchParams);
+        const total = url.searchParams.has("bbox") ? inView : everywhere;
+        const body = { total, offset: 0, limit: 50, items: total ? [site({})] : [], next_cursor: total > 50 ? "c" : null };
+        return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
+      });
+
+    beforeEach(() => {
+      asked.length = 0;
+    });
+
+    it("sends no box while the toggle is off, and offers the toggle off by default", async () => {
+      answer(3, 3400);
+      const onChange = vi.fn();
+      renderWithProviders(<SiteList onSelect={() => {}} viewSearch={{ on: false, bbox: BOX, onChange }} />);
+      await screen.findAllByTestId("site-row");
+      expect(asked.every((p) => !p.has("bbox"))).toBe(true);
+      expect(screen.getByLabelText("Szukaj w tym obszarze")).not.toBeChecked();
+      await userEvent.click(screen.getByLabelText("Szukaj w tym obszarze"));
+      expect(onChange).toHaveBeenCalledWith(true);
+    });
+
+    it("asks for the box when on, and says how many of all are in view", async () => {
+      answer(3, 3400);
+      renderWithProviders(<SiteList onSelect={() => {}} viewSearch={{ on: true, bbox: BOX, onChange: () => {} }} />);
+      expect(await screen.findByText(/W widoku: 3 z 3400\./)).toBeInTheDocument();
+      expect(asked.some((p) => p.get("bbox") === BOX)).toBe(true);
+    });
+
+    it("starts again from the first page when the box moves", async () => {
+      answer(120, 3400);
+      const view = (bbox: string) => ({ on: true, bbox, onChange: () => {} });
+      const ui = (bbox: string) => <SiteList onSelect={() => {}} viewSearch={view(bbox)} />;
+      const { rerender } = renderWithProviders(ui(BOX));
+      await screen.findAllByTestId("site-row");
+      await userEvent.click(await screen.findByRole("button", { name: /Pokaż więcej/ }));
+      await waitFor(() => expect(asked.some((p) => p.has("cursor"))).toBe(true));
+      asked.length = 0;
+      rerender(
+        <QueryClientProvider client={new QueryClient()}>
+          <MemoryRouter>{ui("19.000,52.000,20.000,52.500")}</MemoryRouter>
+        </QueryClientProvider>,
+      );
+      await waitFor(() => expect(asked.some((p) => p.get("bbox") === "19.000,52.000,20.000,52.500")).toBe(true));
+      expect(asked.filter((p) => p.has("bbox")).every((p) => !p.has("cursor"))).toBe(true);
+    });
+
+    it("waits for the map's box instead of listing everything as in view", async () => {
+      answer(3, 3400);
+      renderWithProviders(<SiteList onSelect={() => {}} viewSearch={{ on: true, bbox: null, onChange: () => {} }} />);
+      expect(await screen.findByRole("status")).toBeInTheDocument();
+      expect(asked.filter((p) => p.get("limit") === "50")).toHaveLength(0);
+    });
+
+    it("explains an empty view instead of blaming the filters", async () => {
+      answer(0, 3400);
+      renderWithProviders(<SiteList onSelect={() => {}} viewSearch={{ on: true, bbox: BOX, onChange: () => {} }} />);
+      expect(await screen.findByText("Brak lokalizacji w tym obszarze")).toBeInTheDocument();
+    });
+  });
 });
+

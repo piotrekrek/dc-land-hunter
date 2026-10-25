@@ -34,6 +34,7 @@ export function site(over: Partial<CheckSiteDetail> = {}): CheckSiteDetail {
     gmina: null,
     powiat: null,
     voivodeship: null,
+    weakest_label_pl: null,
     map: { origin_2180: [640000, 490000], bbox_m: [-100, -100, 100, 100], parcel: [[[-50, -40], [50, -40], [50, 40], [-50, 40]]] },
     mw_fact: { value: 7.2, source_id: "egib", as_of: "2026-10-25T09:00:00+00:00", confidence: "estimated" },
     parcel_ids: [ID],

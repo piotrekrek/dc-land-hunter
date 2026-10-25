@@ -44,9 +44,18 @@ describe("site filters in the URL", () => {
 
   it("round-trips a non-default filter state", () => {
     const filters = { sort: "area" as const, minMw: 150, minHa: 0, includeExcluded: true, voivodeship: "", powiat: "" };
-    const params = toParams(filters);
+    const params = toParams({ ...DEFAULT_FILTERS, ...filters });
     expect(params.toString()).toBe("sort=area&minMw=150&minHa=0&excluded=1");
+    expect(parseFilters(params)).toEqual({ ...DEFAULT_FILTERS, ...filters });
+  });
+
+  it("keeps the grid badge, large campus and split filters in the URL and ignores a badge it does not offer", () => {
+    const filters = { ...DEFAULT_FILTERS, gridBadge: "Bliskość sieci" as const, largeCampus: true, splitSuggested: true };
+    const params = toParams(filters);
     expect(parseFilters(params)).toEqual(filters);
+    expect(params.get("kampus")).toBe("1");
+    expect(parseFilters(new URLSearchParams("siec=Brak+danych")).gridBadge).toBe("");
+    expect(describeFilters(filters)).toContain("duży kampus");
   });
 
   it("keeps the place filter in the URL, so a filtered list can be shared", () => {

@@ -15,6 +15,7 @@ import {
   SITE_HIGHLIGHT_ID,
   SITE_SCORE_OK,
   SITE_SCORE_WARN,
+  groupOn,
   siteFocus,
   siteHighlightFilter,
   siteTone,
@@ -61,6 +62,7 @@ describe("candidate site layers", () => {
       SITE_FILL_ID,
       "sites-line",
       SITE_HIGHLIGHT_ID,
+      "sites-hover",
       SITE_CLUSTER_ID,
       SITE_CLUSTER_LABEL_ID,
     ]);
@@ -142,5 +144,18 @@ describe("zoomed-out site bubbles", () => {
     expect(clusterZoomTarget(5.5)).toBe(7.5);
     expect(clusterZoomTarget(7.5)).toBe(SITE_MIN_ZOOM + 1);
     expect(clusterZoomTarget(SITE_MIN_ZOOM + 1)).toBe(SITE_MIN_ZOOM + 1);
+  });
+});
+
+describe("grid switch", () => {
+  const off = { grid: false };
+  it("turns every line and station group off with its parent, whatever their own switches say", () => {
+    const children = LAYER_GROUPS.filter((g) => g.parent === "grid");
+    expect(children.map((g) => g.id)).toEqual(expect.arrayContaining(["lines-110", "lines-220", "lines-400", "substations"]));
+    for (const g of children) expect(groupOn(g, { ...off, [g.id]: true })).toBe(false);
+    expect(groupOn(LAYER_GROUPS.find((g) => g.id === "lines-110")!, {})).toBe(true);
+  });
+  it("leaves the candidates alone", () => {
+    expect(groupOn(LAYER_GROUPS.find((g) => g.id === "sites")!, off)).toBe(true);
   });
 });
