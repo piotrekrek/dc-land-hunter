@@ -280,8 +280,8 @@ first version draws the sheet on a plain background); checks are kept indefinite
 | 7 | **[x]** Web: the `Sheet` SVG component (#105) | 6 |
 | 8 | **[x]** Web: input, confirmation, recent list, map click (#105) | 6, API contract |
 | 9 | **[x]** Web: progress, result, several parcels, partial failure, a11y, Playwright smoke of the page (#105) | 5, 7, 8 |
-| 10 | **[x]** "Sprawdź ponownie" and "Sprawdź tę działkę" on the site card, history list (#105). **Left:** the action in map popups, "Dodaj do projektów" (needs the kanban) | 9 |
-| 11 | Orthophoto (proxy and terms check). **Not started** | 9 |
+| 10 | **[x]** "Sprawdź ponownie" and "Sprawdź tę działkę" on the site card, history list (#105). **Left:** "Dodaj do projektów" (needs the kanban). The map-popup action is done (25.10.2026) | 9 |
+| 11 | **[x]** Orthophoto: the API fetches the Geoportal WMS for the sheet's box (free of charge, cached, retried: one answer in four is an empty 404), the sheet has a toggle "Ortofotomapa", off by default | 9 |
 
 Backend (1 to 5) and web (6 to 8) can run in parallel. The UI/UX audit section above (its step 1 changes the site card
 header, its step 5 adds a map block to the card) overlaps step 6 and step 7: do step 6 first or rebase.

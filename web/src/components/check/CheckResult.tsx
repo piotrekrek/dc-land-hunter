@@ -50,7 +50,7 @@ export function CheckResult({ site }: { site: CheckSiteDetail }) {
           </section>
         </div>
         <div className="flex flex-col gap-3">
-          <Sheet sheet={site.sheet} />
+          <Sheet sheet={site.sheet} photoUrl={`/api/checks/${site.check_id}/sites/${site.n}/orthophoto`} />
           <TitleBlock site={site} />
         </div>
       </div>

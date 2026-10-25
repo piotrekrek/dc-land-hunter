@@ -721,6 +721,54 @@
           }
         }
       }
+    },
+    "/api/checks/{check_id}/sites/{n}/orthophoto": {
+      "get": {
+        "tags": [
+          "checks"
+        ],
+        "summary": "Get Check Orthophoto",
+        "description": "The Geoportal orthophoto for exactly the sheet's box, asked for only when the sheet shows it.",
+        "operationId": "get_check_orthophoto_api_checks__check_id__sites__n__orthophoto_get",
+        "parameters": [
+          {
+            "name": "check_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Check Id"
+            }
+          },
+          {
+            "name": "n",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "N"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/jpeg": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
