@@ -1296,6 +1296,20 @@
           "map": {
             "$ref": "#/components/schemas/SiteMapOut"
           },
+          "profiles": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/ProfileVerdictOut"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profiles"
+          },
           "n": {
             "type": "integer",
             "title": "N"
@@ -2562,6 +2576,130 @@
         ],
         "title": "PriorityIn"
       },
+      "ProfileReasonOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "text_pl": {
+            "type": "string",
+            "title": "Text Pl"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "text_pl",
+          "source_id",
+          "as_of"
+        ],
+        "title": "ProfileReasonOut"
+      },
+      "ProfileToCheckOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "text_pl": {
+            "type": "string",
+            "title": "Text Pl"
+          },
+          "blocking": {
+            "type": "boolean",
+            "title": "Blocking"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "text_pl",
+          "blocking"
+        ],
+        "title": "ProfileToCheckOut"
+      },
+      "ProfileVerdictOut": {
+        "properties": {
+          "profile": {
+            "type": "string",
+            "enum": [
+              "built",
+              "container"
+            ],
+            "title": "Profile"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "green",
+              "yellow",
+              "red",
+              "manual"
+            ],
+            "title": "Category"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "blockers": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileReasonOut"
+            },
+            "type": "array",
+            "title": "Blockers"
+          },
+          "to_check": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileToCheckOut"
+            },
+            "type": "array",
+            "title": "To Check"
+          },
+          "positives": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileReasonOut"
+            },
+            "type": "array",
+            "title": "Positives"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile",
+          "category",
+          "score",
+          "blockers",
+          "to_check",
+          "positives"
+        ],
+        "title": "ProfileVerdictOut",
+        "description": "One investor profile's verdict: green / yellow / red, or manual when a missing answer decides it."
+      },
       "Proxies": {
         "properties": {
           "gas_zone_m": {
@@ -3138,6 +3276,20 @@
           },
           "map": {
             "$ref": "#/components/schemas/SiteMapOut"
+          },
+          "profiles": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/ProfileVerdictOut"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profiles"
           }
         },
         "type": "object",

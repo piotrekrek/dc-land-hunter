@@ -27,7 +27,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from dclh_pipeline.check_sheet import build_sheet, sheet_bounds
-from dclh_pipeline.config import ScoringConfig, SourcesConfig
+from dclh_pipeline.config import ProfilesConfig, ScoringConfig, SourcesConfig
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.layers import (
     AreaLayers,
@@ -43,6 +43,7 @@ from dclh_pipeline.model.features import Layer, overlap_pct
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.sites import Parcel, Site, cluster_sites, expansion_ha
 from dclh_pipeline.parcel_input import InputIssue, ParcelInput, ParsedInputs
+from dclh_pipeline.profiles import ProfileVerdict, profile_verdicts
 from dclh_pipeline.scoring.engine import evaluate_hard_filters
 from dclh_pipeline.scoring.run import ScoredSite, score_candidates
 from dclh_pipeline.scoring.types import Fact, SiteScore
@@ -224,6 +225,7 @@ class ParcelCheck:
     sheet: dict[str, Any]
     layer_ages: dict[str, datetime | None]
     outside_aoi: bool
+    profiles: dict[str, ProfileVerdict]
     failed_steps: list[str] = field(default_factory=list)
 
 
@@ -450,6 +452,7 @@ def _zoning_finding(geom: BaseGeometry, result: Any) -> str:
 class CheckContext:
     config: SourcesConfig
     cfg: ScoringConfig
+    profiles: ProfilesConfig
     store: SnapshotStore
     client: PoliteClient
     static: StaticLayers
@@ -629,6 +632,7 @@ def check_parcel(
         sheet=sheet,
         layer_ages=ages,
         outside_aoi=parcel.in_aoi is False,
+        profiles=profile_verdicts(scored.features, ctx.profiles),
         failed_steps=failed,
     )
 
