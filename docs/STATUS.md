@@ -782,3 +782,10 @@ starts the container lean. Compose: general worker 900 s, check worker 600 s (th
 its process, so it restarts too). A worker that has run nothing keeps waiting. The cost is one restart per quiet spell and
 a 16 s static-layer load on the first check after it.
 
+## Checks: own only, steps from the start (25.10.2026)
+
+- A member sees only their own checks (the list and the check and result addresses; someone else's check answers 404, like
+  a check that does not exist); an admin sees everyone's. The page says which it is.
+- The step list is written when a check is created, so the page shows the whole plan and a progress bar from the first poll
+  instead of "0 z 0 kroków". With no steps at all (an old check) it says "Przygotowuję sprawdzenie…".
+

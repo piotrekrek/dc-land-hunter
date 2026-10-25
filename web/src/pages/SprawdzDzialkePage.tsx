@@ -9,6 +9,7 @@ import { PageScroll } from "@/components/PageScroll";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useRecentChecks, useResolve, useStartCheck } from "@/lib/check";
+import { useAuth } from "@/lib/auth";
 import { formatHa } from "@/lib/format";
 
 // The map pulls in MapLibre, so it loads only when someone asks for it.
@@ -92,6 +93,7 @@ export function SprawdzDzialkePage() {
   const resolve = useResolve();
   const start = useStartCheck();
   const recent = useRecentChecks();
+  const { user } = useAuth();
   const prefilled = useRef(false);
 
   const run = (value: string) => {
@@ -198,9 +200,12 @@ export function SprawdzDzialkePage() {
         )}
 
         <section className="mt-10" aria-labelledby="recent-h">
-          <h2 id="recent-h" className="mb-2 text-sm font-semibold">
+          <h2 id="recent-h" className="text-sm font-semibold">
             Ostatnie sprawdzenia
           </h2>
+          <p className="mb-2 text-xs text-muted-foreground">
+            {user?.role === "admin" ? "Widzisz sprawdzenia wszystkich użytkowników." : "Widzisz tylko swoje sprawdzenia."}
+          </p>
           {recent.data ? <RecentChecks items={recent.data.items} /> : <p className="text-sm text-muted-foreground">Wczytuję…</p>}
         </section>
       </div>

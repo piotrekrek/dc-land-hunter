@@ -22,9 +22,11 @@ describe("ProgressBar", () => {
     expect(screen.getByRole("progressbar").getAttribute("aria-valuetext")).toBe("2 z 2 kroków");
   });
 
-  it("handles a check that has no steps yet", () => {
-    render(<ProgressBar steps={[]} />);
-    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0");
+  it("never says 0 z 0 kroków: with no steps yet it says it is preparing", () => {
+    render(<ProgressBar steps={[]} estimateSeconds={35} />);
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Przygotowuję sprawdzenie · ok. 35 s");
+    expect(screen.queryByText(/0 z 0/)).not.toBeInTheDocument();
   });
 });
 

@@ -144,7 +144,17 @@ describe("Sprawdź działkę: input", () => {
     expect(calls.find((c) => c.key === "POST /api/parcels/resolve")?.body).toEqual({ text: "52.10000 20.90000" });
   });
 
-  it("lists the recent checks of the team with their state or verdict", async () => {
+  it("tells a member they see only their own checks, and an admin that they see everyone's", async () => {
+    routeFetch({ "GET /api/checks": () => ({ items: [] }) });
+    page();
+    expect(await screen.findByText("Widzisz tylko swoje sprawdzenia.")).toBeInTheDocument();
+    vi.restoreAllMocks();
+    routeFetch({ "GET /api/checks": () => ({ items: [] }), "GET /api/auth/me": () => ({ email: "pi@example.org", role: "admin" }) });
+    page();
+    expect(await screen.findByText("Widzisz sprawdzenia wszystkich użytkowników.")).toBeInTheDocument();
+  });
+
+  it("lists the recent checks with their state or verdict", async () => {
     routeFetch({ "GET /api/checks": () => ({ items: recent }) });
     page();
     const list = await screen.findByTestId("recent-checks");

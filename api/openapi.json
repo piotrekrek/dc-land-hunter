@@ -573,6 +573,7 @@
           "checks"
         ],
         "summary": "Recent Checks",
+        "description": "A member sees their own checks; an admin sees everyone's.",
         "operationId": "recent_checks_api_checks_get",
         "responses": {
           "200": {

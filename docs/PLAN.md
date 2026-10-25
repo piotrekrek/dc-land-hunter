@@ -221,7 +221,7 @@ mining, BDOT10k housing, RU, plus three OSM parses of the full extract) and `run
 4. **Storage, migration `0010`** (`0009` is the priority seed). Tables `check_step_stats` (loader estimates), `parcel_checks` (`id`, `requested_by`, `created_at`, `status`, `steps` jsonb,
    `inputs` text[], `error`) and `parcel_check_sites` (one row per resulting site: the same columns as `sites`,
    including `detail` and `geom`). Not the `sites` table: its writer deletes by powiat. Parcel ids and geometry
-   only; no owner data, no notes (brief 9.6). Checks are visible to all users.
+   only; no owner data, no notes (brief 9.6). A member sees only their own checks; an admin sees all (owner, 25.10.2026).
 5. **API.** `POST /api/parcels/resolve` (inputs → parcel id, outline, gmina, obręb, registered area, within the
    seconds; synchronous, no job; powers the "Czy to ta działka?" screen and the map click). `POST /api/checks` (body: `parcels: string[]` or `point: {x,y}`; max 20 ids; 422 on malformed ids),
    `GET /api/checks/{id}` (status, steps, sites), `GET /api/checks/{id}/sites/{n}` (same shape as

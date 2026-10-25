@@ -101,6 +101,18 @@ def initial_steps(parcels: Sequence[ResolvedParcel], *, static_cached: bool) -> 
     return steps
 
 
+def waiting_steps(parcels: int) -> list[dict[str, Any]]:
+    """The step list a check has from the moment it is created, before any worker looks at it.
+
+    The page shows a progress bar and what is coming at once, instead of "0 z 0". The job replaces it when it
+    starts (the parcels are resolved by then, so the first step of each is already done).
+    """
+    steps = [_step(None, "static")]
+    for index in range(parcels):
+        steps += [_step(index, key) for key in STEP_ORDER if key != "static"]
+    return steps
+
+
 def _step(
     parcel: int | None,
     key: str,
@@ -197,10 +209,15 @@ def create_check(session: Session, requested_by: str, inputs: list[dict[str, Any
     check_id = str(uuid.uuid4())
     session.execute(
         text(
-            "INSERT INTO parcel_checks (id, requested_by, status, inputs) "
-            "VALUES (:id, :by, 'pending', CAST(:inputs AS jsonb))"
+            "INSERT INTO parcel_checks (id, requested_by, status, inputs, steps) "
+            "VALUES (:id, :by, 'pending', CAST(:inputs AS jsonb), CAST(:steps AS jsonb))"
         ),
-        {"id": check_id, "by": requested_by, "inputs": json.dumps(inputs, ensure_ascii=False)},
+        {
+            "id": check_id,
+            "by": requested_by,
+            "inputs": json.dumps(inputs, ensure_ascii=False),
+            "steps": json.dumps(waiting_steps(len(inputs)), ensure_ascii=False),
+        },
     )
     job = enqueue(session, KIND, {"check_id": check_id}, requested_by=requested_by)
     session.execute(

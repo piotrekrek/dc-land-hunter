@@ -18,6 +18,14 @@ function StepMark({ status }: { status: CheckStep["status"] }) {
 export function ProgressBar({ steps, estimateSeconds }: { steps: CheckStep[]; estimateSeconds?: number | null }) {
   const { done, total } = progressOf(steps);
   const eta = estimateSeconds != null ? `, ok. ${formatDuration(estimateSeconds)}` : "";
+  // A check made before steps were stored from the start, or read in the instant before they are: never "0 z 0".
+  if (total === 0) {
+    return (
+      <p className="text-sm text-muted-foreground" role="status">
+        Przygotowuję sprawdzenie{estimateSeconds != null && <> · ok. {formatDuration(estimateSeconds)}</>}…
+      </p>
+    );
+  }
   return (
     <div>
       <div

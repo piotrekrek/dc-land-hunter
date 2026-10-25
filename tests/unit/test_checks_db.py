@@ -43,9 +43,9 @@ CFG = load_scoring()
 ID = "306201_1.0002.1573"
 
 
-def as_user(email: str = "ala@example.org") -> TestClient:
+def as_user(email: str = "ala@example.org", role: str = "member") -> TestClient:
     app = create_app()
-    app.dependency_overrides[current_user] = lambda: UserRow(email=email, role="member")
+    app.dependency_overrides[current_user] = lambda: UserRow(email=email, role=role)
     return TestClient(app)
 
 
@@ -184,8 +184,11 @@ def test_a_user_cannot_have_more_than_three_checks_open(client: TestClient) -> N
 def test_an_open_check_shows_an_estimate_from_the_defaults_then_from_history(client: TestClient) -> None:
     check_id = open_check()
     first = client.get(f"/api/checks/{check_id}").json()
-    assert first["status"] == "pending" and first["steps"] == [] and first["sites"] == []
+    assert first["status"] == "pending" and first["sites"] == []
     assert first["parcels"] == [ID]
+    # The page has the whole plan from the start: a progress bar of 10 steps, none done, not "0 z 0".
+    assert len(first["steps"]) == 10 and {s["status"] for s in first["steps"]} == {"waiting"}
+    assert first["steps"][0]["key"] == "static" and first["steps"][0]["parcel"] is None
     assert first["estimate_seconds"] and first["estimate_seconds"] > 20  # static layers and every step
     with session_scope() as session:
         for seconds in (1.0, 3.0, 2.0):
@@ -242,8 +245,9 @@ def test_a_saved_result_comes_back_as_a_site_card_with_the_verdict_and_the_sheet
     assert detail["parcel"]["obreb"] == "0002" and detail["outside_aoi"] is False
 
 
-def test_the_recent_list_shows_all_checks_newest_first_with_the_first_verdict(client: TestClient) -> None:
-    older = open_check(by="ola@example.org")
+def test_the_recent_list_of_a_member_has_only_their_own_checks_newest_first(client: TestClient) -> None:
+    other = open_check(by="ola@example.org")
+    older = open_check()
     newer = open_check()
     with session_scope() as session:
         save_result(session, newer, 0, parcel_check(), datetime(2026, 10, 25, tzinfo=UTC))
@@ -251,8 +255,33 @@ def test_the_recent_list_shows_all_checks_newest_first_with_the_first_verdict(cl
             text("UPDATE parcel_checks SET status = 'done' WHERE id = CAST(:i AS uuid)"), {"i": newer}
         )
     items = client.get("/api/checks").json()["items"]
-    assert [i["id"] for i in items] == [newer, older]
+    assert [i["id"] for i in items] == [newer, older] and other not in {i["id"] for i in items}
     assert items[0]["parcels"] == [ID] and items[0]["verdict"] is not None and items[1]["verdict"] is None
+
+
+def test_an_admin_sees_everyones_checks(client: TestClient) -> None:
+    theirs = open_check(by="ola@example.org")
+    mine = open_check(by="admin@example.org")
+    with as_user("admin@example.org", "admin") as admin:
+        ids = [i["id"] for i in admin.get("/api/checks").json()["items"]]
+        assert ids == [mine, theirs]
+        assert admin.get(f"/api/checks/{theirs}").status_code == 200  # and can open any of them
+
+
+def test_a_member_cannot_open_somebody_elses_check_and_is_told_it_does_not_exist(client: TestClient) -> None:
+    theirs = open_check(by="ola@example.org")
+    with session_scope() as session:
+        save_result(session, theirs, 0, parcel_check(), datetime(2026, 10, 25, tzinfo=UTC))
+        session.execute(
+            text("UPDATE parcel_checks SET status = 'done' WHERE id = CAST(:i AS uuid)"), {"i": theirs}
+        )
+    missing = client.get("/api/checks/00000000-0000-4000-8000-000000000000")
+    for url in (f"/api/checks/{theirs}", f"/api/checks/{theirs}/sites/0"):
+        response = client.get(url)
+        assert response.status_code == 404
+        assert response.json() == missing.json()  # the same answer as for a check that does not exist
+    with as_user("ola@example.org") as owner:
+        assert owner.get(f"/api/checks/{theirs}/sites/0").status_code == 200  # the owner still can
 
 
 def test_saving_the_same_parcel_twice_keeps_the_first(client: TestClient) -> None:
