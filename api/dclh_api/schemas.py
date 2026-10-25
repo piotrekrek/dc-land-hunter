@@ -45,6 +45,9 @@ class SourcesList(BaseModel):
 
 
 Confidence = Literal["verified", "estimated", "missing"]
+# The deal pipeline stages in board order (brief 8.1). Migration 0011 has the same list in a CHECK;
+# the Polish labels live in web/src/lib/stages.ts, keyed by these values.
+ProjectStage = Literal["new", "watching", "analysis", "owner_contact", "negotiation", "rejected", "secured"]
 GridBadgeLabel = Literal["Opublikowana moc", "Bliskość sieci", "Brak danych"]
 
 
@@ -136,6 +139,26 @@ class SiteDetail(SiteSummary):
     features: dict[str, FactOut]
     geometry: dict[str, Any]  # GeoJSON polygon, WGS84
     map: SiteMapOut
+    # Per the requesting user (watched) and shared by the team (stage, note); only the site card fills them.
+    watched: bool = False
+    stage: ProjectStage | None = None
+    project_note: str | None = None
+
+
+class WatchState(BaseModel):
+    watched: bool
+
+
+class ProjectBody(BaseModel):
+    stage: ProjectStage
+    # Omitted keeps the stored note; null or "" clears it.
+    owner_note: str | None = Field(default=None, max_length=2000)
+
+
+class ProjectState(BaseModel):
+    stage: ProjectStage
+    owner_note: str | None
+    updated_at: datetime
 
 
 class CoverageArea(BaseModel):

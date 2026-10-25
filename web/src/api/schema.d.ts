@@ -163,6 +163,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sites/{site_id}/watch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Watch Site
+         * @description Idempotent: watching a watched site changes nothing. Per user.
+         */
+        put: operations["watch_site_api_sites__site_id__watch_put"];
+        post?: never;
+        /**
+         * Unwatch Site
+         * @description Idempotent, and allowed for a site that has since left the list.
+         */
+        delete: operations["unwatch_site_api_sites__site_id__watch_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/{site_id}/project": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Project
+         * @description Puts the site in a stage (creating the project card) and optionally sets the note. Idempotent.
+         */
+        put: operations["put_project_api_sites__site_id__project_put"];
+        post?: never;
+        /**
+         * Delete Project
+         * @description Removes the project card for good, owner note included (brief 9.6). Idempotent.
+         */
+        delete: operations["delete_project_api_sites__site_id__project_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sites/{site_id}/orthophoto": {
         parameters: {
             query?: never;
@@ -521,6 +569,15 @@ export interface components {
                 [key: string]: unknown;
             };
             map: components["schemas"]["SiteMapOut"];
+            /**
+             * Watched
+             * @default false
+             */
+            watched: boolean;
+            /** Stage */
+            stage?: ("new" | "watching" | "analysis" | "owner_contact" | "negotiation" | "rejected" | "secured") | null;
+            /** Project Note */
+            project_note?: string | null;
             /** N */
             n: number;
             /** Check Id */
@@ -970,6 +1027,31 @@ export interface components {
             /** Teryts */
             teryts: string[];
         };
+        /** ProjectBody */
+        ProjectBody: {
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "new" | "watching" | "analysis" | "owner_contact" | "negotiation" | "rejected" | "secured";
+            /** Owner Note */
+            owner_note?: string | null;
+        };
+        /** ProjectState */
+        ProjectState: {
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "new" | "watching" | "analysis" | "owner_contact" | "negotiation" | "rejected" | "secured";
+            /** Owner Note */
+            owner_note: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /**
          * Proxies
          * @description Settings of the OSM proxies for penalties that have no public source (`sources/osm_infra.py`).
@@ -1189,6 +1271,15 @@ export interface components {
                 [key: string]: unknown;
             };
             map: components["schemas"]["SiteMapOut"];
+            /**
+             * Watched
+             * @default false
+             */
+            watched: boolean;
+            /** Stage */
+            stage?: ("new" | "watching" | "analysis" | "owner_contact" | "negotiation" | "rejected" | "secured") | null;
+            /** Project Note */
+            project_note?: string | null;
         };
         /**
          * SiteMapOut
@@ -1387,6 +1478,11 @@ export interface components {
             kind: "odpada" | "wymaga_wyjasnien" | "warto";
             /** Text Pl */
             text_pl: string;
+        };
+        /** WatchState */
+        WatchState: {
+            /** Watched */
+            watched: boolean;
         };
         /** Weights */
         Weights: {
@@ -1646,6 +1742,132 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SiteDetail"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    watch_site_api_sites__site_id__watch_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unwatch_site_api_sites__site_id__watch_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_project_api_sites__site_id__project_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_project_api_sites__site_id__project_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

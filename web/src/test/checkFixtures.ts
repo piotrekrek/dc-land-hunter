@@ -17,6 +17,7 @@ export const sheet: CheckSiteDetail["sheet"] = {
 export function site(over: Partial<CheckSiteDetail> = {}): CheckSiteDetail {
   return {
     site_id: "s1",
+    watched: false,
     zone_id: null,
     area_ha: 1.2,
     estimated_mw: 7.2,

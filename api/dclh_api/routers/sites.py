@@ -15,10 +15,20 @@ from sqlalchemy.orm import Session
 
 from dclh_api.deps import db_session
 from dclh_api.pagination import CursorError, decode_cursor, encode_cursor
-from dclh_api.schemas import FactOut, SiteDetail, SiteMapOut, SitesPage, SiteSummary
+from dclh_api.schemas import (
+    FactOut,
+    ProjectBody,
+    ProjectState,
+    SiteDetail,
+    SiteMapOut,
+    SitesPage,
+    SiteSummary,
+    WatchState,
+)
 from dclh_api.security import current_user
 from dclh_pipeline.check_job import build_client
 from dclh_pipeline.check_sheet import build_sheet
+from dclh_pipeline.db.models import UserRow
 from dclh_pipeline.orthophoto import OrthophotoUnavailable, fetch_orthophoto, request_for_sheet
 from dclh_pipeline.settings import get_settings
 
@@ -152,16 +162,130 @@ def _fact_map(features: dict[str, Any]) -> dict[str, FactOut]:
 
 
 @router.get("/sites/{site_id}", response_model=SiteDetail)
-def get_site(site_id: str, session: Annotated[Session, Depends(db_session)]) -> SiteDetail:
+def get_site(
+    site_id: str,
+    session: Annotated[Session, Depends(db_session)],
+    user: Annotated[UserRow, Depends(current_user)],
+) -> SiteDetail:
     row = _site_row(session, site_id)
     if row is None:
         raise HTTPException(404, "Nie ma takiej lokalizacji.")
     try:
-        return _site_detail(row)
+        detail = _site_detail(row)
     except (KeyError, TypeError, ValueError) as exc:
         # A row the scorer did not write as expected: log the details, never send them to the client.
         logger.exception("Malformed sites row %s", site_id)
         raise HTTPException(500, "Nie udało się wczytać danych tej lokalizacji.") from exc
+    try:
+        watched = session.execute(
+            text("SELECT EXISTS (SELECT 1 FROM watches WHERE user_id = :u AND site_id = :s)"),
+            {"u": user.id, "s": site_id},
+        ).scalar_one()
+        card = (
+            session.execute(
+                text("SELECT stage, owner_note FROM project_cards WHERE site_id = :s"), {"s": site_id}
+            )
+            .mappings()
+            .first()
+        )
+    except SQLAlchemyError as exc:
+        raise _unavailable() from exc
+    detail.watched = watched
+    if card is not None:
+        detail.stage, detail.project_note = card["stage"], card["owner_note"]
+    return detail
+
+
+def _require_site(session: Session, site_id: str) -> None:
+    try:
+        found = session.execute(
+            text("SELECT EXISTS (SELECT 1 FROM sites WHERE site_id = :s)"), {"s": site_id}
+        ).scalar_one()
+    except SQLAlchemyError as exc:
+        raise _unavailable() from exc
+    if not found:
+        raise HTTPException(404, "Nie ma takiej lokalizacji.")
+
+
+@router.put("/sites/{site_id}/watch", response_model=WatchState)
+def watch_site(
+    site_id: str,
+    session: Annotated[Session, Depends(db_session)],
+    user: Annotated[UserRow, Depends(current_user)],
+) -> WatchState:
+    """Idempotent: watching a watched site changes nothing. Per user."""
+    _require_site(session, site_id)
+    try:
+        session.execute(
+            text("INSERT INTO watches (user_id, site_id) VALUES (:u, :s) ON CONFLICT DO NOTHING"),
+            {"u": user.id, "s": site_id},
+        )
+        session.commit()
+    except SQLAlchemyError as exc:
+        raise _unavailable() from exc
+    return WatchState(watched=True)
+
+
+@router.delete("/sites/{site_id}/watch", response_model=WatchState)
+def unwatch_site(
+    site_id: str,
+    session: Annotated[Session, Depends(db_session)],
+    user: Annotated[UserRow, Depends(current_user)],
+) -> WatchState:
+    """Idempotent, and allowed for a site that has since left the list."""
+    try:
+        session.execute(
+            text("DELETE FROM watches WHERE user_id = :u AND site_id = :s"), {"u": user.id, "s": site_id}
+        )
+        session.commit()
+    except SQLAlchemyError as exc:
+        raise _unavailable() from exc
+    return WatchState(watched=False)
+
+
+@router.put("/sites/{site_id}/project", response_model=ProjectState)
+def put_project(
+    site_id: str,
+    body: ProjectBody,
+    session: Annotated[Session, Depends(db_session)],
+    user: Annotated[UserRow, Depends(current_user)],
+) -> ProjectState:
+    """Puts the site in a stage (creating the project card) and optionally sets the note. Idempotent."""
+    _require_site(session, site_id)
+    note_given = "owner_note" in body.model_fields_set
+    note = (body.owner_note or "").strip() or None
+    try:
+        row = (
+            session.execute(
+                text(
+                    "INSERT INTO project_cards (site_id, stage, owner_note, updated_by) "
+                    "VALUES (:s, :stage, :note, :u) "
+                    "ON CONFLICT (site_id) DO UPDATE SET stage = EXCLUDED.stage, updated_at = now(), "
+                    "updated_by = EXCLUDED.updated_by, "
+                    "owner_note = CASE WHEN :note_given THEN EXCLUDED.owner_note "
+                    "ELSE project_cards.owner_note END "
+                    "RETURNING stage, owner_note, updated_at"
+                ),
+                {"s": site_id, "stage": body.stage, "note": note, "u": user.id, "note_given": note_given},
+            )
+            .mappings()
+            .one()
+        )
+        session.commit()
+    except SQLAlchemyError as exc:
+        raise _unavailable() from exc
+    return ProjectState(**row)
+
+
+@router.delete("/sites/{site_id}/project", status_code=204)
+def delete_project(site_id: str, session: Annotated[Session, Depends(db_session)]) -> Response:
+    """Removes the project card for good, owner note included (brief 9.6). Idempotent."""
+    try:
+        session.execute(text("DELETE FROM project_cards WHERE site_id = :s"), {"s": site_id})
+        session.commit()
+    except SQLAlchemyError as exc:
+        raise _unavailable() from exc
+    return Response(status_code=204)
 
 
 def _site_row(session: Session, site_id: str) -> RowMapping | None:

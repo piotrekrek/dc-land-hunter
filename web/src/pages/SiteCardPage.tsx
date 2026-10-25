@@ -7,9 +7,12 @@ import { EmptyState } from "@/components/EmptyState";
 import { mapsUrl } from "@/components/map/popup";
 import { PageScroll } from "@/components/PageScroll";
 import { Sheet } from "@/components/check/Sheet";
+import { ConnectionCostCalculator } from "@/components/site/ConnectionCostCalculator";
 import { ParcelIds } from "@/components/site/ParcelIds";
+import { ProjectActions } from "@/components/site/ProjectActions";
 import { Protokol } from "@/components/site/Protokol";
 import { Ruler } from "@/components/site/Ruler";
+import { ToCheck } from "@/components/site/ToCheck";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatHa, formatMW, formatPercent } from "@/lib/format";
 import { CONFIDENCE_LABEL, placeLine, type SiteDetail } from "@/lib/sites";
@@ -60,8 +63,11 @@ function SiteCard({ site }: { site: SiteDetail }) {
               <Badge key={f}>{f}</Badge>
             ))}
           </div>
+          <ProjectActions site_id={site.site_id} watched={site.watched} stage={site.stage} project_note={site.project_note} />
         </div>
       </div>
+
+      <ToCheck items={site.items} />
 
       <section className="mt-6" aria-label="Mapa lokalizacji">
         <Sheet sheet={{ ...site.map, layers: [] }} photoUrl={`/api/sites/${encodeURIComponent(site.site_id)}/orthophoto`} />
@@ -85,6 +91,8 @@ function SiteCard({ site }: { site: SiteDetail }) {
         sprawdzone, a nie że lokalizacja jest zła.
       </p>
       <Protokol site={site} />
+
+      <ConnectionCostCalculator key={site.site_id} estimatedMw={site.estimated_mw} />
     </>
   );
 }

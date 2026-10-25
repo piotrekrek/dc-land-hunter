@@ -1,4 +1,24 @@
 # Status
+## Step 4 of the UX plan: an actionable site card (25.10.2026, tested on PostGIS; not yet deployed)
+
+- Migration `0011`: `watches(user_id, site_id)` (per user) and `project_cards(site_id, stage, owner_note, updated_at, updated_by)`
+  (one row per site, shared by the team). No foreign key to `sites`, because the nightly search rewrites that table by powiat.
+- API: `PUT/DELETE /api/sites/{id}/watch`, `PUT/DELETE /api/sites/{id}/project` (stage, optional note; DELETE removes the card
+  and the note for good). All idempotent. `GET /api/sites/{id}` carries `watched`, `stage`, `project_note`. The list does **not**
+  carry them yet.
+- Stages (one list: `ProjectStage` in `schemas.py`, labels in `web/src/lib/stages.ts`): Nowe, Obserwuję, Analiza, Kontakt z
+  właścicielem, Negocjacje, Odrzucone, Kupione/Zabezpieczone. Step 5b reads the same table and list.
+- Card: Obserwuj, Dodaj do projektu, stage select, note with the RODO notice (brief 9.6), "Usuń z projektów i skasuj notatkę".
+- Card: "Do sprawdzenia" lists every item with confidence `missing`, biggest possible gain first, each with a static "who to
+  ask" line (`web/src/lib/toCheck.ts`, keyed by score-item key; unknown keys get a generic line).
+- Card: connection-cost calculator (`web/src/lib/connectionCost.ts`, figures in `DEFAULT_CONNECTION_RULES`), labelled
+  "wymaga weryfikacji prawnej", plus the SPV note. 60 MW gives 60 tys. fee, 3,6 mln advance, 1,8 mln security, 5,4 mln frozen.
+- **Assumptions to confirm:** security "up to 100 MW" is read as charged on at most 100 MW (so 3 mln above that); the fee is
+  counted as spent, only advance and security as frozen.
+- **Not done (follow-up after Step 2 merges):** the "Obserwowane" filter and the watched marker on list rows; `watched` and
+  `stage` are not on `GET /api/sites` yet. The Playwright smoke has no site card (the e2e database has no sites), so the card is
+  covered by jsdom tests only; axe contrast of the new blocks was not scanned in a browser.
+
 ## Honest navigation and a Kolejka limited to the AOI (UX plan step 3, 25.10.2026, tested on PostGIS; not yet deployed)
 
 - **Bug fixed in the nightly plan:** `plan_searches` took every powiat from the PRG snapshot, so it also searched ones east of the
