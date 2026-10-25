@@ -255,3 +255,101 @@ def test_orthophoto_failure_is_a_polish_502_and_unknown_site_a_404(
     site_id = client.get("/api/sites").json()["items"][0]["site_id"]
     assert client.get(f"/api/sites/{site_id}/orthophoto").status_code == 502
     assert client.get("/api/sites/nope/orthophoto").status_code == 404
+
+
+# --------------------------------------------------------------------------- watches and project cards
+
+
+def _user(email: str) -> UserRow:
+    with session_scope() as session:
+        uid = session.execute(
+            text(
+                "INSERT INTO users (email, password_hash, role) VALUES (:e, 'x', 'member') "
+                "ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email RETURNING id"
+            ),
+            {"e": email},
+        ).scalar_one()
+    return UserRow(id=uid, email=email, role="member")
+
+
+def _as(user: UserRow) -> Iterator[TestClient]:
+    app = create_app()
+    app.dependency_overrides[current_user] = lambda: user
+    with TestClient(app) as c:
+        yield c
+
+
+@pytest.fixture
+def ann() -> Iterator[TestClient]:
+    yield from _as(_user("ann@example.org"))
+
+
+@pytest.fixture
+def bob() -> Iterator[TestClient]:
+    yield from _as(_user("bob@example.org"))
+
+
+def _site_id(client: TestClient) -> str:
+    return str(client.get("/api/sites").json()["items"][0]["site_id"])
+
+
+def test_watch_is_idempotent_and_per_user(seeded: None, ann: TestClient, bob: TestClient) -> None:
+    sid = _site_id(ann)
+    assert ann.get(f"/api/sites/{sid}").json()["watched"] is False
+    assert ann.put(f"/api/sites/{sid}/watch").json() == {"watched": True}
+    assert ann.put(f"/api/sites/{sid}/watch").json() == {"watched": True}
+    assert ann.get(f"/api/sites/{sid}").json()["watched"] is True
+    assert bob.get(f"/api/sites/{sid}").json()["watched"] is False
+    assert ann.delete(f"/api/sites/{sid}/watch").json() == {"watched": False}
+    assert ann.delete(f"/api/sites/{sid}/watch").json() == {"watched": False}
+    assert ann.get(f"/api/sites/{sid}").json()["watched"] is False
+
+
+def test_watch_of_an_unknown_site_is_404(seeded: None, ann: TestClient) -> None:
+    assert ann.put("/api/sites/nope/watch").status_code == 404
+    assert ann.put("/api/sites/nope/project", json={"stage": "new"}).status_code == 404
+
+
+def test_project_stage_is_recorded_shared_and_idempotent(
+    seeded: None, ann: TestClient, bob: TestClient
+) -> None:
+    sid = _site_id(ann)
+    assert ann.get(f"/api/sites/{sid}").json()["stage"] is None
+    first = ann.put(f"/api/sites/{sid}/project", json={"stage": "new"}).json()
+    assert first["stage"] == "new" and first["owner_note"] is None
+    assert ann.put(f"/api/sites/{sid}/project", json={"stage": "new"}).json()["stage"] == "new"
+    assert bob.put(f"/api/sites/{sid}/project", json={"stage": "analysis"}).json()["stage"] == "analysis"
+    assert ann.get(f"/api/sites/{sid}").json()["stage"] == "analysis"
+    with session_scope() as session:
+        who = session.execute(
+            text(
+                "SELECT u.email FROM project_cards p JOIN users u ON u.id = p.updated_by WHERE p.site_id = :s"
+            ),
+            {"s": sid},
+        ).scalar_one()
+    assert who == "bob@example.org"
+    assert ann.put(f"/api/sites/{sid}/project", json={"stage": "bogus"}).status_code == 422
+
+
+def test_note_is_kept_across_stage_changes_and_deleted_with_the_project(
+    seeded: None, ann: TestClient
+) -> None:
+    sid = _site_id(ann)
+    ann.put(f"/api/sites/{sid}/project", json={"stage": "new", "owner_note": "  zadzwonić do gminy "})
+    assert ann.put(f"/api/sites/{sid}/project", json={"stage": "negotiation"}).json()["owner_note"] == (
+        "zadzwonić do gminy"
+    )
+    assert ann.get(f"/api/sites/{sid}").json()["project_note"] == "zadzwonić do gminy"
+    assert (
+        ann.put(f"/api/sites/{sid}/project", json={"stage": "negotiation", "owner_note": ""}).json()[
+            "owner_note"
+        ]
+        is None
+    )
+    ann.put(f"/api/sites/{sid}/project", json={"stage": "new", "owner_note": "x"})
+    assert ann.delete(f"/api/sites/{sid}/project").status_code == 204
+    assert ann.delete(f"/api/sites/{sid}/project").status_code == 204
+    body = ann.get(f"/api/sites/{sid}").json()
+    assert body["stage"] is None and body["project_note"] is None
+    with session_scope() as session:
+        assert session.execute(text("SELECT count(*) FROM project_cards")).scalar_one() == 0

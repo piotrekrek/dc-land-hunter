@@ -399,6 +399,177 @@
         }
       }
     },
+    "/api/sites/{site_id}/watch": {
+      "put": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "Watch Site",
+        "description": "Idempotent: watching a watched site changes nothing. Per user.",
+        "operationId": "watch_site_api_sites__site_id__watch_put",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "Unwatch Site",
+        "description": "Idempotent, and allowed for a site that has since left the list.",
+        "operationId": "unwatch_site_api_sites__site_id__watch_delete",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites/{site_id}/project": {
+      "put": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "Put Project",
+        "description": "Puts the site in a stage (creating the project card) and optionally sets the note. Idempotent.",
+        "operationId": "put_project_api_sites__site_id__project_put",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "Delete Project",
+        "description": "Removes the project card for good, owner note included (brief 9.6). Idempotent.",
+        "operationId": "delete_project_api_sites__site_id__project_delete",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sites/{site_id}/orthophoto": {
       "get": {
         "tags": [
@@ -1295,6 +1466,42 @@
           },
           "map": {
             "$ref": "#/components/schemas/SiteMapOut"
+          },
+          "watched": {
+            "type": "boolean",
+            "title": "Watched",
+            "default": false
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "new",
+                  "watching",
+                  "analysis",
+                  "owner_contact",
+                  "negotiation",
+                  "rejected",
+                  "secured"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "project_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Note"
           },
           "n": {
             "type": "integer",
@@ -2562,6 +2769,80 @@
         ],
         "title": "PriorityIn"
       },
+      "ProjectBody": {
+        "properties": {
+          "stage": {
+            "type": "string",
+            "enum": [
+              "new",
+              "watching",
+              "analysis",
+              "owner_contact",
+              "negotiation",
+              "rejected",
+              "secured"
+            ],
+            "title": "Stage"
+          },
+          "owner_note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stage"
+        ],
+        "title": "ProjectBody"
+      },
+      "ProjectState": {
+        "properties": {
+          "stage": {
+            "type": "string",
+            "enum": [
+              "new",
+              "watching",
+              "analysis",
+              "owner_contact",
+              "negotiation",
+              "rejected",
+              "secured"
+            ],
+            "title": "Stage"
+          },
+          "owner_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Note"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stage",
+          "owner_note",
+          "updated_at"
+        ],
+        "title": "ProjectState"
+      },
       "Proxies": {
         "properties": {
           "gas_zone_m": {
@@ -3138,6 +3419,42 @@
           },
           "map": {
             "$ref": "#/components/schemas/SiteMapOut"
+          },
+          "watched": {
+            "type": "boolean",
+            "title": "Watched",
+            "default": false
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "new",
+                  "watching",
+                  "analysis",
+                  "owner_contact",
+                  "negotiation",
+                  "rejected",
+                  "secured"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "project_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Note"
           }
         },
         "type": "object",
@@ -3818,6 +4135,19 @@
           "text_pl"
         ],
         "title": "VerdictOut"
+      },
+      "WatchState": {
+        "properties": {
+          "watched": {
+            "type": "boolean",
+            "title": "Watched"
+          }
+        },
+        "type": "object",
+        "required": [
+          "watched"
+        ],
+        "title": "WatchState"
       },
       "Weights": {
         "properties": {

@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -59,7 +59,7 @@ const detail: SiteDetail = {
       value: 0.6,
     },
     {
-      key: "plan",
+      key: "zoning",
       category: "zoning",
       label_pl: "Plan miejscowy",
       points: 20,
@@ -75,6 +75,7 @@ const detail: SiteDetail = {
   features: {},
   geometry: { type: "Polygon", coordinates: [] },
   map: { origin_2180: [640000, 490000], bbox_m: [-100, -100, 100, 100], parcel: [[[-50, -40], [50, -40], [50, 40], [-50, 40]]] },
+  watched: false,
 };
 
 afterEach(() => vi.restoreAllMocks());
@@ -187,5 +188,75 @@ describe("SiteCardPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Nie udało się wczytać karty lokalizacji.");
     expect(screen.queryByText("Wczytuję kartę…")).not.toBeInTheDocument();
     expect(siteCalls).toEqual(["/api/sites/site-a"]);
+  });
+
+  it("puts the missing items first in Do sprawdzenia, with who to ask", async () => {
+    mockFetch({ "/api/sites/site-a": detail });
+    renderCard("/lokalizacje/site-a");
+    const block = await screen.findByTestId("to-check");
+    expect(within(block).getByRole("heading", { name: "Do sprawdzenia (1)" })).toBeInTheDocument();
+    expect(within(block).getByText("Plan miejscowy")).toBeInTheDocument();
+    expect(within(block).getByText("do +5 pkt")).toBeInTheDocument();
+    expect(within(block).getByText(/Gmina \(wydział planowania/)).toBeInTheDocument();
+  });
+
+  it("hides Do sprawdzenia when every item has data", async () => {
+    mockFetch({ "/api/sites/site-a": { ...detail, items: detail.items.map((i) => ({ ...i, confidence: "estimated" as const })) } });
+    renderCard("/lokalizacje/site-a");
+    await screen.findByRole("heading", { name: /Lokalizacja/ });
+    expect(screen.queryByTestId("to-check")).not.toBeInTheDocument();
+  });
+
+  it("calculates the connection cost from the estimate and lets the user change the power", async () => {
+    mockFetch({ "/api/sites/site-a": { ...detail, estimated_mw: 60 } });
+    renderCard("/lokalizacje/site-a");
+    const calc = await screen.findByTestId("cost-calculator");
+    expect(within(calc).getByText("wymaga weryfikacji prawnej")).toBeInTheDocument();
+    expect(within(calc).getByTestId("frozen-total")).toHaveTextContent(/5.400.000 zł/);
+    const input = within(calc).getByRole("textbox", { name: /Moc przyłączeniowa/ });
+    await userEvent.clear(input);
+    await userEvent.type(input, "10");
+    expect(within(calc).getByTestId("frozen-total")).toHaveTextContent(/900.000 zł/);
+    expect(within(calc).getByText(/spółce celowej \(SPV\)/)).toBeInTheDocument();
+  });
+
+  it("watches and unwatches, and moves the site through the stages", async () => {
+    let state: { watched: boolean; stage: string | null; project_note: string | null } = {
+      watched: false,
+      stage: null,
+      project_note: null,
+    };
+    const calls: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const req = input instanceof Request ? input : new Request(input, init);
+      const path = new URL(req.url, "http://localhost").pathname;
+      calls.push(`${req.method} ${path}`);
+      if (path === "/api/sites/site-a/watch") state = { ...state, watched: req.method === "PUT" };
+      if (path === "/api/sites/site-a/project") {
+        if (req.method === "PUT") state = { ...state, stage: ((await req.json()) as { stage: string }).stage };
+        else state = { ...state, stage: null, project_note: null };
+        if (req.method === "DELETE") return new Response(null, { status: 204 });
+      }
+      const body = path === "/api/sites/site-a" ? { ...detail, ...state } : state;
+      return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
+    });
+    renderCard("/lokalizacje/site-a");
+    const watch = await screen.findByRole("button", { name: "Obserwuj" });
+    expect(watch).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(watch);
+    expect(await screen.findByRole("button", { name: "Przestań obserwować" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Przestań obserwować" }));
+    expect(await screen.findByRole("button", { name: "Obserwuj" })).toBeInTheDocument();
+
+    expect(screen.queryByRole("combobox", { name: "Etap projektu" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Dodaj do projektu" }));
+    const select = await screen.findByRole("combobox", { name: "Etap projektu" });
+    expect(select).toHaveValue("new");
+    expect(screen.getByText(/dane osobowe \(RODO\)/)).toBeInTheDocument();
+    await userEvent.selectOptions(select, "Negocjacje");
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Etap projektu" })).toHaveValue("negotiation"));
+    await userEvent.click(screen.getByRole("button", { name: /Usuń z projektów/ }));
+    expect(await screen.findByRole("button", { name: "Dodaj do projektu" })).toBeInTheDocument();
+    expect(calls).toContain("DELETE /api/sites/site-a/project");
   });
 });
