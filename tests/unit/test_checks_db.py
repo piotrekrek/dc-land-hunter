@@ -18,7 +18,7 @@ from dclh_api.security import current_user
 from dclh_pipeline import check_job
 from dclh_pipeline.check_job import DbCheckReporter, create_check, initial_steps, run_check_job, save_result
 from dclh_pipeline.check_sheet import build_sheet
-from dclh_pipeline.config import load_scoring
+from dclh_pipeline.config import load_profiles, load_scoring
 from dclh_pipeline.db import session_scope
 from dclh_pipeline.db.models import JobRow, UserRow
 from dclh_pipeline.jobs import CHECK_INTERRUPTED_PL, claim_next, fail_interrupted
@@ -34,6 +34,7 @@ from dclh_pipeline.parcel_check import (
     verdict,
 )
 from dclh_pipeline.parcel_input import InputIssue
+from dclh_pipeline.profiles import profile_verdicts
 from dclh_pipeline.response_cache import ResponseCache
 from dclh_pipeline.scoring.engine import score_site
 from dclh_pipeline.scoring.run import ScoredSite
@@ -107,6 +108,7 @@ def parcel_check(parcel: ResolvedParcel | None = None) -> ParcelCheck:
         ),
         layer_ages={"osm_power": datetime(2026, 10, 12, tzinfo=UTC), "isok": None},
         outside_aoi=False,
+        profiles=profile_verdicts(features, load_profiles()),
     )
 
 
@@ -291,6 +293,17 @@ def test_saving_the_same_parcel_twice_keeps_the_first(client: TestClient) -> Non
         save_result(session, check_id, 0, parcel_check(), datetime(2026, 10, 25, tzinfo=UTC))
         save_result(session, check_id, 0, parcel_check(), datetime(2026, 10, 26, tzinfo=UTC))
         assert session.execute(text("SELECT count(*) FROM parcel_check_sites")).scalar_one() == 1
+
+
+def test_a_saved_check_returns_both_profile_verdicts(client: TestClient) -> None:
+    check_id = open_check()
+    with session_scope() as session:
+        save_result(session, check_id, 0, parcel_check(), datetime(2026, 10, 25, tzinfo=UTC))
+    body = client.get(f"/api/checks/{check_id}/sites/0").json()
+    assert set(body["profiles"]) == {"built", "container"}
+    # The fixture parcel is 1 ha with nothing loaded: too small for a built DC, an open question for a container.
+    assert body["profiles"]["built"]["category"] == "red"
+    assert body["profiles"]["container"]["category"] == "manual"
 
 
 # ------------------------------------------------------------------------------------------ progress

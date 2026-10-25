@@ -569,6 +569,10 @@ export interface components {
                 [key: string]: unknown;
             };
             map: components["schemas"]["SiteMapOut"];
+            /** Profiles */
+            profiles?: {
+                [key: string]: components["schemas"]["ProfileVerdictOut"];
+            } | null;
             /**
              * Watched
              * @default false
@@ -1027,6 +1031,50 @@ export interface components {
             /** Teryts */
             teryts: string[];
         };
+        /** ProfileReasonOut */
+        ProfileReasonOut: {
+            /** Key */
+            key: string;
+            /** Text Pl */
+            text_pl: string;
+            /** Source Id */
+            source_id: string | null;
+            /** As Of */
+            as_of: string | null;
+        };
+        /** ProfileToCheckOut */
+        ProfileToCheckOut: {
+            /** Key */
+            key: string;
+            /** Text Pl */
+            text_pl: string;
+            /** Blocking */
+            blocking: boolean;
+        };
+        /**
+         * ProfileVerdictOut
+         * @description One investor profile's verdict: green / yellow / red, or manual when a missing answer decides it.
+         */
+        ProfileVerdictOut: {
+            /**
+             * Profile
+             * @enum {string}
+             */
+            profile: "built" | "container";
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "green" | "yellow" | "red" | "manual";
+            /** Score */
+            score: number;
+            /** Blockers */
+            blockers: components["schemas"]["ProfileReasonOut"][];
+            /** To Check */
+            to_check: components["schemas"]["ProfileToCheckOut"][];
+            /** Positives */
+            positives: components["schemas"]["ProfileReasonOut"][];
+        };
         /** ProjectBody */
         ProjectBody: {
             /**
@@ -1271,6 +1319,10 @@ export interface components {
                 [key: string]: unknown;
             };
             map: components["schemas"]["SiteMapOut"];
+            /** Profiles */
+            profiles?: {
+                [key: string]: components["schemas"]["ProfileVerdictOut"];
+            } | null;
             /**
              * Watched
              * @default false

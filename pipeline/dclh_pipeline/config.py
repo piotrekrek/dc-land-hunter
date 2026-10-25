@@ -312,6 +312,83 @@ class AoiConfig(_Model):
         return self
 
 
+# --------------------------------------------------------------------------- profiles.yaml
+
+
+class Span(_Model):
+    """Two ends of a linear ramp; `full` is the good end."""
+
+    full: float = Field(ge=0)
+    zero: float = Field(ge=0)
+
+
+class HousingBuffer(_Model):
+    full: float = Field(gt=0)
+    min: float = Field(ge=0)
+
+    @model_validator(mode="after")
+    def _order(self) -> HousingBuffer:
+        if self.min >= self.full:
+            raise ValueError("housing_m.min must be below housing_m.full")
+        return self
+
+
+class ProfileWeights(_Model):
+    housing: float = Field(ge=0)
+    gpz110: float = Field(ge=0)
+    headroom: float = Field(ge=0)
+    soil: float = Field(ge=0)
+
+
+class ProfileSpec(_Model):
+    label_pl: str
+    min_area_ha: float = Field(gt=0)
+    zoning_other: Literal["block", "check"]
+    housing_m: HousingBuffer
+    gpz110_km: Span
+    headroom_mw: Span
+    weights: ProfileWeights
+
+    @model_validator(mode="after")
+    def _spans(self) -> ProfileSpec:
+        if self.gpz110_km.full >= self.gpz110_km.zero:
+            raise ValueError("gpz110_km.full must be below gpz110_km.zero")
+        if self.headroom_mw.full <= self.headroom_mw.zero:
+            raise ValueError("headroom_mw.full must be above headroom_mw.zero")
+        return self
+
+
+class ProfileHard(_Model):
+    protected_nature_pct_over: float = Field(ge=0, le=100)
+    flood_pct_over: float = Field(ge=0, le=100)
+    forest_pct_over: float = Field(ge=0, le=100)
+    mining_area_pct_over: float = Field(ge=0, le=100)
+    heritage_register: bool
+
+
+class ProfileThresholds(_Model):
+    green: float = Field(ge=0, le=100)
+    yellow: float = Field(ge=0, le=100)
+
+    @model_validator(mode="after")
+    def _order(self) -> ProfileThresholds:
+        if self.yellow >= self.green:
+            raise ValueError("thresholds.yellow must be below thresholds.green")
+        return self
+
+
+class ProfilesConfig(_Model):
+    hard: ProfileHard
+    thresholds: ProfileThresholds
+    profiles: dict[Literal["built", "container"], ProfileSpec]
+
+    @model_validator(mode="after")
+    def _both(self) -> ProfilesConfig:
+        if set(self.profiles) != {"built", "container"}:
+            raise ValueError("profiles must define exactly 'built' and 'container'")
+        return self
+
+
 # --------------------------------------------------------------------------- loaders
 
 
@@ -323,6 +400,11 @@ def _read_yaml(path: Path) -> Any:
 def load_scoring(path: Path | None = None) -> ScoringConfig:
     path = path or get_settings().config_dir / "scoring.yaml"
     return ScoringConfig.model_validate(_read_yaml(path))
+
+
+def load_profiles(path: Path | None = None) -> ProfilesConfig:
+    path = path or get_settings().config_dir / "profiles.yaml"
+    return ProfilesConfig.model_validate(_read_yaml(path))
 
 
 def load_sources(path: Path | None = None) -> SourcesConfig:

@@ -15,7 +15,7 @@ from rich.console import Console
 from rich.table import Table
 
 from dclh_pipeline import __version__, capture, followup, parcel_spike
-from dclh_pipeline.config import load_aoi_config, load_scoring, load_sources
+from dclh_pipeline.config import load_aoi_config, load_profiles, load_scoring, load_sources
 from dclh_pipeline.discovery import STATUS_ICON, discover, render_markdown, save_report, update_sources_doc
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.response_cache import ResponseCache
@@ -621,7 +621,9 @@ def check_cmd(
             raise typer.Exit(1)
         static, cached = cached_static_layers(settings, config, cfg, store)
         console.print(f"warstwy statyczne {'z pamięci' if cached else 'wczytane'}")
-        ctx = CheckContext(config=config, cfg=cfg, store=store, client=client, static=static)
+        ctx = CheckContext(
+            config=config, cfg=cfg, profiles=load_profiles(), store=store, client=client, static=static
+        )
         for result in check_all(resolution.items, ctx, _ConsoleCheckReporter()):
             _print_check(result)
 
