@@ -14,6 +14,22 @@
   tagged**: it is a working screen since #105 (the plan listed it from the audit time). Routes are unchanged.
 - `document.title` per route ("Kolejka · DC Land Hunter"), also for the login and 404 pages.
 
+
+## Step 1 of the UX plan: say where a site is (25.10.2026, tested on PostGIS; not yet deployed)
+
+- `GET /api/sites` and the card now carry `gmina`, `powiat`, `voivodeship` (names, null when unknown). Joined at query
+  time for the page only: gmina by `ST_Covers(admin_units.geom, point-on-surface)` (the GiST index already exists), powiat
+  and voivodeship from `sites.powiat`. `EXPLAIN ANALYZE` on the live data, 51 rows: about 55 ms with a cold cache, so no
+  migration and no stored names.
+- Filters `powiat` (4 digits) and `voivodeship` (2 digits) on `GET /api/sites`; the list has two selects, kept in the URL
+  as `woj=` and `powiat=`. The options come from `/api/coverage` (areas with at least one kept site).
+- List rows show "gm. X, pow. Y"; the card header adds "woj. Z".
+- Card: a map block (the site outline in metres, as on the parcel check sheet) with an "Ortofotomapa" switch fed by
+  the new `GET /api/sites/{id}/orthophoto` (same Geoportal WMS and cache as the check sheet), and the plot ids with
+  Kopiuj / Kopiuj wszystkie and a Geoportal link.
+- **Unverified:** the Geoportal link `mapy.geoportal.gov.pl/imap/Imgp_2.html?identifyParcel=<id>` was not opened from
+  Poland; click it once after deploy. Parcel checks still show no place names (their rows carry no powiat).
+
 ## Forest filter live: `dclh search 1421` on main (22.10.2026, VPS)
 
 - Forest (`forest_pct_over`, 30%) is fed from the BDOT10k land cover (`rodzaj = "las"`, PR #81, merged and deployed as dc92df1).

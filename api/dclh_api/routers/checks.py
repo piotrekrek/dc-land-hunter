@@ -419,7 +419,7 @@ def get_check_site(
     site = (
         session.execute(
             text(
-                f"SELECT {_SUMMARY_COLUMNS}, parcel_ids, scored_at, detail, "
+                f"SELECT {_SUMMARY_COLUMNS}, geom, parcel_ids, scored_at, detail, "
                 "ST_AsGeoJSON(ST_Transform(geom, 4326)) AS geojson, verdict, outside_aoi, unknowns, "
                 "next_steps, sheet, layer_ages, parcel FROM parcel_check_sites "
                 "WHERE check_id = CAST(:id AS uuid) AND n = :n"

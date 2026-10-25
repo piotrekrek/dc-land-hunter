@@ -18,6 +18,7 @@ import {
   describeFilters,
   isDefaultFilters,
   parseFilters,
+  placeLine,
   toParams,
   uniqueBySiteId,
   type SiteFilters,
@@ -50,6 +51,7 @@ function SiteRow({ site, selected, onSelect }: { site: SiteSummary; selected: bo
           <span className="block font-medium">
             {formatHa(site.area_ha)} · ok. {formatMW(site.estimated_mw)}
           </span>
+          {placeLine(site) && <span className="block text-xs text-muted-foreground">{placeLine(site)}</span>}
           <span className="mt-1 flex flex-wrap gap-1.5">
             <Badge variant={GRID_BADGE[site.grid_badge]}>{site.grid_badge}</Badge>
             {site.excluded && <Badge variant="bad">Wykluczona</Badge>}
@@ -103,6 +105,8 @@ export function SiteList({ selectedId = null, onSelect }: { selectedId?: string 
               min_mw: filters.minMw,
               min_ha: filters.minHa,
               include_excluded: filters.includeExcluded,
+              voivodeship: filters.voivodeship || undefined,
+              powiat: filters.powiat || undefined,
               limit: PAGE,
               cursor: pageParam,
             },

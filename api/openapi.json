@@ -259,6 +259,40 @@
             }
           },
           {
+            "name": "powiat",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Powiat"
+            }
+          },
+          {
+            "name": "voivodeship",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Voivodeship"
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -350,6 +384,45 @@
                   "$ref": "#/components/schemas/SiteDetail"
                 }
               }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites/{site_id}/orthophoto": {
+      "get": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "Get Site Orthophoto",
+        "description": "The Geoportal orthophoto for exactly the card map's box, asked for only when the card shows it.",
+        "operationId": "get_site_orthophoto_api_sites__site_id__orthophoto_get",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/jpeg": {}
             }
           },
           "422": {
@@ -1139,6 +1212,39 @@
             "type": "number",
             "title": "Lat"
           },
+          "gmina": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gmina"
+          },
+          "powiat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Powiat"
+          },
+          "voivodeship": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voivodeship"
+          },
           "mw_fact": {
             "$ref": "#/components/schemas/FactOut"
           },
@@ -1186,6 +1292,9 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Geometry"
+          },
+          "map": {
+            "$ref": "#/components/schemas/SiteMapOut"
           },
           "n": {
             "type": "integer",
@@ -1263,6 +1372,9 @@
           "flags",
           "lon",
           "lat",
+          "gmina",
+          "powiat",
+          "voivodeship",
           "mw_fact",
           "parcel_ids",
           "scored_at",
@@ -1271,6 +1383,7 @@
           "items",
           "features",
           "geometry",
+          "map",
           "n",
           "check_id",
           "requested_by",
@@ -2942,6 +3055,39 @@
             "type": "number",
             "title": "Lat"
           },
+          "gmina": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gmina"
+          },
+          "powiat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Powiat"
+          },
+          "voivodeship": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voivodeship"
+          },
           "mw_fact": {
             "$ref": "#/components/schemas/FactOut"
           },
@@ -2989,6 +3135,9 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Geometry"
+          },
+          "map": {
+            "$ref": "#/components/schemas/SiteMapOut"
           }
         },
         "type": "object",
@@ -3007,6 +3156,9 @@
           "flags",
           "lon",
           "lat",
+          "gmina",
+          "powiat",
+          "voivodeship",
           "mw_fact",
           "parcel_ids",
           "scored_at",
@@ -3014,9 +3166,49 @@
           "categories",
           "items",
           "features",
-          "geometry"
+          "geometry",
+          "map"
         ],
         "title": "SiteDetail"
+      },
+      "SiteMapOut": {
+        "properties": {
+          "origin_2180": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Origin 2180"
+          },
+          "bbox_m": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Bbox M"
+          },
+          "parcel": {
+            "items": {
+              "items": {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Parcel"
+          }
+        },
+        "type": "object",
+        "required": [
+          "origin_2180",
+          "bbox_m",
+          "parcel"
+        ],
+        "title": "SiteMapOut",
+        "description": "The site outline in metres (EPSG:2180, north up) around `origin_2180`, framed like a check sheet."
       },
       "SiteSummary": {
         "properties": {
@@ -3093,6 +3285,39 @@
             "type": "number",
             "title": "Lat"
           },
+          "gmina": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gmina"
+          },
+          "powiat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Powiat"
+          },
+          "voivodeship": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voivodeship"
+          },
           "mw_fact": {
             "$ref": "#/components/schemas/FactOut"
           }
@@ -3113,6 +3338,9 @@
           "flags",
           "lon",
           "lat",
+          "gmina",
+          "powiat",
+          "voivodeship",
           "mw_fact"
         ],
         "title": "SiteSummary",

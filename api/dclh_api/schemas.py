@@ -65,6 +65,10 @@ class SiteSummary(BaseModel):
     flags: list[str]
     lon: float  # a point inside the site, WGS84, for the map
     lat: float
+    # Names of the administrative units holding the point above; null when admin_units has no match.
+    gmina: str | None
+    powiat: str | None
+    voivodeship: str | None
     # estimated_mw is area × density from config: a derived value, so it carries its provenance too.
     mw_fact: FactOut
 
@@ -115,6 +119,14 @@ class ScoreItemOut(BaseModel):
     value: float | str | bool | None
 
 
+class SiteMapOut(BaseModel):
+    """The site outline in metres (EPSG:2180, north up) around `origin_2180`, framed like a check sheet."""
+
+    origin_2180: list[float]
+    bbox_m: list[float]
+    parcel: list[list[list[float]]]
+
+
 class SiteDetail(SiteSummary):
     parcel_ids: list[str]
     scored_at: datetime
@@ -123,6 +135,7 @@ class SiteDetail(SiteSummary):
     items: list[ScoreItemOut]
     features: dict[str, FactOut]
     geometry: dict[str, Any]  # GeoJSON polygon, WGS84
+    map: SiteMapOut
 
 
 class CoverageArea(BaseModel):

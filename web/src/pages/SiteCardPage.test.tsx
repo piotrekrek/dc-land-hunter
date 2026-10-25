@@ -1,4 +1,5 @@
 import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -32,6 +33,9 @@ const detail: SiteDetail = {
   flags: ["Duży kampus"],
   lon: 19.9,
   lat: 52.1,
+  gmina: "Brwinów",
+  powiat: "powiat pruszkowski",
+  voivodeship: "mazowieckie",
   mw_fact: { value: 192, source_id: "egib", as_of: "2026-10-10T06:00:00+00:00", confidence: "estimated" },
   parcel_ids: ["1", "2"],
   scored_at: "2026-10-10T06:00:00+00:00",
@@ -70,6 +74,7 @@ const detail: SiteDetail = {
   ],
   features: {},
   geometry: { type: "Polygon", coordinates: [] },
+  map: { origin_2180: [640000, 490000], bbox_m: [-100, -100, 100, 100], parcel: [[[-50, -40], [50, -40], [50, 40], [-50, 40]]] },
 };
 
 afterEach(() => vi.restoreAllMocks());
@@ -103,6 +108,37 @@ describe("SiteCardPage", () => {
     mockFetch({ "/api/sites/site-a": { ...detail, parcel_ids: ["306201_1.0002.1573"] } });
     renderCard("/lokalizacje/site-a");
     expect(await screen.findByRole("link", { name: "Sprawdź tę działkę z aktualnymi danymi" })).toBeInTheDocument();
+  });
+
+  it("names the place in the header", async () => {
+    mockFetch({ "/api/sites/site-a": detail });
+    renderCard("/lokalizacje/site-a");
+    expect(await screen.findByText("gm. Brwinów, pow. pruszkowski, woj. mazowieckie")).toBeInTheDocument();
+  });
+
+  it("lists the plot ids with a copy button and a Geoportal link each", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    mockFetch({ "/api/sites/site-a": { ...detail, parcel_ids: ["146501_8.0001.12/3", "146501_8.0001.14"] } });
+    renderCard("/lokalizacje/site-a");
+    const section = await screen.findByRole("region", { name: "Numery działek" });
+    expect(within(section).getByRole("heading", { name: "Numery działek (2)" })).toBeInTheDocument();
+    const links = within(section).getAllByRole("link", { name: /Geoportal/ });
+    expect(links[0]).toHaveAttribute("href", `https://mapy.geoportal.gov.pl/imap/Imgp_2.html?identifyParcel=${encodeURIComponent("146501_8.0001.12/3")}`);
+    await userEvent.click(within(section).getByRole("button", { name: "Kopiuj numer działki 146501_8.0001.14" }));
+    expect(writeText).toHaveBeenCalledWith("146501_8.0001.14");
+    await userEvent.click(within(section).getByRole("button", { name: "Kopiuj wszystkie numery działek" }));
+    expect(writeText).toHaveBeenLastCalledWith("146501_8.0001.12/3\n146501_8.0001.14");
+  });
+
+  it("draws the site outline and offers the orthophoto from the site's own endpoint", async () => {
+    mockFetch({ "/api/sites/site-a": detail });
+    renderCard("/lokalizacje/site-a");
+    const map = await screen.findByRole("region", { name: "Mapa lokalizacji" });
+    expect(within(map).getByRole("img", { name: /Rysunek/ })).toBeInTheDocument();
+    expect(within(map).getByRole("button", { name: "Ortofotomapa" })).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(within(map).getByRole("button", { name: "Ortofotomapa" }));
+    expect(map.querySelector("image")?.getAttribute("href")).toBe("/api/sites/site-a/orthophoto");
   });
 
   it("lists exclusion reasons for an excluded site", async () => {

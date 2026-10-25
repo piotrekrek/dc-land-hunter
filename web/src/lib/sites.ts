@@ -29,9 +29,23 @@ export interface SiteFilters {
   minMw: number;
   minHa: number;
   includeExcluded: boolean;
+  /** TERYT code of the voivodeship (2 digits) and of the powiat (4 digits); "" means any. A powiat lies in one voivodeship. */
+  voivodeship: string;
+  powiat: string;
 }
 
-export const DEFAULT_FILTERS: SiteFilters = { sort: "score", minMw: 60, minHa: 10, includeExcluded: false };
+export const DEFAULT_FILTERS: SiteFilters = {
+  sort: "score",
+  minMw: 60,
+  minHa: 10,
+  includeExcluded: false,
+  voivodeship: "",
+  powiat: "",
+};
+
+/** A TERYT code from the URL, kept only when it has the right shape: anything else would only earn a 422. */
+const terytOption = (value: string | null, digits: number): string =>
+  value !== null && new RegExp(`^\\d{${digits}}$`).test(value) ? value : "";
 
 /** A numeric URL value, kept only when it is one of the offered options. */
 const numberOption = (options: readonly number[], value: string | null, fallback: number): number => {
@@ -42,11 +56,15 @@ const numberOption = (options: readonly number[], value: string | null, fallback
 /** Reads filters from the URL, so a filtered list can be bookmarked and shared (brief 8.1). */
 export function parseFilters(params: URLSearchParams): SiteFilters {
   const sort = SORT_OPTIONS.map((o) => o.value).find((v) => v === params.get("sort")) ?? DEFAULT_FILTERS.sort;
+  const powiat = terytOption(params.get("powiat"), 4);
   return {
     sort,
     minMw: numberOption(MW_OPTIONS, params.get("minMw"), DEFAULT_FILTERS.minMw),
     minHa: numberOption(HA_OPTIONS, params.get("minHa"), DEFAULT_FILTERS.minHa),
     includeExcluded: params.get("excluded") === "1",
+    // The powiat code starts with its voivodeship's, so a powiat in the URL also fixes the voivodeship.
+    voivodeship: powiat ? powiat.slice(0, 2) : terytOption(params.get("woj"), 2),
+    powiat,
   };
 }
 
@@ -57,6 +75,8 @@ export function toParams(filters: SiteFilters): URLSearchParams {
   if (filters.minMw !== DEFAULT_FILTERS.minMw) params.set("minMw", String(filters.minMw));
   if (filters.minHa !== DEFAULT_FILTERS.minHa) params.set("minHa", String(filters.minHa));
   if (filters.includeExcluded) params.set("excluded", "1");
+  if (filters.voivodeship) params.set("woj", filters.voivodeship);
+  if (filters.powiat) params.set("powiat", filters.powiat);
   return params;
 }
 
@@ -70,13 +90,29 @@ export const isDefaultFilters = (filters: SiteFilters): boolean =>
  */
 export function describeFilters(filters: SiteFilters): string {
   const filtersAtDefault =
-    filters.minMw === DEFAULT_FILTERS.minMw && filters.minHa === DEFAULT_FILTERS.minHa && !filters.includeExcluded;
+    filters.minMw === DEFAULT_FILTERS.minMw && filters.minHa === DEFAULT_FILTERS.minHa && !filters.includeExcluded && !filters.voivodeship;
   if (filtersAtDefault) return `Filtry domyślne: od ${DEFAULT_FILTERS.minMw} MW`;
   const parts = [filters.minMw > 0 ? `od ${filters.minMw} MW` : "moc dowolna"];
   if (filters.minHa > 0) parts.push(`powierzchnia od ${filters.minHa} ha`);
   if (filters.includeExcluded) parts.push("z wykluczonymi");
+  if (filters.powiat) parts.push("wybrany powiat");
+  else if (filters.voivodeship) parts.push("wybrane województwo");
   return `Filtry: ${parts.join(", ")}`;
 }
+
+/** "gm. X, pow. Y" for a list row; the card adds the voivodeship. Names the API could not resolve are left out. */
+export function placeLine(site: Pick<SiteSummary, "gmina" | "powiat" | "voivodeship">, withVoivodeship = false): string {
+  const parts = [
+    site.gmina && `gm. ${site.gmina}`,
+    site.powiat && `pow. ${site.powiat.replace(/^powiat\s+/i, "")}`,
+    withVoivodeship && site.voivodeship && `woj. ${site.voivodeship}`,
+  ];
+  return parts.filter(Boolean).join(", ");
+}
+
+/** Geoportal's parcel finder: opens the national map on the parcel (TERYT parcel id). */
+export const geoportalParcelUrl = (parcelId: string) =>
+  `https://mapy.geoportal.gov.pl/imap/Imgp_2.html?identifyParcel=${encodeURIComponent(parcelId)}`;
 
 /** Keeps the first row of each site: a site that moved between two pages must show once. */
 export function uniqueBySiteId<T extends { site_id: string }>(items: readonly T[]): T[] {

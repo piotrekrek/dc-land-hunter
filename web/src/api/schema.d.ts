@@ -163,6 +163,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sites/{site_id}/orthophoto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Site Orthophoto
+         * @description The Geoportal orthophoto for exactly the card map's box, asked for only when the card shows it.
+         */
+        get: operations["get_site_orthophoto_api_sites__site_id__orthophoto_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/coverage": {
         parameters: {
             query?: never;
@@ -472,6 +492,12 @@ export interface components {
             lon: number;
             /** Lat */
             lat: number;
+            /** Gmina */
+            gmina: string | null;
+            /** Powiat */
+            powiat: string | null;
+            /** Voivodeship */
+            voivodeship: string | null;
             mw_fact: components["schemas"]["FactOut"];
             /** Parcel Ids */
             parcel_ids: string[];
@@ -494,6 +520,7 @@ export interface components {
             geometry: {
                 [key: string]: unknown;
             };
+            map: components["schemas"]["SiteMapOut"];
             /** N */
             n: number;
             /** Check Id */
@@ -1133,6 +1160,12 @@ export interface components {
             lon: number;
             /** Lat */
             lat: number;
+            /** Gmina */
+            gmina: string | null;
+            /** Powiat */
+            powiat: string | null;
+            /** Voivodeship */
+            voivodeship: string | null;
             mw_fact: components["schemas"]["FactOut"];
             /** Parcel Ids */
             parcel_ids: string[];
@@ -1155,6 +1188,19 @@ export interface components {
             geometry: {
                 [key: string]: unknown;
             };
+            map: components["schemas"]["SiteMapOut"];
+        };
+        /**
+         * SiteMapOut
+         * @description The site outline in metres (EPSG:2180, north up) around `origin_2180`, framed like a check sheet.
+         */
+        SiteMapOut: {
+            /** Origin 2180 */
+            origin_2180: number[];
+            /** Bbox M */
+            bbox_m: number[];
+            /** Parcel */
+            parcel: number[][][];
         };
         /**
          * SiteSummary
@@ -1192,6 +1238,12 @@ export interface components {
             lon: number;
             /** Lat */
             lat: number;
+            /** Gmina */
+            gmina: string | null;
+            /** Powiat */
+            powiat: string | null;
+            /** Voivodeship */
+            voivodeship: string | null;
             mw_fact: components["schemas"]["FactOut"];
         };
         /** SitesPage */
@@ -1543,6 +1595,8 @@ export interface operations {
                 min_mw?: number;
                 min_ha?: number;
                 include_excluded?: boolean;
+                powiat?: string | null;
+                voivodeship?: string | null;
                 limit?: number;
                 offset?: number;
                 cursor?: string | null;
@@ -1591,6 +1645,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_site_orthophoto_api_sites__site_id__orthophoto_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": unknown;
                 };
             };
             /** @description Validation Error */

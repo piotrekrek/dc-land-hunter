@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_FILTERS, describeFilters, isDefaultFilters, parseFilters, toParams, uniqueBySiteId } from "./sites";
+import { DEFAULT_FILTERS, describeFilters, isDefaultFilters, parseFilters, placeLine, toParams, uniqueBySiteId } from "./sites";
 
 describe("filter summary and reset", () => {
   it("says the defaults in one line", () => {
@@ -43,10 +43,32 @@ describe("site filters in the URL", () => {
   });
 
   it("round-trips a non-default filter state", () => {
-    const filters = { sort: "area" as const, minMw: 150, minHa: 0, includeExcluded: true };
+    const filters = { sort: "area" as const, minMw: 150, minHa: 0, includeExcluded: true, voivodeship: "", powiat: "" };
     const params = toParams(filters);
     expect(params.toString()).toBe("sort=area&minMw=150&minHa=0&excluded=1");
     expect(parseFilters(params)).toEqual(filters);
+  });
+
+  it("keeps the place filter in the URL, so a filtered list can be shared", () => {
+    const filters = { ...DEFAULT_FILTERS, voivodeship: "14", powiat: "1421" };
+    const params = toParams(filters);
+    expect(params.toString()).toBe("woj=14&powiat=1421");
+    expect(parseFilters(params)).toEqual(filters);
+    expect(parseFilters(new URLSearchParams("woj=14"))).toEqual({ ...DEFAULT_FILTERS, voivodeship: "14" });
+  });
+
+  it("derives the voivodeship from a powiat and drops codes of the wrong shape", () => {
+    expect(parseFilters(new URLSearchParams("powiat=1421")).voivodeship).toBe("14");
+    expect(parseFilters(new URLSearchParams("powiat=14&woj=abc"))).toEqual(DEFAULT_FILTERS);
+    expect(parseFilters(new URLSearchParams("woj=1421")).voivodeship).toBe("");
+  });
+
+  it("names the place in the card and the list as gmina, powiat, województwo", () => {
+    const place = { gmina: "Brwinów", powiat: "powiat pruszkowski", voivodeship: "mazowieckie" };
+    expect(placeLine(place)).toBe("gm. Brwinów, pow. pruszkowski");
+    expect(placeLine(place, true)).toBe("gm. Brwinów, pow. pruszkowski, woj. mazowieckie");
+    expect(placeLine({ gmina: null, powiat: "Warszawa", voivodeship: null })).toBe("pow. Warszawa");
+    expect(placeLine({ gmina: null, powiat: null, voivodeship: null })).toBe("");
   });
 
   it("ignores values that are not offered in the UI", () => {
