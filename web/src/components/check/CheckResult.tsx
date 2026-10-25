@@ -1,4 +1,5 @@
 import type { CheckSiteDetail } from "@/api/client";
+import { ProfileCards } from "@/components/site/ProfileCards";
 import { Protokol } from "@/components/site/Protokol";
 import { Ruler } from "@/components/site/Ruler";
 import { Mark } from "@/components/site/Mark";
@@ -16,6 +17,7 @@ export function CheckResult({ site }: { site: CheckSiteDetail }) {
   return (
     <article aria-label={`Wynik dla działki ${site.parcel.parcel_id}`}>
       <Verdict verdict={site.verdict} />
+      <ProfileCards profiles={site.profiles} className="mt-6" />
       <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <div className="flex flex-col gap-7">
           <section aria-label="Wynik">
