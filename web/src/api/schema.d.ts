@@ -1699,7 +1699,7 @@ export interface operations {
                 include_excluded?: boolean;
                 powiat?: string | null;
                 voivodeship?: string | null;
-                /** @description west,south,east,north in WGS84 degrees */
+                /** @description west,south,east,north, WGS84 */
                 bbox?: string | null;
                 grid_badge?: ("Opublikowana moc" | "Bliskość sieci" | "Brak danych") | null;
                 /** @description Only sites flagged 'duży kampus' */
