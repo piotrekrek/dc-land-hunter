@@ -22,7 +22,7 @@ import {
 import { coverageCollection, type CoverageItem, type CoverageLevel, type CoverageCollection } from "@/lib/coverage";
 import { type MapFocus } from "@/lib/sites";
 import { useActiveTheme, type Theme } from "@/lib/theme";
-import { linePopup, renderPopup, stationPopup } from "./popup";
+import { linePopup, placePopup, renderPopup, stationPopup } from "./popup";
 
 /** Free OSM-based vector basemaps (no API key). Overrides: VITE_BASEMAP_STYLE (dark), VITE_BASEMAP_STYLE_LIGHT (light). */
 const BASEMAP_STYLES: Record<Theme, string> = {
@@ -147,7 +147,14 @@ export function MapView({
         return;
       }
       const feature = featureAt(map, e.point);
-      if (!feature) return;
+      if (!feature) {
+        // Bare map: offer to check the parcel under the click.
+        popup = new maplibregl.Popup({ maxWidth: "320px", className: "dclh-popup-shell" })
+          .setLngLat([e.lngLat.lng, e.lngLat.lat])
+          .setDOMContent(renderPopup(placePopup(e.lngLat.lng, e.lngLat.lat), true))
+          .addTo(map);
+        return;
+      }
       const props = feature.properties ?? {};
       if (feature.layer.id === SITE_FILL_ID) {
         // A site is picked, not described: its row in the list shows the details.

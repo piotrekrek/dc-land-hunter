@@ -347,14 +347,18 @@ describe("MapView click popups", () => {
     expect(h.popups[0]?.content?.textContent).toContain("Linia");
   });
 
-  it("opens nothing and closes the old popup when the click hits no feature", () => {
+  it("closes the old popup and offers a parcel check when the click hits no feature", () => {
     h.features = [station];
     render(<MapView />);
     act(() => emit("click", click));
     h.features = [];
     act(() => emit("click", click));
-    expect(h.popups).toHaveLength(1);
+    expect(h.popups).toHaveLength(2);
     expect(h.popups[0]?.removed).toBe(true);
+    expect(h.popups[1]?.lngLat).toEqual([1, 2]);
+    const link = h.popups[1]?.content?.querySelector("a[href^='/sprawdz-dzialke']");
+    expect(link?.textContent).toBe("Sprawdź działkę w tym miejscu");
+    expect(link?.getAttribute("href")).toBe("/sprawdz-dzialke?q=2.00000%201.00000");
   });
 
   it("shows a pointer cursor only over a feature", () => {

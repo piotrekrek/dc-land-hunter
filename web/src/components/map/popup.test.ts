@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { formatCoordinates, linePopup, osmUrl, parseVoltages, renderPopup, stationPopup } from "./popup";
+import {
+  formatCoordinates,
+  linePopup,
+  osmUrl,
+  parcelCheckUrl,
+  parseVoltages,
+  placePopup,
+  renderPopup,
+  stationPopup,
+} from "./popup";
 
 const sp = (s: string) => s.replace(/\u00a0/g, " ");
 
@@ -52,7 +61,7 @@ describe("stationPopup", () => {
     const m = stationPopup({ cls: "UNKNOWN_VOLTAGE", confidence: "missing" }, 18, 52);
     expect(m.title).toBe("Stacja bez nazwy");
     expect(m.rows.map((r) => r.label)).toEqual(["Rodzaj", "Wiarygodność", "Położenie"]);
-    expect(m.links).toHaveLength(1); // no OSM link without an id
+    expect(m.links.map((l) => l.label)).toEqual(["Otwórz w Mapach Google", "Sprawdź działkę w tym miejscu"]); // no OSM link without an id
   });
 
   it("links to Google Maps and to the OSM node or way", () => {
@@ -92,7 +101,7 @@ describe("renderPopup", () => {
   });
   it("opens links in a new tab without opener access", () => {
     const el = renderPopup(stationPopup({ osm_id: 1, cls: "GPZ_110_SN" }, 18, 52));
-    for (const a of el.querySelectorAll("a")) {
+    for (const a of el.querySelectorAll<HTMLAnchorElement>("a:not([href^='/'])")) {
       expect(a.target).toBe("_blank");
       expect(a.rel).toContain("noopener");
     }
@@ -111,5 +120,27 @@ describe("renderPopup", () => {
     el.querySelector("button")?.click();
     await Promise.resolve();
     expect(written).toEqual([formatCoordinates(18.5, 52.25)]);
+  });
+});
+
+describe("parcel check link", () => {
+  it("prefills the page with the point as 'lat lon'", () => {
+    expect(parcelCheckUrl(18.2, 52.2)).toBe("/sprawdz-dzialke?q=52.20000%2018.20000");
+  });
+
+  it("is in every popup, opens in the same tab, and external links still open a new one", () => {
+    for (const model of [stationPopup({ name: "GPZ" }, 18.2, 52.2), linePopup({ voltage: 110000 }, 18.2, 52.2), placePopup(18.2, 52.2)]) {
+      const root = renderPopup(model);
+      const check = root.querySelector<HTMLAnchorElement>("a[href^='/sprawdz-dzialke']");
+      expect(check?.textContent).toBe("Sprawdź działkę w tym miejscu");
+      expect(check?.target).toBe("");
+      expect(root.querySelector<HTMLAnchorElement>("a[href^='https://www.google.com/maps']")?.target).toBe("_blank");
+    }
+  });
+
+  it("names the place and shows the coordinates", () => {
+    const m = placePopup(18.2, 52.2);
+    expect(m.title).toBe("Wybrane miejsce");
+    expect(m.coordinates).toBe(formatCoordinates(18.2, 52.2));
   });
 });

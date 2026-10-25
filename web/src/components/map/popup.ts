@@ -18,6 +18,8 @@ export interface PopupRow {
 export interface PopupLink {
   label: string;
   href: string;
+  /** A page of this app: opened in the same tab. Other links open in a new one. */
+  internal?: boolean;
 }
 
 export interface PopupModel {
@@ -79,6 +81,16 @@ export function osmUrl(osmId: number): string {
 
 export const mapsUrl = (lng: number, lat: number) => `https://www.google.com/maps?q=${lat.toFixed(6)},${lng.toFixed(6)}`;
 
+/** "Sprawdź działkę" with the point prefilled; the page looks the parcel up from "lat lon". */
+export const parcelCheckUrl = (lng: number, lat: number) =>
+  `/sprawdz-dzialke?q=${encodeURIComponent(`${lat.toFixed(5)} ${lng.toFixed(5)}`)}`;
+
+const checkLink = (lng: number, lat: number): PopupLink => ({
+  label: "Sprawdź działkę w tym miejscu",
+  href: parcelCheckUrl(lng, lat),
+  internal: true,
+});
+
 function operatorRow(props: TileProps): PopupRow | null {
   const operator = text(props.operator);
   const dso = text(props.dso);
@@ -100,6 +112,7 @@ function confidenceRow(props: TileProps): PopupRow {
 function links(osmId: number | null, lng: number, lat: number): PopupLink[] {
   const out: PopupLink[] = [{ label: "Otwórz w Mapach Google", href: mapsUrl(lng, lat) }];
   if (osmId !== null && Number.isFinite(osmId)) out.push({ label: "Obiekt w OpenStreetMap", href: osmUrl(osmId) });
+  out.push(checkLink(lng, lat));
   return out;
 }
 
@@ -138,6 +151,16 @@ export function linePopup(props: TileProps, lng: number, lat: number): PopupMode
     title: Number.isFinite(volts) && volts > 0 ? `Linia ${formatKv(volts)}` : "Linia WN",
     rows,
     links: links(Number.isFinite(osmId) ? osmId : null, lng, lat),
+    coordinates: formatCoordinates(lng, lat),
+  };
+}
+
+/** A click on bare map: where it landed, and the way on to a parcel check. */
+export function placePopup(lng: number, lat: number): PopupModel {
+  return {
+    title: "Wybrane miejsce",
+    rows: [],
+    links: [checkLink(lng, lat), { label: "Otwórz w Mapach Google", href: mapsUrl(lng, lat) }],
     coordinates: formatCoordinates(lng, lat),
   };
 }
@@ -184,8 +207,10 @@ export function renderPopup(model: PopupModel, isLine = false): HTMLElement {
   for (const link of model.links) {
     const a = document.createElement("a");
     a.href = link.href;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
+    if (!link.internal) {
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+    }
     a.textContent = link.label;
     const wrap = document.createElement("div");
     wrap.append(a);
