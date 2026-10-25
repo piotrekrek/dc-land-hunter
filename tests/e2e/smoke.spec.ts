@@ -29,7 +29,7 @@ async function expectNoSeriousA11yViolations(page: Page) {
 
 test("home shows the Polish shell, the map and an empty list", async ({ page, isMobile }) => {
   await page.goto("/");
-  await expect(page).toHaveTitle("DC Land Hunter");
+  await expect(page).toHaveTitle("Mapa i lista · DC Land Hunter");
   if (isMobile) {
     await expect(page.getByText("Brak lokalizacji dla tych filtrów")).toBeVisible();
     await page.getByRole("button", { name: "Mapa" }).click();
