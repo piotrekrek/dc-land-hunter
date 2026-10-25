@@ -127,6 +127,16 @@ class TestUnknowns:
         assert "Nie sprawdzono: zabudowa mieszkaniowa" in labels
         assert "Nie sprawdzono: minimalna powierzchnia" not in labels  # the area is known
 
+    def test_criteria_that_no_data_feeds_in_this_version_are_not_listed_as_things_to_find_out(self) -> None:
+        labels = [u.label_pl for u in unknowns(self.scored(), CFG, failed_steps=[])]
+        assert not {
+            "Węzeł telekomunikacyjny w pobliżu",
+            "Decyzja środowiskowa",
+            "Sprzedający publiczny",
+            "Planowana stacja odbiorcza PSE",
+        } & set(labels)
+        assert "Przeznaczenie terenu" in labels  # zoning can be found out: ask the gmina
+
     def test_the_reason_says_whether_the_download_failed_or_no_source_exists(self) -> None:
         by_label = {u.label_pl: u.why_pl for u in unknowns(self.scored(), CFG, failed_steps=["flood"])}
         assert "nie udało się pobrać" in by_label["Nie sprawdzono: strefa zalewowa"]

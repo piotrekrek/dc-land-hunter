@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import replace
+from datetime import UTC, datetime
 
 import pytest
 from hypothesis import given, settings
@@ -166,6 +167,19 @@ def test_grid_badge() -> None:
 )
 def test_zoning_points_scale_by_weight(kind: ZoningKind, expected: float) -> None:
     assert item(score_site(full_features(zoning=F(kind)), CFG), "zoning").points == pytest.approx(expected)
+
+
+def test_an_unknown_zoning_names_no_source_even_when_the_fact_came_from_an_industrial_area() -> None:
+    # The zoning fact of a site inside an OSM industrial area is UNKNOWN with the industrial layer as its source.
+    # Nothing there says what the land is zoned for, so the card must not print "źródło: osm_power".
+    industrial = Fact(
+        ZoningKind.UNKNOWN, "osm_power", datetime(2026, 10, 12, tzinfo=UTC), Confidence.ESTIMATED
+    )
+    z = item(score_site(full_features(zoning=industrial), CFG), "zoning")
+    assert z.confidence is Confidence.MISSING and z.source_id is None and z.as_of is None
+    known = Fact(ZoningKind.MPZP_PRODUCTION, "ru", datetime(2026, 10, 12, tzinfo=UTC), Confidence.VERIFIED)
+    k = item(score_site(full_features(zoning=known), CFG), "zoning")
+    assert k.source_id == "ru" and k.as_of is not None  # a known zoning keeps its source
 
 
 def test_no_plan_is_unknown_not_bad() -> None:

@@ -789,3 +789,16 @@ a 16 s static-layer load on the first check after it.
 - The step list is written when a check is created, so the page shows the whole plan and a progress bar from the first poll
   instead of "0 z 0 kroków". With no steps at all (an old check) it says "Przygotowuję sprawdzenie…".
 
+## Criteria without data, and a wrong source (25.10.2026)
+
+Audit of the 15,955 stored sites: four criteria are missing for every site, because no data feeds them in this version:
+`conn_telecom` (UKE: the map cannot be downloaded, owner decision needed), `bonus_env` (Baza OOŚ, manual-only),
+`bonus_seller` (KOWR, manual-only) and `grid_planned_station` (PSE planned load stations: planned for the MVP, not loaded
+yet). Together up to 9.8 points that always count as 0. The Protokół now folds them into one collapsed line ("Kryteria bez
+danych w tej wersji (4)", still in the score and in the completeness) and "Nie wiemy" no longer lists them, so it holds only
+what a person can find out (zoning, grid capacity, soil, flood). Expected gaps stay as rows: zoning (82% of sites, the register
+is incomplete until 30.11.2026), class III soil (only sampled for sites that pass the hard filters), published grid capacity (61%,
+not every operator publishes it), PSI (22%, gmina matching).
+- An unknown zoning no longer shows "źródło: osm_power" (it came from the industrial area the site lies in, which says
+  nothing about zoning). Sites already stored keep the old text until the next search of their powiat.
+
