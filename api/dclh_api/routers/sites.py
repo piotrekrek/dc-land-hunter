@@ -41,6 +41,9 @@ _SUMMARY_COLUMNS = """
     ST_Y(ST_Transform(ST_PointOnSurface(geom), 4326)) AS lat
 """
 
+# The investor profile categories (sites only; parcel checks keep theirs inside `profiles`).
+_VERDICT_COLUMNS = "verdict_built, verdict_container"
+
 # What the place join needs from `sites`: the powiat code and the representative point.
 # Parcel checks have neither, so they do not select it.
 _PLACE_SOURCE = "powiat AS powiat_teryt, ST_PointOnSurface(geom) AS pt"
@@ -74,6 +77,8 @@ def list_sites(
     include_excluded: bool = False,
     powiat: Annotated[str | None, Query(pattern=r"^\d{4}$")] = None,
     voivodeship: Annotated[str | None, Query(pattern=r"^\d{2}$")] = None,
+    profile: Annotated[Literal["built", "container"] | None, Query()] = None,
+    hide_red: bool = False,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     cursor: Annotated[str | None, Query(max_length=512)] = None,
@@ -86,6 +91,11 @@ def list_sites(
     if voivodeship is not None:
         where += " AND left(powiat, 2) = :voivodeship"
         params["voivodeship"] = voivodeship
+    if hide_red:
+        if profile is None:
+            raise HTTPException(422, "Ukrywanie odrzuconych wymaga wybranego profilu.")
+        # `profile` is a Literal, so the column name never comes from the query string.
+        where += f" AND verdict_{profile} IS DISTINCT FROM 'red'"
     column = SORT_COLUMNS[sort]
     direction = "ASC" if order == "asc" else "DESC"
     # Keyset: the rows strictly after the cursor's row in this order; site_id (always ascending) breaks ties.
@@ -109,7 +119,7 @@ def list_sites(
         rows = session.execute(
             text(
                 f"SELECT p.*, {_PLACE_COLUMNS} FROM ("
-                f"SELECT {_SUMMARY_COLUMNS}, {_PLACE_SOURCE} FROM sites {where}{keyset} "
+                f"SELECT {_SUMMARY_COLUMNS}, {_VERDICT_COLUMNS}, {_PLACE_SOURCE} FROM sites {where}{keyset} "
                 f"ORDER BY {column} {direction}, site_id LIMIT :limit OFFSET :offset"
                 f") p {_PLACE_JOINS} ORDER BY p.{column} {direction}, p.site_id"
             ),
@@ -141,10 +151,13 @@ def _mw_fact(row: Mapping[str, Any]) -> FactOut:
 def _summary(row: Mapping[str, Any]) -> SiteSummary:
     # Parcel checks are not placed in a gmina: their rows carry no place columns.
     place_fields = ("gmina", "powiat", "voivodeship")
+    derived = ("mw_fact", "profile_categories")
     fields = {
-        k: row.get(k) if k in place_fields else row[k] for k in SiteSummary.model_fields if k != "mw_fact"
+        k: row.get(k) if k in place_fields else row[k] for k in SiteSummary.model_fields if k not in derived
     }
-    return SiteSummary(**fields, mw_fact=_mw_fact(row))
+    built, container = row.get("verdict_built"), row.get("verdict_container")
+    categories = {"built": built, "container": container} if built and container else None
+    return SiteSummary(**fields, mw_fact=_mw_fact(row), profile_categories=categories)
 
 
 def _fact_map(features: dict[str, Any]) -> dict[str, FactOut]:
@@ -170,7 +183,8 @@ def _site_row(session: Session, site_id: str) -> RowMapping | None:
             session.execute(
                 text(
                     f"SELECT p.*, {_PLACE_COLUMNS} FROM ("
-                    f"SELECT {_SUMMARY_COLUMNS}, {_PLACE_SOURCE}, geom, parcel_ids, detail, "
+                    f"SELECT {_SUMMARY_COLUMNS}, {_VERDICT_COLUMNS}, profiles, {_PLACE_SOURCE}, geom, "
+                    "parcel_ids, detail, "
                     "ST_AsGeoJSON(ST_Transform(geom, 4326)) AS geojson FROM sites WHERE site_id = :site_id"
                     f") p {_PLACE_JOINS}"
                 ),
