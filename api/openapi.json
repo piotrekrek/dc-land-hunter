@@ -323,6 +323,70 @@
             }
           },
           {
+            "name": "bbox",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "west,south,east,north, WGS84",
+              "title": "Bbox"
+            },
+            "description": "west,south,east,north, WGS84"
+          },
+          {
+            "name": "grid_badge",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "Opublikowana moc",
+                    "Bliskość sieci",
+                    "Brak danych"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Grid Badge"
+            }
+          },
+          {
+            "name": "large_campus",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only sites flagged 'duży kampus'",
+              "default": false,
+              "title": "Large Campus"
+            },
+            "description": "Only sites flagged 'duży kampus'"
+          },
+          {
+            "name": "split_suggested",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only sites that should be split",
+              "default": false,
+              "title": "Split Suggested"
+            },
+            "description": "Only sites that should be split"
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -1605,6 +1669,17 @@
             ],
             "title": "Voivodeship"
           },
+          "weakest_label_pl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weakest Label Pl"
+          },
           "mw_fact": {
             "$ref": "#/components/schemas/FactOut"
           },
@@ -1811,6 +1886,7 @@
           "gmina",
           "powiat",
           "voivodeship",
+          "weakest_label_pl",
           "mw_fact",
           "parcel_ids",
           "scored_at",
@@ -3901,6 +3977,17 @@
             ],
             "title": "Voivodeship"
           },
+          "weakest_label_pl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weakest Label Pl"
+          },
           "mw_fact": {
             "$ref": "#/components/schemas/FactOut"
           },
@@ -4048,6 +4135,7 @@
           "gmina",
           "powiat",
           "voivodeship",
+          "weakest_label_pl",
           "mw_fact",
           "parcel_ids",
           "scored_at",
@@ -4207,6 +4295,17 @@
             ],
             "title": "Voivodeship"
           },
+          "weakest_label_pl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weakest Label Pl"
+          },
           "mw_fact": {
             "$ref": "#/components/schemas/FactOut"
           },
@@ -4256,6 +4355,7 @@
           "gmina",
           "powiat",
           "voivodeship",
+          "weakest_label_pl",
           "mw_fact"
         ],
         "title": "SiteSummary",
