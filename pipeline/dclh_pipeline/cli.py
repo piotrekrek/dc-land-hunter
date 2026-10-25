@@ -379,6 +379,37 @@ def search_cmd(
         console.print(f"wrote {count} sites for powiat {found.teryt}")
 
 
+@app.command("reprofile")
+def reprofile_cmd() -> None:
+    """Recompute the profile verdicts of every stored site from its stored features (no new search)."""
+    import json
+
+    from sqlalchemy import text
+
+    from dclh_pipeline.db import session_scope
+    from dclh_pipeline.profiles import features_from_detail, profile_verdicts
+    from dclh_pipeline.scoring.run import to_jsonable
+
+    cfg = load_profiles()
+    with session_scope() as session:
+        rows = session.execute(text("SELECT site_id, detail -> 'features' FROM sites")).all()
+        for site_id, features in rows:
+            verdicts = profile_verdicts(features_from_detail(features), cfg)
+            session.execute(
+                text(
+                    "UPDATE sites SET profiles = CAST(:p AS jsonb), verdict_built = :b, "
+                    "verdict_container = :c WHERE site_id = :id"
+                ),
+                {
+                    "p": json.dumps(to_jsonable(verdicts), ensure_ascii=False),
+                    "b": verdicts["built"].category.value,
+                    "c": verdicts["container"].category.value,
+                    "id": site_id,
+                },
+            )
+    console.print(f"profile przeliczone dla {len(rows)} lokalizacji")
+
+
 @app.command("kw-probe")
 def kw_probe_cmd(
     sites: Annotated[int, typer.Option(help="Top sites by score (not excluded) to take parcels from")] = 50,

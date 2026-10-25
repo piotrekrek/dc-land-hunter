@@ -43,7 +43,7 @@ describe("site filters in the URL", () => {
   });
 
   it("round-trips a non-default filter state", () => {
-    const filters = { sort: "area" as const, minMw: 150, minHa: 0, includeExcluded: true, voivodeship: "", powiat: "" };
+    const filters = { sort: "area" as const, minMw: 150, minHa: 0, includeExcluded: true, voivodeship: "", powiat: "", profile: "" as const, hideRed: false };
     const params = toParams(filters);
     expect(params.toString()).toBe("sort=area&minMw=150&minHa=0&excluded=1");
     expect(parseFilters(params)).toEqual(filters);
@@ -74,5 +74,24 @@ describe("site filters in the URL", () => {
   it("ignores values that are not offered in the UI", () => {
     const parsed = parseFilters(new URLSearchParams("sort=name&minMw=7&minHa=abc"));
     expect(parsed).toEqual(DEFAULT_FILTERS);
+  });
+});
+
+describe("profile filters", () => {
+  it("round-trips a profile with hide-rejected through the URL", () => {
+    const filters = { ...DEFAULT_FILTERS, profile: "container" as const, hideRed: true };
+    expect(toParams(filters).toString()).toBe("profile=container&hideRed=1");
+    expect(parseFilters(toParams(filters))).toEqual(filters);
+  });
+
+  it("ignores an unknown profile, and hide-rejected without one", () => {
+    expect(parseFilters(new URLSearchParams("profile=hyperscale&hideRed=1"))).toEqual(DEFAULT_FILTERS);
+    expect(toParams({ ...DEFAULT_FILTERS, hideRed: true }).toString()).toBe("");
+  });
+
+  it("names the profile in the filter line", () => {
+    expect(describeFilters({ ...DEFAULT_FILTERS, profile: "built", hideRed: true })).toBe(
+      "Filtry: od 60 MW, powierzchnia od 10 ha, profil budowane, bez odrzuconych",
+    );
   });
 });

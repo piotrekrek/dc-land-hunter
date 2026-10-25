@@ -24,6 +24,14 @@ export type SortKey = (typeof SORT_OPTIONS)[number]["value"];
 export const MW_OPTIONS = [0, 60, 100, 150] as const;
 export const HA_OPTIONS = [0, 10, 20, 30] as const;
 
+/** The investor profiles a site can be judged for ("" = no profile: the plain ranked list). */
+export const PROFILE_OPTIONS = [
+  { value: "", label: "Wszystkie" },
+  { value: "built", label: "Budowane" },
+  { value: "container", label: "Kontenerowe" },
+] as const;
+export type ProfileKey = (typeof PROFILE_OPTIONS)[number]["value"];
+
 export interface SiteFilters {
   sort: SortKey;
   minMw: number;
@@ -32,6 +40,9 @@ export interface SiteFilters {
   /** TERYT code of the voivodeship (2 digits) and of the powiat (4 digits); "" means any. A powiat lies in one voivodeship. */
   voivodeship: string;
   powiat: string;
+  profile: ProfileKey;
+  /** Leaves out the sites the chosen profile rejects; only meaningful with a profile. */
+  hideRed: boolean;
 }
 
 export const DEFAULT_FILTERS: SiteFilters = {
@@ -41,6 +52,8 @@ export const DEFAULT_FILTERS: SiteFilters = {
   includeExcluded: false,
   voivodeship: "",
   powiat: "",
+  profile: "",
+  hideRed: false,
 };
 
 /** A TERYT code from the URL, kept only when it has the right shape: anything else would only earn a 422. */
@@ -57,6 +70,7 @@ const numberOption = (options: readonly number[], value: string | null, fallback
 export function parseFilters(params: URLSearchParams): SiteFilters {
   const sort = SORT_OPTIONS.map((o) => o.value).find((v) => v === params.get("sort")) ?? DEFAULT_FILTERS.sort;
   const powiat = terytOption(params.get("powiat"), 4);
+  const profile = PROFILE_OPTIONS.map((o) => o.value).find((v) => v !== "" && v === params.get("profile")) ?? "";
   return {
     sort,
     minMw: numberOption(MW_OPTIONS, params.get("minMw"), DEFAULT_FILTERS.minMw),
@@ -65,6 +79,8 @@ export function parseFilters(params: URLSearchParams): SiteFilters {
     // The powiat code starts with its voivodeship's, so a powiat in the URL also fixes the voivodeship.
     voivodeship: powiat ? powiat.slice(0, 2) : terytOption(params.get("woj"), 2),
     powiat,
+    profile,
+    hideRed: profile !== "" && params.get("hideRed") === "1",
   };
 }
 
@@ -77,6 +93,8 @@ export function toParams(filters: SiteFilters): URLSearchParams {
   if (filters.includeExcluded) params.set("excluded", "1");
   if (filters.voivodeship) params.set("woj", filters.voivodeship);
   if (filters.powiat) params.set("powiat", filters.powiat);
+  if (filters.profile) params.set("profile", filters.profile);
+  if (filters.profile && filters.hideRed) params.set("hideRed", "1");
   return params;
 }
 
@@ -90,11 +108,13 @@ export const isDefaultFilters = (filters: SiteFilters): boolean =>
  */
 export function describeFilters(filters: SiteFilters): string {
   const filtersAtDefault =
-    filters.minMw === DEFAULT_FILTERS.minMw && filters.minHa === DEFAULT_FILTERS.minHa && !filters.includeExcluded && !filters.voivodeship;
+    filters.minMw === DEFAULT_FILTERS.minMw && filters.minHa === DEFAULT_FILTERS.minHa && !filters.includeExcluded && !filters.voivodeship && !filters.profile;
   if (filtersAtDefault) return `Filtry domyślne: od ${DEFAULT_FILTERS.minMw} MW`;
   const parts = [filters.minMw > 0 ? `od ${filters.minMw} MW` : "moc dowolna"];
   if (filters.minHa > 0) parts.push(`powierzchnia od ${filters.minHa} ha`);
   if (filters.includeExcluded) parts.push("z wykluczonymi");
+  const profile = PROFILE_OPTIONS.find((o) => o.value === filters.profile && o.value !== "");
+  if (profile) parts.push(`profil ${profile.label.toLowerCase()}${filters.hideRed ? ", bez odrzuconych" : ""}`);
   if (filters.powiat) parts.push("wybrany powiat");
   else if (filters.voivodeship) parts.push("wybrane województwo");
   return `Filtry: ${parts.join(", ")}`;

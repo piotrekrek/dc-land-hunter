@@ -281,4 +281,23 @@ describe("SiteList", () => {
     expect(screen.queryByRole("option", { name: "powiat pruszkowski" })).not.toBeInTheDocument();
     expect(screen.getByRole("option", { name: "powiat będziński" })).toBeInTheDocument();
   });
+
+  it("sends the chosen profile and hide-rejected, and badges each row with that profile's verdict", async () => {
+    const categories = { built: "red", container: "green" } as const;
+    const spy = mockFetch({ "/api/sites": { total: 1, offset: 0, limit: 50, items: [site({ profile_categories: categories })] } });
+    renderWithProviders(<SiteList onSelect={() => {}} />, { route: "/?profile=container&hideRed=1" });
+    const badge = await screen.findByTestId("profile-badge");
+    expect(badge).toHaveTextContent("Kontenerowe: Warto");
+    const urls = spy.mock.calls.map(([input]) => new URL((input as Request).url, "http://localhost"));
+    const url = urls.find((u) => u.pathname === "/api/sites")!;
+    expect(url.searchParams.get("profile")).toBe("container");
+    expect(url.searchParams.get("hide_red")).toBe("true");
+  });
+
+  it("shows no profile badge without a chosen profile", async () => {
+    mockFetch({ "/api/sites": { total: 1, offset: 0, limit: 50, items: [site({ profile_categories: { built: "red", container: "green" } })] } });
+    renderWithProviders(<SiteList onSelect={() => {}} />);
+    await screen.findByTestId("site-row");
+    expect(screen.queryByTestId("profile-badge")).not.toBeInTheDocument();
+  });
 });

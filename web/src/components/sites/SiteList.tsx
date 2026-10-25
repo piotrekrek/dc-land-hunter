@@ -32,7 +32,25 @@ const GRID_BADGE: Record<SiteSummary["grid_badge"], BadgeProps["variant"]> = {
   "Brak danych": "neutral",
 };
 
-function SiteRow({ site, selected, onSelect }: { site: SiteSummary; selected: boolean; onSelect: (site: SiteSummary) => void }) {
+const PROFILE_BADGE = {
+  green: { variant: "ok", word: "Warto" },
+  yellow: { variant: "warn", word: "Warunkowo" },
+  red: { variant: "bad", word: "Odpada" },
+  manual: { variant: "neutral", word: "Do weryfikacji" },
+} as const satisfies Record<string, { variant: BadgeProps["variant"]; word: string }>;
+
+function SiteRow({
+  site,
+  profile,
+  selected,
+  onSelect,
+}: {
+  site: SiteSummary;
+  profile: SiteFilters["profile"];
+  selected: boolean;
+  onSelect: (site: SiteSummary) => void;
+}) {
+  const category = profile ? site.profile_categories?.[profile] : undefined;
   const rowRef = useRef<HTMLLIElement>(null);
   // A site picked on the map brings its row into view; "nearest" leaves a row that is already visible where it is.
   useEffect(() => {
@@ -54,6 +72,11 @@ function SiteRow({ site, selected, onSelect }: { site: SiteSummary; selected: bo
           {placeLine(site) && <span className="block text-xs text-muted-foreground">{placeLine(site)}</span>}
           <span className="mt-1 flex flex-wrap gap-1.5">
             <Badge variant={GRID_BADGE[site.grid_badge]}>{site.grid_badge}</Badge>
+            {category && (
+              <Badge variant={PROFILE_BADGE[category].variant} data-testid="profile-badge">
+                {profile === "built" ? "Budowane" : "Kontenerowe"}: {PROFILE_BADGE[category].word}
+              </Badge>
+            )}
             {site.excluded && <Badge variant="bad">Wykluczona</Badge>}
             {site.large_campus && <Badge variant="accent">Duży kampus</Badge>}
             {site.split_suggested && <Badge variant="warn">Do podziału</Badge>}
@@ -107,6 +130,8 @@ export function SiteList({ selectedId = null, onSelect }: { selectedId?: string 
               include_excluded: filters.includeExcluded,
               voivodeship: filters.voivodeship || undefined,
               powiat: filters.powiat || undefined,
+              profile: filters.profile || undefined,
+              hide_red: filters.hideRed || undefined,
               limit: PAGE,
               cursor: pageParam,
             },
@@ -157,7 +182,7 @@ export function SiteList({ selectedId = null, onSelect }: { selectedId?: string 
           </p>
           <ul className="flex flex-col gap-1 p-2" aria-label="Ranking lokalizacji">
             {items.map((site) => (
-              <SiteRow key={site.site_id} site={site} selected={site.site_id === selectedId} onSelect={onSelect} />
+              <SiteRow key={site.site_id} site={site} profile={filters.profile} selected={site.site_id === selectedId} onSelect={onSelect} />
             ))}
           </ul>
           {sites.hasNextPage && (

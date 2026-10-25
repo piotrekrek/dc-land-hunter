@@ -547,6 +547,10 @@ export interface components {
             /** Voivodeship */
             voivodeship: string | null;
             mw_fact: components["schemas"]["FactOut"];
+            /** Profile Categories */
+            profile_categories?: {
+                [key: string]: "green" | "yellow" | "red" | "manual";
+            } | null;
             /** Parcel Ids */
             parcel_ids: string[];
             /**
@@ -1297,6 +1301,10 @@ export interface components {
             /** Voivodeship */
             voivodeship: string | null;
             mw_fact: components["schemas"]["FactOut"];
+            /** Profile Categories */
+            profile_categories?: {
+                [key: string]: "green" | "yellow" | "red" | "manual";
+            } | null;
             /** Parcel Ids */
             parcel_ids: string[];
             /**
@@ -1388,6 +1396,10 @@ export interface components {
             /** Voivodeship */
             voivodeship: string | null;
             mw_fact: components["schemas"]["FactOut"];
+            /** Profile Categories */
+            profile_categories?: {
+                [key: string]: "green" | "yellow" | "red" | "manual";
+            } | null;
         };
         /** SitesPage */
         SitesPage: {
@@ -1745,6 +1757,8 @@ export interface operations {
                 include_excluded?: boolean;
                 powiat?: string | null;
                 voivodeship?: string | null;
+                profile?: ("built" | "container") | null;
+                hide_red?: boolean;
                 limit?: number;
                 offset?: number;
                 cursor?: string | null;
