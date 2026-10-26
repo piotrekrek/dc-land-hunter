@@ -35,7 +35,7 @@ _SITE_COUNTS = text(
     SELECT a.teryt, a.name, count(*) AS sites
     FROM sites s
     JOIN admin_units a ON a.level = :level AND ST_Covers(a.geom, ST_PointOnSurface(s.geom))
-    WHERE NOT s.excluded
+    WHERE NOT s.excluded AND s.kind = 'standard'
     GROUP BY a.teryt, a.name
     """
 )
@@ -50,7 +50,7 @@ _ITEM_COUNTS = text(
     FROM sites s
     JOIN admin_units a ON a.level = :level AND ST_Covers(a.geom, ST_PointOnSurface(s.geom))
     LEFT JOIN LATERAL jsonb_array_elements(s.detail->'score'->'items') AS it ON true
-    WHERE NOT s.excluded
+    WHERE NOT s.excluded AND s.kind = 'standard'
     GROUP BY a.teryt, it->>'key'
     """
 )

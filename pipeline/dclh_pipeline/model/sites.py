@@ -189,6 +189,22 @@ def cluster_sites(
     return sorted(sites, key=lambda s: s.site_id)
 
 
+def parcel_site(parcel: Parcel, *, mw_per_ha: float) -> Site:
+    """One parcel as a site of its own: a small plot (PLAN.md, "Small plots with 60 MW grid")."""
+    area_ha = parcel.geom.area / 10_000
+    return Site(
+        site_id=_site_id(parcel.zone_id, (parcel.parcel_id,)),
+        zone_id=parcel.zone_id,
+        parcel_ids=(parcel.parcel_id,),
+        geom=parcel.geom,
+        area_ha=area_ha,
+        compactness=_compactness(parcel.geom),
+        estimated_mw=area_ha * mw_per_ha,
+        needs_split_suggestion=False,
+        flags=["small_plot"],
+    )
+
+
 def expansion_ha(
     sites: Iterable[Site],
     parcel_ids: Sequence[str],

@@ -681,8 +681,9 @@ all of them 10 ha or more, because the search drops parcels under `search.min_pa
 is a property of the grid nearby, not of the land.
 
 **Assumptions (owner confirmed the 2 ha cap and the grid meaning, 26.10.2026):**
-- Small plot: a parcel or a cluster of adjacent parcels of `small.ha_min`–`small.ha_max` ha (0,5–2 ha). The owner
-  confirmed 26.10.2026: at most 2 ha.
+- Small plot: one parcel of `small.ha_min`–`small.ha_max` ha (0,5–2 ha). The owner confirmed 26.10.2026: at most
+  2 ha. Single parcels only: one parcel usually means one owner, and adjacent small parcels would need a second
+  clustering rule. A parcel that is part of a 10 ha+ site stays in that site only.
   Under about 0,5 ha a 60 MW container set plus its own 110/SN transformer bay does not fit.
 - "Grid can support 60 MW" is a proxy built from data we have, labelled `estimated`, never a promise
   (brief section 3: no public 110 kV load headroom exists; DSO headroom is MV only). New config `small.grid60`:
@@ -699,12 +700,13 @@ is a property of the grid nearby, not of the land.
 1. **Engine.** `config/scoring.yaml` gets `small: {ha_min, ha_max, grid60: {...}}`; a pure function
    `grid60_tier(features, cfg)` from the existing grid facts; unit tests for each branch (missing grid facts → no tier,
    never "strong").
-2. **Search.** `run_search` takes the parcels it already fetched and, in the same pass, clusters those in the small size
-   range inside the tight grid seed (GPZ ≤ 2 km, line ≤ 0,5 km, node ≤ 3 km), keeps clusters ≤ `small.ha_max`, scores
-   them with `kind = small` and stores `grid60` in `detail`. The area hard filter (`ha_min` 10) does not apply to
-   small sites; the other hard filters do. KIMPZP/KIUG sampling only for small sites with tier strong (cost: 1 request
-   per point per second). Report gets its own funnel lines ("Małe działki: …"). Migration 0014: `kind` and `grid60`
-   columns plus an index.
+2. **Search.** `run_search` takes the parcels it already fetched and, in the same pass, keeps the single parcels of
+   the small size range inside the tight grid seed (GPZ ≤ 2 km, line ≤ 0,5 km, node ≤ 3 km), scores them with
+   `kind = small` (`small_site_config`: the small size range replaces the 10 ha minimum, no "below 60 MW" flag) and
+   stores `grid60` in its column and in `detail`. The other hard filters apply. KIMPZP/KIUG sampling only for small
+   sites with tier strong (cost: 1 request per point per second). Report gets its own funnel lines ("Małe działki
+   …"). Migration 0014: `kind` and `grid60` columns plus an index; until step 3 the list API, the map tiles and the
+   coverage view read `kind = 'standard'` only, so nothing changes on screen.
 3. **API and list.** `GET /api/sites` gets `kind` (`standard` default, so nothing changes for the 10 ha list),
    `max_ha` and `grid60` (`strong` | `possible`). The filter bar gets "Typ: Duże (od 10 ha) / Małe (do 2 ha)" and, for
    small, "Sieć 60 MW+" (prawdopodobnie / do sprawdzenia). Row and card show the tier badge with the honest label

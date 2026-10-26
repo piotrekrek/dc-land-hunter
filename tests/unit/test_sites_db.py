@@ -377,3 +377,36 @@ def test_hide_red_drops_the_sites_the_profile_rejects(seeded: None, client: Test
     other = client.get("/api/sites", params={**params, "profile": "container"}).json()["items"]
     assert victim in [i["site_id"] for i in other]
     assert client.get("/api/sites", params={"hide_red": "true"}).status_code == 422
+
+
+def test_small_plots_are_stored_with_their_tier_but_stay_out_of_the_list_and_the_map(
+    client: TestClient,
+) -> None:
+    from dataclasses import replace
+
+    from dclh_pipeline.scoring.grid60 import Grid60Tier
+    from dclh_pipeline.scoring.types import Fact
+
+    scored = score_candidates(parcel_sites(), layers(), CFG)
+    keep = next(s for s in scored if not s.score.excluded)
+    small = replace(
+        keep,
+        site=replace(keep.site, site_id="site-small"),
+        kind="small",
+        grid60=Fact(Grid60Tier.STRONG, "osm_power"),
+    )
+    with session_scope() as session:
+        write_sites(session, [*scored, small], scored_at=SCORED_AT, powiat="1421")
+    with session_scope() as session:
+        rows = session.execute(
+            text("SELECT site_id, kind, grid60, detail->'grid60'->>'value' FROM sites")
+        ).all()
+        tiles = session.execute(
+            text("SELECT count(*) FROM tiles.sites WHERE site_id = 'site-small'")
+        ).scalar_one()
+    by_id = {r[0]: r[1:] for r in rows}
+    assert by_id["site-small"] == ("small", "strong", "strong")
+    assert all(v == ("standard", None, None) for k, v in by_id.items() if k != "site-small")
+    assert tiles == 0
+    body = client.get("/api/sites", params={"include_excluded": True}).json()
+    assert body["total"] == 3 and "site-small" not in {i["site_id"] for i in body["items"]}
