@@ -40,6 +40,9 @@ log = logging.getLogger(__name__)
 
 JobHandler = Callable[[Session, dict[str, Any]], dict[str, Any]]
 CHECK_INTERRUPTED_PL = "Sprawdzenie przerwane przez restart serwera. Uruchom je ponownie."
+# A search that finds the host short of memory is asked again after the worker restarts lean; this many times.
+MEMORY_RETRIES = 2
+_restart_wanted = False  # set by a job that could not get memory, read by `work`
 
 
 def sync_sources(session: Session, specs: list[SourceSpec]) -> None:
@@ -84,6 +87,22 @@ def _job_search(session: Session, payload: dict[str, Any]) -> dict[str, Any]:
         return {"powiat": teryt, "skipped": "after the night window closed"}
     try:
         found = search_powiat(teryt)
+    except MemoryError:
+        # The host, not the powiat, is the problem (a long-lived worker keeps what its last search used).
+        # Do not count it as an attempt: the planner would send the powiat to the back of the queue. Queue the
+        # search again and have the worker restart, so the retry starts with fresh memory.
+        retries = int(payload.get("memory_retries", 0))
+        if retries < MEMORY_RETRIES:
+            global _restart_wanted
+            with session_scope() as again:
+                enqueue(
+                    again, "search", {**payload, "memory_retries": retries + 1}, requested_by="memory-retry"
+                )
+            _restart_wanted = True
+            raise
+        with session_scope() as attempt:
+            record_attempt(attempt, teryt, ok=False, at=now, error="not enough memory after retries")
+        raise
     except Exception as exc:
         # The job's own session is rolled back on failure, so the attempt is recorded in a session of its own.
         with session_scope() as attempt:
@@ -266,7 +285,9 @@ def work(
     refuses to start below 800 MB free); the container restarts and starts lean. A worker that has run nothing
     keeps waiting: restarting it would free nothing.
     """
+    global _restart_wanted
     executed = 0
+    _restart_wanted = False
     with session_scope() as session:
         interrupted = fail_interrupted(session, kinds, exclude)
     if interrupted:
@@ -281,6 +302,9 @@ def work(
             execute(job_id)
             executed += 1
             idle_since = time.monotonic()
+            if _restart_wanted and exit_after_idle_s is not None:
+                log.warning("a job ran out of memory: exiting so the container restarts with fresh memory")
+                return executed
             continue
         idle = time.monotonic() - idle_since
         if on_idle is not None:
