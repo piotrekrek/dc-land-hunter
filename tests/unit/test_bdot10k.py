@@ -82,16 +82,31 @@ SAMPLE = {
 }
 
 
-def test_fetch_follows_url_gml_and_parse_keeps_standing_residential_buildings(
+def direct_url_down(
+    index: bytes, archive: bytes, seen: list[httpx.Request]
+) -> Callable[[httpx.Request], httpx.Response]:
+    """Like `serve`, but the fixed download address answers 404: only the index can say where the zip is."""
+    inner = serve(index, archive, seen)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == ZIP_URL:
+            seen.append(request)
+            return httpx.Response(404)
+        return inner(request)
+
+    return handler
+
+
+def test_fetch_asks_the_download_server_directly_without_the_index_and_parse_keeps_standing_residential_buildings(
     tmp_path: Path, make_client: ClientFactory
 ) -> None:
     seen: list[httpx.Request] = []
     connector = Bdot10kConnector(SPEC, teryt="1421")
     snapshot = connector.fetch(
-        make_client(serve(index_answer(ZIP_URL), powiat_zip(SAMPLE), seen)), SnapshotStore(tmp_path)
+        make_client(serve(index_answer("https://wrong.example/x"), powiat_zip(SAMPLE), seen)),
+        SnapshotStore(tmp_path),
     )
-    assert "<Literal>1421</Literal>" in seen[0].url.params["FILTER"]
-    assert str(seen[1].url) == ZIP_URL
+    assert [str(r.url) for r in seen] == [ZIP_URL]  # one request, no lookup in the index
     assert snapshot.url == ZIP_URL
     table = connector.parse(snapshot)
     # 1 standing + 1 under construction; the ruin and the factory are left out.
@@ -101,11 +116,53 @@ def test_fetch_follows_url_gml_and_parse_keeps_standing_residential_buildings(
     assert tuple(table.total_bounds[:2]) == (625_000, 480_000)  # easting first, not swapped
 
 
+def test_the_fixed_address_is_the_voivodeship_folder_and_the_four_digit_code() -> None:
+    assert Bdot10kConnector(SPEC, teryt="0226").direct_url == (
+        "https://opendata.geoportal.gov.pl/bdot10k/schemat2021/02/0226_GML.zip"
+    )
+    assert Bdot10kConnector(SPEC, teryt="226").direct_url.endswith(
+        "/02/0226_GML.zip"
+    )  # padded like the TERYT
+
+
+def test_when_the_fixed_address_fails_the_index_is_asked_and_its_url_is_used(
+    tmp_path: Path, make_client: ClientFactory
+) -> None:
+    moved = ZIP_URL.replace("schemat2021", "schemat2027")
+    seen: list[httpx.Request] = []
+    connector = Bdot10kConnector(SPEC, teryt="1421")
+    snapshot = connector.fetch(
+        make_client(direct_url_down(index_answer(moved), powiat_zip(SAMPLE), seen)), SnapshotStore(tmp_path)
+    )
+    assert snapshot.url == moved
+    assert (
+        "<Literal>1421</Literal>"
+        in next(r for r in seen if r.url.host == "mapy.geoportal.gov.pl").url.params["FILTER"]
+    )
+    assert len(connector.parse(snapshot)) == 2
+
+
+def test_a_timeout_on_the_fixed_address_also_falls_back_to_the_index(
+    tmp_path: Path, make_client: ClientFactory
+) -> None:
+    inner = serve(index_answer(ZIP_URL.replace("schemat2021", "schemat2027")), powiat_zip(SAMPLE), [])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == ZIP_URL:
+            raise httpx.ReadTimeout("slow", request=request)
+        return inner(request)
+
+    snapshot = Bdot10kConnector(SPEC, teryt="1421").fetch(
+        make_client(handler, retries=0), SnapshotStore(tmp_path)
+    )
+    assert "schemat2027" in snapshot.url
+
+
 def test_download_link_to_another_host_is_refused(tmp_path: Path, make_client: ClientFactory) -> None:
     bad = "https://example.com/bdot10k/schemat2021/14/1421_GML.zip"
     with pytest.raises(ValueError, match="unexpected download URL"):
         Bdot10kConnector(SPEC, teryt="1421").fetch(
-            make_client(serve(index_answer(bad), b"", [])), SnapshotStore(tmp_path)
+            make_client(direct_url_down(index_answer(bad), b"", [])), SnapshotStore(tmp_path)
         )
 
 
@@ -113,16 +170,23 @@ def test_link_to_another_powiat_is_refused(tmp_path: Path, make_client: ClientFa
     other = ZIP_URL.replace("1421_GML", "1418_GML")
     with pytest.raises(ValueError, match="unexpected download URL"):
         Bdot10kConnector(SPEC, teryt="1421").fetch(
-            make_client(serve(index_answer(other), b"", [])), SnapshotStore(tmp_path)
+            make_client(direct_url_down(index_answer(other), b"", [])), SnapshotStore(tmp_path)
         )
 
 
 def test_unknown_powiat_is_reported(tmp_path: Path, make_client: ClientFactory) -> None:
     empty = b'<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" numberMatched="0" numberReturned="0"/>'
+    connector = Bdot10kConnector(SPEC, teryt="9999")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        if request.url.host == "mapy.geoportal.gov.pl":
+            return httpx.Response(200, content=empty)
+        return httpx.Response(404)  # no such file on the download server either
+
     with pytest.raises(ValueError, match="got 0"):
-        Bdot10kConnector(SPEC, teryt="9999").fetch(
-            make_client(serve(empty, b"", [])), SnapshotStore(tmp_path)
-        )
+        connector.fetch(make_client(handler), SnapshotStore(tmp_path))
 
 
 def test_a_non_zip_download_is_refused(tmp_path: Path, make_client: ClientFactory) -> None:

@@ -8,8 +8,11 @@ member `…__OT_BUBD_A.xml`, EPSG:2180, easting-first. Residential means `funkcj
 mieszkalne"`; buildings with `kategoriaIstnienia = "zniszczony"` (ruins) are left out. Buildings under
 construction count: they will be lived in.
 
-`fetch()` looks the URL up in the WFS (one feature, filtered by TERYT) and stores the zip as it is. `parse()`
-reads only the buildings member, straight from the zip.
+`fetch()` asks the download server for the zip by its fixed address
+(`schemat2021/<voivodeship>/<teryt>_GML.zip`, the URL the index gives) and stores it as it is. Only when that
+fails does it look the URL up in the WFS (one feature, filtered by TERYT): on 26.10.2026 that lookup hung for
+minutes and failed eight searches while the download server answered at once. `parse()` reads only the
+buildings member, straight from the zip.
 
 Forest (`forest` constraint, hard filter `forest_pct_over`) comes from the same zip, member `…__OT_PTLZ_A.xml`
 (BDOT10k land cover, "pokrycie terenu: tereny leśne lub zadrzewione"). Only `rodzaj = "las"` counts as forest:
@@ -20,6 +23,7 @@ Ls is not used: KIUG gives it only per parcel, and a point sample cannot measure
 
 from __future__ import annotations
 
+import logging
 import re
 import tempfile
 import zipfile
@@ -28,6 +32,7 @@ from typing import ClassVar
 from urllib.parse import urlsplit
 
 import geopandas as gpd
+import httpx
 from pyogrio import read_dataframe
 
 from dclh_pipeline.config import SourceSpec
@@ -49,6 +54,8 @@ STATUS_FIELD = "kategoriaIstnienia"
 RESIDENTIAL = "budynki mieszkalne"
 DESTROYED = "zniszczony"
 EPSG = 2180
+
+log = logging.getLogger(__name__)
 
 _URL_GML = re.compile(r"<ms:URL_GML>\s*([^<\s]+)\s*</ms:URL_GML>")
 _TERYT = re.compile(r"\d{4}")
@@ -81,6 +88,11 @@ class Bdot10kConnector(Source):
             raise ValueError(f"BDOT10k: a powiat TERYT has 4 digits, got {teryt!r}")
         self.teryt = teryt
 
+    @property
+    def direct_url(self) -> str:
+        """Where the index puts this powiat's zip: the voivodeship (first two digits) is the folder."""
+        return f"https://{DOWNLOAD_HOST}/bdot10k/schemat2021/{self.teryt[:2]}/{self.teryt}_GML.zip"
+
     def zip_url(self, client: PoliteClient) -> str:
         resp = client.get(WFS_URL, params=index_params(self.teryt))
         resp.raise_for_status()
@@ -99,12 +111,17 @@ class Bdot10kConnector(Source):
         return url
 
     def fetch(self, client: PoliteClient, store: SnapshotStore) -> Snapshot:
-        url = self.zip_url(client)
         tmp_dir = store.root / self.id / "tmp"
         tmp_dir.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(dir=tmp_dir, suffix=".zip", delete=False) as fh:
             dest = Path(fh.name)
-        client.download(url, dest)
+        url = self.direct_url
+        try:
+            client.download(url, dest)
+        except (httpx.HTTPStatusError, httpx.TransportError) as exc:
+            log.warning("BDOT10k: the fixed address failed (%s); looking the URL up in the index", exc)
+            url = self.zip_url(client)
+            client.download(url, dest)
         if not zipfile.is_zipfile(dest):
             dest.unlink()
             raise ValueError(f"BDOT10k: {url} is not a zip file")
