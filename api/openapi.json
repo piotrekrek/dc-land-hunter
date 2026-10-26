@@ -2091,6 +2091,44 @@
         "title": "FailingPowiat",
         "description": "A powiat whose most recent search job failed, so its sites are going stale."
       },
+      "Grid60": {
+        "properties": {
+          "strong_gpz110_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Strong Gpz110 Km",
+            "default": 1.0
+          },
+          "strong_min_110_lines": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Strong Min 110 Lines",
+            "default": 2
+          },
+          "strong_node_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Strong Node Km",
+            "default": 3.0
+          },
+          "possible_gpz110_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Possible Gpz110 Km",
+            "default": 2.0
+          },
+          "possible_line110_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Possible Line110 Km",
+            "default": 0.5
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Grid60",
+        "description": "Distances (km) at which the grid near a small plot can likely carry 60 MW. A proxy, not capacity."
+      },
       "GridParams": {
         "properties": {
           "line110_km_full": {
@@ -3327,6 +3365,20 @@
               "soil_points_per_site": 5
             }
           },
+          "small": {
+            "$ref": "#/components/schemas/SmallSites",
+            "default": {
+              "ha_min": 0.5,
+              "ha_max": 2.0,
+              "grid60": {
+                "possible_gpz110_km": 2.0,
+                "possible_line110_km": 0.5,
+                "strong_gpz110_km": 1.0,
+                "strong_min_110_lines": 2,
+                "strong_node_km": 3.0
+              }
+            }
+          },
           "connection_cost": {
             "$ref": "#/components/schemas/ConnectionCost"
           }
@@ -3964,6 +4016,36 @@
           "items"
         ],
         "title": "SitesPage"
+      },
+      "SmallSites": {
+        "properties": {
+          "ha_min": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Ha Min",
+            "default": 0.5
+          },
+          "ha_max": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Ha Max",
+            "default": 2.0
+          },
+          "grid60": {
+            "$ref": "#/components/schemas/Grid60",
+            "default": {
+              "strong_gpz110_km": 1.0,
+              "strong_min_110_lines": 2,
+              "strong_node_km": 3.0,
+              "possible_gpz110_km": 2.0,
+              "possible_line110_km": 0.5
+            }
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SmallSites",
+        "description": "Small plots (up to 2 ha) where the grid, not the land, carries the 60 MW (PLAN.md)."
       },
       "SourceOut": {
         "properties": {

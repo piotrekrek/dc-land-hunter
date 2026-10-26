@@ -670,3 +670,48 @@ backend and migration 0012, (3) profile cards in the result, (4) list switch, hi
 (5) site card and docs. Next, each needing data work: MPZP symbol and text rules (container bans, minima), OUZ and plan ogólny
 zones, road access (OSM), closed areas (MON), fibre, acoustic calculator, bulk search of small plots for containers, profile
 colours on the map.
+
+### Small plots with 60 MW grid (26.10.2026)
+
+Request from a partner (A. Kusz, 26.10.2026): "a report of plots up to 2 ha with 60 MW plus". The owner confirmed the
+meaning: a **small plot where the grid can support at least 60 MW**. This is the "bulk search of small plots for
+containers" from the profiles round. Today it cannot be answered: the `sites` table holds 23,509 sites from 21 powiats,
+all of them 10 ha or more, because the search drops parcels under `search.min_parcel_ha` (1 ha) and clusters under
+`target.ha_min` (10 ha). Also `estimated_mw` is area × 6 MW/ha, so 2 ha shows about 12 MW. For these plots the 60 MW
+is a property of the grid nearby, not of the land.
+
+**Assumptions (owner confirmed the 2 ha cap and the grid meaning, 26.10.2026):**
+- Small plot: a parcel or a cluster of adjacent parcels of `small.ha_min`–`small.ha_max` ha (0,5–2 ha). The owner
+  confirmed 26.10.2026: at most 2 ha.
+  Under about 0,5 ha a 60 MW container set plus its own 110/SN transformer bay does not fit.
+- "Grid can support 60 MW" is a proxy built from data we have, labelled `estimated`, never a promise
+  (brief section 3: no public 110 kV load headroom exists; DSO headroom is MV only). New config `small.grid60`:
+  - **strong** ("Sieć 60 MW+: prawdopodobnie"): a GPZ 110/SN ≤ 1 km **and** at least two independent 110 kV lines
+    ≤ 3 km (N-1), **or** a PSE 220/400 kV node ≤ 3 km;
+  - **possible** ("Sieć 60 MW+: do sprawdzenia"): a GPZ 110/SN ≤ 2 km, or a 110 kV line ≤ 0,5 km;
+  - anything else is not stored as a small site at all (this is what keeps the volume sane).
+  The rule also uses the facts we already have: a closed PSE switchyard near the GPZ downgrades strong → possible.
+- Small sites live in the same `sites` table with a new column `kind` (`standard` | `small`), so map, card, profiles,
+  watches and export work unchanged. `estimated_mw` stays area × density (honest about the land); the list and card
+  show the grid tier next to it.
+
+**Steps (one PR each):**
+1. **Engine.** `config/scoring.yaml` gets `small: {ha_min, ha_max, grid60: {...}}`; a pure function
+   `grid60_tier(features, cfg)` from the existing grid facts; unit tests for each branch (missing grid facts → no tier,
+   never "strong").
+2. **Search.** `run_search` takes the parcels it already fetched and, in the same pass, clusters those in the small size
+   range inside the tight grid seed (GPZ ≤ 2 km, line ≤ 0,5 km, node ≤ 3 km), keeps clusters ≤ `small.ha_max`, scores
+   them with `kind = small` and stores `grid60` in `detail`. The area hard filter (`ha_min` 10) does not apply to
+   small sites; the other hard filters do. KIMPZP/KIUG sampling only for small sites with tier strong (cost: 1 request
+   per point per second). Report gets its own funnel lines ("Małe działki: …"). Migration 0014: `kind` and `grid60`
+   columns plus an index.
+3. **API and list.** `GET /api/sites` gets `kind` (`standard` default, so nothing changes for the 10 ha list),
+   `max_ha` and `grid60` (`strong` | `possible`). The filter bar gets "Typ: Duże (od 10 ha) / Małe (do 2 ha)" and, for
+   small, "Sieć 60 MW+" (prawdopodobnie / do sprawdzenia). Row and card show the tier badge with the honest label
+   "szacunek z odległości do sieci, nie potwierdzona moc".
+4. **Backfill and report.** Re-run the search for the 21 powiats already done (the nightly queue picks them up in
+   priority order), then export the small-plot list (CSV/one-pager, existing export) for the partner.
+
+**Risks:** volume (thousands of farm parcels near lines; the tight seed and hard filters are the guard, measured on one
+powiat before backfill); a 60 MW load on 0,5–2 ha needs ~30–120 MW/ha, which only dense liquid-cooled containers reach,
+so the card says so; zoning for most small plots will be "unknown".

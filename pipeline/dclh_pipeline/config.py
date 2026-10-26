@@ -164,6 +164,30 @@ class SearchParams(_Model):
     soil_points_per_site: int = Field(default=5, ge=1)
 
 
+class Grid60(_Model):
+    """Distances (km) at which the grid near a small plot can likely carry 60 MW. A proxy, not capacity."""
+
+    strong_gpz110_km: float = Field(default=1.0, gt=0)
+    strong_min_110_lines: int = Field(default=2, ge=1)  # within grid.two_independent_110_lines_within_km
+    strong_node_km: float = Field(default=3.0, gt=0)
+    possible_gpz110_km: float = Field(default=2.0, gt=0)
+    possible_line110_km: float = Field(default=0.5, gt=0)
+
+
+class SmallSites(_Model):
+    """Small plots (up to 2 ha) where the grid, not the land, carries the 60 MW (PLAN.md)."""
+
+    ha_min: float = Field(default=0.5, gt=0)
+    ha_max: float = Field(default=2.0, gt=0)
+    grid60: Grid60 = Grid60()
+
+    @model_validator(mode="after")
+    def _range(self) -> SmallSites:
+        if not self.ha_min < self.ha_max:
+            raise ValueError("small.ha_min must be below small.ha_max")
+        return self
+
+
 class ConnectionCost(_Model):
     legal_basis: str
     verified: bool
@@ -189,6 +213,7 @@ class ScoringConfig(_Model):
     proxies: Proxies = Proxies()
     prefilter: Prefilter
     search: SearchParams = SearchParams()
+    small: SmallSites = SmallSites()
     connection_cost: ConnectionCost
 
 
