@@ -149,3 +149,91 @@ def test_a_worker_that_has_run_nothing_keeps_waiting() -> None:
             jobs.work(kinds=["discover"], interval_s=0, exit_after_idle_s=0.0)
     finally:
         jobs.time.sleep = original
+
+
+# ----------------------------------------------------------------------------- memory: retry, don't punish the powiat
+
+
+@pytest.fixture
+def short_of_memory(monkeypatch: pytest.MonkeyPatch) -> None:
+    from dclh_pipeline import jobs
+
+    def refuse(teryt: str, *args: object, **kwargs: object) -> None:
+        raise MemoryError("only 500 MB of memory is available, the OSM parse wants at least 800 MB")
+
+    monkeypatch.setattr(jobs, "search_powiat", refuse)
+    monkeypatch.setattr(jobs, "_restart_wanted", False)
+    with session_scope() as session:
+        session.execute(text("DELETE FROM search_runs"))
+
+
+def search_jobs() -> list[tuple[str, dict[str, object]]]:
+    with session_scope() as session:
+        rows = session.query(JobRow).filter(JobRow.kind == "search").order_by(JobRow.id).all()
+        return [(row.status, dict(row.payload)) for row in rows]
+
+
+def test_a_search_that_finds_no_memory_is_queued_again_and_not_counted_as_an_attempt(
+    short_of_memory: None,
+) -> None:
+    from dclh_pipeline.jobs import execute
+
+    with session_scope() as session:
+        job = enqueue(session, "search", {"powiat": "0226", "not_after": "2099-01-01T00:00:00+00:00"})
+        job_id = job.id
+    execute(job_id)
+    first, retry = search_jobs()
+    assert first[0] == "failed"
+    assert retry == (
+        "pending",
+        {"powiat": "0226", "not_after": "2099-01-01T00:00:00+00:00", "memory_retries": 1},
+    )
+    with session_scope() as session:
+        assert (
+            session.execute(text("SELECT count(*) FROM search_runs WHERE teryt = '0226'")).scalar_one() == 0
+        )
+
+
+def test_after_two_retries_the_attempt_is_recorded_and_nothing_is_queued(short_of_memory: None) -> None:
+    from dclh_pipeline.jobs import MEMORY_RETRIES, execute
+
+    with session_scope() as session:
+        job_id = enqueue(session, "search", {"powiat": "0226", "memory_retries": MEMORY_RETRIES}).id
+    execute(job_id)
+    assert len(search_jobs()) == 1
+    with session_scope() as session:
+        row = session.execute(text("SELECT status, error FROM search_runs WHERE teryt = '0226'")).one()
+    assert row.status == "failed" and "memory" in row.error
+
+
+def test_the_worker_exits_after_a_memory_failure_instead_of_taking_the_next_job(
+    short_of_memory: None,
+) -> None:
+    from dclh_pipeline.jobs import work
+
+    with session_scope() as session:
+        enqueue(session, "search", {"powiat": "0226"})
+        enqueue(session, "search", {"powiat": "0261"})
+    assert (
+        work(kinds=["search"], interval_s=0.01, exit_after_idle_s=60.0) == 1
+    )  # returns at once, not after 60 s
+    statuses = [status for status, _ in search_jobs()]
+    assert statuses == [
+        "failed",
+        "pending",
+        "pending",
+    ]  # the second powiat and the retry wait for the restart
+
+
+def test_another_kind_of_failure_does_not_restart_the_worker(monkeypatch: pytest.MonkeyPatch) -> None:
+    from dclh_pipeline import jobs
+
+    def broken(teryt: str, *args: object, **kwargs: object) -> None:
+        raise RuntimeError("the register is down")
+
+    monkeypatch.setattr(jobs, "search_powiat", broken)
+    monkeypatch.setattr(jobs, "_restart_wanted", False)
+    with session_scope() as session:
+        job_id = enqueue(session, "search", {"powiat": "0226"}).id
+    jobs.execute(job_id)
+    assert jobs._restart_wanted is False and len(search_jobs()) == 1
