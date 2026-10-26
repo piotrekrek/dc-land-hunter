@@ -91,6 +91,19 @@ search:
   # one request at 1 per second, so 800 kept sites (powiat 0201) cost up to about 67 minutes.
   soil_points_per_site: 5
 
+# Small plots (up to 2 ha) for a 60 MW load: the grid nearby, not the land, carries the power. A plot gets a tier
+# only from these distances (a proxy, "estimated"; no public 110 kV load headroom exists):
+#   strong:   GPZ 110/SN <= strong_gpz110_km with >= strong_min_110_lines 110 kV lines within
+#             grid.two_independent_110_lines_within_km (N-1), or a 220/400 kV node <= strong_node_km;
+#             a closed PSE switchyard nearby lowers strong to possible;
+#   possible: GPZ 110/SN <= possible_gpz110_km, or a 110 kV line <= possible_line110_km.
+# Under ha_min a 60 MW container set and its own 110/SN bay do not fit.
+small:
+  ha_min: 0.5
+  ha_max: 2.0
+  grid60: {strong_gpz110_km: 1.0, strong_min_110_lines: 2, strong_node_km: 3.0, possible_gpz110_km: 2.0,
+           possible_line110_km: 0.5}
+
 # Connection-cost calculator (brief section 3, Prawo energetyczne amendment of 30.04.2026).
 # NEEDS LEGAL VERIFICATION. Shown in the UI with the label "wymaga weryfikacji prawnej".
 connection_cost:

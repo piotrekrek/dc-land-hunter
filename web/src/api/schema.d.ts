@@ -767,6 +767,37 @@ export interface components {
             /** Error */
             error: string | null;
         };
+        /**
+         * Grid60
+         * @description Distances (km) at which the grid near a small plot can likely carry 60 MW. A proxy, not capacity.
+         */
+        Grid60: {
+            /**
+             * Strong Gpz110 Km
+             * @default 1
+             */
+            strong_gpz110_km: number;
+            /**
+             * Strong Min 110 Lines
+             * @default 2
+             */
+            strong_min_110_lines: number;
+            /**
+             * Strong Node Km
+             * @default 3
+             */
+            strong_node_km: number;
+            /**
+             * Possible Gpz110 Km
+             * @default 2
+             */
+            possible_gpz110_km: number;
+            /**
+             * Possible Line110 Km
+             * @default 0.5
+             */
+            possible_line110_km: number;
+        };
         /** GridParams */
         GridParams: {
             /** Line110 Km Full */
@@ -1222,6 +1253,20 @@ export interface components {
              *     }
              */
             search: components["schemas"]["SearchParams"];
+            /**
+             * @default {
+             *       "ha_min": 0.5,
+             *       "ha_max": 2,
+             *       "grid60": {
+             *         "possible_gpz110_km": 2,
+             *         "possible_line110_km": 0.5,
+             *         "strong_gpz110_km": 1,
+             *         "strong_min_110_lines": 2,
+             *         "strong_node_km": 3
+             *       }
+             *     }
+             */
+            small: components["schemas"]["SmallSites"];
             connection_cost: components["schemas"]["ConnectionCost"];
         };
         /** SearchParams */
@@ -1413,6 +1458,32 @@ export interface components {
             items: components["schemas"]["SiteSummary"][];
             /** Next Cursor */
             next_cursor?: string | null;
+        };
+        /**
+         * SmallSites
+         * @description Small plots (up to 2 ha) where the grid, not the land, carries the 60 MW (PLAN.md).
+         */
+        SmallSites: {
+            /**
+             * Ha Min
+             * @default 0.5
+             */
+            ha_min: number;
+            /**
+             * Ha Max
+             * @default 2
+             */
+            ha_max: number;
+            /**
+             * @default {
+             *       "strong_gpz110_km": 1,
+             *       "strong_min_110_lines": 2,
+             *       "strong_node_km": 3,
+             *       "possible_gpz110_km": 2,
+             *       "possible_line110_km": 0.5
+             *     }
+             */
+            grid60: components["schemas"]["Grid60"];
         };
         /** SourceOut */
         SourceOut: {
