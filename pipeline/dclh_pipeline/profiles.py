@@ -18,6 +18,9 @@ from dclh_pipeline.scoring.engine import ramp_down
 from dclh_pipeline.scoring.types import Fact, SiteFeatures, ZoningKind
 
 NEUTRAL = 50.0  # soft score of an input we have no data for
+ROAD_ADJOINING_M = 25.0  # a public road this close runs along the plot
+ROAD_FAR_M = 300.0  # beyond this a public road is no longer "near": access needs a road or an easement
+ROAD_UNKNOWN = "Dostęp do drogi publicznej (EGiB, księga wieczysta)"
 
 
 class Category(StrEnum):
@@ -54,7 +57,6 @@ class ProfileVerdict:
 
 # Checks no data feed covers yet. Always shown, never blocking (docs/SCORING.md, "Profiles").
 MANUAL_CHECKS = (
-    ToCheck("road_access", "Dostęp do drogi publicznej (EGiB, księga wieczysta)", False),
     ToCheck("closed_area", "Teren zamknięty lub jego strefa ochronna (MON)", False),
     ToCheck("mpzp_text", "Zapisy MPZP: zakaz obiektów kontenerowych lub tymczasowych, minima", False),
     ToCheck("title", "Tytuł prawny do nieruchomości (księga wieczysta)", False),
@@ -115,6 +117,33 @@ def profile_verdict(f: SiteFeatures, name: str, cfg: ProfilesConfig) -> ProfileV
         cap_yellow = True
     elif hard.heritage_register and heritage.value:
         blockers.append(reason("heritage", "obiekt w rejestrze zabytków", heritage))
+
+    # --- road access: the distance is measured (BDOT10k); the legal right to use the road never is
+    road = f.dist_public_road_m
+    if road is None:
+        to_check.append(ToCheck("road_access", ROAD_UNKNOWN, False))
+    elif road.value <= ROAD_ADJOINING_M:
+        positives.append(reason("road", f"droga publiczna przy działce ({_n(road.value, 0)} m)", road))
+        to_check.append(ToCheck("road_access", "Prawny dostęp do drogi: sprawdź w księdze wieczystej", False))
+    elif road.value <= ROAD_FAR_M:
+        to_check.append(
+            ToCheck(
+                "road_access",
+                f"Najbliższa droga publiczna w {_n(road.value, 0)} m: dojazd może wymagać służebności "
+                "(księga wieczysta)",
+                False,
+            )
+        )
+    else:
+        to_check.append(
+            ToCheck(
+                "road_access",
+                f"Najbliższa droga publiczna dopiero w {_n(road.value, 0)} m: "
+                "dojazd wymaga drogi lub służebności",
+                False,
+            )
+        )
+        cap_yellow = True
 
     # --- zoning: unknown is not bad (the register is incomplete until 30.11.2026), but it decides the answer
     z = f.zoning.value if f.zoning else None

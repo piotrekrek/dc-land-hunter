@@ -255,3 +255,57 @@ def test_forest_member_missing_is_reported(tmp_path: Path) -> None:
     snapshot = SnapshotStore(tmp_path).save("bdot10k", powiat_zip(SAMPLE), suffix=".zip")
     with pytest.raises(ValueError, match="PTLZ"):
         Bdot10kConnector(SPEC, teryt="1421").parse_forest(snapshot)
+
+
+ROADS_MEMBER = "PL.PZGiK.330.1421/BDOT10k/PL.PZGiK.330.1421__OT_SKDR_L.xml"
+
+
+def road(i: int, x0: float, y0: float, road_class: str, status: str = "eksploatowany") -> str:
+    """One OT_SKDR_L feature (a road centre line) as GUGiK writes it."""
+    return f"""<gml:featureMember><ot:OT_SKDR_L gml:id="droga_{i}">
+<ot:kategoriaIstnienia>{status}</ot:kategoriaIstnienia>
+<ot:klasaDrogi>{road_class}</ot:klasaDrogi>
+<ot:geometria><gml:LineString gml:id="r{i}" srsName="EPSG:2180" srsDimension="2">
+<gml:posList>{x0} {y0} {x0 + 100} {y0}</gml:posList></gml:LineString></ot:geometria>
+</ot:OT_SKDR_L></gml:featureMember>"""
+
+
+def roads_snapshot(tmp_path: Path, members: list[str]):  # type: ignore[no-untyped-def]
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<gml:FeatureCollection xmlns:gml="http://www.opengis.net/gml/3.2" '
+        'xmlns:ot="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0">'
+        + "".join(members)
+        + "</gml:FeatureCollection>"
+    ).encode()
+    return SnapshotStore(tmp_path).save("bdot10k", powiat_zip({ROADS_MEMBER: xml}), suffix=".zip")
+
+
+def test_parse_roads_keeps_public_roads_and_drops_internal_roads_and_ruins(tmp_path: Path) -> None:
+    snapshot = roads_snapshot(
+        tmp_path,
+        [
+            road(1, 625_000, 480_000, "droga lokalna"),
+            road(2, 625_000, 480_100, "droga wewnętrzna"),
+            road(3, 625_000, 480_200, "droga dojazdowa"),
+            road(4, 625_000, 480_300, "droga zbiorcza", status="zniszczony"),
+            road(5, 625_000, 480_400, "droga ekspresowa"),
+        ],
+    )
+    table = Bdot10kConnector(SPEC, teryt="1421").parse_roads(snapshot)
+    assert sorted(table["kind"]) == ["droga dojazdowa", "droga ekspresowa", "droga lokalna"]
+    assert table.crs.to_epsg() == 2180
+    assert set(table.geometry.geom_type) == {"LineString"}
+    assert tuple(table.total_bounds[:2]) == (625_000, 480_000)  # easting first, not swapped
+
+
+def test_a_zip_without_the_road_member_gives_no_roads_not_an_error(tmp_path: Path) -> None:
+    without_roads = {name: body for name, body in SAMPLE.items() if "SKDR" not in name}
+    snapshot = SnapshotStore(tmp_path).save("bdot10k", powiat_zip(without_roads), suffix=".zip")
+    assert Bdot10kConnector(SPEC, teryt="1421").parse_roads(snapshot).empty
+
+
+def test_roads_outside_poland_are_rejected(tmp_path: Path) -> None:
+    snapshot = roads_snapshot(tmp_path, [road(1, 10, 10, "droga lokalna")])
+    with pytest.raises(ValueError, match=r"outside Poland|bounds"):
+        Bdot10kConnector(SPEC, teryt="1421").parse_roads(snapshot)

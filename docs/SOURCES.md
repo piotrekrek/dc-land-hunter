@@ -101,6 +101,17 @@ file or calling the endpoint, as described here.
   easting-first like the buildings. Field `rodzaj`: in 1421 `las` 1,091 polygons / 3,759 ha, `zadrzewienie` 318 / 248 ha,
   `zagajnik` 231 / 229 ha (checked 22.10.2026 on the stored zip). Only `las` feeds the `forest` constraint
   (`forest_pct_over`, 30%): a forest is the deal killer, a tree row or young scrub is not.
+- **`bdot10k` ✓ roads.** Same zip, member `…__OT_SKDR_L.xml` (road centre lines). `klasaDrogi` is `droga wewnętrzna`
+  (internal, 10,369 of 14,121 in one powiat) or a public class (ekspresowa, główna ruchu przyśpieszonego, główna,
+  zbiorcza, lokalna, dojazdowa). Public = not internal and not `zniszczony`; the layer feeds `dist_public_road_m`
+  (profiles only, no change to the score). Parse time 0.4 s, 151 MB peak (25.10.2026, powiat 0226). It says nothing about
+  who may use a road.
+- **Looked for and not available (26.10.2026).** *Land-register number (KW):* the aggregate EGiB parcel service gives
+  geometry and id only, ULDK does not return it, and EKW is CAPTCHA-protected, so only the manual link remains.
+  *Closed military areas (MON):* no dataset on dane.gov.pl; nothing to load. *Heritage register:* see `nid` above.
+  *MPZP provisions:* the RU outline carries the title and validity date of the act (`tytul`, `obowiazujeOd`) but no
+  link to the text, and a parcel with no plan in RU has nothing to show. RU is incomplete until 30.11.2026: check
+  parcels listed as "Brak planu miejscowego w rejestrze" again after that date.
 - **`ru` ✓ zoning** (addresses from the RU "Usługi sieciowe" page):
   - `https://rejestr-urbanistyczny.gov.pl/uslugi-sieciowe/app-pog/wfs`: `app-pog:StrefaPlanistyczna` (506,565 plan
     ogólny zones). The fields `symbol` (e.g. `SJ`, `SU`, `SI`) and `oznaczenie` are readable with pyogrio. EPSG:2180,

@@ -24,6 +24,7 @@ const STYLES: Record<string, LayerStyle> = {
   forest: { fill: "url(#PREFIX-forest)", stroke: "var(--layer-forest)", width: 0.75 },
   housing: { fill: "var(--layer-housing)", stroke: "var(--layer-housing)", width: 0.5, opacity: 0.85 },
   mining: { fill: "url(#PREFIX-mining)", stroke: "var(--ink-2)", width: 0.75 },
+  roads: { fill: "none", stroke: "var(--ink-2)", width: 1.4, dash: "9 3 2 3" },
 };
 const ZONING: LayerStyle = { fill: "var(--fill-2)", stroke: "var(--ink-2)", width: 0.75, dash: "5 3", opacity: 0.8 };
 
@@ -39,13 +40,13 @@ function niceLength(widthM: number): number {
   return [...NICE_M].reverse().find((v) => v <= target) ?? NICE_M[0]!;
 }
 
-function pathData(rings: number[][][]): string {
+function pathData(rings: number[][][], closed = true): string {
   return rings
     .map((ring) => {
       const [first, ...rest] = ring;
       if (!first) return "";
       if (rest.length === 0) return `M${first[0]} ${-first[1]!}h0`; // a point
-      return `M${first[0]} ${-first[1]!}${rest.map(([x, y]) => `L${x} ${-y!}`).join("")}${ring.length > 2 ? "Z" : ""}`;
+      return `M${first[0]} ${-first[1]!}${rest.map(([x, y]) => `L${x} ${-y!}`).join("")}${closed && ring.length > 2 ? "Z" : ""}`;
     })
     .join("");
 }
@@ -129,7 +130,7 @@ export function Sheet({ sheet, photoUrl, className }: { sheet: SheetData; photoU
               <path
                 key={layer.key}
                 data-layer={layer.key}
-                d={pathData(layer.paths)}
+                d={pathData(layer.paths, layer.kind !== "line")}
                 fill={style.fill}
                 fillRule="evenodd"
                 stroke={style.stroke}

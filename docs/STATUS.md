@@ -875,6 +875,14 @@ run nothing; `stack.yml` (Docker + Playwright) runs on pushes to `main`, by hand
 Billing, or run the checks locally (RUNBOOK).
 
 
+## Road access (26.10.2026)
+
+`dist_public_road_m` comes from the BDOT10k road layer (`parse_roads`), loaded with the housing and forest layers of the
+same zip, clipped with a 3 km margin in a check. Profiles show the distance with a plus (up to 25 m), a note on easements
+(up to 300 m) or a yellow cap (beyond); the sheet draws the roads as dashed lines with a layer toggle. Sites stored before this
+change have no road distance until they are scored again, and keep the manual wording. The KW number, closed areas and heritage
+register were looked for and are not available (SOURCES.md).
+
 ## PSE planned stations, map popups, orthophoto (25.10.2026)
 
 Deployed with #113, #114 and #115 (plan in PLAN.md, "Next round").

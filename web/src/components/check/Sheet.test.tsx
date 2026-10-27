@@ -100,3 +100,19 @@ describe("Sheet orthophoto", () => {
     expect(screen.getByRole("status")).toBeInTheDocument();
   });
 });
+
+describe("Sheet roads", () => {
+  it("draws a road as an open line: it is not closed back to where it started, and has no fill", () => {
+    const { container } = render(<Sheet sheet={sheet} />);
+    const road = container.querySelector('[data-layer="roads"]')!;
+    expect(road.getAttribute("d")).toBe("M-50 -20L60 -25L120 -80");
+    expect(road.getAttribute("fill")).toBe("none");
+  });
+
+  it("has a toggle like every other layer", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<Sheet sheet={sheet} />);
+    await user.click(screen.getByRole("button", { name: /Drogi publiczne/ }));
+    expect(container.querySelector('[data-layer="roads"]')).not.toBeInTheDocument();
+  });
+});

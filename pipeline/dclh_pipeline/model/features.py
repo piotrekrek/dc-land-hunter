@@ -386,6 +386,16 @@ def residential_fact(site: BaseGeometry, residential: Layer | None) -> Fact[floa
     return _fact(distance, residential.source_id, residential.as_of, residential.confidence)
 
 
+def public_road_fact(site: BaseGeometry, roads: Layer | None) -> Fact[float] | None:
+    """Distance to the nearest public road, in metres (0 when the site touches one)."""
+    if roads is None:
+        return None
+    distance = roads.index.nearest_distance_m(site)
+    if distance is None:
+        return None
+    return _fact(distance, roads.source_id, roads.as_of, roads.confidence)
+
+
 def residential_clear_fact(
     site: BaseGeometry, residential: Layer | None, threshold_m: float
 ) -> Fact[float] | None:
@@ -456,6 +466,7 @@ class SiteLayers:
     zoning: tuple[ZoningLayer, ...] = ()  # in order of precedence, see `zoning_fact`
     industrial: Layer | None = None  # OSM / BDOT10k industrial and brownfield areas
     residential: Layer | None = None  # residential buildings
+    roads: Layer | None = None  # public roads (BDOT10k lines)
     constraints: dict[str, Layer] = field(default_factory=dict)
     capacity: GpzCapacityLayer | None = None  # DSO published capacity per matched GPZ
     pse_closed: PointLayer | None = None  # PSE closed switchyards (no connection possible)
@@ -499,6 +510,7 @@ def build_site_features(
     features["dist_res_cluster_km"] = res_cluster_km_fact(site.geom, layers.res_clusters)
     features["zoning"] = zoning_fact(site.geom, layers.zoning, layers.industrial)
     features["residential_min_m"] = residential_fact(site.geom, layers.residential)
+    features["dist_public_road_m"] = public_road_fact(site.geom, layers.roads)
     features["residential_clear_ha"] = residential_clear_fact(
         site.geom, layers.residential, cfg.hard_filters["residential_within_m"].threshold_m or 100.0
     )
