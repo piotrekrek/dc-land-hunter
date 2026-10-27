@@ -8,7 +8,7 @@ from typing import Any
 
 import geopandas as gpd
 import pytest
-from shapely.geometry import box
+from shapely.geometry import LineString, box
 
 from dclh_pipeline import layers
 from dclh_pipeline.layers import AreaLayers, StaticLayers, build_site_layers, load_area_layers
@@ -42,7 +42,9 @@ def frame(geoms: list[Any], **columns: list[Any]) -> gpd.GeoDataFrame:
     return gpd.GeoDataFrame(columns, geometry=geoms, crs="EPSG:2180")
 
 
-def fake_connector(parsed: Any = None, *, fail: str | None = None, forest: Any = None) -> type:
+def fake_connector(
+    parsed: Any = None, *, fail: str | None = None, forest: Any = None, roads: Any = None
+) -> type:
     class Connector:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             pass
@@ -58,6 +60,9 @@ def fake_connector(parsed: Any = None, *, fail: str | None = None, forest: Any =
         def parse_forest(self, snapshot: object) -> Any:
             return forest
 
+        def parse_roads(self, snapshot: object) -> Any:
+            return roads if roads is not None else frame([])
+
     return Connector
 
 
@@ -71,7 +76,10 @@ def patched(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
     )
     houses = frame([box(4_300, 4_300, 4_310, 4_310), box(9_000, 9_000, 9_010, 9_010)])
     trees = frame([box(4_400, 4_400, 4_450, 4_450)])
-    monkeypatch.setattr(layers, "Bdot10kConnector", fake_connector(houses, forest=trees))
+    roads = frame(
+        [LineString([(4_000, 4_500), (4_800, 4_500)]), LineString([(9_000, 9_000), (9_500, 9_000)])]
+    )
+    monkeypatch.setattr(layers, "Bdot10kConnector", fake_connector(houses, forest=trees, roads=roads))
     monkeypatch.setattr(layers, "ru_zoning_layers", lambda *a, **k: ())
     return monkeypatch
 
@@ -158,3 +166,19 @@ def test_site_layers_leave_out_what_did_not_load(patched: pytest.MonkeyPatch) ->
     partial = build_site_layers(static_stub(), partial_area, None)
     assert "flood_10_or_1" not in partial.constraints and "flood_0_2" not in partial.constraints
     assert "forest" in partial.constraints and partial.residential is not None
+
+
+def test_public_roads_are_a_layer_and_keep_a_wider_margin_than_the_clip_window(
+    patched: pytest.MonkeyPatch,
+) -> None:
+    whole, _ = load(strict=False)
+    assert whole.roads is not None and len(whole.roads.index) == 2
+    clipped, _ = load(strict=False, clip=BBOX)
+    # BBOX is the window of the check; the road at 9 km is outside it and beyond the 3 km margin, the near one stays.
+    assert clipped.roads is not None and len(clipped.roads.index) == 1
+
+
+def test_a_failed_bdot10k_step_leaves_roads_missing_too(patched: pytest.MonkeyPatch) -> None:
+    patched.setattr(layers, "Bdot10kConnector", fake_connector(fail="timeout"))
+    area, _ = load(strict=False)
+    assert area.roads is None and area.housing is None  # never an empty layer that would read as "no road"

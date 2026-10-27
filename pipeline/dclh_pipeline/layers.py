@@ -66,6 +66,7 @@ from dclh_pipeline.sources.psi import load_psi_layer
 from dclh_pipeline.sources.ru import RuMpzpConnector, RuPlanOgolnyConnector
 
 # Area steps, in the order they run. Keys are what a reporter and the check page see.
+ROAD_MARGIN_M = 3_000.0  # how far beyond a check's window a road still counts as "the nearest one"
 STEP_FLOOD, STEP_MINING, STEP_BDOT10K, STEP_ZONING = "flood", "mining", "bdot10k", "zoning"
 
 
@@ -111,6 +112,7 @@ class AreaLayers:
     mining: dict[str, Layer] | None = None
     housing: Layer | None = None
     forest: Layer | None = None
+    roads: Layer | None = None  # public roads (BDOT10k): lines
     zoning: tuple[ZoningLayer, ...] = ()
 
 
@@ -226,7 +228,7 @@ def load_area_layers(
     silently not apply and zoning would read "unknown".
     """
     reporter = reporter or NullReporter()
-    flood = flood_02 = housing = forest = None
+    flood = flood_02 = housing = forest = roads = None
     mining: dict[str, Layer] | None = None
     zoning: tuple[ZoningLayer, ...] = ()
 
@@ -274,10 +276,13 @@ def load_area_layers(
         if buildings.empty or not buildings.geometry.intersects(powiat_area).any():
             raise ValueError(f"BDOT10k: no residential building of powiat {teryt} lies inside it")
         trees = connector_b.parse_forest(snapshot_b)
+        public_roads = connector_b.parse_roads(snapshot_b)
         if clip is not None:
             window = box(*clip)
             buildings = buildings[buildings.geometry.intersects(window)]
             trees = trees[trees.geometry.intersects(window)]
+            # Roads are asked "how far is the nearest one", so they keep a wider margin than the other layers.
+            public_roads = public_roads[public_roads.geometry.intersects(window.buffer(ROAD_MARGIN_M))]
         housing = Layer(
             source_id="bdot10k",
             index=GeomIndex(buildings.geometry),
@@ -290,14 +295,26 @@ def load_area_layers(
             as_of=snapshot_b.fetched_at,
             confidence=Confidence.VERIFIED,
         )
-        done({"housing": housing, "forest": forest})
+        roads = Layer(
+            source_id="bdot10k",
+            index=GeomIndex(public_roads.geometry),
+            as_of=snapshot_b.fetched_at,
+            confidence=Confidence.VERIFIED,
+        )
+        done({"housing": housing, "forest": forest, "roads": roads})
 
     with _step(reporter, STEP_ZONING, strict) as done:
         zoning = ru_zoning_layers(config, client, store, bbox)
         done(zoning)
 
     return AreaLayers(
-        flood=flood, flood_02=flood_02, mining=mining, housing=housing, forest=forest, zoning=zoning
+        flood=flood,
+        flood_02=flood_02,
+        mining=mining,
+        housing=housing,
+        forest=forest,
+        roads=roads,
+        zoning=zoning,
     )
 
 
@@ -350,6 +367,7 @@ def build_site_layers(static: StaticLayers, area: AreaLayers, industrial: Layer 
         grid=static.grid,
         zoning=area.zoning,
         residential=area.housing,
+        roads=area.roads,
         industrial=industrial,
         constraints=constraints,
         capacity=static.capacity.capacity,

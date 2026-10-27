@@ -46,6 +46,9 @@ INDEX_LAYER = "ms:BDOT10k_powiaty"
 DOWNLOAD_HOST = "opendata.geoportal.gov.pl"
 BUILDINGS_MEMBER_SUFFIX = "__OT_BUBD_A.xml"
 FOREST_MEMBER_SUFFIX = "__OT_PTLZ_A.xml"
+ROADS_MEMBER_SUFFIX = "__OT_SKDR_L.xml"
+ROAD_CLASS_FIELD = "klasaDrogi"
+INTERNAL_ROAD = "droga wewnętrzna"  # private or in-plant: not a public road
 FOREST_FIELD = "rodzaj"
 FOREST = "las"
 FUNCTION_FIELD = "funkcjaOgolnaBudynku"
@@ -168,6 +171,40 @@ class Bdot10kConnector(Source):
         keep = (raw[FOREST_FIELD] == FOREST) & raw.geometry.notna() & ~raw.geometry.is_empty
         table = gpd.GeoDataFrame(
             {"kind": raw.loc[keep, FOREST_FIELD].astype(str).to_numpy()},
+            geometry=raw.geometry[keep].to_numpy(),
+            crs=f"EPSG:{EPSG}",
+        )
+        _check_bounds(table)
+        return table
+
+    def parse_roads(self, snapshot: Snapshot) -> gpd.GeoDataFrame:
+        """Public roads of the powiat as lines in EPSG:2180: every existing road except `droga wewnętrzna`.
+
+        BDOT10k's road class says which roads are internal (private, in-plant); the rest (national to access
+        roads) are public. It does not say who has a legal right to use one: that stays a land-register
+        question. A powiat zip without the road member gives an empty table.
+        """
+        try:
+            member = _member(snapshot, ROADS_MEMBER_SUFFIX)
+        except ValueError:
+            return gpd.GeoDataFrame({"kind": []}, geometry=[], crs=f"EPSG:{EPSG}")
+        raw = read_dataframe(
+            f"/vsizip/{snapshot.path}/{member}",
+            columns=[ROAD_CLASS_FIELD, STATUS_FIELD],
+            SWAP_COORDINATES="NO",
+        )
+        if ROAD_CLASS_FIELD not in raw.columns:
+            raise ValueError(
+                f"BDOT10k: field {ROAD_CLASS_FIELD!r} not found in SKDR; available: {sorted(raw.columns)}"
+            )
+        keep = (
+            (raw[ROAD_CLASS_FIELD] != INTERNAL_ROAD)
+            & (raw[STATUS_FIELD] != DESTROYED)
+            & raw.geometry.notna()
+            & ~raw.geometry.is_empty
+        )
+        table = gpd.GeoDataFrame(
+            {"kind": raw.loc[keep, ROAD_CLASS_FIELD].astype(str).to_numpy()},
             geometry=raw.geometry[keep].to_numpy(),
             crs=f"EPSG:{EPSG}",
         )

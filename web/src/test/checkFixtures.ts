@@ -10,6 +10,7 @@ export const sheet: CheckSiteDetail["sheet"] = {
     { key: "flood", label_pl: "Strefa zalewowa 1%", kind: "polygon", paths: [[[0, 0], [200, 0], [200, 100], [0, 100]]], truncated: false },
     { key: "forest", label_pl: "Las", kind: "polygon", paths: [], truncated: true },
     { key: "housing", label_pl: "Budynki mieszkalne", kind: "polygon", paths: [[[300, 300], [310, 300], [310, 310]]], truncated: false },
+    { key: "roads", label_pl: "Drogi publiczne", kind: "line", paths: [[[-50, 20], [60, 25], [120, 80]]], truncated: false },
     { key: "mining", label_pl: "Obszar górniczy", kind: "polygon", paths: [], truncated: false },
   ],
 };

@@ -614,7 +614,7 @@ def check_parcel(
         "osm_power": static.osm_snapshot.fetched_at,
         "prg": static.prg_snapshot.fetched_at,
     }
-    for name, layer_obj in (("isok", area.flood), ("bdot10k", area.housing)):
+    for name, layer_obj in (("isok", area.flood), ("bdot10k", area.housing)):  # roads share bdot10k's date
         if layer_obj is not None:
             ages[name] = layer_obj.as_of
     for name, layers_obj in (("midas", list((area.mining or {}).values())), ("ru", list(area.zoning))):
@@ -665,6 +665,7 @@ def _sheet(
         ("flood_02", "Strefa zalewowa 0,2%", "polygon", _geoms(area.flood_02)),
         ("forest", "Las", "polygon", _geoms(area.forest)),
         ("housing", "Budynki mieszkalne", "polygon", _geoms(area.housing)),
+        ("roads", "Drogi publiczne", "line", _geoms(area.roads)),
         ("mining", "Obszar górniczy", "polygon", mining),
         *((f"zoning:{kind}", f"Plan: {kind}", "polygon", geoms) for kind, geoms in sorted(zones.items())),
     ]

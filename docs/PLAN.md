@@ -637,6 +637,14 @@ Acceptance: deployed, restore tested, all checks green, no blockers in STATUS.md
   the new code at their next restart, which changes nothing for the search;
 - not browser-checked by the author: the pages were tested with jsdom, one Playwright smoke test and an accessibility scan.
 
+### Follow-up (26.10.2026): road access, and what cannot be fetched
+
+The check card listed six things to check by hand. One is now measured: the distance to the nearest public road from the
+BDOT10k zip that is already downloaded (`dist_public_road_m`, profiles only, drawn on the sheet as "Drogi publiczne").
+The rest were looked for and are not available (SOURCES.md, "Looked for and not available"). **Reminder: after
+30.11.2026, re-run the checks and searches whose zoning says "Brak planu miejscowego w rejestrze"**, because the register
+is expected to be complete by then.
+
 ### Next round (25.10.2026): PSE planned stations, map popups, orthophoto
 
 Owner's order: (1) the PSE planned-stations loader, (2) a look at the nightly search of powiat 3021, (3) "Sprawdź tę

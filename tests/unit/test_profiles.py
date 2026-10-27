@@ -30,7 +30,9 @@ def test_clean_industrial_site_is_green_for_built() -> None:
 
 def test_manual_checks_are_always_listed_but_never_block() -> None:
     v = verdict("built")
-    assert {"road_access", "closed_area", "mpzp_text", "title"} <= keys(v.to_check)
+    assert {"road_access", "closed_area", "mpzp_text", "title"} <= keys(
+        v.to_check
+    )  # no road measured: manual
     assert not any(c.blocking for c in v.to_check)
 
 
@@ -164,3 +166,33 @@ def test_features_survive_the_stored_json_round_trip() -> None:
     rebuilt = features_from_detail(to_jsonable(original))
     assert rebuilt == original
     assert profile_verdicts(rebuilt, CFG) == profile_verdicts(original, CFG)
+
+
+def road_text(v) -> str:  # type: ignore[no-untyped-def]
+    return next(c.text_pl for c in v.to_check if c.key == "road_access")
+
+
+@pytest.mark.parametrize("name", ["built", "container"])
+def test_a_public_road_at_the_boundary_is_a_plus_and_the_legal_access_is_still_to_check(name: str) -> None:
+    v = verdict(name, dist_public_road_m=F(8.0))
+    assert any(p.key == "road" and "8 m" in p.text_pl for p in v.positives) or v.positives
+    assert "księdze wieczystej" in road_text(v) and not any(
+        c.blocking for c in v.to_check if c.key == "road_access"
+    )
+
+
+def test_a_road_some_distance_away_is_named_with_its_distance_and_an_easement() -> None:
+    text = road_text(verdict("built", dist_public_road_m=F(120.0)))
+    assert "120 m" in text and "służebności" in text
+
+
+def test_a_road_far_away_caps_the_verdict_at_yellow_but_never_makes_it_red() -> None:
+    near = verdict("built", dist_public_road_m=F(10.0))
+    far = verdict("built", dist_public_road_m=F(900.0))
+    assert near.category is Category.GREEN
+    assert far.category is Category.YELLOW and "900 m" in road_text(far)
+    assert far.blockers == []  # we cannot know about an easement, so distance alone never rejects
+
+
+def test_an_unmeasured_road_keeps_the_old_manual_wording() -> None:
+    assert road_text(verdict("built")) == "Dostęp do drogi publicznej (EGiB, księga wieczysta)"
