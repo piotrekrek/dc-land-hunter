@@ -282,9 +282,98 @@ def test_small_lots_dropped_before_clustering_count_as_expansion_land() -> None:
         ("far-lot", box(X0 + 600, Y0, X0 + 650, Y0 + 100)),  # 0.5 ha, 200 m away
     ]
     frame = gpd.GeoDataFrame({"parcel_id": [r[0] for r in rows]}, geometry=[r[1] for r in rows], crs=2180)
-    (site,) = run_search(AREA, SiteLayers(grid=grid()), CFG, lambda tiles: frame).scored
+    # The two lots are also small plots near the GPZ; this test is about the 16 ha site.
+    (site,) = [
+        s
+        for s in run_search(AREA, SiteLayers(grid=grid()), CFG, lambda tiles: frame).scored
+        if s.kind == "standard"
+    ]
     fact = site.features.expansion_ha
     assert fact is not None and fact.value == pytest.approx(0.5)
     assert fact.source_id == "egib" and fact.confidence == "verified"
     item = next(i for i in site.score.items if i.key == "land_expansion")
     assert item.points > 0 and "0,5 ha" in item.explanation_pl
+
+
+# --------------------------------------------------------------------------- small plots (up to 2 ha)
+
+
+def two_line_grid():
+    """The GPZ of `grid()` with a second 110 kV line, so it is N-1: a plot within 1 km of it is "strong"."""
+    return build_grid_index(
+        [Substation(1, SubstationClass.GPZ_110_SN, (110_000, 15_000), Point(X0 + 900, Y0 + 200))],
+        [
+            Line(10, 110_000, LineString([(X0 + 1_000, Y0 - 5_000), (X0 + 1_000, Y0 + 5_000)])),
+            Line(11, 110_000, LineString([(X0 - 5_000, Y0 + 1_000), (X0 + 5_000, Y0 + 1_000)])),
+        ],
+    )
+
+
+def plots() -> gpd.GeoDataFrame:
+    rows = [
+        ("plot-near", box(X0 + 500, Y0 - 300, X0 + 600, Y0 - 150)),  # 1.5 ha, ~0.5 km from the GPZ
+        ("plot-tiny", box(X0 + 700, Y0 - 300, X0 + 750, Y0 - 250)),  # 0.25 ha: under small.ha_min
+        ("plot-big", box(X0 + 400, Y0 - 900, X0 + 600, Y0 - 750)),  # 3 ha: over small.ha_max, under 10 ha
+        ("plot-far", box(X0 + 3_000, Y0 - 3_000, X0 + 3_100, Y0 - 2_850)),  # 1.5 ha, 2 km from the line
+    ]
+    return gpd.GeoDataFrame({"parcel_id": [r[0] for r in rows]}, geometry=[r[1] for r in rows], crs=2180)
+
+
+def test_small_plots_near_the_grid_are_kept_with_their_tier() -> None:
+    from dclh_pipeline.scoring.grid60 import Grid60Tier
+
+    result = run_search(AREA, SiteLayers(grid=two_line_grid()), CFG, lambda tiles: plots())
+    (plot,) = result.scored
+    assert plot.kind == "small" and plot.site.parcel_ids == ("plot-near",)
+    assert plot.grid60 is not None and plot.grid60.value is Grid60Tier.STRONG
+    assert plot.site.area_ha == pytest.approx(1.5)
+    # The 10 ha minimum and the "below 60 MW" flag are for standard sites, not for small plots.
+    assert not plot.score.excluded
+    assert not any("poniżej minimum" in f for f in plot.score.flags_pl)
+    report = result.report
+    assert (report.small_candidates, report.small_kept, report.small_strong) == (1, 1, 1)
+
+
+def test_one_line_near_the_gpz_is_only_possible() -> None:
+    from dclh_pipeline.scoring.grid60 import Grid60Tier
+
+    (plot,) = run_search(AREA, SiteLayers(grid=grid()), CFG, lambda tiles: plots()).scored
+    assert plot.grid60 is not None and plot.grid60.value is Grid60Tier.POSSIBLE
+
+
+def test_a_parcel_of_a_standard_site_is_not_also_a_small_plot() -> None:
+    rows = [
+        ("field", box(X0, Y0, X0 + 400, Y0 + 400)),  # 16 ha
+        ("strip", box(X0 + 400, Y0, X0 + 450, Y0 + 300)),  # 1.5 ha, touches the field: part of the site
+    ]
+    frame = gpd.GeoDataFrame({"parcel_id": [r[0] for r in rows]}, geometry=[r[1] for r in rows], crs=2180)
+    result = run_search(AREA, SiteLayers(grid=two_line_grid()), CFG, lambda tiles: frame)
+    assert [(s.kind, s.site.parcel_ids) for s in result.scored] == [("standard", ("field", "strip"))]
+
+
+def test_hard_filters_still_apply_to_small_plots() -> None:
+    from dclh_pipeline.model.features import GeomIndex, Layer
+    from dclh_pipeline.model.provenance import Confidence
+
+    flood = Layer(
+        "isok", GeomIndex([box(X0 + 500, Y0 - 300, X0 + 520, Y0 - 280)]), confidence=Confidence.VERIFIED
+    )
+    layers = SiteLayers(grid=two_line_grid(), constraints={"flood_10_or_1": flood})
+    (plot,) = run_search(AREA, layers, CFG, lambda tiles: plots()).scored
+    assert plot.kind == "small" and plot.score.excluded
+
+
+def test_kimpzp_samples_strong_small_plots_but_not_possible_ones() -> None:
+    from dclh_pipeline.model.features import ZoningLayer
+
+    asked: list[list[str]] = []
+
+    def sample(sites):  # type: ignore[no-untyped-def]
+        asked.append([s.parcel_ids[0] for s in sites])
+        return ZoningLayer("kimpzp", None, ()), {}
+
+    run_search(AREA, SiteLayers(grid=two_line_grid()), CFG, lambda t: plots(), sample_zoning=sample)
+    assert asked == [["plot-near"]]
+    asked.clear()
+    run_search(AREA, SiteLayers(grid=grid()), CFG, lambda t: plots(), sample_zoning=sample)
+    assert asked == []

@@ -93,7 +93,11 @@ def list_sites(
     offset: Annotated[int, Query(ge=0)] = 0,
     cursor: Annotated[str | None, Query(max_length=512)] = None,
 ) -> SitesPage:
-    where = "WHERE estimated_mw >= :min_mw AND area_ha >= :min_ha AND (:include_excluded OR NOT excluded)"
+    # Small plots (`kind = 'small'`) get their own list later (PLAN.md, "Small plots with 60 MW grid").
+    where = (
+        "WHERE kind = 'standard' AND estimated_mw >= :min_mw AND area_ha >= :min_ha"
+        " AND (:include_excluded OR NOT excluded)"
+    )
     params: dict[str, Any] = {"min_mw": min_mw, "min_ha": min_ha, "include_excluded": include_excluded}
     if powiat is not None:
         where += " AND powiat = :powiat"
