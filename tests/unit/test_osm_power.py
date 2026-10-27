@@ -314,9 +314,34 @@ def test_parse_refuses_to_start_when_memory_is_short(tmp_path: Path, monkeypatch
     monkeypatch.setattr("dclh_pipeline.sources.osm_power.available_memory_mb", lambda: 300)
     with pytest.raises(MemoryError, match="300 MB"):
         require_free_memory(800)
+    monkeypatch.setattr("dclh_pipeline.sources.osm_power.MEMORY_WAIT_S", 0.0)
     path = _write_many_nodes_pbf(tmp_path / "many.osm.pbf")
     with pytest.raises(MemoryError):
         _connector(min_substations=1, min_available_mb=800).parse(_snapshot(path))
+
+
+def test_the_guard_waits_for_memory_to_free_up(monkeypatch: pytest.MonkeyPatch) -> None:
+    readings = iter([300, 500, 900])
+    clock = {"now": 0.0}
+    monkeypatch.setattr("dclh_pipeline.sources.osm_power.available_memory_mb", lambda: next(readings))
+    monkeypatch.setattr("dclh_pipeline.sources.osm_power.time.monotonic", lambda: clock["now"])
+    monkeypatch.setattr(
+        "dclh_pipeline.sources.osm_power.time.sleep", lambda s: clock.update(now=clock["now"] + s)
+    )
+    require_free_memory(800, wait_s=600)  # the third reading is enough: no error
+    assert clock["now"] == 60.0
+
+
+def test_the_guard_gives_up_after_the_wait(monkeypatch: pytest.MonkeyPatch) -> None:
+    clock = {"now": 0.0}
+    monkeypatch.setattr("dclh_pipeline.sources.osm_power.available_memory_mb", lambda: 300)
+    monkeypatch.setattr("dclh_pipeline.sources.osm_power.time.monotonic", lambda: clock["now"])
+    monkeypatch.setattr(
+        "dclh_pipeline.sources.osm_power.time.sleep", lambda s: clock.update(now=clock["now"] + s)
+    )
+    with pytest.raises(MemoryError, match="300 MB"):
+        require_free_memory(800, wait_s=100)
+    assert clock["now"] == 100.0
 
 
 def test_unknown_memory_does_not_block_the_parse(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -109,7 +109,7 @@ class OsmPowerConnector(Source):
         killed by the out-of-memory killer on a 2 GB VPS. Here only the nodes that power ways use are kept
         (a few million), plus the power-tagged nodes.
         """
-        require_free_memory(self.min_available_mb)
+        require_free_memory(self.min_available_mb, wait_s=MEMORY_WAIT_S)
         path = str(_power_source(snapshot.path))
         started = time.monotonic()
         ways, power_nodes = _power_objects(path)
@@ -154,13 +154,24 @@ def available_memory_mb() -> int | None:
     return None
 
 
-def require_free_memory(min_mb: int) -> None:
-    free = available_memory_mb()
-    if free is not None and free < min_mb:
-        raise MemoryError(
-            f"only {free} MB of memory is available, the OSM parse wants at least {min_mb} MB; "
-            "stop other jobs (or the heavy containers) and retry"
-        )
+MEMORY_WAIT_S = 600.0  # how long a parse waits for memory to free up before it gives up
+MEMORY_POLL_S = 30.0
+
+
+def require_free_memory(min_mb: int, wait_s: float = 0.0) -> None:
+    """Raise `MemoryError` unless `min_mb` is available; `wait_s` first polls that long for it to free up."""
+    deadline = time.monotonic() + wait_s
+    while True:
+        free = available_memory_mb()
+        if free is None or free >= min_mb:
+            return
+        if time.monotonic() >= deadline:
+            raise MemoryError(
+                f"only {free} MB of memory is available, the OSM parse wants at least {min_mb} MB; "
+                "stop other jobs (or the heavy containers) and retry"
+            )
+        log.info("waiting for memory: %s MB available, %s MB wanted", free, min_mb)
+        time.sleep(min(MEMORY_POLL_S, max(0.0, deadline - time.monotonic())))
 
 
 # What the parser needs: substation and power-line ways, substation nodes. The nodes that these ways reference
