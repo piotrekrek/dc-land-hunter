@@ -8,6 +8,7 @@ with nothing near a site gives a real zero or False.
 from __future__ import annotations
 
 import math
+from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -51,6 +52,9 @@ POWERED_BROWNFIELD_SUBSTATION_M = 100.0  # a 110 kV substation this close to tha
 # A plan zone must cover at least this share of the site to count: boundaries rarely align, so touching or
 # centimetre slivers must not decide the zoning.
 MIN_ZONING_OVERLAP_SHARE = 0.01
+# OSM splits one physical line into many ways and maps busbars and portal spans inside a substation as short
+# `power=line` ways. Joined ways shorter than this in total are such stubs, not a feed, so N-1 skips them.
+MIN_PHYSICAL_LINE_M = 200.0
 
 
 class GeomIndex:
@@ -120,6 +124,7 @@ class GridIndex:
     as_of: datetime | None
     confidence: Confidence
     line110: _IdIndex
+    line110_physical: _IdIndex  # 110 kV ways keyed by physical line (`physical_lines`), stubs left out
     gpz110: _IdIndex
     hv110_substations: _IdIndex
     own_hv110: _IdIndex  # 110 kV substations whose operator is named and is not a DSO or PSE
@@ -187,6 +192,49 @@ class _IdIndex:
         return {self.ids[i] for i in self.geoms.indices_within_m(geom, radius_m)}
 
 
+def _node_key(xy: Sequence[float]) -> tuple[float, float]:
+    """Ways that share an OSM node reproject to the same coordinates; rounding absorbs float noise."""
+    return (round(xy[0], 2), round(xy[1], 2))
+
+
+def physical_lines(ways: Sequence[tuple[int, BaseGeometry]]) -> list[int | None]:
+    """For each way, the id of the physical line it belongs to, or None for a stub.
+
+    Ways are joined where they meet end to end at a node that no other way touches (end or vertex), so a line
+    split into many ways counts once while a branch point or a substation's busbar keeps lines apart. A line's
+    id is its smallest way id. A joined line shorter than `MIN_PHYSICAL_LINE_M` is a stub (None).
+    Non-LineString geometries are left as lines of their own.
+    """
+    parent = list(range(len(ways)))
+
+    def root(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    degree: Counter[tuple[float, float]] = Counter()
+    ends: dict[tuple[float, float], list[int]] = {}
+    for i, (_, geom) in enumerate(ways):
+        if geom.geom_type != "LineString":
+            continue
+        coords = list(geom.coords)
+        degree.update(_node_key(xy) for xy in coords)
+        for xy in (coords[0], coords[-1]):
+            ends.setdefault(_node_key(xy), []).append(i)
+    for key, at in ends.items():
+        if degree[key] == 2 and len(at) == 2 and at[0] != at[1]:
+            parent[root(at[0])] = root(at[1])
+
+    length: dict[int, float] = {}
+    line_id: dict[int, int] = {}
+    for i, (osm_id, geom) in enumerate(ways):
+        r = root(i)
+        length[r] = length.get(r, 0.0) + geom.length
+        line_id[r] = min(line_id.get(r, osm_id), osm_id)
+    return [line_id[root(i)] if length[root(i)] >= MIN_PHYSICAL_LINE_M else None for i in range(len(ways))]
+
+
 def build_grid_index(
     substations: Iterable[Substation],
     lines: Iterable[Line],
@@ -196,12 +244,15 @@ def build_grid_index(
     confidence: Confidence = Confidence.ESTIMATED,
 ) -> GridIndex:
     subs = list(substations)
+    ways110 = [(ln.osm_id, ln.geom) for ln in lines if ln.voltage is not None and V_110 <= ln.voltage < V_220]
+    line_ids = physical_lines(ways110)
     return GridIndex(
         source_id=source_id,
         as_of=as_of,
         confidence=confidence,
-        line110=_IdIndex(
-            [(ln.osm_id, ln.geom) for ln in lines if ln.voltage is not None and V_110 <= ln.voltage < V_220]
+        line110=_IdIndex(ways110),
+        line110_physical=_IdIndex(
+            [(pid, geom) for pid, (_, geom) in zip(line_ids, ways110, strict=True) if pid is not None]
         ),
         gpz110=_IdIndex([(s.osm_id, s.geom) for s in subs if s.cls is SubstationClass.GPZ_110_SN]),
         hv110_substations=_IdIndex(
@@ -245,7 +296,7 @@ def passes_grid_prefilter(geom: BaseGeometry, grid: GridIndex, prefilter: Prefil
 def grid_facts(
     site: BaseGeometry, grid: GridIndex, cfg: ScoringConfig
 ) -> dict[str, Fact[float] | Fact[int] | None]:
-    """Distances to the nearest 110 kV line, GPZ and 220/400 kV node, and the N-1 line count."""
+    """Distances to the nearest 110 kV line, GPZ and 220/400 kV node, and the N-1 count of physical lines."""
     src, as_of, conf = grid.source_id, grid.as_of, grid.confidence
 
     def km(index: _IdIndex) -> Fact[float] | None:
@@ -253,7 +304,11 @@ def grid_facts(
         return None if distance is None else _fact(distance / M_PER_KM, src, as_of, conf)
 
     radius = cfg.grid.two_independent_110_lines_within_km * M_PER_KM
-    n1 = _fact(len(grid.line110.ids_within_m(site, radius)), src, as_of, conf) if len(grid.line110) else None
+    n1 = (
+        _fact(len(grid.line110_physical.ids_within_m(site, radius)), src, as_of, conf)
+        if len(grid.line110)
+        else None
+    )
     return {
         "dist_line110_km": km(grid.line110),
         "dist_gpz110_km": km(grid.gpz110),
