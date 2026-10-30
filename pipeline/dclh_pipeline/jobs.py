@@ -5,6 +5,7 @@ Running everything through one sequential worker means scheduled runs and "Uruch
 
 from __future__ import annotations
 
+import errno
 import logging
 import time
 from collections.abc import Callable, Collection
@@ -104,6 +105,9 @@ def _job_search(session: Session, payload: dict[str, Any]) -> dict[str, Any]:
             record_attempt(attempt, teryt, ok=False, at=now, error="not enough memory after retries")
         raise
     except Exception as exc:
+        if isinstance(exc, OSError) and exc.errno == errno.ENOSPC:
+            # A full disk is the host's problem, like memory: not an attempt, so the powiat keeps its place.
+            raise
         # The job's own session is rolled back on failure, so the attempt is recorded in a session of its own.
         with session_scope() as attempt:
             record_attempt(attempt, teryt, ok=False, at=now, error=str(exc)[:500])

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 from collections.abc import Callable
 from pathlib import Path
 
@@ -124,7 +125,7 @@ def test_the_bundle_is_the_snapshot_and_pages_are_objects_not_manifest_lines(
         snapshot = connector.fetch(client, store)
     assert snapshot.path.suffix == ".json"
     assert len(store.history("egib")) == 1  # one fetch, one manifest line
-    assert len(list((tmp_path / "egib" / "objects").rglob("*.gml"))) == 2
+    assert len(list((tmp_path / "egib" / "objects").rglob("*.gml.gz"))) == 2  # pages are kept gzipped
 
 
 def test_a_refetch_that_differs_only_by_the_response_timestamp_stores_no_new_pages(
@@ -139,8 +140,29 @@ def test_a_refetch_that_differs_only_by_the_response_timestamp_stores_no_new_pag
     assert stamped != page1  # the test really changes the bytes the server sends
     with make_client(serve({(TILE_A, 0): page1, (TILE_A, 2): page2})) as client:
         connector.fetch(client, store)
-    objects = list((tmp_path / "egib" / "objects").rglob("*.gml"))
+    objects = list((tmp_path / "egib" / "objects").rglob("*.gml.gz"))
+    assert len(objects) == 2
     with make_client(serve({(TILE_A, 0): stamped, (TILE_A, 2): page2})) as client:
         connector.fetch(client, store)
-    assert list((tmp_path / "egib" / "objects").rglob("*.gml")) == objects
+    assert list((tmp_path / "egib" / "objects").rglob("*.gml.gz")) == objects
     assert len(store.history("egib")) == 2  # both fetches still recorded
+
+
+def test_pages_stored_plain_by_older_code_still_parse_and_compact_to_the_same_parcels(
+    tmp_path: Path, make_client: Callable[..., PoliteClient]
+) -> None:
+    store = SnapshotStore(tmp_path)
+    connector = EgibConnector(spec(), bboxes=[(500_100, 500_100, 500_900, 500_900)], page_size=2)
+    handler = serve({(TILE_A, 0): read("tile_a_page1.gml"), (TILE_A, 2): read("tile_a_page2.gml")})
+    with make_client(handler) as client:
+        snapshot = connector.fetch(client, store)
+    fresh = connector.parse(snapshot)
+    objects = tmp_path / "egib" / "objects"
+    for packed in objects.rglob("*.gml.gz"):  # what a store written before compression looks like
+        packed.with_suffix("").write_bytes(gzip.decompress(packed.read_bytes()))
+        packed.unlink()
+    assert sorted(connector.parse(snapshot).parcel_id) == sorted(fresh.parcel_id)
+    files, before, after = store.compact_objects("egib", ".gml")
+    assert files == 2 and 0 < after < before
+    assert not list(objects.rglob("*.gml")) and len(list(objects.rglob("*.gml.gz"))) == 2
+    assert sorted(connector.parse(snapshot).parcel_id) == sorted(fresh.parcel_id)

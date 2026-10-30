@@ -224,6 +224,22 @@ background (`exec -d worker sh -c '... > /data/osm_fetch.log 2>&1'`) and check t
 | Discovery shows ✗ everywhere | Running outside Poland, or outbound traffic is filtered |
 | Scheduler restarts in a loop | It must be started with the absolute path `/usr/local/bin/supercronic` |
 
+## Disk space
+
+The VPS disk (59 GB) filled up on 30.10.2026: the nightly search keeps every EGiB page (`data/raw/egib`) and every
+answer it downloads (`/data/http-cache` in the `dclh-data` volume), and nothing was ever deleted. Now:
+
+- New EGiB pages are stored gzipped (`<sha256>.gml.gz`, about 14 times smaller). Pages stored before that stay plain
+  until you compact them once, when no search is running (it refuses otherwise; it frees about 13 GB):
+  `docker compose -f infra/docker-compose.yml exec worker dclh compact-egib`
+- Each search first deletes expired cache answers (40 days) and then the oldest ones until the cache is at most 4 GB.
+- A search that starts with less than 10 GB free (data folder or temp folder) stops at once with
+  `No space left on device` in the job error. It is not counted as an attempt, so the planner retries the powiat.
+
+To see what takes the space: `df -h /`, `docker system df`, `du -sh data/raw/*`, and
+`docker compose -f infra/docker-compose.yml exec worker du -sh /data/http-cache`. Deleting `/data/http-cache`
+is always safe (searches download again); `data/raw` holds the evidence behind stored sites, so do not delete it.
+
 ## Source discovery on the VPS (automatic publish)
 
 `scripts/publish_discovery.sh` runs `dclh discover` with the browser capture, commits the new report and

@@ -23,7 +23,7 @@ import pandas as pd
 
 from dclh_pipeline.config import SourceSpec
 from dclh_pipeline.http import PoliteClient
-from dclh_pipeline.snapshots import Snapshot, SnapshotStore, object_path
+from dclh_pipeline.snapshots import Snapshot, SnapshotStore, stored_object
 from dclh_pipeline.sources.base import Source
 
 LAYER = "ms:dzialki"
@@ -123,7 +123,7 @@ class EgibConnector(Source):
             _raise_if_exception(body)
             returned = _count(_RETURNED, body)
             matched = _count(_MATCHED, body)
-            sha = store.put_object(self.id, body, suffix=".gml")
+            sha = store.put_object(self.id, body, suffix=".gml", compress=True)  # GML packs about 14x
             pages.append({"sha256": sha, "suffix": ".gml", "returned": returned or 0})
             if not returned:
                 break
@@ -160,7 +160,7 @@ class EgibConnector(Source):
             for page in tile["pages"]:
                 if page["returned"] == 0:
                     continue
-                path = object_path(objects_dir, page["sha256"], page["suffix"])
+                path = stored_object(objects_dir, page["sha256"], page["suffix"])
                 frames.append(read_page(path))
         if not frames:
             return gpd.GeoDataFrame(
@@ -182,7 +182,7 @@ def read_page(path: Path) -> gpd.GeoDataFrame:
     geometries. Checked on the CGE Konin sample against ULDK: the parcel 101103_5.0011.1 comes out at
     easting 485065, northing 448637, which is the same place as ULDK's geometry for that id.
     """
-    frame = gpd.read_file(path)
+    frame = gpd.read_file(f"/vsigzip/{path}" if path.suffix == ".gz" else path)
     return frame.set_crs(SRS, allow_override=True) if frame.crs is None else frame.to_crs(SRS)
 
 

@@ -1,5 +1,17 @@
 # Status
 
+## Disk space: compressed EGiB pages, a capped answer cache, a disk check before each search (30.10.2026; not deployed)
+
+- **Why:** on 30.10.2026 the VPS disk filled up (59 GB, 0 MB free). EGiB pages took 14 GB and the answer cache 9.9 GB,
+  together about 2.5 GB more every night, with no cleanup. The searches of 0801 and 0802 failed with "No space left on
+  device" and were counted as attempts. The cache was deleted by hand (18 GB free after).
+- **What works:** new EGiB pages are gzipped (`.gml.gz`, named by the hash of the plain page, so dedup and old bundles still
+  work); `dclh compact-egib` gzips the pages already stored; each search prunes the cache to 4 GB and stops before it starts
+  with under 10 GB free; a full disk (`ENOSPC`) is not recorded as an attempt. RUNBOOK "Disk space".
+- **Checked:** a real 894 kB page from the VPS reads the same gzipped (604 parcels, same geometry and attributes).
+- **To do after deploy:** run `dclh compact-egib` once while no search runs; check that 0801 and 0802 are searched again.
+- **Not covered:** `data/raw` of other sources (bdot10k 2.1 GB, osm_power 2 GB) still grows without a limit, but slowly.
+
 ## Investor profiles: DC budowane and DC kontenerowe (25.10.2026, PRs #123, #124, #127; not deployed)
 
 - **What works:** a verdict per profile (green / yellow / red / manual) with blockers, things to check and positives, computed from

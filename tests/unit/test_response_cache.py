@@ -113,3 +113,46 @@ def test_without_a_cache_every_request_goes_out(tmp_path: Path, clock: Clock) ->
     client.get("https://a.example.pl/wfs", params={"q": 1})
     client.get("https://a.example.pl/wfs", params={"q": 1})
     assert len(seen) == 2
+
+
+def fill(cache: ResponseCache, clock: Clock, n: int, batch: str = "a") -> list[str]:
+    """`n` answers of about 1 kB, one minute apart; each batch asks for different URLs."""
+    keys = []
+    for i in range(n):
+        key = ResponseCache.key("GET", "https://a.example.pl/wfs", {"batch": batch, "i": i})
+        cache.put(key, httpx.Response(200, content=b"x" * 1000, headers={"content-type": "application/xml"}))
+        keys.append(key)
+        clock.now += 60.0
+    return keys
+
+
+def test_prune_deletes_expired_answers_and_keeps_fresh_ones(tmp_path: Path, clock: Clock) -> None:
+    cache = ResponseCache(tmp_path / "cache", timedelta(days=40), clock=clock)
+    old = fill(cache, clock, 2)
+    clock.now += timedelta(days=41).total_seconds()
+    fresh = fill(cache, clock, 3, batch="b")
+    removed, freed = cache.prune(max_bytes=10**9)
+    assert removed == 2 and freed > 2000
+    assert all(cache.get(k, "https://a.example.pl/wfs") is None for k in old)
+    assert all(cache.get(k, "https://a.example.pl/wfs") is not None for k in fresh)
+
+
+def test_prune_deletes_the_oldest_answers_until_the_cache_fits(tmp_path: Path, clock: Clock) -> None:
+    cache = ResponseCache(tmp_path / "cache", timedelta(days=40), clock=clock)
+    keys = fill(cache, clock, 5)
+    removed, _ = cache.prune(max_bytes=2500)  # room for two answers of about 1 kB each
+    assert removed == 3
+    kept = [k for k in keys if cache.get(k, "https://a.example.pl/wfs") is not None]
+    assert kept == keys[3:]  # the newest two stay
+    assert cache.prune(max_bytes=2500) == (0, 0)  # already in bounds: nothing more goes
+
+
+def test_prune_drops_an_answer_with_broken_metadata_and_copes_with_no_folder(
+    tmp_path: Path, clock: Clock
+) -> None:
+    assert ResponseCache(tmp_path / "missing", timedelta(days=40), clock=clock).prune(max_bytes=0) == (0, 0)
+    cache = ResponseCache(tmp_path / "cache", timedelta(days=40), clock=clock)
+    (key,) = fill(cache, clock, 1)
+    (tmp_path / "cache" / key[:2] / f"{key}.json").write_text("not json", encoding="utf-8")
+    assert cache.prune(max_bytes=10**9)[0] == 1
+    assert not list((tmp_path / "cache").rglob("*.*"))
