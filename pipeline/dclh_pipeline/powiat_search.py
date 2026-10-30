@@ -6,11 +6,16 @@ nightly run and a manual run use the same code. The planner only chooses; the se
 
 from __future__ import annotations
 
+import errno
+import logging
+import shutil
+import tempfile
 import time
 from collections.abc import Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -39,7 +44,34 @@ from dclh_pipeline.sources.prg import PrgConnector
 WARSAW = ZoneInfo("Europe/Warsaw")
 # Answers are reused this long, so a monthly refresh reads last month's downloads instead of asking again.
 SEARCH_CACHE_TTL = timedelta(days=40)
+# The cache grew about 1.5 GB a night and filled the VPS disk on 30.10.2026; older answers go first.
+SEARCH_CACHE_MAX_BYTES = 4 * 1024**3
+# A search of a large powiat wrote about 8 GB of temporary files before it failed on 30.10.2026.
+MIN_FREE_DISK_GB = 10
 EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+
+
+log = logging.getLogger(__name__)
+
+
+def make_room(settings: Settings) -> None:
+    """Prune the answer cache, then raise `OSError(ENOSPC)` unless the data and temp folders have room.
+
+    A search that runs out of disk halfway fails late and can take the database down with it, so it stops
+    here instead. The error is the host's, not the powiat's: the search job does not count it as an attempt.
+    """
+    cache = ResponseCache(settings.data_dir / "http-cache", SEARCH_CACHE_TTL)
+    removed, freed = cache.prune(SEARCH_CACHE_MAX_BYTES)
+    if removed:
+        log.info("answer cache: %s answers deleted, %.1f GB freed", removed, freed / 1024**3)
+    for folder in (settings.data_dir, Path(tempfile.gettempdir())):
+        free_gb = shutil.disk_usage(folder).free / 1024**3
+        if free_gb < MIN_FREE_DISK_GB:
+            raise OSError(
+                errno.ENOSPC,
+                f"only {free_gb:.1f} GB free in {folder}, a search wants at least {MIN_FREE_DISK_GB} GB; "
+                "free some space (docs/RUNBOOK.md, Disk space) and the planner will retry the powiat",
+            )
 
 
 @dataclass(frozen=True)
@@ -67,6 +99,7 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
     settings = settings or get_settings()
     if settings.contact_email.endswith(".invalid"):
         raise ValueError("set DCLH_CONTACT_EMAIL first (it goes into the User-Agent)")
+    make_room(settings)
     config = load_sources()
     cfg = load_scoring()
     store = SnapshotStore(settings.raw_dir)
