@@ -42,6 +42,12 @@ The brief gives distances and bonus sizes but not how sub-criteria share a categ
 - Hard filters: "any part in a 10%/1% flood zone" and "inside an active mining area" use `threshold_pct: 0`
   (any overlap); raise it in the config if overlap of a few percent should be tolerated.
 - A 110 kV-only station is not a GPZ (brief: GPZ = 110 kV plus a medium-voltage level).
+- N-1 counts **physical 110 kV lines**, not OSM ways (`physical_lines` in `model/features.py`). Ways that meet end to
+  end at a node no other way touches are joined into one line; a joined line under 200 m in total is a busbar or
+  portal stub inside a substation and is not counted. Branch points (three or more ways at one tower) keep their legs
+  apart, so a T-tapped line still counts as two or three lines, and a double-circuit line on one way counts once
+  (the OSM `circuits` tag is not read). It is a proxy for "fed from more than one direction", not a check of
+  independent feeds: the DSO has to confirm that.
 
 ## Missing data
 

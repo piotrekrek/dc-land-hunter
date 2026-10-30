@@ -1,5 +1,26 @@
 # Status
 
+## N-1 counts physical 110 kV lines, not OSM ways (30.10.2026; not yet deployed)
+
+- **Bug:** `independent_110_lines_near` counted distinct OSM way ids within 3 km. Rzepin (site-4755d239dc1f, parcel
+  080504_5.0008.4/36) showed "11 niezależne linie 110 kV". The 7 consecutive ids 1000733005478–84 are not a split line but
+  10–40 m busbar and portal ways inside GPZ Lubiechnia Wielka. The real picture is 4 lines: west, east and south out of
+  Lubiechnia (south ends at GPZ Rzepin) plus Rzepin's line further south.
+- **Fix:** ways joined end to end at nodes no other way touches, joined lines under 200 m dropped as stubs (docs/SCORING.md).
+  Across the AOI's 13,438 110 kV ways: 7,066 are stubs (313 km of 29,300 km, median 32 m); the rest form 3,941 lines.
+- **Measured on the stored sites (production `lines` table, 30.10.2026):**
+
+  | Powiat | Sites | Mean count before → after | Max before → after | Sites with ≥ 2 lines before → after |
+  |---|---|---|---|---|
+  | 0805 (Rzepin) | 995 | 2.8 → 1.6 | 22 → 4 | 426 → 382 |
+  | 1421 | 318 | 6.2 → 2.5 | 73 → 16 | 216 → 171 |
+
+  Sites that drop below 2 lose the N-1 points and the "silne" 60 MW tier when that tier rested on a GPZ.
+- **Known limits:** T-junctions keep their legs apart (the site with 16 in 1421 sits in a dense 110 kV mesh with tees);
+  the `circuits` tag is not read.
+- **To deploy:** the stored sites keep the old count until their powiat is searched again (`dclh search <powiat>`);
+  `dclh reprofile` reads stored features and does not recount.
+
 ## Investor profiles: DC budowane and DC kontenerowe (25.10.2026, PRs #123, #124, #127; not deployed)
 
 - **What works:** a verdict per profile (green / yellow / red / manual) with blockers, things to check and positives, computed from
