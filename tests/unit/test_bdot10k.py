@@ -309,3 +309,24 @@ def test_roads_outside_poland_are_rejected(tmp_path: Path) -> None:
     snapshot = roads_snapshot(tmp_path, [road(1, 10, 10, "droga lokalna")])
     with pytest.raises(ValueError, match=r"outside Poland|bounds"):
         Bdot10kConnector(SPEC, teryt="1421").parse_roads(snapshot)
+
+
+def test_a_road_with_one_point_is_dropped_not_fatal(tmp_path: Path) -> None:
+    """GUGiK's 0461 zip has a road line with a single point; GEOS cannot read it and it failed the search."""
+    broken = road(2, 625_000, 480_100, "droga lokalna").replace(
+        "625000 480100 625100 480100", "625000 480100"
+    )
+    snapshot = roads_snapshot(tmp_path, [road(1, 625_000, 480_000, "droga lokalna"), broken])
+    table = Bdot10kConnector(SPEC, teryt="1421").parse_roads(snapshot)
+    assert len(table) == 1
+    assert tuple(table.total_bounds[:2]) == (625_000, 480_000)
+
+
+def test_a_building_with_a_too_short_outline_is_dropped_not_fatal(tmp_path: Path) -> None:
+    broken = building(2, 625_100, 480_000, "budynki mieszkalne").replace(
+        "625100 480000 625110 480000 625110 480010 625100 480010 625100 480000", "625100 480000 625110 480000"
+    )
+    members = {MEMBER: buildings_xml([building(1, 625_000, 480_000, "budynki mieszkalne"), broken])}
+    snapshot = SnapshotStore(tmp_path).save("bdot10k", powiat_zip(members), suffix=".zip")
+    table = Bdot10kConnector(SPEC, teryt="1421").parse(snapshot)
+    assert len(table) == 1

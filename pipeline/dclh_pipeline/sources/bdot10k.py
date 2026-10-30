@@ -137,6 +137,7 @@ class Bdot10kConnector(Source):
             f"/vsizip/{snapshot.path}/{member}",
             columns=[FUNCTION_FIELD, DETAIL_FIELD, STATUS_FIELD],
             SWAP_COORDINATES="NO",
+            on_invalid="ignore",  # a geometry GEOS cannot read becomes None and is dropped below
         )
         missing = [f for f in (FUNCTION_FIELD, DETAIL_FIELD, STATUS_FIELD) if f not in raw.columns]
         if missing:
@@ -162,7 +163,10 @@ class Bdot10kConnector(Source):
         """Forest polygons (`rodzaj = las`) of the powiat, in EPSG:2180. Empty when the powiat has none."""
         member = _member(snapshot, FOREST_MEMBER_SUFFIX)
         raw = read_dataframe(
-            f"/vsizip/{snapshot.path}/{member}", columns=[FOREST_FIELD], SWAP_COORDINATES="NO"
+            f"/vsizip/{snapshot.path}/{member}",
+            columns=[FOREST_FIELD],
+            SWAP_COORDINATES="NO",
+            on_invalid="ignore",
         )
         if FOREST_FIELD not in raw.columns:
             raise ValueError(
@@ -192,6 +196,7 @@ class Bdot10kConnector(Source):
             f"/vsizip/{snapshot.path}/{member}",
             columns=[ROAD_CLASS_FIELD, STATUS_FIELD],
             SWAP_COORDINATES="NO",
+            on_invalid="ignore",  # a geometry GEOS cannot read becomes None and is dropped below
         )
         if ROAD_CLASS_FIELD not in raw.columns:
             raise ValueError(
