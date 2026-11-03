@@ -49,6 +49,23 @@ describe("ProfileCards", () => {
     expect(screen.getByTestId("profile-container")).toHaveTextContent("od tego zależy wynik");
   });
 
+  it("gives the legal basis of an exclusion behind a tap, and none for a rule that is not a law", () => {
+    const built: ProfileVerdict = {
+      ...base,
+      category: "red",
+      blockers: [
+        { key: "flood", text_pl: "strefa zalewowa 10% lub 1%: 62% terenu", source_id: "isok", as_of: null },
+        { key: "area", text_pl: "za mała powierzchnia: 1,00 ha < 10,00 ha", source_id: null, as_of: null },
+      ],
+    };
+    render(<ProfileCards profiles={{ ...profiles, built }} />);
+    const card = screen.getByTestId("profile-built");
+    const basis = within(card).getByTestId("legal-basis-flood");
+    expect(within(basis).getByText("Podstawa prawna")).toBeInTheDocument();
+    expect(basis).toHaveTextContent("art. 390 Prawa wodnego");
+    expect(within(card).queryByTestId("legal-basis-area")).not.toBeInTheDocument();
+  });
+
   it("warns that power figures are estimates", () => {
     render(<ProfileCards profiles={profiles} />);
     expect(screen.getByTestId("profiles")).toHaveTextContent("wiąże ekspertyza do warunków przyłączenia");

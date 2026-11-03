@@ -34,6 +34,7 @@ from dclh_pipeline.sources.tauron import TauronConnector
 
 app = typer.Typer(help="DC Land Hunter pipeline", no_args_is_help=True)
 console = Console()
+REPROFILE_PAGE = 2000  # sites per page in `dclh reprofile`
 
 # Connectors that `dclh fetch` can run without the database.
 CONNECTORS: dict[str, type[Source]] = {
@@ -391,23 +392,35 @@ def reprofile_cmd() -> None:
     from dclh_pipeline.scoring.run import to_jsonable
 
     cfg = load_profiles()
-    with session_scope() as session:
-        rows = session.execute(text("SELECT site_id, detail -> 'features' FROM sites")).all()
-        for site_id, features in rows:
-            verdicts = profile_verdicts(features_from_detail(features), cfg)
-            session.execute(
+    done, last = 0, ""
+    # In pages by site_id: all 100k+ sites' features at once do not fit in a worker's memory.
+    while True:
+        with session_scope() as session:
+            rows = session.execute(
                 text(
-                    "UPDATE sites SET profiles = CAST(:p AS jsonb), verdict_built = :b, "
-                    "verdict_container = :c WHERE site_id = :id"
+                    "SELECT site_id, detail -> 'features' FROM sites WHERE site_id > :last "
+                    "ORDER BY site_id LIMIT :n"
                 ),
-                {
-                    "p": json.dumps(to_jsonable(verdicts), ensure_ascii=False),
-                    "b": verdicts["built"].category.value,
-                    "c": verdicts["container"].category.value,
-                    "id": site_id,
-                },
-            )
-    console.print(f"profile przeliczone dla {len(rows)} lokalizacji")
+                {"last": last, "n": REPROFILE_PAGE},
+            ).all()
+            for site_id, features in rows:
+                verdicts = profile_verdicts(features_from_detail(features), cfg)
+                session.execute(
+                    text(
+                        "UPDATE sites SET profiles = CAST(:p AS jsonb), verdict_built = :b, "
+                        "verdict_container = :c WHERE site_id = :id"
+                    ),
+                    {
+                        "p": json.dumps(to_jsonable(verdicts), ensure_ascii=False),
+                        "b": verdicts["built"].category.value,
+                        "c": verdicts["container"].category.value,
+                        "id": site_id,
+                    },
+                )
+        if not rows:
+            break
+        done, last = done + len(rows), rows[-1][0]
+    console.print(f"profile przeliczone dla {done} lokalizacji")
 
 
 @app.command("compact-egib")

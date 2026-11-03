@@ -67,6 +67,11 @@ def _n(x: float, digits: int = 1) -> str:
     return f"{x:.{digits}f}".replace(".", ",")
 
 
+def _pct(x: float) -> str:
+    """A share of the site: "<1%" rather than a rounded "0%" for a small but real overlap."""
+    return "<1%" if 0 < x < 1 else f"{_n(x, 0)}%"
+
+
 def _ramp_up(value: float, zero: float, full: float) -> float:
     """0.0 at or below `zero`, 1.0 at or above `full`, linear in between (housing distance, headroom)."""
     return 1.0 - ramp_down(value, zero, full)
@@ -110,7 +115,14 @@ def profile_verdict(f: SiteFeatures, name: str, cfg: ProfilesConfig) -> ProfileV
             missing(key, missing_what)
             cap_yellow = True
         elif fact.value > limit:
-            blockers.append(reason(key, f"{what}: {_n(fact.value, 0)}% terenu", fact))
+            if key == "forest" and area is not None:
+                forest_ha = area.value * fact.value / 100
+                if forest_ha < hard.forest_min_ha:
+                    continue
+                text = f"{what}: {_n(forest_ha, 2)} ha ({_pct(fact.value)} terenu)"
+                blockers.append(reason(key, text, fact))
+                continue
+            blockers.append(reason(key, f"{what}: {_pct(fact.value)} terenu", fact))
     heritage = f.on_heritage_register
     if heritage is None:
         missing("heritage", "rejestru zabytków")
