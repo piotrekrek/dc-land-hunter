@@ -105,6 +105,9 @@ class GdosConnector(Source):
             pd.concat(frames, ignore_index=True), geometry="geometry", crs=f"EPSG:{EPSG}"
         )
         _check_bounds(table)
+        # A few areas have self-intersecting rings; an overlay with a site would raise a TopologyException.
+        invalid = ~table.geometry.is_valid
+        table.loc[invalid, "geometry"] = table.geometry[invalid].make_valid()
         return table
 
 

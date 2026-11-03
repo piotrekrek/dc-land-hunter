@@ -199,4 +199,7 @@ def _combine(frames: Iterable[gpd.GeoDataFrame]) -> gpd.GeoDataFrame:
     table = pd.concat(parts, ignore_index=True)
     table = table[table.geometry.notna() & ~table.geometry.is_empty]
     table = table.drop_duplicates(subset="parcel_id", keep="first")
+    # A few parcels have self-intersecting rings; a union of parcels would raise a TopologyException.
+    invalid = ~table.geometry.is_valid
+    table.loc[invalid, "geometry"] = table.geometry[invalid].make_valid()
     return gpd.GeoDataFrame(table.reset_index(drop=True), geometry="geometry", crs=SRS)
