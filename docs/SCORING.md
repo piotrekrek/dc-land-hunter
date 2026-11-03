@@ -81,6 +81,9 @@ or a low soft score) or **manual** (a missing answer decides it, mostly the zoni
 - **Blockers** use data we have: area below the profile minimum (10 ha built, 0.15 ha container), overlap with Natura
   2000 / park / reserve, flood zones Q10/Q1, forest, mining area, heritage register. `built` also blocks on a zoning
   that is neither production nor service; for `container` that is "to check" (we cannot tell U from other symbols yet).
+  Forest blocks only from 0.10 ha (`forest_min_ha`; a forest is at least 0.10 ha under ustawa o lasach, art. 3): smaller
+  overlaps are seams between EGiB parcels and BDOT10k outlines. The UI shows the legal basis of each blocker
+  (`web/src/lib/legalBasis.ts`).
 - **Soft score** (0-100): distance to housing (400 m built, 150 m container, zero at 250/80 m), distance to a 110 kV GPZ,
   published GPZ headroom, soil classes. An input with no data counts 50 and is listed, never passed silently.
 - **Road access** is measured: the distance to the nearest public road (BDOT10k, every road class except

@@ -1,8 +1,9 @@
-import { Check, CircleHelp, TriangleAlert, X } from "lucide-react";
+import { Check, CircleHelp, Scale, TriangleAlert, X } from "lucide-react";
 
 import type { ProfileVerdict } from "@/api/client";
 import { Mark } from "@/components/site/Mark";
 import { formatDate } from "@/lib/format";
+import { LEGAL_BASIS } from "@/lib/legalBasis";
 import { cn } from "@/lib/utils";
 
 const CATEGORY = {
@@ -89,11 +90,29 @@ function ReasonList({ title, kind, items }: { title: string; kind: "ok" | "bad";
                   {r.as_of ? `, stan na ${formatDate(r.as_of)}` : ""})
                 </span>
               )}
+              {kind === "bad" && <LegalBasis reasonKey={r.key} />}
             </span>
           </li>
         ))}
       </ul>
     </div>
+  );
+}
+
+/** The law behind an exclusion, opened with a tap (a hover tooltip does not work on a phone). */
+function LegalBasis({ reasonKey }: { reasonKey: string }) {
+  const text = LEGAL_BASIS[reasonKey];
+  if (!text) return null;
+  return (
+    <details className="mt-1" data-testid={`legal-basis-${reasonKey}`}>
+      <summary className="inline-flex cursor-pointer items-center gap-1 text-xs text-muted-foreground">
+        <Scale className="size-3.5" aria-hidden />
+        Podstawa prawna
+      </summary>
+      <p className="mt-1 mb-0 text-xs">
+        {text} <span className="text-muted-foreground">Informacja poglądowa, nie porada prawna.</span>
+      </p>
+    </details>
   );
 }
 

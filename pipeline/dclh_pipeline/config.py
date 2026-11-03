@@ -387,6 +387,7 @@ class ProfileHard(_Model):
     protected_nature_pct_over: float = Field(ge=0, le=100)
     flood_pct_over: float = Field(ge=0, le=100)
     forest_pct_over: float = Field(ge=0, le=100)
+    forest_min_ha: float = Field(ge=0)
     mining_area_pct_over: float = Field(ge=0, le=100)
     heritage_register: bool
 
