@@ -166,3 +166,28 @@ def test_pages_stored_plain_by_older_code_still_parse_and_compact_to_the_same_pa
     assert files == 2 and 0 < after < before
     assert not list(objects.rglob("*.gml")) and len(list(objects.rglob("*.gml.gz"))) == 2
     assert sorted(connector.parse(snapshot).parcel_id) == sorted(fresh.parcel_id)
+
+
+def test_a_self_intersecting_parcel_is_repaired(
+    tmp_path: Path, make_client: Callable[..., PoliteClient]
+) -> None:
+    """A bow-tie parcel ring broke the expansion-land union of the 0812 search with a TopologyException."""
+    square = (
+        b"500100 500100 500300 500100 500300 500300 500100 500300 500100 500100"  # parcel .55, tile A only
+    )
+    bowtie = b"500100 500100 500300 500300 500300 500100 500100 500300 500100 500100"
+    page = read("tile_a_page1.gml")
+    assert square in page
+    handler = serve(
+        {
+            (TILE_A, 0): page.replace(square, bowtie),
+            (TILE_A, 2): read("tile_a_page2.gml"),
+            (TILE_A + 1_000, 0): read("tile_b_page1.gml"),
+        }
+    )
+    connector = EgibConnector(spec(), bboxes=[(500_100, 500_100, 501_500, 500_200)], page_size=2)
+    with make_client(handler) as client:
+        table = connector.parse(connector.fetch(client, SnapshotStore(tmp_path)))
+    assert len(table) == 3
+    assert table.geometry.is_valid.all()
+    assert (table.geometry.area > 0).all()
