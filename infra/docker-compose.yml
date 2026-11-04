@@ -102,7 +102,9 @@ services:
 
   martin:
     image: ghcr.io/maplibre/martin:${MARTIN_TAG:-1.16.1}
-    command: ["--config", "/config/config.yaml", "--route-prefix", "/tiles"]
+    # Martin caches tiles in memory and nothing clears that cache, so sites from a new search stayed off the
+    # zoomed-out map until a restart. Expiry bounds that delay to 10 minutes.
+    command: ["--config", "/config/config.yaml", "--route-prefix", "/tiles", "--cache-expiry", "10m"]
     environment:
       MARTIN_DATABASE_URL: postgres://${POSTGRES_USER:-dclh}:${POSTGRES_PASSWORD:-dclh}@db:5432/${POSTGRES_DB:-dclh}
     volumes:
