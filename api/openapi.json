@@ -1043,6 +1043,165 @@
           }
         }
       }
+    },
+    "/api/oauth/requests/{req_id}": {
+      "get": {
+        "tags": [
+          "oauth"
+        ],
+        "summary": "Get Request",
+        "operationId": "get_request_api_oauth_requests__req_id__get",
+        "parameters": [
+          {
+            "name": "req_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "title": "Req Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/oauth/requests/{req_id}/decision": {
+      "post": {
+        "tags": [
+          "oauth"
+        ],
+        "summary": "Decide",
+        "description": "Approving needs `mcp_access`; refusing never does. A request can be decided once.",
+        "operationId": "decide_api_oauth_requests__req_id__decision_post",
+        "parameters": [
+          {
+            "name": "req_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "title": "Req Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/oauth/connections": {
+      "get": {
+        "tags": [
+          "oauth"
+        ],
+        "summary": "List Connections",
+        "description": "The apps this user connected (one per client that holds a token), newest first.",
+        "operationId": "list_connections_api_oauth_connections_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/oauth/connections/{client_id}": {
+      "delete": {
+        "tags": [
+          "oauth"
+        ],
+        "summary": "Disconnect",
+        "description": "Drops this user's tokens for the client. Idempotent; never touches another user's connection.",
+        "operationId": "disconnect_api_oauth_connections__client_id__delete",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "title": "Client Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1797,6 +1956,46 @@
         ],
         "title": "ConnectionCost"
       },
+      "ConnectionList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ConnectionOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "ConnectionList"
+      },
+      "ConnectionOut": {
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "title": "Client Id"
+          },
+          "client_name": {
+            "type": "string",
+            "title": "Client Name"
+          },
+          "connected_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Connected At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_id",
+          "client_name",
+          "connected_at"
+        ],
+        "title": "ConnectionOut"
+      },
       "ConnectivityParams": {
         "properties": {
           "telecom_node_km_full": {
@@ -1833,6 +2032,37 @@
           "cities"
         ],
         "title": "ConnectivityParams"
+      },
+      "ConsentInfo": {
+        "properties": {
+          "client_name": {
+            "type": "string",
+            "title": "Client Name"
+          },
+          "scopes": {
+            "items": {
+              "$ref": "#/components/schemas/ScopeOut"
+            },
+            "type": "array",
+            "title": "Scopes"
+          },
+          "user_email": {
+            "type": "string",
+            "title": "User Email"
+          },
+          "can_connect": {
+            "type": "boolean",
+            "title": "Can Connect"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_name",
+          "scopes",
+          "user_email",
+          "can_connect"
+        ],
+        "title": "ConsentInfo"
       },
       "CoverageArea": {
         "properties": {
@@ -1938,6 +2168,32 @@
           "id"
         ],
         "title": "CreatedOut"
+      },
+      "DecisionIn": {
+        "properties": {
+          "approve": {
+            "type": "boolean",
+            "title": "Approve"
+          }
+        },
+        "type": "object",
+        "required": [
+          "approve"
+        ],
+        "title": "DecisionIn"
+      },
+      "DecisionOut": {
+        "properties": {
+          "redirect_to": {
+            "type": "string",
+            "title": "Redirect To"
+          }
+        },
+        "type": "object",
+        "required": [
+          "redirect_to"
+        ],
+        "title": "DecisionOut"
       },
       "DiscoverIn": {
         "properties": {
@@ -3219,6 +3475,24 @@
         ],
         "title": "ResolvedParcelOut"
       },
+      "ScopeOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "ScopeOut"
+      },
       "ScoreItemOut": {
         "properties": {
           "key": {
@@ -4406,6 +4680,11 @@
           "role": {
             "type": "string",
             "title": "Role"
+          },
+          "mcp_access": {
+            "type": "boolean",
+            "title": "Mcp Access",
+            "default": false
           }
         },
         "type": "object",

@@ -405,6 +405,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/oauth/requests/{req_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Request */
+        get: operations["get_request_api_oauth_requests__req_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/requests/{req_id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decide
+         * @description Approving needs `mcp_access`; refusing never does. A request can be decided once.
+         */
+        post: operations["decide_api_oauth_requests__req_id__decision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Connections
+         * @description The apps this user connected (one per client that holds a token), newest first.
+         */
+        get: operations["list_connections_api_oauth_connections_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/connections/{client_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Disconnect
+         * @description Drops this user's tokens for the client. Idempotent; never touches another user's connection.
+         */
+        delete: operations["disconnect_api_oauth_connections__client_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -658,6 +735,23 @@ export interface components {
             /** Conditions Valid Months */
             conditions_valid_months: number;
         };
+        /** ConnectionList */
+        ConnectionList: {
+            /** Items */
+            items: components["schemas"]["ConnectionOut"][];
+        };
+        /** ConnectionOut */
+        ConnectionOut: {
+            /** Client Id */
+            client_id: string;
+            /** Client Name */
+            client_name: string;
+            /**
+             * Connected At
+             * Format: date-time
+             */
+            connected_at: string;
+        };
         /** ConnectivityParams */
         ConnectivityParams: {
             /** Telecom Node Km Full */
@@ -670,6 +764,17 @@ export interface components {
             city_km_zero: number;
             /** Cities */
             cities: string[];
+        };
+        /** ConsentInfo */
+        ConsentInfo: {
+            /** Client Name */
+            client_name: string;
+            /** Scopes */
+            scopes: components["schemas"]["ScopeOut"][];
+            /** User Email */
+            user_email: string;
+            /** Can Connect */
+            can_connect: boolean;
         };
         /**
          * CoverageArea
@@ -716,6 +821,16 @@ export interface components {
         CreatedOut: {
             /** Id */
             id: string;
+        };
+        /** DecisionIn */
+        DecisionIn: {
+            /** Approve */
+            approve: boolean;
+        };
+        /** DecisionOut */
+        DecisionOut: {
+            /** Redirect To */
+            redirect_to: string;
         };
         /** DiscoverIn */
         DiscoverIn: {
@@ -1196,6 +1311,13 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** ScopeOut */
+        ScopeOut: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+        };
         /** ScoreItemOut */
         ScoreItemOut: {
             /** Key */
@@ -1590,6 +1712,11 @@ export interface components {
             email: string;
             /** Role */
             role: string;
+            /**
+             * Mcp Access
+             * @default false
+             */
+            mcp_access: boolean;
         };
         /** ValidationError */
         ValidationError: {
@@ -2323,6 +2450,121 @@ export interface operations {
                 content: {
                     "image/jpeg": unknown;
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_request_api_oauth_requests__req_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                req_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_api_oauth_requests__req_id__decision_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                req_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_connections_api_oauth_connections_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionList"];
+                };
+            };
+        };
+    };
+    disconnect_api_oauth_connections__client_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

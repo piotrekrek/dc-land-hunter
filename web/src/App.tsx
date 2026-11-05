@@ -13,6 +13,7 @@ import { CheckPage } from "@/pages/CheckPage";
 import { HomePage } from "@/pages/HomePage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
+import { PolaczClaudePage } from "@/pages/PolaczClaudePage";
 import { PowiatyPage } from "@/pages/PowiatyPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { SprawdzDzialkePage } from "@/pages/SprawdzDzialkePage";
@@ -34,6 +35,7 @@ export function AppRoutes() {
     <Routes>
       <Route path="logowanie" element={<LoginPage />} />
       <Route element={<RequireAuth />}>
+      <Route path="polacz-claude" element={<PolaczClaudePage />} />
       <Route element={<AppShell />}>
         <Route index element={<HomePage />} />
         <Route

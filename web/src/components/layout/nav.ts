@@ -30,6 +30,7 @@ export const SOON_TAG = "wkrótce";
 /** Screens that are not in the navigation: [path prefix, title]. */
 const EXTRA_TITLES: [string, string][] = [
   ["/logowanie", "Logowanie"],
+  ["/polacz-claude", "Połącz Claude"],
   ["/lokalizacje", "Karta lokalizacji"],
 ];
 
