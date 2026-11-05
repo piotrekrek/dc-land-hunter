@@ -127,6 +127,8 @@ class UserRow(Base):
     email: Mapped[str] = mapped_column(Text, unique=True)
     password_hash: Mapped[str] = mapped_column(Text)
     role: Mapped[str] = mapped_column(String(16), default="member", server_default="member")
+    # An admin switches this on per user: only then can the user connect Claude (migration 0015).
+    mcp_access: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
