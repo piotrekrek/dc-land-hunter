@@ -34,6 +34,7 @@ TOOLS = {
     "get_check",
     "scoring_rules",
 }
+WRITE_TOOLS = {"watch_site", "unwatch_site", "check_parcel"}  # see test_mcp_write.py
 
 
 @pytest.fixture
@@ -90,10 +91,12 @@ def summary(site_id: str = "site-1") -> SiteSummary:
     )
 
 
-async def test_tools_listed_and_all_read_only(mcp: FastMCP) -> None:
+async def test_the_read_tools_are_listed_and_all_read_only(mcp: FastMCP) -> None:
     listed = await mcp.list_tools()
-    assert {t.name for t in listed} == TOOLS
-    assert all(t.annotations is not None and t.annotations.readOnlyHint is True for t in listed)
+    assert {t.name for t in listed} == TOOLS | WRITE_TOOLS
+    for tool in listed:
+        assert tool.annotations is not None
+        assert tool.annotations.readOnlyHint is (tool.name in TOOLS), tool.name
 
 
 @pytest.mark.parametrize(("asked", "sent"), [(500, 50), (0, 1), (-3, 1), (20, 20)])

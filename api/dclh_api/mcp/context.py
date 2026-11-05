@@ -21,6 +21,17 @@ GRID_NOTE = (
 )
 
 
+WRITE_SCOPE = "dclh.write"
+
+
+def require_write_scope() -> None:
+    """Write tools need the write scope on the token. The transport already requires both scopes; this keeps a
+    read-only token (issued under another configuration) from changing anything."""
+    token = get_access_token()
+    if token is None or WRITE_SCOPE not in token.scopes:
+        raise ToolError("Brak uprawnienia do zapisu (dclh.write).")
+
+
 def site_url(public_url: str, site_id: str) -> str:
     return f"{public_url.rstrip('/')}/lokalizacje/{site_id}"
 
