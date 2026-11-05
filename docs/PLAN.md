@@ -725,3 +725,296 @@ is a property of the grid nearby, not of the land.
 **Risks:** volume (thousands of farm parcels near lines; the tight seed and hard filters are the guard, measured on one
 powiat before backfill); a 60 MW load on 0,5–2 ha needs ~30–120 MW/ha, which only dense liquid-cooled containers reach,
 so the card says so; zoning for most small plots will be "unknown".
+
+## Claude connector (MCP) (plan of 05.11.2026)
+
+**Goal:** a person with an app account adds DC Land Hunter as a custom connector in Claude (claude.ai web, desktop or
+phone, or Claude Code), logs in with their app login, and Claude can then search sites, read site cards, coverage and
+pipeline stages, watch sites and queue a parcel check.
+
+**Architecture:** a remote MCP server (official Python MCP SDK, `FastMCP`, Streamable HTTP, stateless) mounted inside
+the existing `api` container. The same SDK's OAuth 2.1 authorization server module issues tokens. Clients, codes and
+tokens live in Postgres. Login and consent use the app's own login: the SDK's `/authorize` sends the browser to a new
+web page, `/polacz-claude`, where a logged-in user approves or denies. The tools call the existing router functions
+in-process, so Claude sees exactly what the UI shows. No new container and no paid service.
+
+**Tech stack:** `mcp` (PyPI, latest 1.x, exact version locked in `uv.lock`), FastAPI, SQLAlchemy, Alembic, React.
+
+**Executor:** written for Sonnet 5.5. Each task is one PR, in order. Do not merge: the owner merges.
+
+### Decisions (owner, 04–05.11.2026)
+
+| Topic | Decision |
+|---|---|
+| Route | Option A: remote server with OAuth, so claude.ai, the phone app and Claude Code all work. It will be handed over to other users. |
+| Pipeline data | Claude sees **stages only, never `owner_note`** (it may hold personal data; brief 9.6). |
+| Writes | **Safe writes only:** watch or unwatch a site, and queue a parcel check. No pipeline edits, no priority list changes. |
+| Access | **An admin enables each user** (`users.mcp_access`, `dclh user mcp-access`). Turning it off kills that user's tokens at once. |
+| Registration | Dynamic Client Registration (RFC 7591), which claude.ai supports. CIMD is out of scope. |
+
+Facts checked 05.11.2026 (re-check them at Task 4, they move fast):
+- Claude's OAuth callback is `https://claude.ai/api/mcp/auth_callback`. Anthropic says it may move to
+  `https://claude.com/api/mcp/auth_callback`, so allow both.
+- Claude supports DCR, token expiry and refresh. Custom connectors need a Pro, Max, Team or Enterprise plan.
+- MCP spec 2025-11-25 makes Protected Resource Metadata (RFC 9728) mandatory. A 401 must carry
+  `WWW-Authenticate` with `resource_metadata`.
+- Sources: [Anthropic: building custom connectors](https://support.claude.com/en/articles/11503834-building-custom-connectors-via-remote-mcp-servers),
+  [connector authentication](https://claude.com/docs/connectors/building/authentication),
+  [MCP authorization 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization).
+
+### Global constraints
+
+- Every rule in `CLAUDE.md` applies. In particular: code and docs in English, every UI text in Polish, a PR per task,
+  never merge, DB tests only against a `*_test` database, invoke the `karpathy-guidelines` skill before coding.
+- **Never return `project_cards.owner_note`**, from any tool, in any field.
+- Every tool result that carries grid information also carries `GRID_NOTE` (Task 1) and the `confidence` values
+  the API already has. Claude must not be able to say "60 MW is available" from our data.
+- Tokens, codes and request ids are stored as SHA-256 hashes only (as `sessions` does in `dclh_pipeline/auth.py`).
+- Lifetimes: consent request 10 min, authorization code 5 min, access token 1 h, refresh token 30 days with rotation.
+- Scopes: `dclh.read` (all read tools) and `dclh.write` (write tools). Both are offered by default.
+- The server is stateless (`stateless_http=True`, `json_response=True`): no in-memory session or token state, so an
+  `api` restart breaks nothing.
+- The MCP and OAuth routes exist only when `DCLH_PUBLIC_URL` is set (for example `https://<domain>`, no trailing
+  slash). Without it, the API behaves exactly as today.
+- Tool names and descriptions in English (Claude reads them). Messages Claude passes on to a user are in Polish.
+
+### Review focus
+
+1. A user whose `mcp_access` was switched off still has a valid access token → the next call must get a 401 (test in Task 2).
+2. Someone registers a client with a non-Claude redirect URI to phish a code → registration is rejected (Task 2).
+3. A consent link opened twice, or after 10 minutes → a clear Polish message, no second code (Task 3).
+4. `api` restarts between connect and the next call, or between two refreshes → everything keeps working, because
+   the provider has no memory state (Task 2 builds a fresh provider between steps).
+5. A planted `owner_note` must never appear in any tool output (Task 1 and Task 5 tests serialise every tool result
+   and search for the note text).
+
+### Task 1: MCP server with the read tools (not exposed yet)
+
+**Files:**
+- Modify: `api/pyproject.toml` (add `mcp`), `uv.lock`, `api/dclh_api/main.py`
+- Create: `api/dclh_api/mcp/__init__.py`, `api/dclh_api/mcp/server.py`, `api/dclh_api/mcp/context.py`,
+  `api/dclh_api/mcp/tools_read.py`
+- Test: `tests/unit/test_mcp_tools.py` (no DB), `tests/unit/test_mcp_tools_db.py` (DB-gated, like the other `*_db.py`)
+
+**Interfaces:**
+- Produces: `build_mcp(public_url: str, provider: OAuthAuthorizationServerProvider | None) -> FastMCP` in `server.py`
+  (Task 1 passes `None`, Task 4 passes the provider); `tool_user(session: Session) -> UserRow` in `context.py`
+  (reads the SDK's `get_access_token()`, expects a `DclhAccessToken` with `user_id: int` from Task 2, raises
+  `ToolError` otherwise); `GRID_NOTE: str`; `site_url(public_url: str, site_id: str) -> str`.
+
+- [ ] **Step 1:** read the installed SDK source (`mcp/server/fastmcp/server.py`, `mcp/server/auth/`) and note the real
+  names of `FastMCP`, `AuthSettings`, `ClientRegistrationOptions`, `RevocationOptions`, `get_access_token` and
+  `OAuthAuthorizationServerProvider`. If a name in this plan differs, use the SDK's and say so in the PR.
+- [ ] **Step 2: failing tests.** In `test_mcp_tools.py`, with `tool_user` and the router functions monkeypatched:
+  `test_tools_listed` (the server lists exactly `search_sites`, `get_site`, `list_pipeline`, `list_powiaty`,
+  `coverage`, `get_check`, `scoring_rules`, each with `readOnlyHint=True`); `test_search_limit_clamped`
+  (`limit=500` → the router gets `limit=50`); `test_search_result_has_grid_note`; `test_get_site_drops_heavy_fields`
+  (no `geometry`, `map`, `project_note` keys); `test_http_error_becomes_tool_error` (router raises
+  `HTTPException(404, "Nie ma takiej lokalizacji.")` → `ToolError` with that text). In `test_mcp_tools_db.py`:
+  `test_owner_note_never_leaks` (insert a project card with note `"TAJNA-NOTATKA-123"`, call every read tool,
+  `json.dumps` each result, assert the string is absent) and `test_list_pipeline_returns_stage`.
+- [ ] **Step 3:** run `uv run pytest tests/unit/test_mcp_tools.py -v`. Expected: FAIL (module missing).
+- [ ] **Step 4: implement.** The tools (each opens its own session from `db_session()` and calls the router function
+  directly with explicit arguments):
+  - `search_sites(powiat: str | None = None, voivodeship: str | None = None, min_mw: float = 60, min_ha: float = 0,
+    profile: Literal["built", "container"] | None = None, hide_red: bool = False,
+    sort: Literal["score", "upside", "area", "mw"] = "score", limit: int = 20, cursor: str | None = None) -> dict`:
+    calls `routers.sites.list_sites`; returns `total`, `next_cursor`, `grid_note`, and per site `site_id`, place,
+    `area_ha`, `estimated_mw`, `score`, both verdicts, `grid_badge`, `flags`, `url`.
+  - `get_site(site_id: str) -> dict`: `routers.sites.get_site` minus `geometry`, `map`, `project_note`; plus `url`
+    and `grid_note`.
+  - `list_pipeline() -> list[dict]`: new SQL `SELECT site_id, stage, updated_at FROM project_cards` joined to `sites`
+    for place and score. Name the columns explicitly; never `SELECT *`.
+  - `list_powiaty()`, `coverage(voivodeship: str | None = None)`, `get_check(check_id: str)`, `scoring_rules()`:
+    thin wrappers around `powiats.list_powiats`, `coverage`, `checks` get and `config` scoring.
+  - Server `instructions` (English, ≤ 15 lines): what the app is, what green/yellow/red/manual verdicts mean
+    (Warto / Warunkowo / Odpada / Do weryfikacji), that grid scores are proxies, to answer the user in Polish
+    and to give each site's `url`.
+  - `GRID_NOTE = "Ocena sieci to szacunek z odległości do sieci i danych publicznych operatorów, a nie potwierdzona
+    moc przyłączeniowa. Wiążą tylko warunki przyłączenia wydane przez OSD."`
+  - `main.py`: nothing is mounted yet (Task 4 mounts it). Only `build_mcp` exists and is tested in-process.
+- [ ] **Step 5:** run `uv run pytest tests/unit/test_mcp_tools.py -v` (PASS), then the full checks from `CLAUDE.md`.
+- [ ] **Step 6:** commit, push, open the PR "MCP: server with read tools (not exposed yet)".
+
+### Task 2: OAuth storage and provider
+
+**Files:**
+- Create: `api/alembic/versions/0015_oauth.py`, `api/dclh_api/mcp/oauth.py`
+- Modify: `pipeline/dclh_pipeline/db/models.py`
+- Test: `tests/unit/test_mcp_oauth.py` (no DB), `tests/unit/test_mcp_oauth_db.py` (DB-gated)
+
+**Interfaces:**
+- Consumes: the SDK provider protocol and its types (`OAuthClientInformationFull`, `AuthorizationParams`,
+  `AuthorizationCode`, `RefreshToken`, `AccessToken`, `OAuthToken`).
+- Produces: `class DclhAccessToken(AccessToken)` with `user_id: int`;
+  `class DclhOAuthProvider(public_url: str, session_factory: Callable[[], Session])`;
+  `redirect_uri_allowed(uri: str) -> bool`; `approve_request(session, req_id: str, user: UserRow) -> str`
+  and `deny_request(session, req_id: str) -> str` (each returns the redirect URL; raise `LookupError` for an unknown
+  or expired request); `purge_oauth(session, now: datetime) -> int`.
+
+- [ ] **Step 1: migration 0015.** `users.mcp_access boolean NOT NULL DEFAULT false`, plus:
+  - `oauth_clients(client_id text PK, info jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now())`
+  - `oauth_requests(id_hash text PK, client_id text FK ON DELETE CASCADE, params jsonb NOT NULL, expires_at timestamptz NOT NULL)`
+  - `oauth_codes(code_hash text PK, client_id FK CASCADE, user_id FK users CASCADE, params jsonb NOT NULL, expires_at timestamptz NOT NULL)`
+  - `oauth_tokens(token_hash text PK, kind text CHECK (kind IN ('access','refresh')), client_id FK CASCADE,
+    user_id FK users CASCADE, scopes text[] NOT NULL, resource text, expires_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now())`, with an index on `(user_id)`.
+
+  Add the matching rows to `models.py`.
+- [ ] **Step 2: failing tests.** In `test_mcp_oauth.py` (pure): `test_redirect_uri_allowed` (true:
+  both Claude callbacks, `http://localhost:33418/callback`, `http://127.0.0.1:6274/oauth/callback`; false:
+  `https://claude.ai.evil.com/api/mcp/auth_callback`, `http://claude.ai/api/mcp/auth_callback`,
+  `https://example.com/cb`, `http://localhost.evil.com/cb`). In `test_mcp_oauth_db.py`, build a **new
+  `DclhOAuthProvider` before every step** (restart safety):
+  - `test_full_flow`: register → authorize returns `{public_url}/polacz-claude?req=…` → `approve_request` returns the
+    redirect with `code` and `state` → exchange gives access and refresh tokens → `load_access_token` gives the
+    user id → refresh rotates (the old refresh token no longer works) → revoke → `load_access_token` returns `None`.
+  - `test_register_rejects_foreign_redirect`.
+  - `test_code_single_use_and_expiry`: a second exchange fails; a code older than 5 min fails.
+  - `test_mcp_access_off_kills_token`: approve, then set `mcp_access = false` → `load_access_token` returns `None`.
+  - `test_approve_needs_mcp_access`: a user without the flag gets `PermissionError`.
+  - `test_purge` removes expired requests, codes and tokens, and clients older than 7 days with no tokens.
+- [ ] **Step 3:** run them. Expected: FAIL.
+- [ ] **Step 4: implement `oauth.py`.** The SDK methods are `async`. Run the sync DB work with
+  `anyio.to_thread.run_sync`. Random values come from `secrets.token_urlsafe(32)`. `register_client` raises the
+  SDK's registration error (`invalid_redirect_uri`) when any URI fails `redirect_uri_allowed`, and refuses when
+  200 clients already exist. `load_access_token` joins `users` and returns `None` when the token is expired or
+  `mcp_access` is false.
+- [ ] **Step 5:** tests PASS, then the full checks. Commit, push, open the PR "MCP: OAuth storage and provider".
+
+### Task 3: consent API and the `/polacz-claude` page
+
+**Files:**
+- Create: `api/dclh_api/routers/oauth.py`, `web/src/pages/PolaczClaudePage.tsx`, `web/src/pages/PolaczClaudePage.test.tsx`
+- Modify: `api/dclh_api/main.py` (router), `api/dclh_api/routers/auth.py` (`UserOut.mcp_access: bool`),
+  `web/src/` router (route under `RequireAuth`, not in the nav), `web/src/api/schema.d.ts` (regenerate)
+- Test: `tests/unit/test_oauth_router.py` (DB-gated), plus the web test
+
+**Interfaces:**
+- Consumes: `approve_request`, `deny_request` (Task 2).
+- Produces: `GET /api/oauth/requests/{req_id}` → `ConsentInfo{client_name: str, scopes: list[ScopeOut{id, label}],
+  user_email: str, can_connect: bool}`; `POST /api/oauth/requests/{req_id}/decision` with `{approve: bool}` →
+  `{redirect_to: str}`; `GET /api/oauth/connections` → the current user's clients (`client_name`, `connected_at`);
+  `DELETE /api/oauth/connections/{client_id}` → deletes that user's tokens for the client (204).
+
+- [ ] **Step 1: failing tests.** API: unknown or expired request → 404 with
+  `"Prośba o połączenie wygasła lub została już użyta. Zacznij łączenie w Claude od nowa."`; a user without access →
+  `can_connect: false` on GET and 403 on POST with `"Twoje konto nie ma włączonego dostępu dla Claude. Poproś
+  administratora."`; approve → `redirect_to` starts with the registered redirect URI and has `code` and `state`;
+  deny → `error=access_denied`; a second POST → 404; `GET /api/oauth/connections` lists only the current user's
+  clients; `DELETE` on one makes that user's token for it fail `load_access_token`. Web: renders the client name, the account email and both
+  scope labels; "Zezwól" posts `approve: true` and navigates to `redirect_to`; the 404 and 403 texts render;
+  it does **not** navigate when `redirect_to` is neither `https:` nor `http://localhost` / `http://127.0.0.1`.
+- [ ] **Step 2:** run them. Expected: FAIL.
+- [ ] **Step 3: implement.** Page copy (exact):
+  - Title: "Połączyć Claude z DC Land Hunter?"
+  - Body: "Claude będzie działać w Twoim imieniu (konto: {email}) i będzie mógł:"
+  - `dclh.read`: "czytać lokalizacje, oceny, pokrycie powiatów i etapy projektów (bez notatek)"
+  - `dclh.write`: "obserwować lokalizacje i zlecać sprawdzenie działki"
+  - Footer: "Dane, które Claude odczyta, trafią do Anthropic. Notatki z projektów nie są udostępniane.
+    Połączenie możesz odłączyć w Ustawieniach."
+  - Buttons: "Zezwól" (primary) and "Odmów".
+- [ ] **Step 4:** tests PASS, then the full checks (Python and web). Commit, push, open the PR
+  "MCP: consent page for connecting Claude".
+
+### Task 4: mount the server, Caddy routes, admin CLI
+
+**Files:**
+- Modify: `api/dclh_api/main.py`, `pipeline/dclh_pipeline/settings.py` (`public_url: str | None = None`, env
+  `DCLH_PUBLIC_URL`), `infra/Caddyfile`, `infra/crontab`, `pipeline/dclh_pipeline/cli.py`, `.env.example`
+- Test: `tests/unit/test_mcp_mount.py` (no DB)
+
+**Interfaces:**
+- Consumes: `build_mcp` (Task 1), `DclhOAuthProvider` and `purge_oauth` (Task 2).
+- Produces: the public endpoints `/mcp`, `/authorize`, `/token`, `/register`, `/revoke`,
+  `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource…` (the exact paths come from
+  the SDK); CLI `dclh user mcp-access EMAIL --on|--off` (`--off` also deletes the user's tokens),
+  `dclh oauth list` and `dclh oauth purge`.
+
+- [ ] **Step 1: failing tests.** With `DCLH_PUBLIC_URL=https://dclh.example`:
+  `test_protected_resource_metadata` (`authorization_servers` holds the issuer); `test_as_metadata` (has
+  `registration_endpoint`, `code_challenge_methods_supported == ["S256"]`, scopes `dclh.read` and `dclh.write`);
+  `test_mcp_without_token_401` (`WWW-Authenticate` contains `resource_metadata=`); `test_api_routes_unchanged`
+  (`/api/health` still answers). Without the variable: `test_mcp_absent` (`/mcp` → 404).
+- [ ] **Step 2: implement.**
+  - `create_app()` mounts `build_mcp(...).streamable_http_app()` at `/` **after** all `/api` routers, and runs the
+    SDK session manager in the app lifespan.
+  - `AuthSettings`: `issuer_url = public_url`, `resource_server_url = f"{public_url}/mcp"`, registration enabled
+    (`valid_scopes` and `default_scopes` both `["dclh.read", "dclh.write"]`), revocation enabled,
+    `required_scopes = ["dclh.read"]`.
+  - Caddy: one `handle` with a path matcher for exactly the routes above, proxied to `api:8000`, placed before the SPA
+    fallback. Responses must not be cached (`Cache-Control: no-store`).
+  - Crontab: `dclh oauth purge` daily at 04:30.
+  - Validate the Caddyfile with
+    `docker run --rm -v $PWD/infra/Caddyfile:/etc/caddy/Caddyfile caddy:2 caddy validate --config /etc/caddy/Caddyfile`.
+- [ ] **Step 3: local end-to-end.** Run the compose stack with `DCLH_PUBLIC_URL=http://localhost` (the SDK accepts
+  `http` only for localhost) and connect the MCP Inspector (`npx @modelcontextprotocol/inspector`, run in a
+  `node:22` container since the host has no Node). Expected: register, the consent page, the token exchange, and
+  `search_sites` returning sites. Put the Inspector screenshots in the PR.
+- [ ] **Step 4:** full checks. Commit, push, open the PR "MCP: expose the server with OAuth behind Caddy".
+
+### Task 5: write tools
+
+**Files:**
+- Create: `api/dclh_api/mcp/tools_write.py`
+- Modify: `api/dclh_api/mcp/server.py`
+- Test: `tests/unit/test_mcp_write.py` (no DB), `tests/unit/test_mcp_write_db.py`
+
+**Interfaces:**
+- Consumes: `tool_user` (Task 1); the token's `scopes` from `get_access_token()`.
+- Produces: `watch_site(site_id: str)`, `unwatch_site(site_id: str)` (both `readOnlyHint=False`,
+  `destructiveHint=False`, `idempotentHint=True`); `check_parcel(parcel_id: str) -> {check_id, status, url}`
+  (`readOnlyHint=False`, `destructiveHint=False`). It calls `routers.checks.resolve` and then `start_check`, so the
+  existing check limits apply.
+
+- [ ] **Step 1: failing tests.** No `dclh.write` scope → `ToolError("Brak uprawnienia do zapisu (dclh.write).")`;
+  watching twice leaves one row; a malformed `parcel_id` gives the router's Polish message as `ToolError`;
+  `check_parcel` returns a `check_id` that `get_check` (Task 1) can read; the owner-note leak test from Task 1
+  is extended to the write tools.
+- [ ] **Step 2:** implement until the tests pass, run the full checks, then commit, push and open the PR
+  "MCP: watch sites and queue a parcel check".
+
+### Task 6: Settings section, docs, rollout
+
+**Files:**
+- Modify: `web/src/pages/SettingsPage.tsx` (+ test), `docs/RUNBOOK.md`, `docs/STATUS.md`, this section's checklist
+
+**Steps:**
+- [ ] **Step 1: Settings card "Połączenie z Claude".** It shows the connector URL `{window.location.origin}/mcp` with a
+  copy button, and the steps:
+  1. "W Claude otwórz Ustawienia → Konektory → Dodaj własny konektor."
+  2. "Nazwa: DC Land Hunter. Adres: {url}."
+  3. "Kliknij Połącz, zaloguj się i wybierz Zezwól."
+
+  Then "Claude na telefonie użyje tego samego konektora.", and a status line from `/api/auth/me`:
+  "Twoje konto ma dostęp." or "Poproś administratora o włączenie dostępu dla Claude.". Below that, the list from
+  `GET /api/oauth/connections` with an "Odłącz" button. Web tests cover both statuses and the "Odłącz" call.
+- [ ] **Step 2: RUNBOOK.**
+  - The owner appends `DCLH_PUBLIC_URL=https://<domain>` to `infra/.env` **by hand**. Never overwrite that file.
+  - Commands to enable and disable a user, list and purge clients.
+  - Claude Code: `claude mcp add --transport http dclh https://<domain>/mcp`.
+  - What to do when Claude says the connection expired (reconnect from the Settings card).
+- [ ] **Step 3: production acceptance**, run with the owner after the merge and deploy. Each item passes or the
+  PR notes why:
+  - [ ] `dclh user mcp-access <owner> --on`; the connector is added in claude.ai web; the consent page shows; the
+    connection succeeds.
+  - [ ] "Pokaż 5 najlepszych lokalizacji w powiecie lęborskim dla DC budowanego" → `search_sites` is called, the
+    answer is in Polish, has links and says the grid figures are an estimate.
+  - [ ] "Obserwuj pierwszą z nich" → Claude asks for confirmation; the site shows as watched in the app.
+  - [ ] The same question works in the Claude phone app.
+  - [ ] `dclh user mcp-access <owner> --off` → the next question fails and Claude asks to reconnect.
+  - [ ] `docker compose restart api` mid-conversation → the next question still works.
+- [ ] **Step 4:** update `docs/STATUS.md`, commit, push, open the PR "MCP: Settings card, runbook".
+
+### Risks
+
+- **claude.ai connector bugs.** There are public reports of the web flow stalling at the token step while Claude
+  Code works with the same server. Mitigation: Task 4's Inspector run proves the server is correct, so a failure
+  there is Anthropic's; Claude Code is the fallback.
+- **SDK churn.** The MCP SDK changes its auth API between minor versions. Pin the exact version; Task 1 step 1 reads
+  the source before coding.
+- **Data leaves the server.** Everything a tool returns goes to Anthropic. The no-notes rule and the leak tests are
+  the guard. Adding a field to `SiteDetail` later means re-checking that test.
+- **Output size.** Large results eat Claude's context: list limit 50, no geometry, detail only through `get_site`.
+- **Abuse of DCR.** Anyone can register a client; it is useless without a user with `mcp_access`, and the
+  redirect URI allowlist plus the 200-client cap and the daily purge keep the table small.
