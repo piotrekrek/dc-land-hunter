@@ -50,6 +50,67 @@ Non-interactive (scripts, CI): `--password-env VAR` reads the password from an e
 Admins see "Uruchom teraz" on the Sources page; everything except `/api/health` requires login.
 The session cookie is `Secure` automatically when the request arrives over HTTPS (Caddy forwards the scheme).
 
+## Claude connector (MCP)
+
+Lets a person connect Claude (claude.ai on the web, the desktop and phone apps, or Claude Code) to this app. Claude
+can then search sites, read site cards, coverage, the deal pipeline (stages only, never notes) and parcel checks, and
+can watch a site or queue a parcel check. Everything is done as the person who connected it, and Claude asks before
+it runs a tool that changes something. Design and decisions: `docs/PLAN.md`, "Claude connector (MCP)".
+
+**What leaves the server:** everything a tool returns goes to Anthropic. The pipeline `owner_note` is never returned
+(it may hold personal data, brief 9.6). Before adding a field to `SiteDetail` or a new tool, run the leak tests
+(`tests/unit/test_mcp_tools_db.py`, `tests/unit/test_mcp_write_db.py`) and extend them.
+
+### Switch it on (once)
+
+1. On the VPS, append the public address to `infra/.env` **by hand** (never overwrite that file). `SITE_ADDRESS` must
+   already be the domain, so Caddy serves HTTPS; Claude's servers only reach an HTTPS address:
+
+   ```
+   DCLH_PUBLIC_URL=https://<domain>
+   ```
+
+   No trailing slash and no path. It must be exactly what people type in the browser.
+2. Deploy as usual (`scripts/deploy.sh`). Check `curl https://<domain>/.well-known/oauth-authorization-server`
+   (JSON) and `docker compose -f infra/docker-compose.yml logs api` (no error).
+3. Allow each person. `--off` also drops that person's tokens, so Claude is signed out at once:
+
+   ```bash
+   docker compose -f infra/docker-compose.yml exec api dclh user mcp-access partner@example.org --on
+   docker compose -f infra/docker-compose.yml exec api dclh user mcp-access partner@example.org --off
+   docker compose -f infra/docker-compose.yml exec api dclh oauth list     # who connected which app
+   docker compose -f infra/docker-compose.yml exec api dclh oauth purge    # expired rows; also daily at 04:30 (crontab)
+   ```
+
+4. The person opens Ustawienia → "Połączenie z Claude" in the app: it shows the address and the steps.
+   - claude.ai, desktop, phone: Settings → Connectors → Add custom connector → name `DC Land Hunter`, the address →
+     Connect → log in to the app → "Zezwól". Custom connectors need a Pro, Max, Team or Enterprise plan. The phone app
+     uses the connector added on the web.
+   - Claude Code: `claude mcp add --transport http dclh https://<domain>/mcp`, then `/mcp` inside Claude Code to log in.
+
+### Switch it off
+
+Remove `DCLH_PUBLIC_URL` from `infra/.env` and redeploy: `/mcp` and the OAuth endpoints disappear and the rest of the
+app is unchanged. To cut one person off, use `dclh user mcp-access … --off`. A person can also disconnect an app
+themselves in Ustawienia. Clients, codes and tokens are rows in the `oauth_*` tables; secrets are stored as SHA-256.
+
+### Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| Ustawienia says "Połączenie z Claude jest wyłączone na tym serwerze" | `DCLH_PUBLIC_URL` is missing from `infra/.env`, or the `api` container was not recreated after adding it |
+| The consent page says the account has no access | `dclh user mcp-access <email> --on` |
+| Claude says the connection expired | Access tokens last 1 hour and are refreshed for 30 days. If that fails, disconnect in Ustawienia and connect again (Claude Code: `/mcp`) |
+| `/mcp` answers 421 | The Host header is not the public host. `DCLH_PUBLIC_URL` must match the address exactly (scheme and host) |
+| The consent page says "Prośba o połączenie wygasła…" | A request lives 10 minutes and works once. Start again from Claude |
+| claude.ai fails at "Connect", but Claude Code connects with the same address | There are public reports of the claude.ai web flow stalling at the token step ([#215](https://github.com/anthropics/claude-ai-mcp/issues/215), [#313](https://github.com/anthropics/claude-ai-mcp/issues/313)). If Claude Code works, the server is right: retry later and report it to Anthropic |
+
+### Trying it without Claude
+
+Set `DCLH_PUBLIC_URL=http://localhost:<port>` (plain http is accepted for localhost only) and point the MCP Inspector
+(`npx @modelcontextprotocol/inspector`, from a Node container if the host has none) at `http://localhost:<port>/mcp`.
+The automated checks do the same with the official MCP client: see the tests named `test_mcp_*` and `test_oauth_*`.
+
 ## Local development (without Docker for the app)
 
 ```bash

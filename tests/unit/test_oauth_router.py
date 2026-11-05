@@ -15,6 +15,7 @@ from dclh_api.routers.oauth import NO_ACCESS, REQUEST_GONE
 from dclh_api.security import current_user
 from dclh_pipeline.db import session_scope
 from dclh_pipeline.db.models import UserRow
+from dclh_pipeline.settings import Settings
 from tests.unit.test_mcp_oauth_db import CALLBACK, PUBLIC_URL, client_info, make_user, params, query
 
 pytestmark = [pytest.mark.db, pytest.mark.usefixtures("migrated_db")]
@@ -170,3 +171,14 @@ def test_the_oauth_routes_require_login() -> None:
         assert anonymous.post("/api/oauth/requests/x/decision", json={"approve": True}).status_code == 401
         assert anonymous.get("/api/oauth/connections").status_code == 401
         assert anonymous.delete("/api/oauth/connections/x").status_code == 401
+
+
+def test_connections_carry_the_connector_address_or_null_when_it_is_off(
+    ann: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "dclh_api.routers.oauth.get_settings", lambda: Settings(public_url="https://dclh.example/")
+    )
+    assert ann.get("/api/oauth/connections").json()["connector_url"] == "https://dclh.example/mcp"
+    monkeypatch.setattr("dclh_api.routers.oauth.get_settings", lambda: Settings(public_url=None))
+    assert ann.get("/api/oauth/connections").json()["connector_url"] is None

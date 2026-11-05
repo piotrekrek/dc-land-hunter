@@ -1,5 +1,26 @@
 # Status
 
+## Claude connector: a remote MCP server with OAuth (05.11.2026; plan in PR #148, code in PRs #149 to #153 and the Settings PR; not deployed)
+
+- **What it is:** with `DCLH_PUBLIC_URL` set, the API serves an MCP server at `/mcp` and its OAuth endpoints, so a person can
+  add the app as a custom connector in claude.ai (web, desktop, phone) or Claude Code, log in with their app account and
+  approve. It is off without that variable, so merging and deploying changes nothing by itself. RUNBOOK "Claude connector".
+- **What Claude can do:** read: `search_sites`, `get_site`, `list_pipeline` (stages, never notes), `list_powiaty`, `coverage`,
+  `get_check`, `scoring_rules`. Write, each confirmed by the user in Claude: `watch_site`, `unwatch_site`, `check_parcel`.
+  Every grid answer carries a note that the figure is a proxy, not a confirmed capacity.
+- **Access:** an admin switches it on per user (`dclh user mcp-access EMAIL --on`); `--off` signs Claude out at once. Tokens
+  and clients are in Postgres (migration 0015), secrets stored hashed; the redirect allowlist is Claude's callback and
+  loopback only. Ustawienia has a card "Połączenie z Claude" with the address, the steps and a list to disconnect.
+- **Checked:** unit and PostGIS tests (1157 Python, 283 web); mutation checks on the security rules (access switch, redirect
+  allowlist, single-use codes, the write scope, the owner-note leak); and a local end-to-end run through the real Caddyfile
+  with the official MCP client (36 checks: discovery, consent, token, tools, refresh rotation, restart, switch-off).
+- **Not checked:** claude.ai itself and the live ULDK lookup behind `check_parcel` (tests stub it). Acceptance with the owner:
+  PLAN.md "Claude connector", Task 6, step 3.
+- **To do after deploy:** add `DCLH_PUBLIC_URL` to `infra/.env` by hand, redeploy, enable the owner's account, run the
+  acceptance list in the plan.
+- **Known limits:** anyone can register an OAuth client, but it grants nothing without a user's approval (200 clients max, idle
+  ones purged after 7 days); every connection has both scopes, since the SDK advertises the required scopes.
+
 ## Disk space: compressed EGiB pages, a capped answer cache, a disk check before each search (30.10.2026; not deployed)
 
 - **Why:** on 30.10.2026 the VPS disk filled up (59 GB, 0 MB free). EGiB pages took 14 GB and the answer cache 9.9 GB,

@@ -1958,6 +1958,17 @@
       },
       "ConnectionList": {
         "properties": {
+          "connector_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connector Url"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/ConnectionOut"
@@ -1968,6 +1979,7 @@
         },
         "type": "object",
         "required": [
+          "connector_url",
           "items"
         ],
         "title": "ConnectionList"
