@@ -16,10 +16,10 @@ from mcp.server.auth.provider import AccessToken
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 
-from dclh_api.mcp import context
+from dclh_api.mcp import areas, context, search
 from dclh_api.mcp.server import build_mcp
 from dclh_api.routers import sites
-from dclh_api.schemas import FactOut, SiteDetail, SiteMapOut, SitesPage, SiteSummary
+from dclh_api.schemas import FactOut, SiteDetail, SiteMapOut, SiteSummary
 from dclh_pipeline.db.models import UserRow
 
 pytestmark = pytest.mark.anyio
@@ -33,6 +33,8 @@ TOOLS = {
     "coverage",
     "get_check",
     "scoring_rules",
+    "top_picks",
+    "compare_sites",
 }
 WRITE_TOOLS = {"watch_site", "unwatch_site", "check_parcel"}  # see test_mcp_write.py
 
@@ -99,41 +101,182 @@ async def test_the_read_tools_are_listed_and_all_read_only(mcp: FastMCP) -> None
         assert tool.annotations.readOnlyHint is (tool.name in TOOLS), tool.name
 
 
+def stub_search(monkeypatch: pytest.MonkeyPatch, result: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Replaces the SQL of `search_sites`; returns the keyword arguments the tool passed to it."""
+    seen: dict[str, Any] = {}
+
+    def fake(_session: Any, _public_url: str, **kwargs: Any) -> dict[str, Any]:
+        seen.update(kwargs)
+        return result or {"total": 0, "next_cursor": None, "verdict_counts": {}, "sites": []}
+
+    monkeypatch.setattr(search, "search_sites", fake)
+    return seen
+
+
 @pytest.mark.parametrize(("asked", "sent"), [(500, 50), (0, 1), (-3, 1), (20, 20)])
 async def test_search_limit_is_clamped(
     mcp: FastMCP, monkeypatch: pytest.MonkeyPatch, asked: int, sent: int
 ) -> None:
-    seen: dict[str, Any] = {}
-
-    def fake(**kwargs: Any) -> SitesPage:
-        seen.update(kwargs)
-        return SitesPage(total=0, offset=0, limit=kwargs["limit"], items=[])
-
-    monkeypatch.setattr(sites, "list_sites", fake)
+    seen = stub_search(monkeypatch)
     await call(mcp, "search_sites", limit=asked)
     assert seen["limit"] == sent
-    assert seen["include_excluded"] is False and seen["offset"] == 0
 
 
-async def test_search_result_is_compact_and_carries_the_grid_note(
+async def test_search_defaults_keep_the_old_behaviour(mcp: FastMCP, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = stub_search(monkeypatch)
+    await call(mcp, "search_sites")
+    assert seen | {"limit": 20} == {
+        "powiat": None,
+        "voivodeship": None,
+        "min_mw": 60,
+        "min_ha": 0,
+        "profile": None,
+        "hide_red": False,
+        "verdicts": None,
+        "sort": "score",
+        "limit": 20,
+        "cursor": None,
+        "max_per_gmina": None,
+        "full": False,
+    }
+
+
+async def test_search_result_carries_the_grid_note_and_passes_the_filters_on(
     mcp: FastMCP, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    page = SitesPage(total=1, offset=0, limit=20, items=[summary()], next_cursor="abc")
-    monkeypatch.setattr(sites, "list_sites", lambda **_kw: page)
-    result = await call(mcp, "search_sites", powiat="2208")
-    assert result["grid_note"] == context.GRID_NOTE
-    assert result["next_cursor"] == "abc" and result["total"] == 1
-    [line] = result["sites"]
-    assert line["url"] == f"{PUBLIC_URL}/lokalizacje/site-1"
-    assert line["area_ha"] == 12.35 and line["estimated_mw"] == 74.1 and line["score"] == 71.8
-    assert line["verdicts"] == {"built": "green", "container": "yellow"}
-    assert {"lon", "lat", "mw_fact", "upside_score"}.isdisjoint(line)
+    seen = stub_search(monkeypatch, {"total": 1, "next_cursor": "abc", "verdict_counts": {}, "sites": []})
+    result = await call(
+        mcp,
+        "search_sites",
+        powiat="2208",
+        profile="container",
+        verdict=["green", "yellow"],
+        max_per_gmina=1,
+        detail="full",
+    )
+    assert result["grid_note"] == context.GRID_NOTE and result["next_cursor"] == "abc"
+    assert seen["powiat"] == "2208" and seen["verdicts"] == ["green", "yellow"]
+    assert seen["max_per_gmina"] == 1 and seen["full"] is True
 
 
-@pytest.mark.parametrize("arguments", [{"powiat": "abc"}, {"powiat": "22088"}, {"voivodeship": "2"}])
-async def test_malformed_teryt_codes_are_rejected(mcp: FastMCP, arguments: dict[str, str]) -> None:
-    with pytest.raises(ToolError):
+async def test_area_names_are_resolved_to_codes_with_the_voivodeship_narrowing_the_powiat(
+    mcp: FastMCP, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = stub_search(monkeypatch)
+    asked: list[tuple[str, str | None, str | None]] = []
+
+    def fake_resolve(_s: Any, level: str, value: str | None, *, within: str | None = None) -> str | None:
+        asked.append((level, value, within))
+        return {"dolnośląskie": "02", "średzki": "0218"}.get(value or "")
+
+    monkeypatch.setattr(areas, "resolve_area", fake_resolve)
+    await call(mcp, "search_sites", voivodeship="dolnośląskie", powiat="średzki")
+    assert seen["voivodeship"] == "02" and seen["powiat"] == "0218"
+    assert ("powiat", "średzki", "02") in asked
+
+
+@pytest.mark.parametrize("arguments", [{"powiat": "22088"}, {"voivodeship": "2"}])
+async def test_a_numeric_code_of_the_wrong_length_is_rejected(
+    mcp: FastMCP, monkeypatch: pytest.MonkeyPatch, arguments: dict[str, str]
+) -> None:
+    stub_search(monkeypatch)
+    with pytest.raises(ToolError, match="cyfry"):
         await call(mcp, "search_sites", **arguments)
+
+
+async def test_a_verdict_filter_needs_a_profile(mcp: FastMCP) -> None:
+    with pytest.raises(ToolError, match="wymagają wybranego profilu"):
+        search.search_sites(
+            object(),  # type: ignore[arg-type]
+            PUBLIC_URL,
+            powiat=None,
+            voivodeship=None,
+            min_mw=60,
+            min_ha=0,
+            profile=None,
+            hide_red=False,
+            verdicts=["green"],
+            sort="score",
+            limit=5,
+            cursor=None,
+        )
+
+
+async def test_top_picks_is_one_per_gmina_and_region_with_green_and_yellow_by_default(
+    mcp: FastMCP, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = stub_search(monkeypatch)
+    await call(mcp, "top_picks", profile="container")
+    assert seen["max_per_gmina"] == 1 and seen["max_per_voivodeship"] == 1
+    assert seen["verdicts"] == ["green", "yellow"] and seen["profile"] == "container"
+    assert seen["sort"] == "score" and seen["limit"] == 10
+    await call(mcp, "top_picks", profile="built", per_region=3, verdict=["manual"], limit=500)
+    assert seen["max_per_voivodeship"] == 3 and seen["verdicts"] == ["manual"] and seen["limit"] == 50
+
+
+def test_cursor_round_trips_and_rejects_anything_else() -> None:
+    assert search.decode_cursor(search.encode_cursor(40)) == 40
+    for bad in ("", "abc", "!!!", search.encode_cursor(1)[:-2], "bzFh"):
+        with pytest.raises(ToolError, match="Kursor"):
+            search.decode_cursor(bad)
+
+
+@pytest.mark.parametrize(
+    ("typed", "normalized"),
+    [
+        ("Dolnośląskie", "dolnoslaskie"),
+        ("powiat Wrocławski", "wroclawski"),
+        ("  Woj. Łódzkie ", "lodzkie"),
+        ("województwo kujawsko-pomorskie", "kujawsko-pomorskie"),
+        ("ŁĘBORK", "lebork"),
+    ],
+)
+def test_names_are_compared_without_case_diacritics_or_the_word_powiat(typed: str, normalized: str) -> None:
+    assert areas.normalize(typed) == normalized
+
+
+def test_codes_pass_through_and_nothing_means_no_filter() -> None:
+    assert areas.resolve_area(None, "powiat", "2208") == "2208"  # type: ignore[arg-type]
+    assert areas.resolve_area(None, "voivodeship", None) is None  # type: ignore[arg-type]
+    assert areas.resolve_area(None, "voivodeship", "  ") is None  # type: ignore[arg-type]
+
+
+async def test_get_site_needs_exactly_one_of_site_id_and_site_ids(mcp: FastMCP) -> None:
+    for arguments in ({}, {"site_id": "a", "site_ids": ["b"]}):
+        with pytest.raises(ToolError, match="site_id albo site_ids"):
+            await call(mcp, "get_site", **arguments)
+
+
+async def test_bulk_get_site_lists_unknown_ids_instead_of_failing(
+    mcp: FastMCP, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    detail = SiteDetail(
+        **summary().model_dump(),
+        parcel_ids=[],
+        scored_at=datetime(2026, 11, 1, tzinfo=UTC),
+        exclusions=[],
+        categories=[],
+        items=[],
+        features={},
+        geometry={},
+        map=SiteMapOut(origin_2180=[0, 0], bbox_m=[0, 0, 1, 1], parcel=[]),
+    )
+
+    def fake(site_id: str, *_a: Any, **_kw: Any) -> SiteDetail:
+        if site_id == "gone":
+            raise HTTPException(404, "Nie ma takiej lokalizacji.")
+        return detail
+
+    monkeypatch.setattr(sites, "get_site", fake)
+    result = await call(mcp, "get_site", site_ids=["site-1", "gone", "site-1"])
+    assert [s["site_id"] for s in result["sites"]] == ["site-1"] and result["not_found"] == ["gone"]
+    assert {"geometry", "map", "project_note"}.isdisjoint(result["sites"][0])
+
+
+async def test_comparing_needs_two_to_eight_sites(mcp: FastMCP) -> None:
+    for ids in (["a"], [f"s{i}" for i in range(9)]):
+        with pytest.raises(ToolError):
+            await call(mcp, "compare_sites", site_ids=ids)
 
 
 async def test_router_error_becomes_a_tool_error_with_the_polish_text(
