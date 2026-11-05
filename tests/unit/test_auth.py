@@ -158,7 +158,7 @@ def test_protected_routes_need_login(client: TestClient) -> None:
 @pytest.mark.db
 def test_login_sets_http_only_cookie_and_me_works(client: TestClient) -> None:
     r = client.post("/api/auth/login", json={"email": "admin@example.org", "password": PASSWORD})
-    assert r.json() == {"email": "admin@example.org", "role": "admin"}
+    assert r.json() == {"email": "admin@example.org", "role": "admin", "mcp_access": False}
     cookie = r.headers["set-cookie"].lower()
     assert "httponly" in cookie and "samesite=lax" in cookie
     assert client.get("/api/auth/me").json()["email"] == "admin@example.org"
