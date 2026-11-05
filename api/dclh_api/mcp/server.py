@@ -1,10 +1,15 @@
-"""The MCP server object. It has no login of its own yet: Task 4 adds the OAuth provider."""
+"""The MCP server object. With a provider it also serves the OAuth endpoints and checks bearer tokens."""
 
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
+from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from dclh_api.mcp import tools_read
+from dclh_api.mcp.oauth import SCOPES, DclhOAuthProvider
 
 INSTRUCTIONS = """\
 DC Land Hunter finds land west of the Vistula (Poland) that could host a small AI data centre (60 MW or more,
@@ -18,10 +23,38 @@ Answer the user in Polish and give each site's `url` so they can open its card.
 """
 
 
-def build_mcp(public_url: str) -> FastMCP:
+def build_mcp(public_url: str, provider: DclhOAuthProvider | None = None) -> FastMCP:
+    """`public_url` is the address users reach the app at (https://dclh.example, no trailing slash).
+
+    Without a provider the server has no login and no HTTP security: it is for in-process tests only.
+    """
+    auth = security = None
+    if provider is not None:
+        auth = AuthSettings(
+            issuer_url=public_url,
+            resource_server_url=f"{public_url}/mcp",
+            client_registration_options=ClientRegistrationOptions(
+                enabled=True, valid_scopes=SCOPES, default_scopes=SCOPES
+            ),
+            revocation_options=RevocationOptions(enabled=True),
+            # The SDK advertises `required_scopes` as the resource's scopes, and the consent page grants both,
+            # so a client that asks for only the advertised scope would end up unable to use the write tools.
+            required_scopes=SCOPES,
+            # Every token this server issues is for this server, so the audience check adds nothing.
+            validate_token_resource=False,
+        )
+        # Behind Caddy the Host header is the public host. Without this list FastMCP only accepts localhost.
+        security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=[urlparse(public_url).netloc],
+            allowed_origins=[public_url],
+        )
     mcp = FastMCP(
         "DC Land Hunter",
         instructions=INSTRUCTIONS,
+        auth_server_provider=provider,
+        auth=auth,
+        transport_security=security,
         stateless_http=True,
         json_response=True,
     )

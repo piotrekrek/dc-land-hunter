@@ -52,6 +52,8 @@ services:
     environment:
       <<: *python-env
       DCLH_API_DOCS: ${DCLH_API_DOCS:-0}
+      # Switches on the Claude connector (MCP server + OAuth). Empty: off. See docs/RUNBOOK.md.
+      DCLH_PUBLIC_URL: ${DCLH_PUBLIC_URL:-}
     # Only Caddy (the web container, fixed address below) may set X-Forwarded-For. Trusting "*" let any client
     # pick its own IP, which defeats the login throttles (api/dclh_api/security.py).
     command:

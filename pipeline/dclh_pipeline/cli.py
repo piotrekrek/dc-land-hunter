@@ -801,6 +801,58 @@ def user_list() -> None:
     console.print(table)
 
 
+@user_app.command("mcp-access")
+def user_mcp_access(
+    email: str,
+    on: Annotated[bool, typer.Option("--on/--off", help="Allow or forbid connecting Claude")],
+) -> None:
+    """Switch Claude access for a user. --off also drops their tokens, so Claude is signed out at once."""
+    from dclh_pipeline.db import session_scope
+    from dclh_pipeline.oauth_admin import set_mcp_access
+
+    try:
+        with session_scope() as session:
+            user = set_mcp_access(session, email, on)
+            console.print(f"Claude access {'ON' if on else 'OFF'} for {user.email}")
+    except LookupError as exc:
+        console.print(f"[red]no such user: {exc}[/]")
+        raise typer.Exit(1) from exc
+
+
+oauth_app = typer.Typer(help="The Claude connector's OAuth data", no_args_is_help=True)
+app.add_typer(oauth_app, name="oauth")
+
+
+@oauth_app.command("list")
+def oauth_list() -> None:
+    """List connected Claude apps, per user."""
+    from dclh_pipeline.db import session_scope
+    from dclh_pipeline.oauth_admin import list_connections
+
+    table = Table("user", "app", "connected", "valid until")
+    with session_scope() as session:
+        for c in list_connections(session):
+            table.add_row(
+                c.email,
+                c.client_name or c.client_id,
+                c.connected_at.strftime("%d.%m.%Y"),
+                c.expires_at.strftime("%d.%m.%Y"),
+            )
+    console.print(table)
+
+
+@oauth_app.command("purge")
+def oauth_purge() -> None:
+    """Delete expired requests, codes and tokens, and idle clients. The scheduler runs it daily."""
+    from datetime import UTC, datetime
+
+    from dclh_pipeline.db import session_scope
+    from dclh_pipeline.oauth_admin import purge_oauth
+
+    with session_scope() as session:
+        console.print(f"removed {purge_oauth(session, datetime.now(UTC))} rows")
+
+
 if __name__ == "__main__":
     app()
 
