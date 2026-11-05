@@ -1,5 +1,6 @@
 # Scheduler crontab (supercronic). Times are Europe/Warsaw: TZ is set on the scheduler container.
-# The scheduler only enqueues jobs; the worker executes them one at a time.
+# The scheduler only enqueues jobs; the worker executes them one at a time. The one exception is the daily
+# `dclh oauth purge` below: it only deletes expired rows, so it cannot overlap a job.
 #
 # Phase 0: weekly live check of every source. It doubles as the weekly live smoke test (brief section 10)
 # and only reports; it never blocks anything. From Phase 2 the full weekly run is added here (Mon 05:00).
@@ -9,3 +10,6 @@
 # starts after 05:00, so the night window closes on its own. Needs the `prg` snapshot (lists the powiats).
 # Priority powiats come from the list saved in the Powiaty tab (table powiat_priority), not from here.
 0 1 * * * dclh enqueue plan_searches --payload '{"limit": 8, "window_end_hour": 5}'
+
+# Claude connector: drop expired OAuth requests, codes and tokens, and clients that hold no token.
+30 4 * * * dclh oauth purge

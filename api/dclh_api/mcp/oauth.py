@@ -17,7 +17,6 @@ import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
 from urllib.parse import urlparse
 
 import anyio.to_thread
@@ -42,7 +41,6 @@ REQUEST_TTL = timedelta(minutes=10)  # the consent step: from /authorize to the 
 CODE_TTL = timedelta(minutes=5)
 ACCESS_TTL = timedelta(hours=1)
 REFRESH_TTL = timedelta(days=30)
-CLIENT_RETENTION = timedelta(days=7)  # a registered client with no token is dropped after this
 MAX_CLIENTS = 200  # anyone can register a client; this keeps the table small (a client alone grants nothing)
 
 # Claude's own callback (Anthropic: it may move from claude.ai to claude.com, so both are allowed) and the
@@ -359,27 +357,6 @@ def revoke_connection(session: Session, client_id: str, user_id: int) -> None:
     session.execute(
         text("DELETE FROM oauth_tokens WHERE client_id = :c AND user_id = :u"), {"c": client_id, "u": user_id}
     )
-
-
-def purge_oauth(session: Session, now: datetime) -> int:
-    """Removes what has expired, and clients that hold no token a week after registering."""
-    statements: list[tuple[str, dict[str, Any]]] = [
-        (f"DELETE FROM {table} WHERE expires_at <= :now", {"now": now})
-        for table in ("oauth_requests", "oauth_codes", "oauth_tokens")
-    ]
-    statements.append(
-        (
-            "DELETE FROM oauth_clients c WHERE c.created_at <= :old "
-            "AND NOT EXISTS (SELECT 1 FROM oauth_tokens t WHERE t.client_id = c.client_id)",
-            {"old": now - CLIENT_RETENTION},
-        )
-    )
-    removed = 0
-    for sql, args in statements:
-        result = session.execute(text(sql), args)
-        # `rowcount` is on the cursor result of a DELETE, but not on the generic Result type (as in auth.py).
-        removed += int(result.rowcount or 0)  # type: ignore[attr-defined]
-    return removed
 
 
 class DclhOAuthProvider:

@@ -20,6 +20,7 @@ from dclh_api.mcp import oauth
 from dclh_api.mcp.oauth import DclhOAuthProvider
 from dclh_pipeline.db import get_engine, session_scope
 from dclh_pipeline.db.models import UserRow
+from dclh_pipeline.oauth_admin import purge_oauth
 
 pytestmark = [pytest.mark.db, pytest.mark.usefixtures("migrated_db"), pytest.mark.anyio]
 
@@ -330,7 +331,7 @@ async def test_purge_removes_what_expired_and_idle_clients() -> None:
             {"u": user_id},
         )
     with session_scope() as session:
-        removed = oauth.purge_oauth(session, datetime.now(UTC))
+        removed = purge_oauth(session, datetime.now(UTC))
     assert removed == 4  # the expired request, code and token, and the old idle client
     with session_scope() as session:
         kept = set(session.execute(text("SELECT client_id FROM oauth_clients")).scalars())
@@ -338,5 +339,5 @@ async def test_purge_removes_what_expired_and_idle_clients() -> None:
     assert count("oauth_tokens") == 2  # the live pair is untouched
     # A month on, the live pair has expired too, and the client that held it is idle.
     with session_scope() as session:
-        oauth.purge_oauth(session, datetime.now(UTC) + timedelta(days=31))
+        purge_oauth(session, datetime.now(UTC) + timedelta(days=31))
     assert count("oauth_tokens") == 0 and count("oauth_clients") == 0
