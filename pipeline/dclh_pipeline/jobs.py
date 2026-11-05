@@ -23,6 +23,7 @@ from dclh_pipeline.db.models import JobRow, PowiatPriorityRow, RunRow, SearchRun
 from dclh_pipeline.discovery import discover, save_report
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.powiat_search import (
+    PowiatSearch,
     merge_priority,
     next_window_end,
     pick_powiats,
@@ -114,15 +115,26 @@ def _job_search(session: Session, payload: dict[str, Any]) -> dict[str, Any]:
         raise
     count = write_sites(session, found.result.scored, scored_at=found.scored_at, powiat=teryt)
     record_attempt(session, teryt, ok=True, at=now, sites=count, seconds=round(found.seconds, 1))
+    return search_summary(found, count)
+
+
+def search_summary(found: PowiatSearch, sites: int) -> dict[str, Any]:
+    """What a search run keeps in `runs.summary`: the funnel, the time per step and the cache use.
+
+    The time per step shows where a slow night went (parcel download or scoring) after Docker dropped the log.
+    """
     report = found.result.report
     return {
-        "powiat": teryt,
+        "powiat": found.teryt,
         "name": found.name,
-        "sites": count,
+        "sites": sites,
         "scored": report.scored,
         "excluded": report.excluded,
         "parcels_fetched": report.parcels_fetched,
+        "tiles": report.tiles,
         "seconds": round(found.seconds, 1),
+        "step_seconds": {step: round(sec, 1) for step, sec in report.seconds.items()},
+        "cache": {"hits": found.cache_hits, "misses": found.cache_misses},
     }
 
 

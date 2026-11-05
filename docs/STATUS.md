@@ -1,5 +1,14 @@
 # Status
 
+## Search runs keep the time per step and the cache use (05.11.2026)
+
+- `runs.summary` of a search now also has `step_seconds`, the time per step: seed, parcels (the EGiB download), cluster,
+  score, small, kimpzp and kiug. It also has `cache` (response-cache hits and misses) and `tiles`.
+  Before, only the total was kept, and the worker log that had the detail is lost on each deploy.
+- Read them with:
+  `SELECT summary->>'powiat', summary->'step_seconds', summary->'cache' FROM runs WHERE kind = 'search' ORDER BY id DESC`.
+- Used to decide whether to speed up the parcel download (rate, or fewer tiles) once a few nights are recorded.
+
 ## MCP: richer search for Claude (05.11.2026; after the first real use)
 
 - **`search_sites`** now returns per site why (blockers and what is left to check, per profile), the nearest GPZ 110 kV
