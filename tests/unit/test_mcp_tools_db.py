@@ -10,6 +10,7 @@ from typing import Any
 
 import pytest
 from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.exceptions import ToolError
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -102,8 +103,10 @@ async def test_owner_note_never_leaks_through_any_read_tool(seeded: None, mcp: F
     site_id = await first_site_id(mcp)
     await put_in_pipeline(site_id)
     arguments: dict[str, dict[str, Any]] = {name: {} for name in READ_TOOLS}
-    arguments["search_sites"] = {"min_mw": 0}
-    arguments["get_site"] = {"site_id": site_id}
+    arguments["search_sites"] = {"min_mw": 0, "detail": "full"}
+    arguments["top_picks"] = {"profile": "container", "verdict": ["green", "yellow", "red", "manual"]}
+    arguments["compare_sites"] = {"site_ids": [site_id, "other"]}
+    arguments["get_site"] = {"site_ids": [site_id]}
     for name, args in arguments.items():
         assert NOTE not in json.dumps(await call(mcp, name, **args)), name
 
@@ -129,3 +132,141 @@ async def test_a_malformed_check_id_is_a_tool_error(seeded: None, mcp: FastMCP) 
 
     with pytest.raises(ToolError, match=r"Nie ma takiego sprawdzenia\."):
         await call(mcp, "get_check", check_id="not-a-uuid")
+
+
+# --- search filters, grouping, names and bulk reads -------------------------------------------------------------
+
+BOX = "ST_Multi(ST_MakeEnvelope({x0}, {y0}, {x1}, {y1}, 2180))"
+
+
+@pytest.fixture
+def places() -> Iterator[None]:
+    """Admin units around the seeded sites (they sit near the test fixtures' X0, Y0)."""
+    from tests.unit.test_scoring_run import X0, Y0
+
+    def unit(teryt: str, level: str, name: str, parent: str | None, pad: float) -> None:
+        box = BOX.format(x0=X0 - pad, y0=Y0 - pad, x1=X0 + 8_000 + pad, y1=Y0 + 2_000 + pad)
+        session.execute(
+            text(
+                "INSERT INTO admin_units (teryt, level, name, parent_teryt, geom) "
+                f"VALUES (:t, :l, :n, :p, {box})"
+            ),
+            {"t": teryt, "l": level, "n": name, "p": parent},
+        )
+
+    with session_scope() as session:
+        unit("14", "voivodeship", "mazowieckie", None, 2_000)
+        unit("1421", "powiat", "powiat lęborski", "14", 1_500)
+        unit("1422", "powiat", "powiat Lębork", "14", 1_500)
+        unit("0218", "powiat", "powiat średzki", "02", 1_500)
+        unit("3025", "powiat", "powiat średzki", "30", 1_500)
+        unit("142101", "gmina", "Gmina Testowa", "1421", 1_000)
+    yield
+    with session_scope() as session:
+        session.execute(text("DELETE FROM admin_units"))
+
+
+async def test_the_old_call_returns_what_the_web_list_returns(seeded: None, mcp: FastMCP) -> None:
+    from dclh_api.routers import sites as sites_router
+
+    with session_scope() as session:
+        expected = sites_router.list_sites(
+            session=session, sort="score", order="desc", min_mw=0, min_ha=0, include_excluded=False,
+            powiat=None, voivodeship=None, profile=None, hide_red=False, limit=50, offset=0, cursor=None,
+        )  # fmt: skip
+    result = await call(mcp, "search_sites", min_mw=0)
+    assert result["total"] == expected.total
+    assert [s["site_id"] for s in result["sites"]] == [s.site_id for s in expected.items]
+
+
+async def test_each_line_says_why_where_the_grid_is_and_how_complete_the_data_is(
+    seeded: None, mcp: FastMCP
+) -> None:
+    result = await call(mcp, "search_sites", min_mw=0, profile="container")
+    line = result["sites"][0]
+    assert set(line["why"]) == {"container"} and {"blockers", "to_check", "to_check_total"} <= set(
+        line["why"]["container"]
+    )
+    assert {"name", "distance_km", "confidence", "source_id"} <= set(line["nearest_gpz"])
+    assert line["nearest_gpz"]["confidence"] in {"estimated", "verified", "missing"}
+    assert line["parcels"]["count"] >= 1 and line["parcels"]["ids"] and line["parcels"]["obreb"]
+    assert sum(line["data"].values()) > 0 and set(line["data"]) == {"verified", "estimated", "missing"}
+    both = await call(mcp, "search_sites", min_mw=0)
+    assert set(both["sites"][0]["why"]) == {"built", "container"}
+
+
+async def test_verdict_filter_total_and_counts_agree(seeded: None, mcp: FastMCP) -> None:
+    everything = await call(mcp, "search_sites", min_mw=0, profile="container")
+    counts = everything["verdict_counts"]["container"]
+    assert sum(counts.values()) == everything["total"] == 2
+    kept = next(v for v, n in counts.items() if n)
+    only = await call(mcp, "search_sites", min_mw=0, profile="container", verdict=[kept])
+    assert only["total"] == counts[kept] == len(only["sites"])
+    assert all(s["verdicts"]["container"] == kept for s in only["sites"])
+    other = next(v for v, n in counts.items() if not n)
+    none = await call(mcp, "search_sites", min_mw=0, profile="container", verdict=[other])
+    assert none["total"] == 0 and none["sites"] == [] and none["next_cursor"] is None
+    assert none["verdict_counts"]["container"] == counts  # the summary ignores the verdict filter
+
+
+async def test_a_verdict_filter_without_a_profile_is_a_tool_error(seeded: None, mcp: FastMCP) -> None:
+    with pytest.raises(ToolError, match="wybranego profilu"):
+        await call(mcp, "search_sites", min_mw=0, verdict=["green"])
+
+
+async def test_paging_with_the_cursor_visits_every_site_once(seeded: None, mcp: FastMCP) -> None:
+    first = await call(mcp, "search_sites", min_mw=0, limit=1)
+    assert len(first["sites"]) == 1 and first["next_cursor"]
+    second = await call(mcp, "search_sites", min_mw=0, limit=1, cursor=first["next_cursor"])
+    assert len(second["sites"]) == 1 and second["next_cursor"] is None
+    assert {first["sites"][0]["site_id"], second["sites"][0]["site_id"]} == {
+        s["site_id"] for s in (await call(mcp, "search_sites", min_mw=0))["sites"]
+    }
+
+
+async def test_max_per_gmina_keeps_the_best_site_of_each_gmina(
+    seeded: None, places: None, mcp: FastMCP
+) -> None:
+    every = await call(mcp, "search_sites", min_mw=0)
+    capped = await call(mcp, "search_sites", min_mw=0, max_per_gmina=1)
+    assert every["total"] == 2 and capped["total"] == 1 and capped["caps"] == {"max_per_gmina": 1}
+    assert capped["sites"][0]["site_id"] == every["sites"][0]["site_id"]  # the better one survives
+    assert capped["sites"][0]["gmina"] == "Gmina Testowa"
+
+
+async def test_sites_outside_every_gmina_are_never_hidden_by_the_cap(seeded: None, mcp: FastMCP) -> None:
+    capped = await call(mcp, "search_sites", min_mw=0, max_per_gmina=1)
+    assert capped["total"] == 2
+
+
+async def test_top_picks_gives_one_site_per_region(seeded: None, places: None, mcp: FastMCP) -> None:
+    result = await call(mcp, "top_picks", profile="container", verdict=["green", "yellow", "red", "manual"])
+    assert result["total"] == 1 and result["sites"][0]["voivodeship"] == "mazowieckie"
+
+
+async def test_names_work_in_place_of_codes_and_ambiguity_lists_the_candidates(
+    seeded: None, places: None, mcp: FastMCP
+) -> None:
+    by_code = await call(mcp, "search_sites", min_mw=0, powiat="1421", voivodeship="14")
+    by_name = await call(mcp, "search_sites", min_mw=0, powiat="Powiat Lęborski", voivodeship="MAZOWIECKIE")
+    assert by_name["total"] == by_code["total"] == 2
+    city = await call(mcp, "search_sites", min_mw=0, powiat="Lębork")  # the exact name is the other powiat
+    assert city["total"] == 0
+    with pytest.raises(ToolError, match=r"0218.*3025"):
+        await call(mcp, "search_sites", powiat="średzki")
+    with pytest.raises(ToolError, match="Nie znaleziono"):
+        await call(mcp, "search_sites", voivodeship="nieistniejące")
+
+
+async def test_bulk_get_site_and_compare_sites(seeded: None, mcp: FastMCP) -> None:
+    ids = [s["site_id"] for s in (await call(mcp, "search_sites", min_mw=0))["sites"]]
+    cards = await call(mcp, "get_site", site_ids=[*ids, "nope"])
+    assert [c["site_id"] for c in cards["sites"]] == ids and cards["not_found"] == ["nope"]
+    compared = await call(mcp, "compare_sites", site_ids=[*reversed(ids), "nope"])
+    assert [c["site_id"] for c in compared["sites"]] == list(reversed(ids)) and compared["not_found"] == [
+        "nope"
+    ]
+    first = compared["sites"][0]
+    assert {"score_parts", "grid", "why", "nearest_gpz", "data", "area_ha", "estimated_mw"} <= set(first)
+    assert first["score_parts"] and "dist_gpz110_km" in first["grid"]
+    assert compared["grid_note"] == context.GRID_NOTE

@@ -1,5 +1,24 @@
 # Status
 
+## MCP: richer search for Claude (05.11.2026; after the first real use)
+
+- **`search_sites`** now returns per site why (blockers and what is left to check, per profile), the nearest GPZ 110 kV
+  (name from OSM, distance and confidence from the grid facts), parcel ids and obręb (the form `check_parcel` takes) and
+  how many facts are verified, estimated or missing. `detail="full"` lifts the cap of 3 "to check" items. New filters:
+  `verdict` (one or more, needs `profile`) and `max_per_gmina`; `verdict_counts` gives the sites per verdict under the other
+  filters, and `total` follows every filter. `powiat` and `voivodeship` take a Polish name or a code; an ambiguous name
+  (two "średzki") is an error that lists the candidates.
+- **New tools:** `top_picks` (best site per voivodeship, one per gmina, green and yellow by default, on the same SQL) and
+  `compare_sites` (2 to 8 sites side by side, with score by category and the grid facts). `get_site` takes `site_ids`
+  (up to 10) and lists unknown ids instead of failing.
+- **Neighbours:** in the data the top container sites in Włocławek touch each other (0 to 7 m apart), so the cap is per
+  gmina. Two sites that touch across a gmina border can both still appear.
+- **Paging:** the cursor is now an offset (the old keyset cursor is refused with a message). The web list is unchanged.
+- **Not changed:** scoring weights and thresholds; grid values stay estimates; the write tools still act only on request.
+  Tools being loaded on demand is Claude's own behaviour (tool search), not a server setting, so there is nothing to change here.
+- **Checked:** unit and PostGIS tests (1180 Python); the new search also ran read-only against the production data
+  (a capped top 5 takes 0.4 s).
+
 ## Claude connector: a remote MCP server with OAuth (05.11.2026; plan in PR #148, code in PRs #149 to #153 and the Settings PR; not deployed)
 
 - **What it is:** with `DCLH_PUBLIC_URL` set, the API serves an MCP server at `/mcp` and its OAuth endpoints, so a person can

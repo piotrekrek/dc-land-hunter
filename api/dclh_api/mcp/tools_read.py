@@ -8,15 +8,18 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
+from fastapi import HTTPException
 from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import Field
 from sqlalchemy import text
 
+from dclh_api.mcp import areas, search
 from dclh_api.mcp.context import GRID_NOTE, run_db, site_url
+from dclh_api.mcp.search import Verdict
 from dclh_api.routers import checks, config, powiats, sites
 from dclh_api.routers import coverage as coverage_router
-from dclh_api.schemas import SiteSummary
 
 READ_ONLY = ToolAnnotations(
     readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False
@@ -24,77 +27,184 @@ READ_ONLY = ToolAnnotations(
 
 MAX_SITES = 50  # the routers' own cap is 200; a page that big would fill Claude's context
 SITE_DETAIL_DROPPED = {"geometry", "map", "project_note"}
+MAX_CARDS = 10  # a full card is several KB
+MAX_COMPARE = 8
+HTTP_NOT_FOUND = 404
 
-PowiatCode = Annotated[str | None, Field(pattern=r"^\d{4}$", description="Powiat TERYT, 4 digits, e.g. 2208")]
 VoivodeshipCode = Annotated[str | None, Field(pattern=r"^\d{2}$", description="Voivodeship TERYT, 2 digits")]
+AreaName = Annotated[
+    str | None,
+    Field(max_length=60, description="Name (any case, with or without Polish letters) or TERYT code"),
+]
+Detail = Annotated[
+    Literal["short", "full"],
+    Field(description="short: top 3 things to check per site; full: everything, and all parcel ids"),
+]
 
 
-def _site_line(site: SiteSummary, public_url: str) -> dict[str, Any]:
-    return {
-        "site_id": site.site_id,
-        "url": site_url(public_url, site.site_id),
-        "gmina": site.gmina,
-        "powiat": site.powiat,
-        "voivodeship": site.voivodeship,
-        "area_ha": round(site.area_ha, 2),
-        "estimated_mw": round(site.estimated_mw, 1),
-        "score": round(site.score, 1),
-        "verdicts": site.profile_categories,
-        "grid_badge": site.grid_badge,
-        "flags": site.flags,
-    }
+def _clamp(limit: int) -> int:
+    return min(max(limit, 1), MAX_SITES)
+
+
+def _areas(session: Any, powiat: str | None, voivodeship: str | None) -> tuple[str | None, str | None]:
+    """Names become TERYT codes. The voivodeship narrows powiat names ("średzki" exists in two of them)."""
+    voivodeship_code = areas.resolve_area(session, "voivodeship", voivodeship)
+    return areas.resolve_area(session, "powiat", powiat, within=voivodeship_code), voivodeship_code
 
 
 def register(mcp: FastMCP, public_url: str) -> None:
     @mcp.tool(annotations=READ_ONLY)
     async def search_sites(
-        powiat: PowiatCode = None,
-        voivodeship: VoivodeshipCode = None,
+        powiat: AreaName = None,
+        voivodeship: AreaName = None,
         min_mw: Annotated[float, Field(ge=0, description="Minimum estimated MW (area x density)")] = 60,
         min_ha: Annotated[float, Field(ge=0)] = 0,
         profile: Annotated[
             Literal["built", "container"] | None,
-            Field(description="Investor profile that `hide_red` and the verdicts refer to"),
+            Field(description="Investor profile that `hide_red`, `verdict` and the reasons refer to"),
         ] = None,
         hide_red: Annotated[
             bool, Field(description="Drop sites `profile` rejects (needs `profile`)")
         ] = False,
+        verdict: Annotated[
+            list[Verdict] | None,
+            Field(description='Keep only these verdicts for `profile`, e.g. ["green", "yellow"]'),
+        ] = None,
+        max_per_gmina: Annotated[
+            int | None,
+            Field(
+                ge=1, le=50, description="At most this many sites per gmina (best first): 1 avoids a cluster"
+            ),
+        ] = None,
         sort: Literal["score", "upside", "area", "mw"] = "score",
         limit: Annotated[int, Field(description="Sites per page; capped at 50")] = 20,
         cursor: Annotated[str | None, Field(description="`next_cursor` of the previous page")] = None,
+        detail: Detail = "short",
     ) -> dict[str, Any]:
-        """Ranked candidate sites of 10 ha or more, best first. Use `cursor` to get the next page."""
-        page = await run_db(
-            lambda session, _user: sites.list_sites(
-                session=session,
-                sort=sort,
-                order="desc",
+        """Ranked candidate sites of 10 ha or more, best first, each with why (blockers and what is left to
+        check, per profile), the nearest GPZ 110 kV (name, distance, confidence), parcel ids (for
+        `check_parcel`) and how many facts are verified, estimated or missing. `verdict_counts` gives the
+        sites per verdict under the other filters, so "how many are green" needs no paging. `powiat` and
+        `voivodeship` take a name or a TERYT code. Use `cursor` for the next page."""
+
+        def query(session: Any, _user: Any) -> dict[str, Any]:
+            powiat_code, voivodeship_code = _areas(session, powiat, voivodeship)
+            return search.search_sites(
+                session,
+                public_url,
+                powiat=powiat_code,
+                voivodeship=voivodeship_code,
                 min_mw=min_mw,
                 min_ha=min_ha,
-                include_excluded=False,
-                powiat=powiat,
-                voivodeship=voivodeship,
                 profile=profile,
                 hide_red=hide_red,
-                limit=min(max(limit, 1), MAX_SITES),
-                offset=0,
+                verdicts=verdict,
+                sort=sort,
+                limit=_clamp(limit),
                 cursor=cursor,
+                max_per_gmina=max_per_gmina,
+                full=detail == "full",
             )
-        )
-        return {
-            "total": page.total,
-            "next_cursor": page.next_cursor,
-            "sites": [_site_line(s, public_url) for s in page.items],
-            "grid_note": GRID_NOTE,
-        }
+
+        return {**await run_db(query), "grid_note": GRID_NOTE}
 
     @mcp.tool(annotations=READ_ONLY)
-    async def get_site(site_id: str) -> dict[str, Any]:
+    async def top_picks(
+        profile: Annotated[Literal["built", "container"], Field(description="Investor profile")],
+        per_region: Annotated[
+            int, Field(ge=1, le=5, description="Best sites per voivodeship (one per gmina each)")
+        ] = 1,
+        verdict: Annotated[
+            list[Verdict] | None, Field(description="Verdicts to keep; default green and yellow")
+        ] = None,
+        voivodeship: AreaName = None,
+        min_mw: Annotated[float, Field(ge=0)] = 60,
+        limit: Annotated[int, Field(description="Sites in total; capped at 50")] = 10,
+        detail: Detail = "short",
+    ) -> dict[str, Any]:
+        """The best sites from different regions in one call: per voivodeship the top `per_region` by score,
+        never two in one gmina. A thin layer on `search_sites` (same data, same reasons per site)."""
+
+        def query(session: Any, _user: Any) -> dict[str, Any]:
+            _, voivodeship_code = _areas(session, None, voivodeship)
+            return search.search_sites(
+                session,
+                public_url,
+                powiat=None,
+                voivodeship=voivodeship_code,
+                min_mw=min_mw,
+                min_ha=0,
+                profile=profile,
+                hide_red=False,
+                verdicts=verdict or ["green", "yellow"],
+                sort="score",
+                limit=_clamp(limit),
+                cursor=None,
+                max_per_gmina=1,
+                max_per_voivodeship=per_region,
+                full=detail == "full",
+            )
+
+        return {**await run_db(query), "grid_note": GRID_NOTE}
+
+    @mcp.tool(annotations=READ_ONLY)
+    async def get_site(
+        site_id: Annotated[str | None, Field(description="One site id")] = None,
+        site_ids: Annotated[
+            list[str] | None, Field(max_length=MAX_CARDS, description=f"Up to {MAX_CARDS} site ids at once")
+        ] = None,
+    ) -> dict[str, Any]:
         """One site's card: score breakdown, both profile verdicts with blockers, and every fact with its
-        source, date and confidence (verified, estimated or missing)."""
-        detail = await run_db(lambda session, user: sites.get_site(site_id, session, user))
-        out = detail.model_dump(mode="json", exclude=SITE_DETAIL_DROPPED)
-        return {**out, "url": site_url(public_url, site_id), "grid_note": GRID_NOTE}
+        source, date and confidence (verified, estimated or missing). With `site_ids` it returns
+        `{sites: [...cards], not_found: [...]}`; to compare sites side by side use `compare_sites`."""
+        if (site_id is None) == (site_ids is None):
+            raise ToolError("Podaj site_id albo site_ids (jedno z dwóch).")
+
+        def card(session: Any, user: Any, one: str) -> dict[str, Any]:
+            detail = sites.get_site(one, session, user)
+            out = detail.model_dump(mode="json", exclude=SITE_DETAIL_DROPPED)
+            return {**out, "url": site_url(public_url, one)}
+
+        if site_id is not None:
+            return {
+                **await run_db(lambda session, user: card(session, user, site_id)),
+                "grid_note": GRID_NOTE,
+            }
+
+        def many(session: Any, user: Any) -> dict[str, Any]:
+            found: list[dict[str, Any]] = []
+            missing: list[str] = []
+            for one in dict.fromkeys(site_ids or []):
+                try:
+                    found.append(card(session, user, one))
+                except HTTPException as exc:
+                    if exc.status_code != HTTP_NOT_FOUND:
+                        raise
+                    missing.append(one)
+            return {"sites": found, "not_found": missing}
+
+        return {**await run_db(many), "grid_note": GRID_NOTE}
+
+    @mcp.tool(annotations=READ_ONLY)
+    async def compare_sites(
+        site_ids: Annotated[
+            list[str], Field(min_length=2, max_length=MAX_COMPARE, description="2 to 8 site ids")
+        ],
+        profile: Annotated[
+            Literal["built", "container"] | None, Field(description="Show only this profile's reasons")
+        ] = None,
+    ) -> dict[str, Any]:
+        """Sites side by side: area, estimated MW, score by category, verdicts, blockers and what is left to
+        check, grid distances (with the nearest GPZ's name and the confidence of each) and data
+        completeness."""
+
+        def query(session: Any, _user: Any) -> dict[str, Any]:
+            lines, missing = search.compare_lines(
+                session, public_url, list(dict.fromkeys(site_ids)), profile=profile, full=True
+            )
+            return {"sites": lines, "not_found": missing}
+
+        return {**await run_db(query), "grid_note": GRID_NOTE}
 
     @mcp.tool(annotations=READ_ONLY)
     async def list_pipeline() -> dict[str, Any]:
