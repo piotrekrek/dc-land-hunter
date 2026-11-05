@@ -737,6 +737,8 @@ export interface components {
         };
         /** ConnectionList */
         ConnectionList: {
+            /** Connector Url */
+            connector_url: string | null;
             /** Items */
             items: components["schemas"]["ConnectionOut"][];
         };

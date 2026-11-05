@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { LoaderCircle, ServerCrash } from "lucide-react";
 
 import { api, unwrap } from "@/api/client";
+import { ClaudeConnector } from "@/components/ClaudeConnector";
 import { EmptyState } from "@/components/EmptyState";
 import { PageScroll } from "@/components/PageScroll";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +81,7 @@ export function SettingsPage() {
             </Card>
           </div>
         )}
+        <ClaudeConnector className="mt-4" />
       </div>
       <SourcesSection />
     </PageScroll>

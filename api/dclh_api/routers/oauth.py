@@ -19,6 +19,7 @@ from dclh_api.deps import db_session
 from dclh_api.mcp import oauth as store
 from dclh_api.security import current_user
 from dclh_pipeline.db.models import UserRow
+from dclh_pipeline.settings import get_settings
 
 router = APIRouter(prefix="/oauth", tags=["oauth"], dependencies=[Depends(current_user)])
 
@@ -63,6 +64,8 @@ class ConnectionOut(BaseModel):
 
 
 class ConnectionList(BaseModel):
+    # The address to give Claude (DCLH_PUBLIC_URL + /mcp); null when the connector is off on this server.
+    connector_url: str | None
     items: list[ConnectionOut]
 
 
@@ -117,7 +120,9 @@ def list_connections(
         ),
         {"u": user.id},
     ).mappings()
+    public_url = get_settings().public_url
     return ConnectionList(
+        connector_url=f"{public_url}/mcp" if public_url else None,
         items=[
             ConnectionOut(
                 client_id=r["client_id"],
@@ -125,7 +130,7 @@ def list_connections(
                 connected_at=r["connected_at"],
             )
             for r in rows
-        ]
+        ],
     )
 
 
