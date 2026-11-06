@@ -1,5 +1,19 @@
 # Status
 
+## Operations: nightly backup, kept logs, query statistics (05.11.2026)
+
+- **Backup:** `scripts/backup_db.sh` dumps the database to `~/backups` and keeps the newest 7 nightly dumps.
+  It runs from host cron at 05:15. Before this, the only dump was a manual one from 25.10.
+  The dumps are on the same disk; off-site copies are still by hand.
+- **Logs:**
+  - Every container's Docker log is capped at 20 MB × 3. Before, the cap was unbounded.
+  - The workers also log to `/data/logs/*.log` (20 MB × 5), so a deploy no longer wipes the night's log.
+- **Slow queries:** `pg_stat_statements` is on (db preload plus migration 0016). The query is in RUNBOOK, "Slow queries".
+  Deploying this restarts the database once, so deploy outside the search window.
+- **Checked:**
+  - The backup ran against production: 377 MB in 40 s, `pg_restore --list` passed, and rotation kept the newest dumps by name.
+  - Unit tests for the log file. The compose file validates.
+
 ## MCP: distance between picks (05.11.2026)
 
 - **`min_distance_km`** on `search_sites` and `top_picks` keeps only sites at least that far apart (outline to outline,
