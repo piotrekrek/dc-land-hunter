@@ -81,6 +81,8 @@ class PowiatSearch:
     result: SearchResult
     scored_at: datetime
     seconds: float
+    cache_hits: int = 0  # answers served from the response cache, and requests that went out
+    cache_misses: int = 0
 
 
 def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
@@ -109,12 +111,13 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
     area = unit.geometry
     industrial = load_industrial(static, area)
 
+    cache = ResponseCache(settings.data_dir / "http-cache", SEARCH_CACHE_TTL)
     with PoliteClient(
         user_agent=settings.user_agent,
         rate_limit_per_s=config.defaults.rate_limit_per_s,
         timeout_s=config.defaults.timeout_s,
         retries=2,
-        cache=ResponseCache(settings.data_dir / "http-cache", SEARCH_CACHE_TTL),
+        cache=cache,
     ) as client:
         area_layers = load_area_layers(
             client, config, store, tuple(area.bounds), teryt, powiat_area=area, strict=True
@@ -139,6 +142,8 @@ def search_powiat(teryt: str, settings: Settings | None = None) -> PowiatSearch:
         result=result,
         scored_at=datetime.now(UTC),
         seconds=time.monotonic() - started,
+        cache_hits=cache.hits,
+        cache_misses=cache.misses,
     )
 
 

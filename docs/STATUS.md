@@ -1,5 +1,13 @@
 # Status
 
+## Search runs keep the time per step and the cache use (05.11.2026)
+
+- `runs.summary` of a search now also has `step_seconds`, the time per step: seed, parcels (the EGiB download), cluster,
+  score, small, kimpzp and kiug. It also has `cache` (response-cache hits and misses) and `tiles`.
+  Before, only the total was kept, and the worker log that had the detail is lost on each deploy.
+- Read them with:
+  `SELECT summary->>'powiat', summary->'step_seconds', summary->'cache' FROM runs WHERE kind = 'search' ORDER BY id DESC`.
+- Used to decide whether to speed up the parcel download (rate, or fewer tiles) once a few nights are recorded.
 ## Site list: partial indexes for the count and the sorts (05.11.2026)
 
 - Migration 0017 adds partial indexes on the kept standard sites (`kind = 'standard' AND NOT excluded`).
