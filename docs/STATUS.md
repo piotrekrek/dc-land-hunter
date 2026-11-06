@@ -1,5 +1,18 @@
 # Status
 
+## Site list: partial indexes for the count and the sorts (05.11.2026)
+
+- Migration 0017 adds partial indexes on the kept standard sites (`kind = 'standard' AND NOT excluded`).
+  - The covering index `sites_list_ix` serves the list's count.
+  - One sort index each for upside, completeness, area and MW.
+- On production data:
+  - the count with the default filters went from 295 ms to 3 ms;
+  - a voivodeship filter sorted by upside went from 120 ms to 3 ms.
+- The list now writes `AND NOT excluded` literally, not `(:include_excluded OR NOT excluded)`. Only the literal form lets
+  the planner use the partial indexes. With "show excluded" on, the list reads the table as before.
+- Needs migration 0016 (PR "Operations: nightly database backup...") first.
+- **Checked:** the full suite with the database tests, on a throwaway PostGIS 16-3.5. That run passes `test_mcp_mount.py` too.
+
 ## Operations: nightly backup, kept logs, query statistics (05.11.2026)
 
 - **Backup:** `scripts/backup_db.sh` dumps the database to `~/backups` and keeps the newest 7 nightly dumps.
@@ -121,7 +134,6 @@
   tagged**: it is a working screen since #105 (the plan listed it from the audit time). Routes are unchanged.
 - `document.title` per route ("Kolejka · DC Land Hunter"), also for the login and 404 pages.
 
-
 ## Step 1 of the UX plan: say where a site is (25.10.2026, tested on PostGIS; not yet deployed)
 
 - `GET /api/sites` and the card now carry `gmina`, `powiat`, `voivodeship` (names, null when unknown). Joined at query
@@ -240,7 +252,6 @@ Layers for 1421 (bbox of the powiat): 52 MPZP outlines (42 in force, 10 in proce
   Urbanistyczny must be complete and plans ogólne come into force. The nightly job runs the old code until this
   branch is merged and deployed.
 
-
 ## Housing filter and cluster split: why Reguły was excluded (19.10.2026)
 
 The 19.10.2026 run of `dclh search 1421 --write` (section below) excluded 293 of 315 sites, all six sites in obręb
@@ -289,7 +300,6 @@ of 161. `.564/2` is in a 41.1 ha site (33.1 ha clear), rank 19 of 161 (top 12%).
 flood. Two small Reguły sites stay excluded for housing (1.4 and 2.4 ha clear). `.408` is still not scored (1 ha lot
 cut). The golden expectation (top 20%) is met by the `.564/2` site; the golden coordinates are still unverified.
 
-
 ## Flood and housing hard filters: `isok` and `bdot10k` connectors (19.10.2026, run on the VPS)
 
 - `sources/isok.py` fetches the ISOK `wms_nz-core:NZ.Fluvial` zones with `loo_ql_probabilityofoccurrence = 0.01`
@@ -330,7 +340,6 @@ centre (394–456 m away) are among them. The golden-set coordinates are still u
 Reading the numbers: Pruszków is suburban, so almost every 10 ha+ cluster of farm parcels has a house within 100 m.
 The 100 m threshold (`config/scoring.yaml`) is the owner's call; with it, 22 sites survive. The top ten by score are
 all excluded.
-
 
 ## Phase 1 close-out (19.10.2026, on the VPS)
 
@@ -792,7 +801,6 @@ available columns, which settles the names.
 - Migration `0009` moves the starter priorities (0805, 3021, 1465) from `infra/crontab` into `powiat_priority`
   (`added_by = 'seed'`); the crontab payload no longer carries `priority`, so the tab is the only place to change it.
 
-
 ## Navbar: "Kolejka" second, Źródła danych under Ustawienia (23.10.2026, web tests green; not yet deployed)
 
 - The "Powiaty" tab is now **Kolejka** (route is `/kolejka` since 23.10.2026; `/powiaty` redirects) and sits second in the navbar, right after "Mapa i lista".
@@ -949,7 +957,6 @@ run nothing; `stack.yml` (Docker + Playwright) runs on pushes to `main`, by hand
 `tests/e2e/`; jobs have timeouts. If the allowance runs out again: wait for the monthly reset, set a small budget in GitHub
 Billing, or run the checks locally (RUNBOOK).
 
-
 ## Road access (26.10.2026)
 
 `dist_public_road_m` comes from the BDOT10k road layer (`parse_roads`), loaded with the housing and forest layers of the
@@ -973,7 +980,6 @@ Deployed with #113, #114 and #115 (plan in PLAN.md, "Next round").
   800 x 600 m sheet. Not yet seen in a browser by the author (only the picture itself was looked at).
 - **Last night.** Of the nightly list, 3021 (Poznań) was interrupted at 23:00 by our own deploy, and 0223 to 0225 were
   skipped because the 04:00 UTC window had closed. Queued by hand at 10:50 UTC (jobs 113 to 116).
-
 
 ## Sprawdź działkę: 5a closed (25.10.2026)
 

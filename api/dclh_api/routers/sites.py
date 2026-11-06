@@ -94,11 +94,12 @@ def list_sites(
     cursor: Annotated[str | None, Query(max_length=512)] = None,
 ) -> SitesPage:
     # Small plots (`kind = 'small'`) get their own list later (PLAN.md, "Small plots with 60 MW grid").
-    where = (
-        "WHERE kind = 'standard' AND estimated_mw >= :min_mw AND area_ha >= :min_ha"
-        " AND (:include_excluded OR NOT excluded)"
-    )
-    params: dict[str, Any] = {"min_mw": min_mw, "min_ha": min_ha, "include_excluded": include_excluded}
+    where = "WHERE kind = 'standard' AND estimated_mw >= :min_mw AND area_ha >= :min_ha"
+    # Spelled out, not `(:flag OR NOT excluded)`: only a literal `NOT excluded` lets the planner use the
+    # partial list indexes (migration 0017), and a prepared statement's generic plan would not see the flag.
+    if not include_excluded:
+        where += " AND NOT excluded"
+    params: dict[str, Any] = {"min_mw": min_mw, "min_ha": min_ha}
     if powiat is not None:
         where += " AND powiat = :powiat"
         params["powiat"] = powiat
