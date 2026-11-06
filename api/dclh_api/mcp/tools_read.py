@@ -36,6 +36,15 @@ AreaName = Annotated[
     str | None,
     Field(max_length=60, description="Name (any case, with or without Polish letters) or TERYT code"),
 ]
+MinDistance = Annotated[
+    float | None,
+    Field(
+        gt=0,
+        le=200,
+        description="Keep only sites at least this many km apart (outline to outline), best first: "
+        "removes clusters that cross gmina borders",
+    ),
+]
 Detail = Annotated[
     Literal["short", "full"],
     Field(description="short: top 3 things to check per site; full: everything, and all parcel ids"),
@@ -76,6 +85,7 @@ def register(mcp: FastMCP, public_url: str) -> None:
                 ge=1, le=50, description="At most this many sites per gmina (best first): 1 avoids a cluster"
             ),
         ] = None,
+        min_distance_km: MinDistance = None,
         sort: Literal["score", "upside", "area", "mw"] = "score",
         limit: Annotated[int, Field(description="Sites per page; capped at 50")] = 20,
         cursor: Annotated[str | None, Field(description="`next_cursor` of the previous page")] = None,
@@ -103,6 +113,7 @@ def register(mcp: FastMCP, public_url: str) -> None:
                 limit=_clamp(limit),
                 cursor=cursor,
                 max_per_gmina=max_per_gmina,
+                min_distance_km=min_distance_km,
                 full=detail == "full",
             )
 
@@ -118,12 +129,16 @@ def register(mcp: FastMCP, public_url: str) -> None:
             list[Verdict] | None, Field(description="Verdicts to keep; default green and yellow")
         ] = None,
         voivodeship: AreaName = None,
+        min_distance_km: Annotated[
+            float, Field(gt=0, le=200, description="Minimum km between picks; 10 keeps one per cluster")
+        ] = 10,
         min_mw: Annotated[float, Field(ge=0)] = 60,
         limit: Annotated[int, Field(description="Sites in total; capped at 50")] = 10,
         detail: Detail = "short",
     ) -> dict[str, Any]:
-        """The best sites from different regions in one call: per voivodeship the top `per_region` by score,
-        never two in one gmina. A thin layer on `search_sites` (same data, same reasons per site)."""
+        """The best sites from different places in one call: per voivodeship the top `per_region` by score,
+        never two in one gmina and never two closer than `min_distance_km`. A thin layer on `search_sites`
+        (same data, same reasons per site)."""
 
         def query(session: Any, _user: Any) -> dict[str, Any]:
             _, voivodeship_code = _areas(session, None, voivodeship)
@@ -142,6 +157,7 @@ def register(mcp: FastMCP, public_url: str) -> None:
                 cursor=None,
                 max_per_gmina=1,
                 max_per_voivodeship=per_region,
+                min_distance_km=min_distance_km,
                 full=detail == "full",
             )
 

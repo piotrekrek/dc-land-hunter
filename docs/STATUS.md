@@ -8,6 +8,28 @@
 - Read them with:
   `SELECT summary->>'powiat', summary->'step_seconds', summary->'cache' FROM runs WHERE kind = 'search' ORDER BY id DESC`.
 - Used to decide whether to speed up the parcel download (rate, or fewer tiles) once a few nights are recorded.
+## Operations: nightly backup, kept logs, query statistics (05.11.2026)
+
+- **Backup:** `scripts/backup_db.sh` dumps the database to `~/backups` and keeps the newest 7 nightly dumps.
+  It runs from host cron at 05:15. Before this, the only dump was a manual one from 25.10.
+  The dumps are on the same disk; off-site copies are still by hand.
+- **Logs:**
+  - Every container's Docker log is capped at 20 MB × 3. Before, the cap was unbounded.
+  - The workers also log to `/data/logs/*.log` (20 MB × 5), so a deploy no longer wipes the night's log.
+- **Slow queries:** `pg_stat_statements` is on (db preload plus migration 0016). The query is in RUNBOOK, "Slow queries".
+  Deploying this restarts the database once, so deploy outside the search window.
+- **Checked:**
+  - The backup ran against production: 377 MB in 40 s, `pg_restore --list` passed, and rotation kept the newest dumps by name.
+  - Unit tests for the log file. The compose file validates.
+
+## MCP: distance between picks (05.11.2026)
+
+- **`min_distance_km`** on `search_sites` and `top_picks` keeps only sites at least that far apart (outline to outline,
+  outlines thinned by 25 m), best first, so a cluster that crosses gmina borders shows once. `top_picks` uses 10 km by
+  default; `search_sites` is unchanged unless it is set. `total` and the cursor follow the spread list. With the region cap
+  the cap is applied together with the distance, so a site hidden by a pick in another voivodeship does not use up a place.
+- **On production data** (container, green and yellow): the top 10 drops Komorniki (inside 10 km of Dopiewo) and the second
+  and third Włocławek sites; 141 sites become 43. Without the verdict filter the pass takes 1.4 s.
 
 ## MCP: richer search for Claude (05.11.2026; after the first real use)
 
@@ -106,7 +128,6 @@
 - Nav: `soon` flag in `nav.ts`; Moje projekty, Eksport and the Nowości bell show "wkrótce" and a muted style. **Sprawdź działkę is not
   tagged**: it is a working screen since #105 (the plan listed it from the audit time). Routes are unchanged.
 - `document.title` per route ("Kolejka · DC Land Hunter"), also for the login and 404 pages.
-
 
 ## Step 1 of the UX plan: say where a site is (25.10.2026, tested on PostGIS; not yet deployed)
 
@@ -226,7 +247,6 @@ Layers for 1421 (bbox of the powiat): 52 MPZP outlines (42 in force, 10 in proce
   Urbanistyczny must be complete and plans ogólne come into force. The nightly job runs the old code until this
   branch is merged and deployed.
 
-
 ## Housing filter and cluster split: why Reguły was excluded (19.10.2026)
 
 The 19.10.2026 run of `dclh search 1421 --write` (section below) excluded 293 of 315 sites, all six sites in obręb
@@ -275,7 +295,6 @@ of 161. `.564/2` is in a 41.1 ha site (33.1 ha clear), rank 19 of 161 (top 12%).
 flood. Two small Reguły sites stay excluded for housing (1.4 and 2.4 ha clear). `.408` is still not scored (1 ha lot
 cut). The golden expectation (top 20%) is met by the `.564/2` site; the golden coordinates are still unverified.
 
-
 ## Flood and housing hard filters: `isok` and `bdot10k` connectors (19.10.2026, run on the VPS)
 
 - `sources/isok.py` fetches the ISOK `wms_nz-core:NZ.Fluvial` zones with `loo_ql_probabilityofoccurrence = 0.01`
@@ -316,7 +335,6 @@ centre (394–456 m away) are among them. The golden-set coordinates are still u
 Reading the numbers: Pruszków is suburban, so almost every 10 ha+ cluster of farm parcels has a house within 100 m.
 The 100 m threshold (`config/scoring.yaml`) is the owner's call; with it, 22 sites survive. The top ten by score are
 all excluded.
-
 
 ## Phase 1 close-out (19.10.2026, on the VPS)
 
@@ -778,7 +796,6 @@ available columns, which settles the names.
 - Migration `0009` moves the starter priorities (0805, 3021, 1465) from `infra/crontab` into `powiat_priority`
   (`added_by = 'seed'`); the crontab payload no longer carries `priority`, so the tab is the only place to change it.
 
-
 ## Navbar: "Kolejka" second, Źródła danych under Ustawienia (23.10.2026, web tests green; not yet deployed)
 
 - The "Powiaty" tab is now **Kolejka** (route is `/kolejka` since 23.10.2026; `/powiaty` redirects) and sits second in the navbar, right after "Mapa i lista".
@@ -935,7 +952,6 @@ run nothing; `stack.yml` (Docker + Playwright) runs on pushes to `main`, by hand
 `tests/e2e/`; jobs have timeouts. If the allowance runs out again: wait for the monthly reset, set a small budget in GitHub
 Billing, or run the checks locally (RUNBOOK).
 
-
 ## Road access (26.10.2026)
 
 `dist_public_road_m` comes from the BDOT10k road layer (`parse_roads`), loaded with the housing and forest layers of the
@@ -959,7 +975,6 @@ Deployed with #113, #114 and #115 (plan in PLAN.md, "Next round").
   800 x 600 m sheet. Not yet seen in a browser by the author (only the picture itself was looked at).
 - **Last night.** Of the nightly list, 3021 (Poznań) was interrupted at 23:00 by our own deploy, and 0223 to 0225 were
   skipped because the 04:00 UTC window had closed. Queued by hand at 10:50 UTC (jobs 113 to 116).
-
 
 ## Sprawdź działkę: 5a closed (25.10.2026)
 

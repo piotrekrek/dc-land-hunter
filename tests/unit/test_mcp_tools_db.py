@@ -270,3 +270,31 @@ async def test_bulk_get_site_and_compare_sites(seeded: None, mcp: FastMCP) -> No
     assert {"score_parts", "grid", "why", "nearest_gpz", "data", "area_ha", "estimated_mw"} <= set(first)
     assert first["score_parts"] and "dist_gpz110_km" in first["grid"]
     assert compared["grid_note"] == context.GRID_NOTE
+
+
+async def test_min_distance_keeps_one_site_of_a_cluster_and_total_follows(seeded: None, mcp: FastMCP) -> None:
+    every = await call(mcp, "search_sites", min_mw=0)
+    near = await call(mcp, "search_sites", min_mw=0, min_distance_km=1)  # the seeded sites are 4 km apart
+    far = await call(mcp, "search_sites", min_mw=0, min_distance_km=10)
+    assert near["total"] == every["total"] == 2 and far["total"] == 1
+    assert far["sites"][0]["site_id"] == every["sites"][0]["site_id"]  # the better one survives
+    assert far["caps"] == {"min_distance_km": 10} and far["next_cursor"] is None
+
+
+async def test_min_distance_pages_through_the_spread_list(seeded: None, mcp: FastMCP) -> None:
+    first = await call(mcp, "search_sites", min_mw=0, min_distance_km=1, limit=1)
+    second = await call(
+        mcp, "search_sites", min_mw=0, min_distance_km=1, limit=1, cursor=first["next_cursor"]
+    )
+    assert first["total"] == 2 and second["next_cursor"] is None
+    assert first["sites"][0]["site_id"] != second["sites"][0]["site_id"]
+
+
+async def test_top_picks_spreads_by_distance_by_default(seeded: None, mcp: FastMCP) -> None:
+    result = await call(mcp, "top_picks", profile="container", verdict=["green", "yellow", "red", "manual"])
+    assert result["total"] == 1 and result["caps"]["min_distance_km"] == 10
+    nearby = await call(
+        mcp, "top_picks", profile="container", verdict=["green", "yellow", "red", "manual"],
+        per_region=2, min_distance_km=1,
+    )  # fmt: skip
+    assert nearby["total"] == 2

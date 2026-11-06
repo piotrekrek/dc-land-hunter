@@ -301,6 +301,55 @@ To see what takes the space: `df -h /`, `docker system df`, `du -sh data/raw/*`,
 `docker compose -f infra/docker-compose.yml exec worker du -sh /data/http-cache`. Deleting `/data/http-cache`
 is always safe (searches download again); `data/raw` holds the evidence behind stored sites, so do not delete it.
 
+## Database backups
+
+`scripts/backup_db.sh` dumps the database (pg_dump custom format, about 380 MB in November 2026) to
+`~/backups/dclh-nightly-<date>-<time>.dump`, checks that `pg_restore` can read the dump, and keeps the newest 7
+nightly dumps (`KEEP=14` keeps more, `BACKUP_DIR=...` writes elsewhere). Dumps with other names, such as the ones
+made by hand before a risky deploy, are never deleted. Nightly host cron, after the search window and the 04:30
+OAuth purge (the VPS runs on Warsaw time):
+
+```
+15 5 * * * /home/piotr/dc-land-hunter/scripts/backup_db.sh >> /home/piotr/backups/backup.log 2>&1
+```
+
+The dumps stay on the VPS disk, so they cover a broken migration or a bad delete, not a lost VPS. Copy one off the
+machine now and then (for example `scp` to your laptop) until there is an off-site target.
+
+Restore into a fresh database (stop the app first: `docker compose -f infra/docker-compose.yml stop api worker
+check-worker scheduler martin`):
+
+```bash
+docker compose -f infra/docker-compose.yml exec -T db sh -c \
+  'dropdb -U "$POSTGRES_USER" --if-exists dclh_restore && createdb -U "$POSTGRES_USER" dclh_restore'
+docker compose -f infra/docker-compose.yml exec -T db sh -c \
+  'pg_restore -U "$POSTGRES_USER" -d dclh_restore --no-owner' < ~/backups/dclh-nightly-<date>-<time>.dump
+```
+
+Check `dclh_restore`, then rename it to the live name with `ALTER DATABASE` (or point `POSTGRES_DB` at it).
+
+## Logs
+
+Docker drops a container's log when the container is recreated, which every deploy does, and a capped json log
+(20 MB × 3 per container) is all it keeps otherwise. The two workers therefore also write their log to the
+`dclh-data` volume, rotated at 20 MB × 5:
+
+```bash
+docker compose -f infra/docker-compose.yml exec worker tail -n 200 /data/logs/worker.log
+docker compose -f infra/docker-compose.yml exec worker grep -h ERROR /data/logs/worker.log*
+```
+
+## Slow queries
+
+The db service preloads `pg_stat_statements`, and migration 0016 creates the extension. The slowest queries since
+the last database restart (or `SELECT pg_stat_statements_reset()`):
+
+```bash
+docker compose -f infra/docker-compose.yml exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
+  SELECT calls, round(mean_exec_time) AS mean_ms, round(total_exec_time / 1000) AS total_s, left(query, 100)
+  FROM pg_stat_statements ORDER BY total_exec_time DESC LIMIT 15"'
+```
+
 ## Source discovery on the VPS (automatic publish)
 
 `scripts/publish_discovery.sh` runs `dclh discover` with the browser capture, commits the new report and

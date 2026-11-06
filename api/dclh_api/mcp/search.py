@@ -12,6 +12,8 @@ import binascii
 from typing import Any, Literal
 
 from mcp.server.fastmcp.exceptions import ToolError
+from shapely import STRtree, wkb
+from shapely.geometry.base import BaseGeometry
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -26,6 +28,7 @@ VERDICTS: tuple[Verdict, ...] = ("green", "yellow", "red", "manual")
 
 SHORT_TO_CHECK = 3  # what the short list shows of "still to check"; `detail="full"` shows all
 SHORT_PARCELS = 5
+SIMPLIFY_M = 25  # candidate outlines are thinned for the distance check; 25 m is nothing next to kilometres
 CURSOR_PREFIX = "o"
 
 
@@ -197,6 +200,48 @@ def verdict_counts(
     return counts
 
 
+def spread(
+    candidates: list[tuple[str, str, BaseGeometry]], distance_m: float, per_region: int | None
+) -> list[str]:
+    """Site ids, best first, with no two closer than `distance_m` (outline to outline).
+
+    `candidates` is (site_id, region, outline) in rank order. A site is skipped when a better pick is within
+    reach, or when its region already has `per_region` picks. A skipped site hides nothing else.
+    """
+    if not candidates:
+        return []
+    tree = STRtree([outline for _, _, outline in candidates])
+    hidden = [False] * len(candidates)
+    per: dict[str, int] = {}
+    picked: list[str] = []
+    for i, (site_id, region, outline) in enumerate(candidates):
+        if hidden[i] or (per_region is not None and per.get(region, 0) >= per_region):
+            continue
+        picked.append(site_id)
+        per[region] = per.get(region, 0) + 1
+        for j in tree.query(outline, predicate="dwithin", distance=distance_m):
+            hidden[int(j)] = True
+    return picked
+
+
+def _spread_ids(
+    session: Session, ctes: str, params: dict[str, Any], distance_km: float, per_region: int | None
+) -> list[str]:
+    try:
+        rows = session.execute(
+            text(
+                f"{ctes} SELECT k.site_id, left(s.powiat, 2) AS region, "
+                f"ST_AsBinary(ST_SimplifyPreserveTopology(s.geom, {SIMPLIFY_M})) AS outline "
+                "FROM kept k JOIN sites s USING (site_id) ORDER BY k.sv DESC, k.site_id"
+            ),
+            params,
+        ).mappings()
+        candidates = [(r["site_id"], r["region"], wkb.loads(bytes(r["outline"]))) for r in rows]
+    except SQLAlchemyError as exc:
+        raise ToolError("Baza danych jest niedostępna.") from exc
+    return spread(candidates, distance_km * 1000, per_region)
+
+
 def search_sites(
     session: Session,
     public_url: str,
@@ -213,6 +258,7 @@ def search_sites(
     cursor: str | None,
     max_per_gmina: int | None = None,
     max_per_voivodeship: int | None = None,
+    min_distance_km: float | None = None,
     full: bool = False,
 ) -> dict[str, Any]:
     if (hide_red or verdicts) and profile is None:
@@ -229,22 +275,34 @@ def search_sites(
         caps["max_per_gmina"] = max_per_gmina
     if max_per_voivodeship is not None:
         caps["max_per_voivodeship"] = max_per_voivodeship
+    if min_distance_km is not None:
+        caps["min_distance_km"] = min_distance_km
+    # With a distance the region cap is applied together with it (below), not before it: a site that a pick in
+    # another region hides must not use up that region's place.
     ctes = _ranked_ctes(
         where=where,
         column=SORT_COLUMNS[sort],
         max_per_gmina=max_per_gmina,
-        max_per_voivodeship=max_per_voivodeship,
+        max_per_voivodeship=None if min_distance_km is not None else max_per_voivodeship,
     )
+    sql_caps = {k: v for k, v in caps.items() if k in ("max_per_gmina", "max_per_voivodeship")}
     offset = decode_cursor(cursor) if cursor else 0
-    try:
-        total = session.execute(text(f"{ctes} SELECT count(*) FROM kept"), params | caps).scalar_one()
-    except SQLAlchemyError as exc:
-        raise ToolError("Baza danych jest niedostępna.") from exc
-    page_ctes = (
-        f"{ctes}, page AS (SELECT site_id, sv FROM kept "
-        "ORDER BY sv DESC, site_id LIMIT :limit OFFSET :offset)"
-    )
-    rows = _rows(session, page_ctes, params | caps | {"limit": limit, "offset": offset})
+    if min_distance_km is not None:
+        picked = _spread_ids(session, ctes, params | sql_caps, min_distance_km, max_per_voivodeship)
+        total = len(picked)
+        page_ids = picked[offset : offset + limit]
+        page_ctes = f"{ctes}, page AS (SELECT site_id, sv FROM kept WHERE site_id = ANY(:page_ids))"
+        rows = _rows(session, page_ctes, params | sql_caps | {"page_ids": page_ids}) if page_ids else []
+    else:
+        try:
+            total = session.execute(text(f"{ctes} SELECT count(*) FROM kept"), params | sql_caps).scalar_one()
+        except SQLAlchemyError as exc:
+            raise ToolError("Baza danych jest niedostępna.") from exc
+        page_ctes = (
+            f"{ctes}, page AS (SELECT site_id, sv FROM kept "
+            "ORDER BY sv DESC, site_id LIMIT :limit OFFSET :offset)"
+        )
+        rows = _rows(session, page_ctes, params | sql_caps | {"limit": limit, "offset": offset})
     result: dict[str, Any] = {
         "total": total,
         "next_cursor": encode_cursor(offset + len(rows)) if offset + len(rows) < total else None,

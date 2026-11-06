@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import logging.handlers
 import os
 import resource
 from datetime import UTC, datetime, timedelta
@@ -50,10 +51,15 @@ CONNECTORS: dict[str, type[Source]] = {
 
 @app.callback()
 def _main(verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False) -> None:
-    logging.basicConfig(
-        level=logging.DEBUG if verbose else logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
+    fmt = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+    logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO, format=fmt)
+    # Docker drops a container's log when the container is recreated (every deploy), so the workers also write
+    # to a file in the data volume. Capped at 5 × 20 MB; the per-request httpx lines make up most of it.
+    if log_file := os.environ.get("DCLH_LOG_FILE"):
+        Path(log_file).parent.mkdir(parents=True, exist_ok=True)
+        handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=20 * 1024**2, backupCount=4)
+        handler.setFormatter(logging.Formatter(fmt))
+        logging.getLogger().addHandler(handler)
 
 
 @app.command()
