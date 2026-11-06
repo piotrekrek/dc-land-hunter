@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import shutil
+import tempfile
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -24,6 +26,17 @@ ALEMBIC_INI = Path(__file__).parents[1] / "api" / "alembic.ini"
 TEST_DB_ENV = "DCLH_TEST_DATABASE_URL"
 if os.environ.get(TEST_DB_ENV):
     os.environ["DATABASE_URL"] = os.environ[TEST_DB_ENV]
+
+# The code writes discovery reports, the HTTP answer cache and check caches under the data folder, which defaults
+# to the repo's `data/`. A test that forgot to point it elsewhere left reports in `data/discovery`, and on the VPS
+# those untracked files block `scripts/deploy.sh`. Every Settings() in the run, also one built after
+# `get_settings.cache_clear()`, reads this instead. Tests that need their own folder still pass `data_dir`.
+_SESSION_DATA_DIR = tempfile.mkdtemp(prefix="dclh-test-data-")
+os.environ["DCLH_DATA_DIR"] = _SESSION_DATA_DIR
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    shutil.rmtree(_SESSION_DATA_DIR, ignore_errors=True)
 
 
 class FakeClock:
