@@ -14,6 +14,15 @@
   - The backup ran against production: 377 MB in 40 s, `pg_restore --list` passed, and rotation kept the newest dumps by name.
   - Unit tests for the log file. The compose file validates.
 
+## MCP: distance between picks (05.11.2026)
+
+- **`min_distance_km`** on `search_sites` and `top_picks` keeps only sites at least that far apart (outline to outline,
+  outlines thinned by 25 m), best first, so a cluster that crosses gmina borders shows once. `top_picks` uses 10 km by
+  default; `search_sites` is unchanged unless it is set. `total` and the cursor follow the spread list. With the region cap
+  the cap is applied together with the distance, so a site hidden by a pick in another voivodeship does not use up a place.
+- **On production data** (container, green and yellow): the top 10 drops Komorniki (inside 10 km of Dopiewo) and the second
+  and third Włocławek sites; 141 sites become 43. Without the verdict filter the pass takes 1.4 s.
+
 ## MCP: richer search for Claude (05.11.2026; after the first real use)
 
 - **`search_sites`** now returns per site why (blockers and what is left to check, per profile), the nearest GPZ 110 kV

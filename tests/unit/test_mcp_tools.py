@@ -137,6 +137,7 @@ async def test_search_defaults_keep_the_old_behaviour(mcp: FastMCP, monkeypatch:
         "limit": 20,
         "cursor": None,
         "max_per_gmina": None,
+        "min_distance_km": None,
         "full": False,
     }
 
@@ -208,10 +209,42 @@ async def test_top_picks_is_one_per_gmina_and_region_with_green_and_yellow_by_de
     seen = stub_search(monkeypatch)
     await call(mcp, "top_picks", profile="container")
     assert seen["max_per_gmina"] == 1 and seen["max_per_voivodeship"] == 1
+    assert seen["min_distance_km"] == 10
     assert seen["verdicts"] == ["green", "yellow"] and seen["profile"] == "container"
     assert seen["sort"] == "score" and seen["limit"] == 10
     await call(mcp, "top_picks", profile="built", per_region=3, verdict=["manual"], limit=500)
     assert seen["max_per_voivodeship"] == 3 and seen["verdicts"] == ["manual"] and seen["limit"] == 50
+
+
+def square(x: float, y: float, side: float = 100) -> Any:
+    from shapely.geometry import box
+
+    return box(x, y, x + side, y + side)
+
+
+def test_spread_keeps_the_best_of_each_cluster_and_measures_from_outline_to_outline() -> None:
+    ranked = [
+        ("a", "02", square(0, 0)),
+        ("b", "02", square(5_000, 0)),  # 4.9 km from a: hidden at 10 km
+        ("c", "02", square(30_000, 0)),
+        ("d", "02", square(9_000, 0)),  # 8.9 km from a: hidden
+        ("e", "02", square(12_000, 0)),  # 11.9 km from a: kept
+    ]
+    assert search.spread(ranked, 10_000, None) == ["a", "c", "e"]
+    assert search.spread(ranked, 4_000, None) == ["a", "b", "c", "e"]  # d is 3.9 km from b
+
+
+def test_a_site_hidden_by_a_better_one_does_not_hide_others_and_a_full_region_hides_nothing() -> None:
+    ranked = [
+        ("a", "02", square(0, 0)),
+        ("b", "02", square(8_000, 0)),  # hidden by a
+        ("c", "04", square(16_000, 0)),  # 15.9 km from a, 8 km from b: kept, b hid nothing
+        ("d", "02", square(40_000, 0)),  # region 02 is full after a
+        ("e", "04", square(60_000, 0)),  # region 04 is full after c
+    ]
+    assert search.spread(ranked, 10_000, None) == ["a", "c", "d", "e"]
+    assert search.spread(ranked, 10_000, 1) == ["a", "c"]
+    assert search.spread([], 10_000, 1) == []
 
 
 def test_cursor_round_trips_and_rejects_anything_else() -> None:
