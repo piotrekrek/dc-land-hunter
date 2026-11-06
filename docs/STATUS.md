@@ -8,6 +8,19 @@
 - Read them with:
   `SELECT summary->>'powiat', summary->'step_seconds', summary->'cache' FROM runs WHERE kind = 'search' ORDER BY id DESC`.
 - Used to decide whether to speed up the parcel download (rate, or fewer tiles) once a few nights are recorded.
+## Site list: partial indexes for the count and the sorts (05.11.2026)
+
+- Migration 0017 adds partial indexes on the kept standard sites (`kind = 'standard' AND NOT excluded`).
+  - The covering index `sites_list_ix` serves the list's count.
+  - One sort index each for upside, completeness, area and MW.
+- On production data:
+  - the count with the default filters went from 295 ms to 3 ms;
+  - a voivodeship filter sorted by upside went from 120 ms to 3 ms.
+- The list now writes `AND NOT excluded` literally, not `(:include_excluded OR NOT excluded)`. Only the literal form lets
+  the planner use the partial indexes. With "show excluded" on, the list reads the table as before.
+- Needs migration 0016 (PR "Operations: nightly database backup...") first.
+- **Checked:** the full suite with the database tests, on a throwaway PostGIS 16-3.5. That run passes `test_mcp_mount.py` too.
+
 ## Operations: nightly backup, kept logs, query statistics (05.11.2026)
 
 - **Backup:** `scripts/backup_db.sh` dumps the database to `~/backups` and keeps the newest 7 nightly dumps.
