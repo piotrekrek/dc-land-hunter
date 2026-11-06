@@ -183,7 +183,9 @@ def test_write_geojson_stores_wgs84_and_reads_back(tmp_path: Path) -> None:
 def test_geojson_goes_under_the_data_dir_and_defaults_to_the_tracked_file(tmp_path: Path) -> None:
     # The containers set DCLH_DATA_DIR=/data (a writable volume); the repo path there is read-only.
     assert aoi_build.geojson_path(tmp_path) == tmp_path / "aoi" / "aoi.geojson"
-    assert aoi_build.geojson_path(Settings().data_dir) == REPO_ROOT / "data" / "aoi" / "aoi.geojson"
+    # The field's default, not Settings(): the test run sets DCLH_DATA_DIR to a temporary folder (conftest.py).
+    default = Settings.model_fields["data_dir"].default
+    assert aoi_build.geojson_path(default) == REPO_ROOT / "data" / "aoi" / "aoi.geojson"
 
 
 def test_geojson_can_be_written_to_a_data_dir_without_an_aoi_folder(tmp_path: Path) -> None:
