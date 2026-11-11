@@ -504,6 +504,11 @@ export interface components {
             env_decision_found: number;
             /** Public Seller */
             public_seller: number;
+            /**
+             * Deposit Cancels Psi
+             * @default false
+             */
+            deposit_cancels_psi: boolean;
         };
         /** CategoryOut */
         CategoryOut: {
@@ -1121,6 +1126,8 @@ export interface components {
             landscape_park_or_ochk: number;
             /** Mining Terrain */
             mining_terrain: number;
+            /** Mineral Deposit */
+            mineral_deposit: number;
             /** Soil Class Iii Pct Over 30 */
             soil_class_III_pct_over_30: number;
             /** Residential 100 300M */
