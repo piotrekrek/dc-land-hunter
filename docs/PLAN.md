@@ -1130,3 +1130,29 @@ Acceptance criteria:
 - AC7: the owner note never reaches Claude; `sites_near` is in `READ_TOOLS` of the leak test.
 - AC8: EXPLAIN with sequential scans disallowed shows `sites_geom_gix` for both place kinds; `search_sites` is unchanged
   (no near filter adds no SQL; its tests still pass).
+
+## MCP: search a powiat now (plan of 11.11.2026)
+
+Claude can queue one powiat search right now instead of waiting for the 01:00 run. Searches are heavy (long calls to
+public services, disk), so the tool is admin-only and capped.
+
+- `search_now(powiat)` (write scope, admin only, "use only on explicit request", `openWorldHint`): enqueues the same
+  `search` job the planner does, through `jobs.enqueue`, with payload `{"powiat": teryt}` and `requested_by` = the
+  user's email (the planner uses `planner`, the CLI `scheduler`, a memory retry `memory-retry`). No `not_after`: that
+  window only stops a nightly run at 05:00; a manual run has no deadline. The worker's disk guard (`make_room`) runs
+  inside the search, so it applies unchanged.
+- Cap: `MANUAL_SEARCHES_PER_DAY = 3` per UTC day across all users, counted as `search` jobs created today whose
+  `requested_by` is a user's email (failed ones count too).
+
+Acceptance criteria:
+
+- AC1: an admin queues a powiat by name and by TERYT code; the `jobs` row is kind `search`, status `pending`, payload
+  `{"powiat": teryt}`, `requested_by` = the admin's email; the answer has job_id, powiat name, status, requested_by,
+  searches left today and a note to follow it with `get_queue` (`in_progress`).
+- AC2: a member is refused (Polish message), and nothing is queued.
+- AC3: a read-only token is refused.
+- AC4: an unknown powiat, and one outside the AOI, are refused in Polish; nothing is queued.
+- AC5: a powiat with a pending or running search job is refused, naming the job; another powiat is fine.
+- AC6: the 4th manual search of a UTC day is refused; planner jobs do not count; the count resets the next day.
+- AC7: the tool is write (not read-only, not destructive, not idempotent, open world); the leak test covers nothing new
+  (no read tool added).

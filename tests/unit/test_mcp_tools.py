@@ -47,6 +47,7 @@ WRITE_TOOLS = {
     "remove_priority",
     "set_stage",
     "remove_from_pipeline",
+    "search_now",
 }
 
 

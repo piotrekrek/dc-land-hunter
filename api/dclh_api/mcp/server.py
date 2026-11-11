@@ -8,7 +8,7 @@ from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, Re
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from dclh_api.mcp import tools_deals, tools_near, tools_queue, tools_read, tools_write
+from dclh_api.mcp import tools_deals, tools_near, tools_queue, tools_read, tools_search_now, tools_write
 from dclh_api.mcp.oauth import SCOPES, DclhOAuthProvider
 
 INSTRUCTIONS = """\
@@ -23,6 +23,7 @@ Tools that change something (watch_site, unwatch_site, check_parcel, add_priorit
 remove_from_pipeline) act for
 the user: use only on request. The priority list of the search queue is shared by the whole team.
 get_queue shows the search queue (Kolejka): priority powiats, what the nightly search takes next, what runs.
+search_now queues one powiat search immediately (admin only, capped per day): only on explicit request.
 Answer the user in Polish and give each site's `url` so they can open its card.
 For "the best sites" use top_picks (different regions, one per gmina) or search_sites with max_per_gmina:
 neighbouring parcels often form one cluster. search_sites already returns the reasons behind each verdict,
@@ -73,4 +74,5 @@ def build_mcp(public_url: str, provider: DclhOAuthProvider | None = None) -> Fas
     tools_deals.register(mcp, public_url)
     tools_queue.register(mcp)
     tools_near.register(mcp, public_url)
+    tools_search_now.register(mcp)
     return mcp

@@ -33,6 +33,14 @@
 - Not checked: query time on the production-size table (the index use is proven with EXPLAIN on test data only).
   A large powiat polygon as the place is slower than a point.
 
+## MCP: search a powiat now (11.11.2026)
+
+- New write tool `search_now(powiat)`: queues a `search` job for one powiat immediately (same `jobs.enqueue` call and
+  payload as the planner, without `not_after`). Admin only, write scope, powiat inside the AOI, refused while the powiat
+  has a pending or running search, capped at 3 manual searches per UTC day for the whole team (`requested_by` is a
+  user's email). Follow it with `get_queue` (`in_progress`). The worker's disk guard applies as for any search.
+- Not verified against PROD: nothing was queued there.
+
 ## Search runs keep the time per step and the cache use (05.11.2026)
 
 - `runs.summary` of a search now also has `step_seconds`, the time per step: seed, parcels (the EGiB download), cluster,
