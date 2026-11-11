@@ -1,5 +1,21 @@
 # Status
 
+## Target MW and the large-campus flag (11.11.2026; Rzepin RTB spec 4, task 3; not deployed)
+
+- `target.target_mw` (default 60, must be at least `mw_min`) is the project size sought. `project_mw = min(estimated_mw,
+  target_mw)` is now the headline power; `spare_ha = max(0, area_ha - target_mw / mw_per_ha)` is land left for a second
+  phase. `estimated_mw` stays (area x 6 MW/ha) and is labelled "pojemność terenu" in the UI.
+- The "duży kampus" flag and the 220/400 kV requirement fire only when `target_mw > large_campus_mw`, so a 41 ha site
+  is a 60 MW project with spare land, not a 248 MW campus.
+- Spare land is added to the expansion reserve (`land_expansion`) next to the neighbouring parcels. They are different
+  land, so nothing is counted twice; the explanation names both parts.
+- `project_mw` and `spare_ha` are in `SiteScore` (and so in `sites.detail`), the API summary, `search_sites`,
+  `get_site` and `compare_sites`, and the web card and list. Rows scored before this get them computed from the area.
+  Re-run scoring to refresh the stored flags. `min_mw` still filters on `estimated_mw`.
+- The connection cost calculator on the card now starts from `project_mw`.
+- Not done: Settings still only displays the target block (it is read-only), so `target_mw` is edited in
+  `config/scoring.yaml`.
+
 ## Search runs keep the time per step and the cache use (05.11.2026)
 
 - `runs.summary` of a search now also has `step_seconds`, the time per step: seed, parcels (the EGiB download), cluster,

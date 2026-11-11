@@ -19,6 +19,8 @@ const site = (over: Partial<SiteSummary>): SiteSummary => ({
   zone_id: "z-a",
   area_ha: 32,
   estimated_mw: 192,
+  project_mw: 60,
+  spare_ha: 22,
   score: 81.4,
   upside_score: 84,
   completeness: 0.75,
@@ -46,7 +48,7 @@ describe("SiteList", () => {
         total: 2,
         offset: 0,
         limit: 50,
-        items: [site({}), site({ site_id: "site-b", score: 42, area_ha: 12.5, estimated_mw: 75, grid_badge: "Bliskość sieci" })],
+        items: [site({}), site({ site_id: "site-b", score: 42, area_ha: 12.5, estimated_mw: 75, project_mw: 60, spare_ha: 2.5, grid_badge: "Bliskość sieci" })],
       },
     });
     renderWithProviders(<SiteList onSelect={() => {}} />);
@@ -177,7 +179,7 @@ describe("SiteList", () => {
     mockFetch({ "/api/sites": { total: 1, offset: 0, limit: 50, items: [site({})] } });
     renderWithProviders(<SiteList onSelect={() => {}} />);
     await screen.findAllByTestId("site-row");
-    expect(screen.getByLabelText("Szacowana moc od")).toHaveValue("60");
+    expect(screen.getByLabelText("Pojemność terenu od")).toHaveValue("60");
     expect(screen.queryByLabelText("Powierzchnia od")).not.toBeInTheDocument();
     expect(screen.getByText("Filtry domyślne: od 60 MW")).toBeInTheDocument();
   });

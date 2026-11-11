@@ -57,7 +57,10 @@ class SiteSummary(BaseModel):
     site_id: str
     zone_id: str | None
     area_ha: float
-    estimated_mw: float
+    estimated_mw: float  # land capacity (area x MW/ha), not the project size
+    # The headline power: min(land capacity, target MW), and the land left beyond it for a second phase.
+    project_mw: float
+    spare_ha: float
     score: float
     upside_score: float
     completeness: float = Field(ge=0, le=1)

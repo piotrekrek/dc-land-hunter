@@ -44,6 +44,8 @@ export function SettingsPage() {
                 <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 text-sm">
                   <dt className="text-muted-foreground">Minimalna moc</dt>
                   <dd>{formatMW(data.target.mw_min)}</dd>
+                  <dt className="text-muted-foreground">Moc projektu (cel)</dt>
+                  <dd>{formatMW(data.target.target_mw)}</dd>
                   <dt className="text-muted-foreground">Gęstość mocy</dt>
                   <dd>{formatNumber(data.target.mw_per_ha)}&nbsp;MW/ha</dd>
                   <dt className="text-muted-foreground">Minimalna powierzchnia</dt>

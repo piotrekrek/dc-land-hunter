@@ -124,7 +124,9 @@ class SiteScore:
     exclusions: list[Exclusion]
     categories: list[CategoryScore]
     items: list[ScoreItem]
-    estimated_mw: float | None
+    estimated_mw: float | None  # land capacity: area x MW/ha
+    project_mw: float | None  # min(land capacity, target_mw): the headline power
+    spare_ha: float | None  # land beyond the target project (room for a second phase)
     large_campus: bool
     split_suggested: bool
     grid_badge: GridBadge

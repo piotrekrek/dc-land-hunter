@@ -594,6 +594,10 @@ export interface components {
             area_ha: number;
             /** Estimated Mw */
             estimated_mw: number;
+            /** Project Mw */
+            project_mw: number;
+            /** Spare Ha */
+            spare_ha: number;
             /** Score */
             score: number;
             /** Upside Score */
@@ -1442,6 +1446,10 @@ export interface components {
             area_ha: number;
             /** Estimated Mw */
             estimated_mw: number;
+            /** Project Mw */
+            project_mw: number;
+            /** Spare Ha */
+            spare_ha: number;
             /** Score */
             score: number;
             /** Upside Score */
@@ -1539,6 +1547,10 @@ export interface components {
             area_ha: number;
             /** Estimated Mw */
             estimated_mw: number;
+            /** Project Mw */
+            project_mw: number;
+            /** Spare Ha */
+            spare_ha: number;
             /** Score */
             score: number;
             /** Upside Score */
@@ -1693,6 +1705,8 @@ export interface components {
         Target: {
             /** Mw Min */
             mw_min: number;
+            /** Target Mw */
+            target_mw: number;
             /** Mw Per Ha */
             mw_per_ha: number;
             /** Ha Min */

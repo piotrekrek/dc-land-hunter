@@ -23,7 +23,7 @@ export function CheckResult({ site }: { site: CheckSiteDetail }) {
           <section aria-label="Wynik">
             <Ruler score={site.score} upside={site.upside_score} dim={site.excluded} />
             <p className="-mt-6 text-xs text-muted-foreground">
-              Szacowana moc {formatMW(site.estimated_mw)}: {formatHa(site.area_ha)} × gęstość z ustawień. To szacunek z powierzchni, nie moc
+              Pojemność terenu {formatMW(site.estimated_mw)}: {formatHa(site.area_ha)} × gęstość z ustawień. To szacunek z powierzchni, nie moc
               przyłączeniowa.
             </p>
           </section>

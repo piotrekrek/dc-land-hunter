@@ -2,7 +2,7 @@
 the reasons behind each verdict, the nearest GPZ and how complete the data is, so "top 5" needs no follow-up.
 
 Everything here is read-only. Grid values stay what they are in the database: estimates with a source, a date
-and a confidence. `estimated_mw` is land capacity, never power from the grid.
+and a confidence. `project_mw` is the target project; `estimated_mw` is land capacity, not grid power.
 """
 
 from __future__ import annotations
@@ -19,7 +19,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from dclh_api.mcp.context import site_url
-from dclh_api.routers.sites import _PLACE_COLUMNS, _PLACE_JOINS, _PLACE_SOURCE, _SUMMARY_COLUMNS, SORT_COLUMNS
+from dclh_api.routers.sites import (
+    _PLACE_COLUMNS,
+    _PLACE_JOINS,
+    _PLACE_SOURCE,
+    _SUMMARY_COLUMNS,
+    SORT_COLUMNS,
+    project_capacity_of,
+)
 
 Profile = Literal["built", "container"]
 Verdict = Literal["green", "yellow", "red", "manual"]
@@ -164,6 +171,7 @@ def site_line(
 ) -> dict[str, Any]:
     built, container = row["verdict_built"], row["verdict_container"]
     in_scope = (profile,) if profile else PROFILES
+    project_mw, spare_ha = project_capacity_of(row)
     return {
         "site_id": row["site_id"],
         "url": site_url(public_url, row["site_id"]),
@@ -171,6 +179,8 @@ def site_line(
         "powiat": row["powiat"],
         "voivodeship": row["voivodeship"],
         "area_ha": round(row["area_ha"], 2),
+        "project_mw": round(project_mw, 1),
+        "spare_ha": round(spare_ha, 2),
         "estimated_mw": round(row["estimated_mw"], 1),
         "score": round(row["score"], 1),
         "verdicts": {"built": built, "container": container} if built and container else None,

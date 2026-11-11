@@ -4,10 +4,11 @@
 
 target:
   mw_min: 60
+  target_mw: 60           # the project size sought; land beyond it is spare (second phase), not a bigger campus
   mw_per_ha: 6            # 60 MW ≈ 10 ha
   ha_min: 10
   ha_ideal: [10, 30]
-  large_campus_mw: 150    # above: flag "duży kampus", needs 220/400 kV
+  large_campus_mw: 150    # when target_mw is above: flag "duży kampus", needs 220/400 kV
   large_site_split_ha: 80 # above: flag "duży teren, do podziału" and suggest a 10–30 ha sub-site
 
 # Hard filters (6.1). mode: exclude | penalty. In "penalty" mode the filter subtracts

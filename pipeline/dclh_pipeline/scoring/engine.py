@@ -16,7 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, fields, replace
 from datetime import datetime
 
-from dclh_pipeline.config import ScoringConfig
+from dclh_pipeline.config import ScoringConfig, Target
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.sites import EXPANSION_GAP_M
 from dclh_pipeline.scoring.types import (
@@ -120,9 +120,20 @@ def _scored[T](
 # --------------------------------------------------------------------------- categories
 
 
-def _grid_items(f: SiteFeatures, cfg: ScoringConfig, est_mw: float | None) -> list[_Draft]:
+def project_capacity(area_ha: float, target: Target) -> tuple[float, float, float]:
+    """(land capacity MW, project MW, spare ha). The project is what the investor wants to build, capped by the land."""
+    est_mw = area_ha * target.mw_per_ha
+    return est_mw, min(est_mw, target.target_mw), max(0.0, area_ha - target.target_mw / target.mw_per_ha)
+
+
+def _is_large_campus(target: Target) -> bool:
+    """Only a larger project target needs 220/400 kV; spare land does not make the project bigger."""
+    return target.target_mw > target.large_campus_mw
+
+
+def _grid_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
     g = cfg.grid
-    large = est_mw is not None and est_mw > cfg.target.large_campus_mw
+    large = _is_large_campus(cfg.target)
     items: list[_Draft] = []
 
     line, gpz = f.dist_line110_km, f.dist_gpz110_km
@@ -362,7 +373,7 @@ def _zoning_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
     ]  # fmt: skip
 
 
-def _land_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
+def _land_items(f: SiteFeatures, cfg: ScoringConfig, spare_ha: float = 0.0) -> list[_Draft]:
     lo, hi = cfg.target.ha_ideal
     split = cfg.target.large_site_split_ha
     land = cfg.land
@@ -403,16 +414,29 @@ def _land_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
 
     def expansion(ha: float) -> tuple[float, str]:
         pts = min(LAND_EXPANSION_MAX, ha / 10.0 * land.expansion_ha_bonus_per_10ha)
-        return (
-            pts,
-            f"{_n(ha)} ha sąsiednich działek ewidencyjnych (do {_n(EXPANSION_GAP_M, 0)} m od terenu) jako rezerwa na rozbudowę. Ich przeznaczenie i dostępność do kupienia nie są sprawdzone.",
+        near = ha - spare_ha
+        neighbours = (
+            f"{_n(near)} ha sąsiednich działek ewidencyjnych (do {_n(EXPANSION_GAP_M, 0)} m od terenu)"
         )
+        unchecked = "Przeznaczenie i dostępność do kupienia sąsiednich działek nie są sprawdzone."
+        if spare_ha > 0:
+            own = f"{_n(spare_ha)} ha własnego terenu ponad cel {_n(cfg.target.target_mw, 0)} MW"
+            tail = f" oraz {neighbours}. {unchecked}" if near > 0 else "."
+            return pts, f"{_n(ha)} ha rezerwy na rozbudowę: {own}{tail}"
+        return pts, f"{neighbours} jako rezerwa na rozbudowę. {unchecked}"
+
+    # Reserve = the site's own land beyond the target project plus the neighbouring parcels (a separate area),
+    # so nothing is counted twice. Only the neighbours are unverified, so they set the confidence.
+    exp = f.expansion_ha
+    if spare_ha > 0 and f.area_ha is not None:
+        base = exp or f.area_ha
+        exp = Fact(spare_ha + (exp.value if exp else 0.0), base.source_id, base.as_of, base.confidence)
 
     return [
         _scored("land_size", "land", "Wielkość terenu", f.area_ha, LAND_SIZE_MAX, size, "powierzchnia terenu"),
         _scored("land_compactness", "land", "Kształt (zwartość)", f.compactness, LAND_COMPACT_MAX, compact, "geometria terenu"),
         _scored("land_parcels", "land", "Liczba działek", f.parcel_count, LAND_PARCELS_MAX, parcels, "liczba działek ewidencyjnych"),
-        _scored("land_expansion", "land", "Rezerwa na rozbudowę", f.expansion_ha, LAND_EXPANSION_MAX, expansion, "teren do rozbudowy"),
+        _scored("land_expansion", "land", "Rezerwa na rozbudowę", exp, LAND_EXPANSION_MAX, expansion, "teren do rozbudowy"),
     ]  # fmt: skip
 
 
@@ -616,14 +640,16 @@ def _without_non_finite(f: SiteFeatures) -> SiteFeatures:
 
 def score_site(features: SiteFeatures, cfg: ScoringConfig) -> SiteScore:
     f = _without_non_finite(features)
-    est_mw = f.area_ha.value * cfg.target.mw_per_ha if f.area_ha else None
-    large = est_mw is not None and est_mw > cfg.target.large_campus_mw
+    est_mw, project_mw, spare_ha = (
+        project_capacity(f.area_ha.value, cfg.target) if f.area_ha else (None, None, None)
+    )
+    large = _is_large_campus(cfg.target)
     split = f.area_ha is not None and f.area_ha.value > cfg.target.large_site_split_ha
 
     drafts: dict[str, list[_Draft]] = {
-        "grid": _grid_items(f, cfg, est_mw),
+        "grid": _grid_items(f, cfg),
         "zoning": _zoning_items(f, cfg),
-        "land": _land_items(f, cfg),
+        "land": _land_items(f, cfg, spare_ha or 0.0),
         "connectivity": _connectivity_items(f, cfg),
         "bonus": _bonus_items(f, cfg),
     }
@@ -718,7 +744,7 @@ def score_site(features: SiteFeatures, cfg: ScoringConfig) -> SiteScore:
     flags: list[str] = []
     if large:
         flags.append(
-            f"Duży kampus (szac. {_n(est_mw or 0, 0)} MW > {_n(cfg.target.large_campus_mw, 0)} MW): potrzebny węzeł 220/400 kV."
+            f"Duży kampus (cel {_n(cfg.target.target_mw, 0)} MW > {_n(cfg.target.large_campus_mw, 0)} MW): potrzebny węzeł 220/400 kV."
         )
     if split:
         flags.append("Duży teren, do podziału: sugerowana działka 10–30 ha najbliżej sieci.")
@@ -736,6 +762,8 @@ def score_site(features: SiteFeatures, cfg: ScoringConfig) -> SiteScore:
         categories=categories,
         items=items,
         estimated_mw=est_mw,
+        project_mw=project_mw,
+        spare_ha=spare_ha,
         large_campus=large,
         split_suggested=split,
         grid_badge=badge,
