@@ -10,6 +10,7 @@ import { AuthProvider } from "@/lib/auth";
 import { JobsPage } from "@/pages/JobsPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { CheckPage } from "@/pages/CheckPage";
+import { ClaudePage } from "@/pages/ClaudePage";
 import { HomePage } from "@/pages/HomePage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
@@ -85,6 +86,7 @@ export function AppRoutes() {
         />
         <Route path="lokalizacje/:siteId" element={<SiteCardPage />} />
         <Route path="kolejka" element={<PowiatyPage />} />
+        <Route path="claude" element={<ClaudePage />} />
         <Route path="powiaty" element={<Navigate to="/kolejka" replace />} />
         <Route path="zrodla" element={<Navigate to="/ustawienia" replace />} />
         <Route path="zadania" element={<JobsPage />} />

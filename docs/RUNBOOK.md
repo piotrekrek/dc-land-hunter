@@ -73,7 +73,8 @@ it runs a tool that changes something. Design and decisions: `docs/PLAN.md`, "Cl
    No trailing slash and no path. It must be exactly what people type in the browser.
 2. Deploy as usual (`scripts/deploy.sh`). Check `curl https://<domain>/.well-known/oauth-authorization-server`
    (JSON) and `docker compose -f infra/docker-compose.yml logs api` (no error).
-3. Allow each person. `--off` also drops that person's tokens, so Claude is signed out at once:
+3. Allow each person: in the app, tab **Claude → Dostęp zespołu** (admins only; "Kopiuj zaproszenie" copies a message
+   with the steps to send them), or from the CLI. Off also drops that person's tokens, so Claude is signed out at once:
 
    ```bash
    docker compose -f infra/docker-compose.yml exec api dclh user mcp-access partner@example.org --on
@@ -82,25 +83,25 @@ it runs a tool that changes something. Design and decisions: `docs/PLAN.md`, "Cl
    docker compose -f infra/docker-compose.yml exec api dclh oauth purge    # expired rows; also daily at 04:30 (crontab)
    ```
 
-4. The person opens Ustawienia → "Połączenie z Claude" in the app: it shows the address and the steps.
-   - claude.ai, desktop, phone: Settings → Connectors → Add custom connector → name `DC Land Hunter`, the address →
-     Connect → log in to the app → "Zezwól". Custom connectors need a Pro, Max, Team or Enterprise plan. The phone app
-     uses the connector added on the web.
+4. The person opens the **Claude** tab in the app: it shows the address, the steps, example prompts and their apps.
+   - claude.ai, desktop, phone: Customize → Connectors → + Add → Add custom connector → name `DC Land Hunter`, the
+     address → Add → Connect → log in to the app → "Zezwól". The Free plan allows one custom connector; on Team or
+     Enterprise only an owner adds it. The phone app uses the connector added on the web.
    - Claude Code: `claude mcp add --transport http dclh https://<domain>/mcp`, then `/mcp` inside Claude Code to log in.
 
 ### Switch it off
 
 Remove `DCLH_PUBLIC_URL` from `infra/.env` and redeploy: `/mcp` and the OAuth endpoints disappear and the rest of the
 app is unchanged. To cut one person off, use `dclh user mcp-access … --off`. A person can also disconnect an app
-themselves in Ustawienia. Clients, codes and tokens are rows in the `oauth_*` tables; secrets are stored as SHA-256.
+themselves in the Claude tab. Clients, codes and tokens are rows in the `oauth_*` tables; secrets are stored as SHA-256.
 
 ### Troubleshooting
 
 | Symptom | Check |
 |---|---|
-| Ustawienia says "Połączenie z Claude jest wyłączone na tym serwerze" | `DCLH_PUBLIC_URL` is missing from `infra/.env`, or the `api` container was not recreated after adding it |
-| The consent page says the account has no access | `dclh user mcp-access <email> --on` |
-| Claude says the connection expired | Access tokens last 1 hour and are refreshed for 30 days. If that fails, disconnect in Ustawienia and connect again (Claude Code: `/mcp`) |
+| The Claude tab says "Połączenie z Claude jest wyłączone na tym serwerze" | `DCLH_PUBLIC_URL` is missing from `infra/.env`, or the `api` container was not recreated after adding it |
+| The consent page says the account has no access | Claude tab → Dostęp zespołu → Włącz dostęp (or `dclh user mcp-access <email> --on`) |
+| Claude says the connection expired | Access tokens last 1 hour and are refreshed for 30 days. If that fails, disconnect in the Claude tab and connect again (Claude Code: `/mcp`) |
 | `/mcp` answers 421 | The Host header is not the public host. `DCLH_PUBLIC_URL` must match the address exactly (scheme and host) |
 | The consent page says "Prośba o połączenie wygasła…" | A request lives 10 minutes and works once. Start again from Claude |
 | claude.ai fails at "Connect", but Claude Code connects with the same address | There are public reports of the claude.ai web flow stalling at the token step ([#215](https://github.com/anthropics/claude-ai-mcp/issues/215), [#313](https://github.com/anthropics/claude-ai-mcp/issues/313)). If Claude Code works, the server is right: retry later and report it to Anthropic |

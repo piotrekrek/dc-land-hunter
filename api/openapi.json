@@ -1202,10 +1202,103 @@
           }
         }
       }
+    },
+    "/api/team": {
+      "get": {
+        "tags": [
+          "team"
+        ],
+        "summary": "List Team",
+        "operationId": "list_team_api_team_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TeamMember"
+                  },
+                  "type": "array",
+                  "title": "Response List Team Api Team Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/team/{email}/mcp-access": {
+      "put": {
+        "tags": [
+          "team"
+        ],
+        "summary": "Switch Access",
+        "description": "Off also drops the user's tokens and codes, so Claude is signed out at once.",
+        "operationId": "switch_access_api_team__email__mcp_access_put",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 320,
+              "title": "Email"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamMember"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AccessIn": {
+        "properties": {
+          "on": {
+            "type": "boolean",
+            "title": "On"
+          }
+        },
+        "type": "object",
+        "required": [
+          "on"
+        ],
+        "title": "AccessIn"
+      },
       "BonusParams": {
         "properties": {
           "heat_network_km": {
@@ -4664,6 +4757,34 @@
           "large_site_split_ha"
         ],
         "title": "Target"
+      },
+      "TeamMember": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "mcp_access": {
+            "type": "boolean",
+            "title": "Mcp Access"
+          },
+          "connections": {
+            "type": "integer",
+            "title": "Connections"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "role",
+          "mcp_access",
+          "connections"
+        ],
+        "title": "TeamMember"
       },
       "UnknownOut": {
         "properties": {

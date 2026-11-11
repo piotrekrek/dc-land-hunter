@@ -482,10 +482,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Team */
+        get: operations["list_team_api_team_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/team/{email}/mcp-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Switch Access
+         * @description Off also drops the user's tokens and codes, so Claude is signed out at once.
+         */
+        put: operations["switch_access_api_team__email__mcp_access_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AccessIn */
+        AccessIn: {
+            /** On */
+            on: boolean;
+        };
         /** BonusParams */
         BonusParams: {
             /** Heat Network Km */
@@ -1701,6 +1743,17 @@ export interface components {
             /** Large Site Split Ha */
             large_site_split_ha: number;
         };
+        /** TeamMember */
+        TeamMember: {
+            /** Email */
+            email: string;
+            /** Role */
+            role: string;
+            /** Mcp Access */
+            mcp_access: boolean;
+            /** Connections */
+            connections: number;
+        };
         /** UnknownOut */
         UnknownOut: {
             /** Label Pl */
@@ -2567,6 +2620,61 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_team_api_team_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamMember"][];
+                };
+            };
+        };
+    };
+    switch_access_api_team__email__mcp_access_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                email: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamMember"];
+                };
             };
             /** @description Validation Error */
             422: {
