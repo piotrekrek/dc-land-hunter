@@ -36,9 +36,21 @@ TOOLS = {
     "top_picks",
     "compare_sites",
     "get_queue",
+    "sites_near",
+    "what_changed",
+    "connection_costs",
 }
 # See test_mcp_write.py and test_mcp_queue_db.py.
-WRITE_TOOLS = {"watch_site", "unwatch_site", "check_parcel", "add_priority", "remove_priority"}
+WRITE_TOOLS = {
+    "watch_site",
+    "unwatch_site",
+    "check_parcel",
+    "add_priority",
+    "remove_priority",
+    "set_stage",
+    "remove_from_pipeline",
+    "search_now",
+}
 
 
 @pytest.fixture

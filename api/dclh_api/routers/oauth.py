@@ -31,7 +31,8 @@ UNNAMED_CLIENT = "Aplikacja bez nazwy"
 SCOPE_LABELS = {
     "dclh.read": "czytać lokalizacje, oceny, pokrycie powiatów i etapy projektów (bez notatek)",
     "dclh.write": (
-        "obserwować lokalizacje, zlecać sprawdzenie działki i zmieniać priorytety w kolejce powiatów"
+        "obserwować lokalizacje, zlecać sprawdzenie działki, zmieniać etapy projektów i priorytety w kolejce "
+        "powiatów (administratorowi także zlecić wyszukiwanie od razu)"
     ),
 }
 

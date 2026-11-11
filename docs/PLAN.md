@@ -1084,3 +1084,133 @@ Acceptance criteria:
   jobs and failing powiats.
 - AC6: a read-only token can read the queue but not change it; `added_by` is the connected user.
 - AC7: the consent page and the Claude tab say Claude can change queue priorities; the leak test covers `get_queue`.
+
+## MCP: manage deals from Claude (plan of 11.11.2026)
+
+Claude can read the pipeline (`list_pipeline`) but not change it. Two write tools finish "track my deals":
+
+- `set_stage(site_id, stage)`: puts a site in a pipeline stage, creating its project card if needed. It goes through
+  the app's `put_project` with the stage only, so an existing `owner_note` is kept.
+- `remove_from_pipeline(site_id)`: deletes the project card through `delete_project`. The card's private owner note
+  goes with it, so the tool is marked `destructiveHint` and its description tells Claude to ask the user first.
+
+Acceptance criteria:
+
+- AC1: a valid stage (`new`, `watching`, `analysis`, `owner_contact`, `negotiation`, `rejected`, `secured`) creates or
+  moves the card and returns `site_id`, `stage`, `url`; repeating it changes nothing.
+- AC2: an unknown stage gives a Polish error listing the valid stages; an unknown site gives "Nie ma takiej
+  lokalizacji." and creates no card.
+- AC3: `set_stage` on a card that has an owner note keeps the note; the note is never in any tool output.
+- AC4: `remove_from_pipeline` deletes only that site's card (other cards stay), and is idempotent when there is none.
+- AC5: a read-only token (or none) can call neither tool.
+- AC6: `list_pipeline` shows the new stage; the leak test still passes.
+
+## MCP: sites near a place (plan of 11.11.2026)
+
+"Someone mentioned Kutno, what is within 20 km?" Claude could only filter by powiat or voivodeship.
+
+- `sites_near(place | lat+lon, radius_km=20, ...)` (read): the same ranked lines and `verdict_counts` as `search_sites`
+  plus `distance_km` per site, nearest first (or `sort="score"`). The place is a gmina or powiat (name or TERYT code) from
+  the boundaries in `admin_units`, or a WGS84 point. No geocoder and no new cost: a village or town that is not a gmina
+  cannot be found by name, and the error says to give a gmina name, a code or lat/lon.
+- Built on `search.py`: an optional `Near` filter (`ST_DWithin` on `sites.geom` in EPSG:2180; a point is converted with
+  `ST_Transform`), a distance sort and a `dist_m` column for the page rows only. `areas.py` gains the gmina level.
+
+Acceptance criteria:
+
+- AC1: a gmina name (any case and diacritics), a gmina TERYT (7 digits), a powiat name or code (4 digits) and lat/lon all work.
+- AC2: an ambiguous name ("Brzeziny") is a Polish error listing the candidates with TERYT, powiat and voivodeship; an unknown
+  name or code, a code of a wrong length, and a gmina and a powiat of one name (the gmina wins) behave as documented.
+- AC3: lat/lon outside Poland (also swapped) is refused; `place` together with lat/lon, neither, or one of lat/lon is refused.
+- AC4: `radius_km` default 20, capped at 100 (the answer says so); zero or negative is refused.
+- AC5: on a synthetic geometry in EPSG:2180 `distance_km` is the distance from the place's border or point to the site's
+  outline (1.0 and 6.0 km in the test; 0 inside a gmina), results are nearest first, the radius cuts by that distance.
+- AC6: `min_mw`, `min_ha`, `profile`, `verdict`, `hide_red`, `max_per_gmina`, `detail`, `sort`, `limit` and `cursor` work, and
+  `verdict_counts` covers the sites in the radius.
+- AC7: the owner note never reaches Claude; `sites_near` is in `READ_TOOLS` of the leak test.
+- AC8: EXPLAIN with sequential scans disallowed shows `sites_geom_gix` for both place kinds; `search_sites` is unchanged
+  (no near filter adds no SQL; its tests still pass).
+
+## MCP: search a powiat now (plan of 11.11.2026)
+
+Claude can queue one powiat search right now instead of waiting for the 01:00 run. Searches are heavy (long calls to
+public services, disk), so the tool is admin-only and capped.
+
+- `search_now(powiat)` (write scope, admin only, "use only on explicit request", `openWorldHint`): enqueues the same
+  `search` job the planner does, through `jobs.enqueue`, with payload `{"powiat": teryt}` and `requested_by` = the
+  user's email (the planner uses `planner`, the CLI `scheduler`, a memory retry `memory-retry`). No `not_after`: that
+  window only stops a nightly run at 05:00; a manual run has no deadline. The worker's disk guard (`make_room`) runs
+  inside the search, so it applies unchanged.
+- Cap: `MANUAL_SEARCHES_PER_DAY = 3` per UTC day across all users, counted as `search` jobs created today whose
+  `requested_by` is a user's email (failed ones count too).
+
+Acceptance criteria:
+
+- AC1: an admin queues a powiat by name and by TERYT code; the `jobs` row is kind `search`, status `pending`, payload
+  `{"powiat": teryt}`, `requested_by` = the admin's email; the answer has job_id, powiat name, status, requested_by,
+  searches left today and a note to follow it with `get_queue` (`in_progress`).
+- AC2: a member is refused (Polish message), and nothing is queued.
+- AC3: a read-only token is refused.
+- AC4: an unknown powiat, and one outside the AOI, are refused in Polish; nothing is queued.
+- AC5: a powiat with a pending or running search job is refused, naming the job; another powiat is fine.
+- AC6: the 4th manual search of a UTC day is refused; planner jobs do not count; the count resets the next day.
+- AC7: the tool is write (not read-only, not destructive, not idempotent, open world); the leak test covers nothing new
+  (no read tool added).
+
+## MCP: "what changed since last week?" (plan of 11.11.2026)
+
+The app kept no history: each powiat search rewrites that powiat's rows in `sites`. A small history table and a
+read tool answer the brief's job "What changed since last week?".
+
+Design:
+
+- Migration 0018 adds `site_history`. One row per event, written only on change: `new` (a kept site appears),
+  `changed` (its score, rounded to 0.1, or a per-profile verdict changed; the row has the new values and the
+  `prev_*` ones), `dropped` (it left the kept set; the row has the last values and the gmina). `baseline` rows are
+  seeded from `sites` by the migration and mark the history start. Only kept standard sites are tracked
+  (`kind = 'standard' AND NOT excluded`, what the list shows).
+- `write_sites` diffs the powiat's old rows (read by `powiat`, the `sites_powiat_ix` index) against the new rows
+  in Python and inserts the events in the same transaction. No pass over other powiats.
+- `what_changed(since, voivodeship?, powiat?, profile?, limit?)` (read): new sites, dropped sites, verdict
+  changes (with from/to), score jumps of at least `SCORE_JUMP` (5 points) and powiats searched for the first time.
+  The history starts at the deploy date: `history_since` says so. No web tab.
+
+Acceptance criteria:
+
+- AC1: the migration upgrades and downgrades cleanly (downgrade drops the table and its indexes).
+- AC2: the first write of a site records `new`; an unchanged re-search writes nothing.
+- AC3: a verdict change and a score change are recorded as `changed` with the previous values.
+- AC4: a site missing from the new run (or now excluded) is recorded as `dropped`.
+- AC5: the migration seeds a `baseline` row for every kept site, so the first nightly run after deploy records
+  real differences, not "everything is new".
+- AC6: `what_changed` filters by period (ISO date or `Nd`/`Nw`, default 7 days, at most 90) and by area
+  (voivodeship, powiat by name or code), caps `limit` (default 20, at most 50 per category), reports counts per
+  category and `history_since`, and says so when `since` is before the history start.
+- AC7: net per site over the period: a site new and dropped again shows in neither list; a verdict change reports
+  the first "from" and the last "to"; sites of a powiat searched for the first time are listed under
+  `first_searched_powiats`, not as new.
+- AC8: the owner note never leaks; `what_changed` is in `READ_TOOLS` (leak test) and in `TOOLS` (read-only).
+- AC9: cost: the diff reads one powiat's rows through an index and writes only changes; the migration seed is one
+  `INSERT ... SELECT`. Checked on a table of about 130k rows with 30k kept sites (numbers in STATUS.md).
+
+## MCP: connection cost calculator (`connection_costs`)
+
+Claude can answer "what does securing 80 MW tie up?". The figures live in `config/scoring.yaml` (`connection_cost`,
+served by `/api/config/scoring`). The web calculator keeps its own copy of the defaults in
+`web/src/lib/connectionCost.ts`; a test proves the two agree (changing the web to read the API is a larger change, left out).
+
+- Read tool `connection_costs(mw, site_id?)` in `api/dclh_api/mcp/tools_costs.py`. With `site_id` and no `mw` it uses
+  the site's `estimated_mw` (land capacity, not grid power).
+
+Acceptance criteria:
+
+- AC1: 60 MW gives fee 60 000 + advance 3 600 000 + security 1 800 000 PLN; frozen (advance + security) 5 400 000.
+- AC2: the fee cap (100 000 PLN) applies from 100 MW, the advance cap (6 mln PLN) from 100 MW; each is flagged `cap_applied`.
+- AC3: security is charged on at most 100 MW (as in the site card); above that it stays at 3 mln PLN and the answer says so.
+  OPEN QUESTION (legal): the brief says "30 PLN/kW up to 100 MW" and does not say what happens above; we follow the
+  existing code and flag it.
+- AC4: `mw` <= 0, NaN or above 1000 is refused in Polish; neither `mw` nor `site_id` is refused too.
+- AC5: validity (12 months), milestone expiry, operator re-verification and the caveats (figures need legal verification,
+  conditions are contested when transferred to a buyer with the SPV share-sale workaround, not legal advice) are present.
+- AC6: every figure carries `source_id`, `as_of`, `confidence` (`estimated` while `verified: false` in the config).
+- AC7: the Python numbers equal the web constants (test parses `connectionCost.ts`); the tool is covered by the owner-note leak test.

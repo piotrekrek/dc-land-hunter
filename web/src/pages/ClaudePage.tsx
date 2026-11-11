@@ -99,9 +99,11 @@ export function ClaudePage() {
                   <li>Lokalizacje, oceny, pokrycie powiatów i etapy projektów. Notatek z projektów nie widzi nigdy.</li>
                   <li>To, co Claude odczyta, trafia do Anthropic, jak każda rozmowa z Claude.</li>
                   <li>
-                    Obserwowanie lokalizacji, sprawdzenie działki i zmianę priorytetów w kolejce Claude zrobi tylko na
-                    Twoją prośbę. Kolejka priorytetów jest wspólna dla całego zespołu.
+                    Obserwowanie lokalizacji, sprawdzenie działki, zmianę etapu projektu, usunięcie projektu (razem z
+                    jego notatką) i zmianę priorytetów w kolejce Claude zrobi tylko na Twoją prośbę. Kolejka
+                    priorytetów jest wspólna dla całego zespołu.
                   </li>
+                  <li>Natychmiastowe wyszukiwanie powiatu może zlecić tylko administrator, do 3 razy dziennie.</li>
                   <li>Ocena sieci to szacunek, nie potwierdzona moc przyłączeniowa. Wiążą tylko warunki od OSD.</li>
                 </ul>
               </CardContent>
