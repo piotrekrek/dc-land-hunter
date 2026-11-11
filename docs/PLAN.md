@@ -1084,3 +1084,29 @@ Acceptance criteria:
   jobs and failing powiats.
 - AC6: a read-only token can read the queue but not change it; `added_by` is the connected user.
 - AC7: the consent page and the Claude tab say Claude can change queue priorities; the leak test covers `get_queue`.
+
+## MCP: sites near a place (plan of 11.11.2026)
+
+"Someone mentioned Kutno, what is within 20 km?" Claude could only filter by powiat or voivodeship.
+
+- `sites_near(place | lat+lon, radius_km=20, ...)` (read): the same ranked lines and `verdict_counts` as `search_sites`
+  plus `distance_km` per site, nearest first (or `sort="score"`). The place is a gmina or powiat (name or TERYT code) from
+  the boundaries in `admin_units`, or a WGS84 point. No geocoder and no new cost: a village or town that is not a gmina
+  cannot be found by name, and the error says to give a gmina name, a code or lat/lon.
+- Built on `search.py`: an optional `Near` filter (`ST_DWithin` on `sites.geom` in EPSG:2180; a point is converted with
+  `ST_Transform`), a distance sort and a `dist_m` column for the page rows only. `areas.py` gains the gmina level.
+
+Acceptance criteria:
+
+- AC1: a gmina name (any case and diacritics), a gmina TERYT (7 digits), a powiat name or code (4 digits) and lat/lon all work.
+- AC2: an ambiguous name ("Brzeziny") is a Polish error listing the candidates with TERYT, powiat and voivodeship; an unknown
+  name or code, a code of a wrong length, and a gmina and a powiat of one name (the gmina wins) behave as documented.
+- AC3: lat/lon outside Poland (also swapped) is refused; `place` together with lat/lon, neither, or one of lat/lon is refused.
+- AC4: `radius_km` default 20, capped at 100 (the answer says so); zero or negative is refused.
+- AC5: on a synthetic geometry in EPSG:2180 `distance_km` is the distance from the place's border or point to the site's
+  outline (1.0 and 6.0 km in the test; 0 inside a gmina), results are nearest first, the radius cuts by that distance.
+- AC6: `min_mw`, `min_ha`, `profile`, `verdict`, `hide_red`, `max_per_gmina`, `detail`, `sort`, `limit` and `cursor` work, and
+  `verdict_counts` covers the sites in the radius.
+- AC7: the owner note never reaches Claude; `sites_near` is in `READ_TOOLS` of the leak test.
+- AC8: EXPLAIN with sequential scans disallowed shows `sites_geom_gix` for both place kinds; `search_sites` is unchanged
+  (no near filter adds no SQL; its tests still pass).

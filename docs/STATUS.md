@@ -1,5 +1,15 @@
 # Status
 
+## MCP: sites near a place (11.11.2026)
+
+- New read tool `sites_near`: sites within a radius (default 20 km, cap 100) of a gmina or powiat (name or TERYT) or of a
+  lat/lon point, nearest first, each with `distance_km` (from the border or point to the site outline; 0 = inside).
+  Same lines, filters and `verdict_counts` as `search_sites`.
+- Towns and villages that are not a gmina cannot be found by name (no geocoder, no cost): the error asks for a gmina name,
+  a TERYT code or lat/lon.
+- Not checked: query time on the production-size table (the index use is proven with EXPLAIN on test data only).
+  A large powiat polygon as the place is slower than a point.
+
 ## Search runs keep the time per step and the cache use (05.11.2026)
 
 - `runs.summary` of a search now also has `step_seconds`, the time per step: seed, parcels (the EGiB download), cluster,

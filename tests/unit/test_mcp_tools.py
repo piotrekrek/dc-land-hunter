@@ -36,6 +36,7 @@ TOOLS = {
     "top_picks",
     "compare_sites",
     "get_queue",
+    "sites_near",
 }
 # See test_mcp_write.py and test_mcp_queue_db.py.
 WRITE_TOOLS = {"watch_site", "unwatch_site", "check_parcel", "add_priority", "remove_priority"}
