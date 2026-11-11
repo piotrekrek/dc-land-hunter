@@ -32,7 +32,7 @@ def full_features(**overrides: object) -> SiteFeatures:
         zoning=F(ZoningKind.MPZP_PRODUCTION), dist_telecom_node_km=F(1.0), dist_big_city_km=F(25.0),
         dist_heat_network_km=F(2.0), psi_aid_pts=F(3.0), dist_res_cluster_km=F(5.0), env_decision_found=F(True),
         public_seller=F(True), protected_nature_pct=F(0.0), flood_10_or_1_pct=F(0.0), flood_0_2_pct=F(0.0),
-        mining_area_pct=F(0.0), mining_terrain_pct=F(0.0), forest_pct=F(0.0), soil_class_i_ii_pct=F(0.0),
+        mining_area_pct=F(0.0), mining_terrain_pct=F(0.0), deposit_overlap_pct=F(0.0), forest_pct=F(0.0), soil_class_i_ii_pct=F(0.0),
         soil_class_iii_pct=F(0.0), on_heritage_register=F(False), residential_min_m=F(800.0), residential_clear_ha=F(20.0),
         landscape_park_or_ochk=F(False), gas_pipeline_zone=F(False), airport_ols=F(False),
     )  # fmt: skip
@@ -230,6 +230,37 @@ def test_bonus_is_capped_at_its_weight() -> None:
     bonus = next(c for c in s.categories if c.category == "bonus")
     assert bonus.points == pytest.approx(10.0)
     assert sum(i.points for i in s.items if i.category == "bonus") == pytest.approx(10.0)
+
+
+def test_deposit_under_the_site_is_a_penalty_and_cancels_psi() -> None:
+    clean = score_site(full_features(), CFG)
+    assert item(clean, "pen_mineral_deposit").points == 0
+    psi_clean = item(clean, "bonus_psi").points
+    assert psi_clean > 0  # scaled with the rest of the bonus category, which is capped
+    on_deposit = score_site(full_features(deposit_overlap_pct=F(40.0, "midas", Confidence.VERIFIED)), CFG)
+    pen = item(on_deposit, "pen_mineral_deposit")
+    assert pen.points == -CFG.penalties.mineral_deposit == -8
+    assert not on_deposit.excluded  # no hard filter, status E included
+    psi = item(on_deposit, "bonus_psi")
+    assert psi.points == 0
+    assert psi.explanation_pl == (
+        "Obszar złoża kopaliny — zwolnienie CIT w PSI prawdopodobnie wyłączone, do weryfikacji z KSSSE."
+    )
+    # The penalty; the lost PSI points are hidden here because the bonus category is capped (13 raw > 10).
+    assert on_deposit.score == pytest.approx(clean.score - 8)
+
+
+def test_psi_stays_when_the_switch_is_off() -> None:
+    off = CFG.model_copy(update={"bonus": CFG.bonus.model_copy(update={"deposit_cancels_psi": False})})
+    s = score_site(full_features(deposit_overlap_pct=F(40.0)), off)
+    assert item(s, "bonus_psi").points == item(score_site(full_features(), CFG), "bonus_psi").points > 0
+    assert item(s, "pen_mineral_deposit").points == -8
+
+
+def test_unknown_deposit_layer_is_missing_not_clean() -> None:
+    s = score_site(full_features(deposit_overlap_pct=None), CFG)
+    assert item(s, "pen_mineral_deposit").confidence is Confidence.MISSING
+    assert item(s, "bonus_psi").points > 0
 
 
 def test_penalties_reduce_the_score() -> None:

@@ -438,8 +438,24 @@ def _connectivity_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
     ]  # fmt: skip
 
 
+# Legal basis NOT confirmed: the assumption is that the PSI income-tax exemption does not cover land with a
+# documented mineral deposit (investment in a Polish Investment Zone must not collide with mining rights). The
+# reason says "do weryfikacji" and the rule sits behind `bonus.deposit_cancels_psi`; confirm with KSSSE.
+PSI_DEPOSIT_REASON_PL = (
+    "Obszar złoża kopaliny — zwolnienie CIT w PSI prawdopodobnie wyłączone, do weryfikacji z KSSSE."
+)
+
+
 def _bonus_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
     b = cfg.bonus
+    deposit = f.deposit_overlap_pct
+    deposit_cancels_psi = b.deposit_cancels_psi and deposit is not None and deposit.value > 0
+    psi_fact = f.psi_aid_pts
+    if deposit_cancels_psi and deposit is not None:
+        # The bonus is a known 0 even when the aid map has no entry for the gmina.
+        psi_fact = Fact(
+            psi_fact.value if psi_fact else 0.0, deposit.source_id, deposit.as_of, deposit.confidence
+        )
     return [
         _scored(
             "bonus_heat", "bonus", "Sieć ciepłownicza w pobliżu", f.dist_heat_network_km, b.heat_network_pts,
@@ -451,8 +467,12 @@ def _bonus_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
             "sieci ciepłownicze",
         ),
         _scored(
-            "bonus_psi", "bonus", "Pomoc regionalna (PSI)", f.psi_aid_pts, b.psi_aid_max_pts,
-            lambda pts: (max(0.0, min(pts, b.psi_aid_max_pts)), f"Pomoc regionalna w gminie (mapa 2022–2027, skala do {_n(b.psi_aid_full_pct, 0)} %): {_n(pts)} z {_n(b.psi_aid_max_pts, 0)} pkt."),
+            "bonus_psi", "bonus", "Pomoc regionalna (PSI)", psi_fact, b.psi_aid_max_pts,
+            lambda pts: (
+                (0.0, PSI_DEPOSIT_REASON_PL)
+                if deposit_cancels_psi
+                else (max(0.0, min(pts, b.psi_aid_max_pts)), f"Pomoc regionalna w gminie (mapa 2022–2027, skala do {_n(b.psi_aid_full_pct, 0)} %): {_n(pts)} z {_n(b.psi_aid_max_pts, 0)} pkt.")
+            ),
             "mapa pomocy regionalnej",
         ),
         _scored(
@@ -521,6 +541,7 @@ def _penalty_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
         share("pen_flood_02", "Strefa zalewowa 0,2%", f.flood_0_2_pct, p.flood_0_2pct, 0.0, "{v}% terenu w strefie zagrożenia powodziowego 0,2%.", "Teren poza strefą 0,2%.", "mapy zagrożenia powodziowego"),
         flag("pen_landscape", "Park krajobrazowy / OChK", f.landscape_park_or_ochk, p.landscape_park_or_ochk, "Teren w parku krajobrazowym lub obszarze chronionego krajobrazu.", "Poza parkami krajobrazowymi i OChK.", "formy ochrony przyrody"),
         share("pen_mining_terrain", "Teren górniczy", f.mining_terrain_pct, p.mining_terrain, 0.0, "{v}% terenu w terenie górniczym.", "Poza terenami górniczymi.", "tereny górnicze"),
+        share("pen_mineral_deposit", "Złoże kopaliny", f.deposit_overlap_pct, p.mineral_deposit, 0.0, "{v}% terenu na udokumentowanym złożu kopaliny (MIDAS).", "Brak udokumentowanych złóż kopalin pod terenem.", "złoża kopalin"),
         share("pen_soil_iii", "Gleby klasy III", f.soil_class_iii_pct, p.soil_class_III_pct_over_30, SOIL_III_PENALTY_THRESHOLD_PCT, "{v}% terenu to gleby klasy III (próg 30%).", "Mało gleb klasy III.", "klasy gleb"),
         _scored(
             "pen_residential", "penalty", "Zabudowa mieszkaniowa do 300 m", f.residential_min_m, 0.0,

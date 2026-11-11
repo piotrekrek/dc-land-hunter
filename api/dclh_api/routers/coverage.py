@@ -25,8 +25,8 @@ router = APIRouter(tags=["coverage"], dependencies=[Depends(current_user)])
 # API level -> `admin_units.level`
 LEVELS: dict[str, str] = {"wojewodztwo": "voivodeship", "powiat": "powiat", "gmina": "gmina"}
 # The score items the view tracks, by their key in score.items[]; the labels live in the web app.
-TRACKED_ITEMS = ("zoning", "pen_soil_iii", "bonus_psi", "grid_headroom")
-ItemKey = Literal["all", "zoning", "pen_soil_iii", "bonus_psi", "grid_headroom"]
+TRACKED_ITEMS = ("zoning", "pen_soil_iii", "bonus_psi", "grid_headroom", "pen_mineral_deposit")
+ItemKey = Literal["all", "zoning", "pen_soil_iii", "bonus_psi", "grid_headroom", "pen_mineral_deposit"]
 # Metres in EPSG:2180: invisible at gmina scale, and it keeps the response small.
 SIMPLIFY_M = 20
 

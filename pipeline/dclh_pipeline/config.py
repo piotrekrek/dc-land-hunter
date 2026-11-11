@@ -132,12 +132,15 @@ class BonusParams(_Model):
     res_cluster_km: float
     env_decision_found: float
     public_seller: float
+    # A documented mineral deposit under the site sets the PSI bonus to 0 (flagged "do weryfikacji").
+    deposit_cancels_psi: bool = False
 
 
 class Penalties(_Model):
     flood_0_2pct: float
     landscape_park_or_ochk: float
     mining_terrain: float
+    mineral_deposit: float
     soil_class_III_pct_over_30: float
     residential_100_300m: float
     gas_pipeline_zone: float

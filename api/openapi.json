@@ -736,7 +736,8 @@
                 "zoning",
                 "pen_soil_iii",
                 "bonus_psi",
-                "grid_headroom"
+                "grid_headroom",
+                "pen_mineral_deposit"
               ],
               "type": "string",
               "default": "all",
@@ -1304,6 +1305,11 @@
           "public_seller": {
             "type": "number",
             "title": "Public Seller"
+          },
+          "deposit_cancels_psi": {
+            "type": "boolean",
+            "title": "Deposit Cancels Psi",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -2983,6 +2989,10 @@
             "type": "number",
             "title": "Mining Terrain"
           },
+          "mineral_deposit": {
+            "type": "number",
+            "title": "Mineral Deposit"
+          },
           "soil_class_III_pct_over_30": {
             "type": "number",
             "title": "Soil Class Iii Pct Over 30"
@@ -3006,6 +3016,7 @@
           "flood_0_2pct",
           "landscape_park_or_ochk",
           "mining_terrain",
+          "mineral_deposit",
           "soil_class_III_pct_over_30",
           "residential_100_300m",
           "gas_pipeline_zone",

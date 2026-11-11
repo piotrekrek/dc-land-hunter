@@ -44,7 +44,13 @@ def test_share_for_one_item_counts_sites() -> None:
     )
     (area,) = areas
     assert (area.sites, area.with_data, area.total, area.share) == (4, 1, 4, 0.25)
-    assert area.by_item == {"zoning": 0.25, "pen_soil_iii": 0.0, "bonus_psi": 0.0, "grid_headroom": 0.0}
+    assert area.by_item == {
+        "zoning": 0.25,
+        "pen_soil_iii": 0.0,
+        "bonus_psi": 0.0,
+        "grid_headroom": 0.0,
+        "pen_mineral_deposit": 0.0,
+    }
 
 
 def test_all_items_counts_score_entries_not_sites() -> None:

@@ -182,3 +182,30 @@ def test_a_failed_bdot10k_step_leaves_roads_missing_too(patched: pytest.MonkeyPa
     patched.setattr(layers, "Bdot10kConnector", fake_connector(fail="timeout"))
     area, _ = load(strict=False)
     assert area.roads is None and area.housing is None  # never an empty layer that would read as "no road"
+
+
+def test_deposits_keep_their_attributes_and_an_old_snapshot_has_none(patched: pytest.MonkeyPatch) -> None:
+    table = frame(
+        [box(0, 0, 1, 1), box(4_100, 4_100, 4_200, 4_200)],
+        kind=["mining_area", "mineral_deposit"],
+        name=["", "Rzepin"],
+        mineral=["", "WĘGLE BRUNATNE"],
+        status=["aktualny", ""],
+        source_date=["", ""],
+    )
+    table.attrs["kinds"] = ["mining_area", "mining_terrain", "mineral_deposit"]
+    patched.setattr(layers, "MidasConnector", fake_connector(table))
+    area, _ = load(strict=False)
+    assert area.mining is not None
+    deposits = area.mining["mineral_deposit"]
+    assert len(deposits.index) == 1 and deposits.attrs[0]["name"] == "Rzepin"
+    assert deposits.attrs[0]["mineral"] == "WĘGLE BRUNATNE"
+    assert build_site_layers(static_stub(), area, None).constraints["mineral_deposit"] is deposits
+    # A snapshot fetched before layer 0 was added did not ask for deposits: no layer, so the fact stays missing.
+    old = frame(
+        [box(0, 0, 1, 1)], kind=["mining_area"], name=[""], mineral=[""], status=[""], source_date=[""]
+    )
+    old.attrs["kinds"] = ["mining_area", "mining_terrain"]
+    patched.setattr(layers, "MidasConnector", fake_connector(old))
+    area_old, _ = load(strict=False)
+    assert area_old.mining is not None and "mineral_deposit" not in area_old.mining

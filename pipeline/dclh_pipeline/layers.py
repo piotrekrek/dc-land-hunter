@@ -18,6 +18,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Protocol
 
 import geopandas as gpd
@@ -257,13 +258,11 @@ def load_area_layers(
         midas = connector_m.parse(snapshot_m)
         store.mark_good(snapshot_m)
         mining = {
-            kind: Layer(
-                source_id="midas",
-                index=GeomIndex(midas.geometry[midas["kind"] == kind]),
-                as_of=snapshot_m.fetched_at,
-                confidence=Confidence.VERIFIED,
-            )
-            for kind in ("mining_area", "mining_terrain")
+            kind: _midas_layer(midas, kind, snapshot_m.fetched_at)
+            for kind in ("mining_area", "mining_terrain", "mineral_deposit")
+            # A snapshot from before layer 0 was added did not ask for deposits: those facts stay missing
+            # instead of reading "no deposit here".
+            if kind != "mineral_deposit" or "mineral_deposit" in midas.attrs.get("kinds", ())
         }
         done(mining)
 
@@ -343,6 +342,24 @@ def ru_zoning_layers(
         zones = tuple((k, g) for k, g in zip(kinds, table.geometry, strict=True) if k is not None)
         layers.append(ZoningLayer("ru", snapshot.fetched_at, zones))
     return tuple(layers)
+
+
+def _midas_layer(midas: gpd.GeoDataFrame, kind: str, as_of: datetime) -> Layer:
+    rows = midas[midas["kind"] == kind]
+    return Layer(
+        source_id="midas",
+        index=GeomIndex(rows.geometry),
+        as_of=as_of,
+        confidence=Confidence.VERIFIED,
+        attrs=tuple(
+            {"name": str(n), "mineral": str(m), "status": str(s), "source_date": str(d)}
+            for n, m, s, d in zip(
+                rows["name"], rows["mineral"], rows["status"], rows["source_date"], strict=True
+            )
+        )
+        if kind == "mineral_deposit"
+        else (),
+    )
 
 
 def build_site_layers(static: StaticLayers, area: AreaLayers, industrial: Layer | None) -> SiteLayers:
