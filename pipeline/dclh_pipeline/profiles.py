@@ -125,8 +125,9 @@ def profile_verdict(f: SiteFeatures, name: str, cfg: ProfilesConfig) -> ProfileV
             blockers.append(reason(key, f"{what}: {_pct(fact.value)} terenu", fact))
     heritage = f.on_heritage_register
     if heritage is None:
+        # No source feeds the register (docs/SCORING.md), so the gap is on every site: listed, but it does not
+        # cap the verdict, or green could never be reached.
         missing("heritage", "rejestru zabytków")
-        cap_yellow = True
     elif hard.heritage_register and heritage.value:
         blockers.append(reason("heritage", "obiekt w rejestrze zabytków", heritage))
 

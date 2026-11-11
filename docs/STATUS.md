@@ -1,5 +1,22 @@
 # Status
 
+## Profile verdicts: green is reachable, both profiles measured against 60 MW (11.11.2026)
+
+- **Why:** no stored site was green in either profile. Measured on production, two causes: the heritage register has no
+  source, and a missing answer capped every site at yellow; and 188 of the 196 yellow built sites are plan ogólny
+  economic zones, capped at yellow on purpose until the OUZ is confirmed (unchanged).
+- **Changed:** a missing heritage answer is still listed but no longer caps the verdict; published GPZ headroom earns
+  full marks at 60 MW in both profiles (was 10 MW built, 2 MW container); the container minimum area is 0.5 ha (was
+  0.15 ha), the owner's target of 60 MW+ on 0.5 to 2 ha.
+- **Replay on the 2,224 production sites that were yellow** (new rules, stored features, kept sites only):
+  built 196 yellow becomes 3 green, 183 yellow, 10 red; container (10 ha+) 146 becomes 1 green, 127 yellow, 18 red;
+  container small plots 1,554 become 1,523 yellow, 31 red. Red and "do weryfikacji" sites cannot improve under these
+  changes, so they were not replayed.
+- **Not changed:** the container housing distance (150 m / 80 m) stays; a better number needs an acoustic estimate.
+  Unknown zoning still gives "do weryfikacji" (13,538 kept sites): that, not the verdict rules, is what keeps the
+  shortlist short. Next: a per-gmina "plan ogólny in force" fact (the 31.08.2026 deadline has passed).
+- **After deploy:** run `dclh reprofile` (RUNBOOK). Parcel checks already stored keep their old verdicts.
+
 ## Search runs keep the time per step and the cache use (05.11.2026)
 
 - `runs.summary` of a search now also has `step_seconds`, the time per step: seed, parcels (the EGiB download), cluster,
