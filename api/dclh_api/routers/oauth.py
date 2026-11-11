@@ -30,7 +30,9 @@ UNNAMED_CLIENT = "Aplikacja bez nazwy"
 # What each scope lets Claude do, as the consent page words it ("Claude będzie mógł: ...").
 SCOPE_LABELS = {
     "dclh.read": "czytać lokalizacje, oceny, pokrycie powiatów i etapy projektów (bez notatek)",
-    "dclh.write": "obserwować lokalizacje i zlecać sprawdzenie działki",
+    "dclh.write": (
+        "obserwować lokalizacje, zlecać sprawdzenie działki i zmieniać priorytety w kolejce powiatów"
+    ),
 }
 
 ReqId = Annotated[str, Path(min_length=1, max_length=128)]

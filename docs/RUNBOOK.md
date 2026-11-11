@@ -54,7 +54,8 @@ The session cookie is `Secure` automatically when the request arrives over HTTPS
 
 Lets a person connect Claude (claude.ai on the web, the desktop and phone apps, or Claude Code) to this app. Claude
 can then search sites, read site cards, coverage, the deal pipeline (stages only, never notes) and parcel checks, and
-can watch a site or queue a parcel check. Everything is done as the person who connected it, and Claude asks before
+can watch a site, queue a parcel check, or add and remove priority powiats in the search queue (Kolejka; the
+list is shared by the team). Everything is done as the person who connected it, and Claude asks before
 it runs a tool that changes something. Design and decisions: `docs/PLAN.md`, "Claude connector (MCP)".
 
 **What leaves the server:** everything a tool returns goes to Anthropic. The pipeline `owner_note` is never returned
