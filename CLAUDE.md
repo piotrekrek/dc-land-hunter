@@ -22,18 +22,25 @@ The phase plan is in `docs/PLAN.md` and the current state is in `docs/STATUS.md`
   state assumptions before coding, keep changes surgical, and verify against stated success criteria. Also ask under what
   conditions the code works and cover more than the happy path.
 - Plans go in `docs/PLAN.md`, not `docs/superpowers/plans/` (overrides `writing-plans`).
-- Never merge a branch locally or into `main`. Open a PR and let the owner merge (overrides the "merge locally" option in `finishing-a-development-branch`).
+- Never merge a branch locally or into `main`: merge through the PR (`gh pr merge <n> --squash`). Overrides the "merge locally" option in `finishing-a-development-branch`.
 - Skill use cases and open decisions: `docs/SKILLS.md`.
 
 ## Git workflow
 
-- Always open a pull request for every change; never push straight to `main`. Merge only when the owner asks.
+- Always open a pull request for every change; never push straight to `main`.
+- A ready PR (CI green, checks done, clear path) is merged and deployed without asking the owner. Ask first when the path is
+  not clear: failing or flaky CI, an unresolved design choice, anything destructive to data, or a paid service.
+- Force-push is blocked in this environment. If a PR conflicts with `main`, merge `main` into the branch (or push the
+  rebased commits to a new branch and open a replacement PR).
 - Add tests when fixing anything bigger than a one-liner.
 
 ## Deployment
 
 - Production runs on the owner's VPS, repo checkout at `/home/piotr/dc-land-hunter` (user `piotr`).
-- Deploy: `cd ~/dc-land-hunter && git pull && docker compose -f infra/docker-compose.yml up --build -d`, then hard-refresh the browser.
+- Deploy: `scripts/deploy.sh` (needs a clean `main` checkout; no edits on the VPS), then verify the site, the API health check
+  and migrations, and hard-refresh the browser.
+- Deploy outside the nightly search window (01:00–05:00 Warsaw) and only when no job is running. A deploy that restarts
+  the database or runs migrations gets a backup first (`scripts/backup_db.sh`). A PR that only changes tests or docs needs no deploy.
 - The Compose settings file is `infra/.env` (the one `infra/docker-compose.yml` reads). It lives only on the VPS, not in git. Never overwrite it. Local dev without Docker uses a root `.env` (copied from `.env.example`), which the VPS does not have.
 
 ## 0. How to work on this project
