@@ -1686,7 +1686,7 @@ export interface components {
         };
         /**
          * StationClassShare
-         * @description 110 kV/SN stations of one voivodeship by class. `unknown_share` high means the GPZ score is half guesswork.
+         * @description 110 kV/SN stations of one voivodeship by class; a high `unknown_share` means a guessed GPZ score.
          */
         StationClassShare: {
             /** Teryt */
