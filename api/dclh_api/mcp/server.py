@@ -8,7 +8,7 @@ from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, Re
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from dclh_api.mcp import tools_deals, tools_queue, tools_read, tools_write
+from dclh_api.mcp import tools_deals, tools_near, tools_queue, tools_read, tools_write
 from dclh_api.mcp.oauth import SCOPES, DclhOAuthProvider
 
 INSTRUCTIONS = """\
@@ -29,6 +29,7 @@ neighbouring parcels often form one cluster. search_sites already returns the re
 the nearest GPZ and the parcel ids, so open a card (get_site) only for the few sites you go into.
 Area filters take Polish names ("dolnośląskie", "lęborski") as well as TERYT codes.
 verdict_counts answers "how many are green".
+sites_near finds sites within a radius of a gmina, a powiat or lat/lon ("what is within 20 km of Kutno?").
 """
 
 
@@ -71,4 +72,5 @@ def build_mcp(public_url: str, provider: DclhOAuthProvider | None = None) -> Fas
     tools_write.register(mcp, public_url)
     tools_deals.register(mcp, public_url)
     tools_queue.register(mcp)
+    tools_near.register(mcp, public_url)
     return mcp

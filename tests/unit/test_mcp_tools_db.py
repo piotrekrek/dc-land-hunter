@@ -25,7 +25,15 @@ from tests.unit.test_scoring_run import CFG, layers, parcel_sites
 pytestmark = [pytest.mark.db, pytest.mark.usefixtures("migrated_db"), pytest.mark.anyio]
 
 NOTE = "TAJNA-NOTATKA-123"
-READ_TOOLS = ("search_sites", "list_pipeline", "list_powiaty", "coverage", "scoring_rules", "get_queue")
+READ_TOOLS = (
+    "search_sites",
+    "list_pipeline",
+    "list_powiaty",
+    "coverage",
+    "scoring_rules",
+    "get_queue",
+    "sites_near",
+)
 
 
 @pytest.fixture
@@ -104,6 +112,7 @@ async def test_owner_note_never_leaks_through_any_read_tool(seeded: None, mcp: F
     await put_in_pipeline(site_id)
     arguments: dict[str, dict[str, Any]] = {name: {} for name in READ_TOOLS}
     arguments["search_sites"] = {"min_mw": 0, "detail": "full"}
+    arguments["sites_near"] = {"lat": 51.7, "lon": 19.4, "radius_km": 100, "min_mw": 0, "detail": "full"}
     arguments["top_picks"] = {"profile": "container", "verdict": ["green", "yellow", "red", "manual"]}
     arguments["compare_sites"] = {"site_ids": [site_id, "other"]}
     arguments["get_site"] = {"site_ids": [site_id]}
