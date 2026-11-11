@@ -17,6 +17,12 @@
   shortlist short. Next: a per-gmina "plan ogólny in force" fact (the 31.08.2026 deadline has passed).
 - **After deploy:** run `dclh reprofile` (RUNBOOK). Parcel checks already stored keep their old verdicts.
 
+## MCP: set_stage and remove_from_pipeline (11.11.2026)
+
+- Claude can move a site to a pipeline stage (`set_stage`, the note is kept) and remove its card
+  (`remove_from_pipeline`, destructive: the owner note is deleted with it, so Claude asks first).
+- Not verified against PROD; covered by `tests/unit/test_mcp_deals_db.py`.
+
 ## Search runs keep the time per step and the cache use (05.11.2026)
 
 - `runs.summary` of a search now also has `step_seconds`, the time per step: seed, parcels (the EGiB download), cluster,

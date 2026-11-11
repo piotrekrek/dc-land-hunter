@@ -8,7 +8,7 @@ from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, Re
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from dclh_api.mcp import tools_queue, tools_read, tools_write
+from dclh_api.mcp import tools_deals, tools_queue, tools_read, tools_write
 from dclh_api.mcp.oauth import SCOPES, DclhOAuthProvider
 
 INSTRUCTIONS = """\
@@ -19,7 +19,8 @@ yellow = Warunkowo, red = Odpada, manual = Do weryfikacji (an answer is missing)
 Grid scores are proxies from distances and public operator data, never a confirmed connection capacity:
 never tell the user that a given power is available. Only the operator's connection conditions bind.
 estimated_mw is land capacity (area x 6 MW/ha), not power from the grid.
-Tools that change something (watch_site, unwatch_site, check_parcel, add_priority, remove_priority) act for
+Tools that change something (watch_site, unwatch_site, check_parcel, add_priority, remove_priority, set_stage,
+remove_from_pipeline) act for
 the user: use only on request. The priority list of the search queue is shared by the whole team.
 get_queue shows the search queue (Kolejka): priority powiats, what the nightly search takes next, what runs.
 Answer the user in Polish and give each site's `url` so they can open its card.
@@ -68,5 +69,6 @@ def build_mcp(public_url: str, provider: DclhOAuthProvider | None = None) -> Fas
     )
     tools_read.register(mcp, public_url)
     tools_write.register(mcp, public_url)
+    tools_deals.register(mcp, public_url)
     tools_queue.register(mcp)
     return mcp

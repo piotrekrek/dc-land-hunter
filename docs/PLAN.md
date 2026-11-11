@@ -1084,3 +1084,23 @@ Acceptance criteria:
   jobs and failing powiats.
 - AC6: a read-only token can read the queue but not change it; `added_by` is the connected user.
 - AC7: the consent page and the Claude tab say Claude can change queue priorities; the leak test covers `get_queue`.
+
+## MCP: manage deals from Claude (plan of 11.11.2026)
+
+Claude can read the pipeline (`list_pipeline`) but not change it. Two write tools finish "track my deals":
+
+- `set_stage(site_id, stage)`: puts a site in a pipeline stage, creating its project card if needed. It goes through
+  the app's `put_project` with the stage only, so an existing `owner_note` is kept.
+- `remove_from_pipeline(site_id)`: deletes the project card through `delete_project`. The card's private owner note
+  goes with it, so the tool is marked `destructiveHint` and its description tells Claude to ask the user first.
+
+Acceptance criteria:
+
+- AC1: a valid stage (`new`, `watching`, `analysis`, `owner_contact`, `negotiation`, `rejected`, `secured`) creates or
+  moves the card and returns `site_id`, `stage`, `url`; repeating it changes nothing.
+- AC2: an unknown stage gives a Polish error listing the valid stages; an unknown site gives "Nie ma takiej
+  lokalizacji." and creates no card.
+- AC3: `set_stage` on a card that has an owner note keeps the note; the note is never in any tool output.
+- AC4: `remove_from_pipeline` deletes only that site's card (other cards stay), and is idempotent when there is none.
+- AC5: a read-only token (or none) can call neither tool.
+- AC6: `list_pipeline` shows the new stage; the leak test still passes.
