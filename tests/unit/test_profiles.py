@@ -36,6 +36,14 @@ def test_manual_checks_are_always_listed_but_never_block() -> None:
     assert not any(c.blocking for c in v.to_check)
 
 
+def test_only_the_container_profile_is_told_about_container_bans_in_the_plan() -> None:
+    def mpzp_text(name: str) -> str:
+        return next(c.text_pl for c in verdict(name).to_check if c.key == "mpzp_text")
+
+    assert "kontenerowych" in mpzp_text("container")
+    assert "kontenerowych" not in mpzp_text("built")
+
+
 @pytest.mark.parametrize("name", ["built", "container"])
 @pytest.mark.parametrize(
     ("field", "key"),

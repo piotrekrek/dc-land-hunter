@@ -7,7 +7,7 @@ See docs/SCORING.md.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field, fields, replace
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
@@ -63,6 +63,13 @@ MANUAL_CHECKS = (
 )  # fmt: skip
 
 
+# The plan-text check names what each profile trips over; only the container profile builds temporary units.
+MPZP_TEXT_PL = {
+    "built": "Zapisy MPZP: ograniczenia zabudowy (wysokość, intensywność, minima)",
+    "container": "Zapisy MPZP: zakaz obiektów kontenerowych lub tymczasowych, minima",
+}
+
+
 def _n(x: float, digits: int = 1) -> str:
     return f"{x:.{digits}f}".replace(".", ",")
 
@@ -80,7 +87,10 @@ def _ramp_up(value: float, zero: float, full: float) -> float:
 def profile_verdict(f: SiteFeatures, name: str, cfg: ProfilesConfig) -> ProfileVerdict:
     spec = cfg.profiles[name]  # type: ignore[index]
     blockers: list[Reason] = []
-    to_check: list[ToCheck] = list(MANUAL_CHECKS)
+    to_check: list[ToCheck] = [
+        replace(c, text_pl=MPZP_TEXT_PL.get(name, c.text_pl)) if c.key == "mpzp_text" else c
+        for c in MANUAL_CHECKS
+    ]
     positives: list[Reason] = []
     cap_yellow = False
 

@@ -18,6 +18,7 @@ const ops: OpsJobs = {
       id: 61,
       kind: "search",
       status: "failed",
+      skipped: false,
       powiat: "0202",
       powiat_name: "powiat dzierżoniowski",
       requested_by: "planner",
@@ -29,11 +30,24 @@ const ops: OpsJobs = {
       id: 60,
       kind: "discover",
       status: "done",
+      skipped: false,
       powiat: null,
       powiat_name: null,
       requested_by: "ala@example.org",
       created_at: "2026-10-20T20:00:00Z",
       finished_at: "2026-10-20T20:01:00Z",
+      error: null,
+    },
+    {
+      id: 59,
+      kind: "search",
+      status: "done",
+      skipped: true,
+      powiat: "0201",
+      powiat_name: "powiat bolesławiecki",
+      requested_by: "planner",
+      created_at: "2026-10-20T01:00:00Z",
+      finished_at: "2026-10-20T06:16:00Z",
       error: null,
     },
   ],
@@ -52,10 +66,13 @@ describe("JobsPage", () => {
     expect(within(failing).getByText(/powiat dzierżoniowski/)).toBeInTheDocument();
     expect(within(failing).getByText("IntegrityError: duplicate key")).toBeInTheDocument();
     const rows = screen.getAllByTestId("job-row");
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(3);
     expect(within(rows[0]!).getByText("Błąd")).toBeInTheDocument();
     expect(within(rows[0]!).getByText("Wyszukiwanie")).toBeInTheDocument();
     expect(within(rows[1]!).getByText("Zakończone")).toBeInTheDocument();
+    // taken after the night window: it did nothing, so it must not look like a finished search
+    expect(within(rows[2]!).getByText("Pominięte")).toBeInTheDocument();
+    expect(within(rows[2]!).queryByText("Zakończone")).not.toBeInTheDocument();
     expect(within(screen.getByRole("group", { name: "Podsumowanie zadań" })).getByText("2")).toBeInTheDocument();
   });
 

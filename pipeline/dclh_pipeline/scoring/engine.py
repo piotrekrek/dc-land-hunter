@@ -58,6 +58,15 @@ def ramp_down(value: float, full: float, zero: float) -> float:
     return (zero - value) / (zero - full)
 
 
+def _plural(n: int, one: str, few: str, many: str) -> str:
+    """Polish noun form for a count: 1 działka, 2-4 działki (but not 12-14), 5+ działek."""
+    if n == 1:
+        return one
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return few
+    return many
+
+
 def _n(x: float, digits: int = 1) -> str:
     """Polish decimal formatting for explanations."""
     return f"{x:.{digits}f}".replace(".", ",")
@@ -179,7 +188,7 @@ def _grid_items(f: SiteFeatures, cfg: ScoringConfig, est_mw: float | None) -> li
             lambda n: (
                 (
                     GRID_N1_MAX,
-                    f"{n} niezależne linie 110 kV w promieniu {_n(g.two_independent_110_lines_within_km, 0)} km (rezerwowanie N-1).",
+                    f"{n} {_plural(n, 'niezależna linia', 'niezależne linie', 'niezależnych linii')} 110 kV w promieniu {_n(g.two_independent_110_lines_within_km, 0)} km (rezerwowanie N-1).",
                 )
                 if n >= 2
                 else (
@@ -398,7 +407,7 @@ def _land_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
         pts = LAND_PARCELS_MAX * ramp_down(n, land.parcels_full, land.parcels_zero)
         return (
             pts,
-            f"{n} działek ewidencyjnych (pełne punkty do {land.parcels_full}, zero od {land.parcels_zero}); mniej działek to zwykle mniej właścicieli.",
+            f"{n} {_plural(n, 'działka ewidencyjna', 'działki ewidencyjne', 'działek ewidencyjnych')} (pełne punkty do {land.parcels_full}, zero od {land.parcels_zero}); mniej działek to zwykle mniej właścicieli.",
         )
 
     def expansion(ha: float) -> tuple[float, str]:

@@ -134,6 +134,7 @@ def test_a_search_stops_before_it_starts_when_the_disk_is_short(
     make_room(settings)  # enough room: no error
 
 
+@pytest.mark.usefixtures("enough_disk")
 def test_make_room_prunes_the_answer_cache_first(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from dclh_pipeline import powiat_search
 

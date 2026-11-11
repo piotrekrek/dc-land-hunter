@@ -38,6 +38,8 @@ class JobItem(BaseModel):
     created_at: datetime
     finished_at: datetime | None
     error: str | None
+    # A search the worker took after the night window had closed: it did nothing and is not an attempt.
+    skipped: bool = False
 
 
 class FailingPowiat(BaseModel):
@@ -92,8 +94,10 @@ _FAILED_OTHER_24H = text(
 _RECENT = text(
     """
     SELECT j.id, j.kind, j.status, j.payload->>'powiat' AS powiat, a.name AS powiat_name,
-           j.requested_by, j.created_at, j.finished_at, left(j.error, :chars) AS error
+           j.requested_by, j.created_at, j.finished_at, left(j.error, :chars) AS error,
+           COALESCE(r.summary ? 'skipped', false) AS skipped
     FROM jobs j
+    LEFT JOIN runs r ON r.id = j.run_id
     LEFT JOIN admin_units a ON a.level = 'powiat' AND a.teryt = j.payload->>'powiat'
     ORDER BY j.id DESC
     LIMIT :limit

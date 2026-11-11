@@ -213,6 +213,7 @@ def _archive(tmp_path: Path) -> zipfile.ZipFile:
     return zipfile.ZipFile(io.BytesIO(), "w", compression=zipfile.ZIP_DEFLATED)
 
 
+@pytest.mark.usefixtures("enough_disk")
 def test_powiat_search_needs_a_saved_gdos_snapshot(tmp_path: Path) -> None:
     # Without gdos the protected-area exclusion would silently never apply, so the search must refuse to run.
     from dclh_pipeline.powiat_search import search_powiat
