@@ -67,6 +67,9 @@ export const EXAMPLE_PROMPTS = [
   "Ile jest zielonych i żółtych lokalizacji w województwie śląskim? Które powiaty nie są jeszcze przeszukane?",
   "Obserwuj najlepszą lokalizację w powiecie wrocławskim.",
   "Pokaż kolejkę wyszukiwania i dodaj priorytet dla powiatu leszczyńskiego.",
+  "Co się zmieniło w ostatnim tygodniu w województwie dolnośląskim?",
+  "Jakie lokalizacje są w promieniu 20 km od Kutna?",
+  "Ile zamrozi zabezpieczenie przyłączenia 80 MW?",
 ];
 
 export const claudeCodeCommand = (url: string) => `claude mcp add --transport http dclh ${url}`;
