@@ -1773,6 +1773,8 @@ export interface components {
             mpzp_production: number;
             /** Plan Ogolny Sg */
             plan_ogolny_SG: number;
+            /** Zone Allows Dc Outside Ouz */
+            zone_allows_dc_outside_ouz: number;
             /** Procedure In Progress */
             procedure_in_progress: number;
             /** Unknown */
