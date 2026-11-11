@@ -29,7 +29,8 @@ jobs:
   stack:
     name: Docker images + Playwright smoke
     timeout-minutes: 25
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04 on 11.11.2026 and Playwright 1.56 has no chromium build for it.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Build images
