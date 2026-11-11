@@ -244,12 +244,22 @@ async def test_search_sites_is_unchanged_and_has_no_distance(seeded: None, mcp: 
     ],
 )
 def test_the_spatial_index_is_used(seeded: None, near: search.Near) -> None:
-    """With sequential scans disallowed (a handful of rows would never pick the index on its own), the filter
-    must still be answerable from `sites_geom_gix`: the place is a constant, not a per-row expression."""
+    """On a handful of rows the planner prefers a full scan of the covering list index, so the other indexes of
+    `sites` are dropped inside a transaction that is rolled back: the filter must be answerable from
+    `sites_geom_gix` (the place is a constant, not a per-row expression)."""
     where, params = search._filters(min_mw=0, min_ha=0, powiat=None, voivodeship=None, near=near)
     with session_scope() as session:
+        others = session.execute(
+            text(
+                "SELECT indexname FROM pg_indexes WHERE tablename = 'sites' "
+                "AND indexname NOT IN ('sites_geom_gix', 'sites_pkey')"
+            )
+        ).scalars()
+        for name in list(others):
+            session.execute(text(f'DROP INDEX "{name}"'))
         session.execute(text("SET LOCAL enable_seqscan = off"))
         plan = "\n".join(
             row[0] for row in session.execute(text(f"EXPLAIN SELECT site_id FROM sites {where}"), params)
         )
+        session.rollback()
     assert "sites_geom_gix" in plan, plan
