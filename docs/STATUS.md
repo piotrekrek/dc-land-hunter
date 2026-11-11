@@ -41,6 +41,22 @@
   user's email). Follow it with `get_queue` (`in_progress`). The worker's disk guard applies as for any search.
 - Not verified against PROD: nothing was queued there.
 
+## MCP: what changed since last week (11.11.2026)
+
+- Migration 0018 adds `site_history` (index on `scored_at` and on `site_id, scored_at`). `write_sites` diffs the powiat's old
+  kept rows against the new ones in the same transaction and stores a row only when a kept standard site is new, drops,
+  or changes its score (rounded to 0.1) or a per-profile verdict. The migration seeds a `baseline` row per kept site,
+  so the first nightly run after deploy shows real differences.
+- **The history starts on the deploy date.** Nothing earlier is known; `what_changed` says so (`history_since`).
+- New read tool `what_changed(since, voivodeship?, powiat?, profile?, limit?)`: new and dropped sites, verdict changes
+  (from/to), score jumps of at least 5 points, powiats searched for the first time. The web "Nowości" tab is unchanged.
+- Known limits: a powiat whose earlier searches found no sites shows as "searched for the first time" when it first
+  has sites; a dropped site has no card (no `url`); sites that become excluded count as dropped.
+- Cost, measured on a throwaway database with 130k `sites` rows (29.9k kept): the migration (table + baseline seed) takes
+  0.3 s; the diff reads one powiat's kept rows through `sites_list_ix` (69 rows, 0.12 ms, no scan of other powiats) and
+  writes only changes.
+
+
 ## Search runs keep the time per step and the cache use (05.11.2026)
 
 - `runs.summary` of a search now also has `step_seconds`, the time per step: seed, parcels (the EGiB download), cluster,

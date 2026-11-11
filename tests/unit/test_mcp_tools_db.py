@@ -33,6 +33,8 @@ READ_TOOLS = (
     "scoring_rules",
     "get_queue",
     "sites_near",
+
+    "what_changed",
 )
 
 
