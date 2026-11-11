@@ -115,6 +115,26 @@ def test_missing_input_counts_neutral_and_is_listed() -> None:
     assert v.score < verdict("built").score
 
 
+@pytest.mark.parametrize("name", ["built", "container"])
+def test_missing_heritage_data_is_listed_but_does_not_cap_green(name: str) -> None:
+    # No source feeds the register, so capping on it made green unreachable for every stored site.
+    v = verdict(name, on_heritage_register=None)
+    assert v.category is Category.GREEN
+    assert "heritage" in keys(v.to_check)
+
+
+def test_headroom_is_measured_against_the_60_mw_target() -> None:
+    for name in ("built", "container"):
+        low, half, full = (verdict(name, published_gpz_headroom_mw=F(mw)).score for mw in (10.0, 30.0, 60.0))
+        assert low < half < full
+        assert verdict(name, published_gpz_headroom_mw=F(90.0)).score == full
+
+
+def test_container_needs_half_a_hectare() -> None:
+    assert verdict("container", area_ha=F(0.4)).category is Category.RED
+    assert verdict("container", area_ha=F(0.5)).category is Category.GREEN
+
+
 def test_missing_flood_data_caps_green_at_yellow() -> None:
     v = verdict("built", flood_10_or_1_pct=None)
     assert v.category is Category.YELLOW

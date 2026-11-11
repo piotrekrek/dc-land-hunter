@@ -1,4 +1,15 @@
-import { Activity, Bell, Download, Map, MapPinned, Search, Settings, SquareKanban, type LucideIcon } from "lucide-react";
+import {
+  Activity,
+  Bell,
+  Download,
+  Map,
+  MapPinned,
+  Search,
+  Settings,
+  Sparkles,
+  SquareKanban,
+  type LucideIcon,
+} from "lucide-react";
 
 export interface NavItem {
   to: string;
@@ -12,11 +23,12 @@ export interface NavItem {
   soon?: boolean;
 }
 
-/** The eight screens from brief 8.1 (Karta lokalizacji opens from the list, so it has no nav entry). */
+/** The eight screens from brief 8.1 plus Claude (Karta lokalizacji opens from the list, so it has no nav entry). */
 export const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Mapa i lista", icon: Map },
   { to: "/kolejka", label: "Kolejka", icon: MapPinned },
   { to: "/sprawdz-dzialke", label: "Sprawdź działkę", icon: Search },
+  { to: "/claude", label: "Claude", icon: Sparkles },
   { to: "/projekty", label: "Moje projekty", icon: SquareKanban, soon: true },
   { to: "/eksport", label: "Eksport", icon: Download, soon: true },
   { to: "/nowosci", label: "Nowości", icon: Bell, iconOnly: true, soon: true },

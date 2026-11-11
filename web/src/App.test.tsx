@@ -102,6 +102,7 @@ describe("pageTitle", () => {
     ["/", "Mapa i lista · DC Land Hunter"],
     ["/kolejka", "Kolejka · DC Land Hunter"],
     ["/kolejka/", "Kolejka · DC Land Hunter"],
+    ["/claude", "Claude · DC Land Hunter"],
     ["/sprawdz-dzialke/abc", "Sprawdź działkę · DC Land Hunter"],
     ["/lokalizacje/12", "Karta lokalizacji · DC Land Hunter"],
     ["/logowanie", "Logowanie · DC Land Hunter"],

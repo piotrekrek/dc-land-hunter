@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from mcp.server.fastmcp.exceptions import ToolError
@@ -39,6 +40,16 @@ SIMPLIFY_M = 25  # candidate outlines are thinned for the distance check; 25 m i
 CURSOR_PREFIX = "o"
 
 
+@dataclass(frozen=True)
+class Near:
+    """A place to measure from, in EPSG:2180: `geom_sql` is a SQL expression (a gmina polygon or a point)
+    and `params` its bind values. Sites within `radius_m` of it are kept."""
+
+    geom_sql: str
+    params: dict[str, Any]
+    radius_m: float
+
+
 def encode_cursor(offset: int) -> str:
     return base64.urlsafe_b64encode(f"{CURSOR_PREFIX}{offset}".encode()).decode()
 
@@ -54,7 +65,7 @@ def decode_cursor(cursor: str) -> int:
 
 
 def _filters(
-    *, min_mw: float, min_ha: float, powiat: str | None, voivodeship: str | None
+    *, min_mw: float, min_ha: float, powiat: str | None, voivodeship: str | None, near: Near | None = None
 ) -> tuple[str, dict[str, Any]]:
     where = "WHERE kind = 'standard' AND estimated_mw >= :min_mw AND area_ha >= :min_ha AND NOT excluded"
     params: dict[str, Any] = {"min_mw": min_mw, "min_ha": min_ha}
@@ -64,6 +75,10 @@ def _filters(
     if voivodeship is not None:
         where += " AND left(powiat, 2) = :voivodeship"
         params["voivodeship"] = voivodeship
+    if near is not None:
+        # The place is a constant for the query, so the planner can use the GiST index on sites.geom.
+        where += f" AND ST_DWithin(geom, {near.geom_sql}, :near_m)"
+        params |= near.params | {"near_m": near.radius_m}
     return where, params
 
 
@@ -106,7 +121,7 @@ SELECT p.*, {_PLACE_COLUMNS},
        gpz_unk.name AS gpz_unk_name, gpz_unk.class_source AS gpz_unk_class_source,
        gpz_unk.dist_m AS gpz_unk_dist_m,
        oth.name AS other_name, oth.station_class AS other_class, oth.dist_m AS other_dist_m FROM (
-    SELECT {_SUMMARY_COLUMNS}, verdict_built, verdict_container, {_PLACE_SOURCE}, geom AS site_geom,
+    SELECT {_SUMMARY_COLUMNS}, verdict_built, verdict_container, {_PLACE_SOURCE}, geom AS site_geom,{{extra}}
            parcel_ids, profiles, detail -> 'features' AS features,
            detail -> 'score' -> 'categories' AS categories, pg.sv
     FROM sites JOIN page pg USING (site_id)
@@ -128,9 +143,16 @@ ORDER BY p.sv DESC, p.site_id
 """
 
 
-def _rows(session: Session, ctes: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+def _rows(
+    session: Session, ctes: str, params: dict[str, Any], near: Near | None = None
+) -> list[dict[str, Any]]:
+    # With a place, each page row also carries its distance from it (metres; 0 inside the polygon).
+    extra = f" ST_Distance(geom, {near.geom_sql}) AS dist_m," if near is not None else ""
     try:
-        return [dict(r) for r in session.execute(text(f"{ctes} {_ROWS_SQL}"), params).mappings()]
+        return [
+            dict(r)
+            for r in session.execute(text(f"{ctes} {_ROWS_SQL.format(extra=extra)}"), params).mappings()
+        ]
     except SQLAlchemyError as exc:
         raise ToolError("Baza danych jest niedostępna.") from exc
 
@@ -221,7 +243,7 @@ def site_line(
     built, container = row["verdict_built"], row["verdict_container"]
     in_scope = (profile,) if profile else PROFILES
     project_mw, spare_ha = project_capacity_of(row)
-    return {
+    line: dict[str, Any] = {
         "site_id": row["site_id"],
         "url": site_url(public_url, row["site_id"]),
         "gmina": row["gmina"],
@@ -241,6 +263,9 @@ def site_line(
         "parcels": _parcels(row["parcel_ids"], full=full),
         "data": _completeness(row["features"]),
     }
+    if row.get("dist_m") is not None:
+        line["distance_km"] = round(row["dist_m"] / 1000, 2)
+    return line
 
 
 def verdict_counts(
@@ -313,17 +338,22 @@ def search_sites(
     profile: Profile | None,
     hide_red: bool,
     verdicts: list[Verdict] | None,
-    sort: Literal["score", "upside", "area", "mw"],
+    sort: Literal["score", "upside", "area", "mw", "distance"],
     limit: int,
     cursor: str | None,
     max_per_gmina: int | None = None,
     max_per_voivodeship: int | None = None,
     min_distance_km: float | None = None,
     full: bool = False,
+    near: Near | None = None,
 ) -> dict[str, Any]:
+    if sort == "distance" and near is None:
+        raise ToolError("Sortowanie po odległości wymaga miejsca (place albo lat i lon).")
     if (hide_red or verdicts) and profile is None:
         raise ToolError("Filtr werdyktu i ukrywanie odrzuconych wymagają wybranego profilu (profile).")
-    base_where, params = _filters(min_mw=min_mw, min_ha=min_ha, powiat=powiat, voivodeship=voivodeship)
+    base_where, params = _filters(
+        min_mw=min_mw, min_ha=min_ha, powiat=powiat, voivodeship=voivodeship, near=near
+    )
     where = base_where
     if hide_red:
         where += f" AND verdict_{profile} IS DISTINCT FROM 'red'"  # `profile` is a Literal: never user text
@@ -341,7 +371,8 @@ def search_sites(
     # another region hides must not use up that region's place.
     ctes = _ranked_ctes(
         where=where,
-        column=SORT_COLUMNS[sort],
+        # Nearest first: the sort value is "best first" = largest, so the distance is negated.
+        column=f"-ST_Distance(geom, {near.geom_sql})" if sort == "distance" and near else SORT_COLUMNS[sort],
         max_per_gmina=max_per_gmina,
         max_per_voivodeship=None if min_distance_km is not None else max_per_voivodeship,
     )
@@ -352,7 +383,7 @@ def search_sites(
         total = len(picked)
         page_ids = picked[offset : offset + limit]
         page_ctes = f"{ctes}, page AS (SELECT site_id, sv FROM kept WHERE site_id = ANY(:page_ids))"
-        rows = _rows(session, page_ctes, params | sql_caps | {"page_ids": page_ids}) if page_ids else []
+        rows = _rows(session, page_ctes, params | sql_caps | {"page_ids": page_ids}, near) if page_ids else []
     else:
         try:
             total = session.execute(text(f"{ctes} SELECT count(*) FROM kept"), params | sql_caps).scalar_one()
@@ -362,7 +393,7 @@ def search_sites(
             f"{ctes}, page AS (SELECT site_id, sv FROM kept "
             "ORDER BY sv DESC, site_id LIMIT :limit OFFSET :offset)"
         )
-        rows = _rows(session, page_ctes, params | sql_caps | {"limit": limit, "offset": offset})
+        rows = _rows(session, page_ctes, params | sql_caps | {"limit": limit, "offset": offset}, near)
     result: dict[str, Any] = {
         "total": total,
         "next_cursor": encode_cursor(offset + len(rows)) if offset + len(rows) < total else None,

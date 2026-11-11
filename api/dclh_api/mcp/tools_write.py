@@ -2,7 +2,7 @@
 
 They call the same router functions as the app (so its limits and Polish messages apply unchanged) and are
 deliberately small: watching a site is the user's own list, and a parcel check is queued work, not a deletion.
-Nothing here touches the deal pipeline or the powiat priority list.
+Nothing here touches the deal pipeline. The powiat priority list is in `tools_queue`.
 """
 
 from __future__ import annotations

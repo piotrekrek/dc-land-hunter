@@ -22,6 +22,7 @@ from dclh_pipeline.config import ProfilesConfig, ScoringConfig, Target, load_pro
 from dclh_pipeline.model.features import SiteLayers, build_site_features
 from dclh_pipeline.model.sites import Site
 from dclh_pipeline.profiles import profile_verdicts
+from dclh_pipeline.scoring import history
 from dclh_pipeline.scoring.engine import score_site
 from dclh_pipeline.scoring.grid60 import Grid60Tier, grid60_tier
 from dclh_pipeline.scoring.types import Fact, SiteFeatures, SiteScore
@@ -148,10 +149,15 @@ def write_sites(
 ) -> int:
     """Replace the sites of one powiat with this run's results; other powiats are kept.
 
-    Runs inside the caller's transaction.
+    Runs inside the caller's transaction. What changed against the old rows goes to `site_history` first
+    (`history.record`), in the same transaction.
     """
-    session.execute(text("DELETE FROM sites WHERE powiat = :powiat"), {"powiat": powiat})
+    rows: list[dict[str, Any]] = []
     if scored:
         profiles = profiles or load_profiles()
-        session.execute(_INSERT, [_row(item, scored_at, powiat, profiles) for item in scored])
+        rows = [_row(item, scored_at, powiat, profiles) for item in scored]
+    history.record(session, rows, powiat=powiat, scored_at=scored_at)
+    session.execute(text("DELETE FROM sites WHERE powiat = :powiat"), {"powiat": powiat})
+    if rows:
+        session.execute(_INSERT, rows)
     return len(scored)

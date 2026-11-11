@@ -4,8 +4,8 @@ Wind and PV collector stations ("GPO …") and customers' own stations carry 110
 connection point for a new load. The class is filled by `dclh load-grid`; rows loaded before this migration
 read `unknown` until the grid is loaded again.
 
-Revision ID: 0018
-Revises: 0017
+Revision ID: 0019
+Revises: 0018
 Create Date: 2026-11-11
 """
 
@@ -14,8 +14,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0018"
-down_revision: str | None = "0017"
+revision: str = "0019"
+down_revision: str | None = "0018"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

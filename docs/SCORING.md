@@ -78,7 +78,7 @@ A lens on the same features as the score (`pipeline/dclh_pipeline/profiles.py`, 
 not change the score. Each profile gets a category: **green** (worth pursuing), **yellow** (conditional), **red** (a blocker
 or a low soft score) or **manual** (a missing answer decides it, mostly the zoning).
 
-- **Blockers** use data we have: area below the profile minimum (10 ha built, 0.15 ha container), overlap with Natura
+- **Blockers** use data we have: area below the profile minimum (10 ha built, 0.5 ha container), overlap with Natura
   2000 / park / reserve, flood zones Q10/Q1, forest, mining area, heritage register. `built` also blocks on a zoning
   that is neither production nor service; for `container` that is "to check" (we cannot tell U from other symbols yet).
   Forest blocks only from 0.10 ha (`forest_min_ha`; a forest is at least 0.10 ha under ustawa o lasach, art. 3): smaller
@@ -86,6 +86,11 @@ or a low soft score) or **manual** (a missing answer decides it, mostly the zoni
   (`web/src/lib/legalBasis.ts`).
 - **Soft score** (0-100): distance to housing (400 m built, 150 m container, zero at 250/80 m), distance to a 110 kV GPZ,
   published GPZ headroom, soil classes. An input with no data counts 50 and is listed, never passed silently.
+  Headroom earns full marks at 60 MW in both profiles (the target power; it was 10 MW built and 2 MW container
+  until 11.11.2026).
+- **Heritage register:** no source feeds it, so it is missing on every site. It is listed under "to check" but does
+  not cap the verdict at yellow (it did until 11.11.2026, which made green unreachable). A missing nature, flood,
+  forest or mining layer still caps at yellow: those have sources, so a gap there is a failed load.
 - **Road access** is measured: the distance to the nearest public road (BDOT10k, every road class except
   `droga wewnętrzna`). Up to 25 m it is a plus; up to 300 m it is listed with the distance and the easement question;
   beyond that it caps the result at yellow. It never rejects a plot (the legal right to use a road is a land-register
