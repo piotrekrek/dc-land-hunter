@@ -98,7 +98,10 @@ export function ClaudePage() {
                 <ul className="list-disc pl-5">
                   <li>Lokalizacje, oceny, pokrycie powiatów i etapy projektów. Notatek z projektów nie widzi nigdy.</li>
                   <li>To, co Claude odczyta, trafia do Anthropic, jak każda rozmowa z Claude.</li>
-                  <li>Obserwowanie lokalizacji i sprawdzenie działki Claude zrobi tylko na Twoją prośbę.</li>
+                  <li>
+                    Obserwowanie lokalizacji, sprawdzenie działki i zmianę priorytetów w kolejce Claude zrobi tylko na
+                    Twoją prośbę. Kolejka priorytetów jest wspólna dla całego zespołu.
+                  </li>
                   <li>Ocena sieci to szacunek, nie potwierdzona moc przyłączeniowa. Wiążą tylko warunki od OSD.</li>
                 </ul>
               </CardContent>

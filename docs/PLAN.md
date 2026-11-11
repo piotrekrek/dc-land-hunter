@@ -1063,3 +1063,24 @@ New accounts still need the CLI (`dclh user create`, it sets a password). Out of
 - AC10: tests: API (admin list, switch on/off drops tokens, 403 for a member, unknown email 404), web (each AC above),
   full fast checks green; after deploy a smoke test on PROD: `/claude` loads, `/api/admin/users` 401 without a session,
   OAuth discovery 200, `/mcp` 401 without a token, and a real MCP tool call works.
+
+## MCP: the search queue (plan of 11.11.2026)
+
+The owner wants Claude to read the search queue (Kolejka) and add or remove priority powiats.
+
+- `get_queue` (read): the priority list in order, each with its state (`waiting`, `in_progress`, `searched`,
+  `outside_aoi`), who added it and when, the last search (date, status, sites, error); `next_up` (the first 4 of the
+  nightly plan); search jobs pending or running; powiats whose latest search failed; a note on how the planner works.
+- `add_priority` / `remove_priority` (write scope, "use only on request"): 1 to 20 powiats by Polish name or TERYT.
+  They go through the app's `save_priority`, so the order (`added_at`) and `added_by` match the Kolejka tab.
+
+Acceptance criteria:
+
+- AC1: names ("wrocławski", "powiat Wrocławski") and codes both work; an unknown or ambiguous name is a Polish error.
+- AC2: adding appends; a powiat already on the list keeps its place and is reported as `already_in_queue`.
+- AC3: a powiat outside the AOI is refused with a Polish reason and nothing is saved (the planner would skip it).
+- AC4: removing keeps the rest in order and reports `not_in_queue` for powiats that were not there; both are idempotent.
+- AC5: `get_queue` shows the states above, next_up (a waiting priority powiat first, never a running one), running
+  jobs and failing powiats.
+- AC6: a read-only token can read the queue but not change it; `added_by` is the connected user.
+- AC7: the consent page and the Claude tab say Claude can change queue priorities; the leak test covers `get_queue`.

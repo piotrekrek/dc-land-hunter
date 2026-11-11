@@ -66,6 +66,7 @@ export const EXAMPLE_PROMPTS = [
   "Porównaj dwie najlepsze lokalizacje w dolnośląskim: odległość do GPZ, powierzchnia, ryzyka.",
   "Ile jest zielonych i żółtych lokalizacji w województwie śląskim? Które powiaty nie są jeszcze przeszukane?",
   "Obserwuj najlepszą lokalizację w powiecie wrocławskim.",
+  "Pokaż kolejkę wyszukiwania i dodaj priorytet dla powiatu leszczyńskiego.",
 ];
 
 export const claudeCodeCommand = (url: string) => `claude mcp add --transport http dclh ${url}`;

@@ -35,6 +35,13 @@
   - The backup ran against production: 377 MB in 40 s, `pg_restore --list` passed, and rotation kept the newest dumps by name.
   - Unit tests for the log file. The compose file validates.
 
+## MCP: the search queue (11.11.2026)
+
+- **What works:** `get_queue` (priority powiats with state, next up, running and failing searches), `add_priority` and
+  `remove_priority` (names or TERYT codes, write scope, through the app's own save so Kolejka shows the same list).
+  Plan and AC: PLAN.md "MCP: the search queue". Existing connections get the new tools without reconnecting.
+- **Known limits:** powiats added in one call are ordered by code (they share `added_at`), as in the Kolejka tab.
+
 ## Claude tab: share the connector with the team (11.11.2026)
 
 - **Readiness:** the connector was already live on PROD (OAuth discovery 200, `/mcp` 401 without a token, the owner's
