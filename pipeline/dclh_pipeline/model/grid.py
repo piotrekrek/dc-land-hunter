@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -152,3 +153,85 @@ def is_foreign_operator(operator_tag: str | None) -> bool:
     if not (operator_tag and operator_tag.strip()):
         return False
     return derive_operator(operator_tag) is None and not _RAIL_TRACTION_PATTERN.search(operator_tag)
+
+
+class StationClass(StrEnum):
+    """Who a 110 kV station serves. Only an operator station is a connection point for a new load."""
+
+    OPERATOR_GPZ = "operator_gpz"  # a DSO or PSE station
+    GENERATOR = (
+        "generator"  # a wind/PV/plant collector station ("GPO …"): feeds power in, not a connection point
+    )
+    CUSTOMER = "customer"  # a customer's own station (factory, mine, rail): not offered to a new load
+    UNKNOWN = "unknown"  # no tag or name says whose it is
+
+
+class ClassSource(StrEnum):
+    OSM_OPERATOR_TAG = "osm_operator_tag"
+    OSM_SUBSTATION_TAG = "osm_substation_tag"
+    NAME_PATTERN = "name_pattern"
+    OPERATOR_LIST = "operator_list"  # matched to a DSO capacity list (model/gpz_match.py)
+
+
+@dataclass(frozen=True)
+class StationClassification:
+    station_class: StationClass
+    source: ClassSource | None  # None when nothing decided it (unknown)
+    confidence: Confidence
+
+
+# OSM `substation=*` values that say a station is not the operator's. Other values (transmission,
+# distribution, minor_distribution, traction …) say nothing about the owner.
+_SUBSTATION_TAG_CLASS = {
+    "generation": StationClass.GENERATOR,
+    "industrial": StationClass.CUSTOMER,
+}
+
+# Matched on the folded (lowercase, no diacritics) name. "GPO" is a "główny punkt odbioru" of a farm; the
+# others name the generator itself. "Odbiorcza" marks a customer's receiving station.
+_GENERATOR_NAME = re.compile(r"\b(gpo|farma|farmy|fw|pv|fotowoltaik\w*|elektrowni\w*|wiatrow\w*)\b")
+_CUSTOMER_NAME = re.compile(r"\bstacj\w*\s+odbiorcz\w*|\bodbiorcz\w*")
+
+
+def _fold(text: str) -> str:
+    folded = unicodedata.normalize("NFKD", text.replace("ł", "l").replace("Ł", "L"))
+    return "".join(c for c in folded if not unicodedata.combining(c)).lower()
+
+
+def classify_station(
+    operator: str | None,
+    owner: str | None = None,
+    name: str | None = None,
+    substation: str | None = None,
+) -> StationClassification:
+    """Decide from OSM tags whether a station is a DSO/PSE connection point. Pure; first rule that fires wins.
+
+    1. `substation=generation|industrial`: not the operator's (the mapper said so).
+    2. `operator` (else `owner`) is a DSO or PSE: an operator GPZ. Estimated: a tag is a claim, not a list.
+    3. The name says it is a collector or customer station (GPO, farma, FW, PV, elektrownia, odbiorcza).
+    4. `operator`/`owner` names someone else (not a rail traction operator): a customer station.
+    5. Otherwise unknown: no evidence either way.
+    """
+    kind = _SUBSTATION_TAG_CLASS.get((substation or "").strip().lower())
+    if kind is not None:
+        return StationClassification(kind, ClassSource.OSM_SUBSTATION_TAG, Confidence.ESTIMATED)
+    owners = [t for t in (operator, owner) if t and t.strip()]
+    if any(derive_operator(t) is not None for t in owners):
+        return StationClassification(
+            StationClass.OPERATOR_GPZ, ClassSource.OSM_OPERATOR_TAG, Confidence.ESTIMATED
+        )
+    folded = _fold(name or "")
+    if _GENERATOR_NAME.search(folded):
+        return StationClassification(StationClass.GENERATOR, ClassSource.NAME_PATTERN, Confidence.ESTIMATED)
+    if _CUSTOMER_NAME.search(folded):
+        return StationClassification(StationClass.CUSTOMER, ClassSource.NAME_PATTERN, Confidence.ESTIMATED)
+    if any(is_foreign_operator(t) for t in owners):
+        return StationClassification(
+            StationClass.CUSTOMER, ClassSource.OSM_OPERATOR_TAG, Confidence.ESTIMATED
+        )
+    return StationClassification(StationClass.UNKNOWN, None, Confidence.MISSING)
+
+
+OPERATOR_LIST_MATCH = StationClassification(
+    StationClass.OPERATOR_GPZ, ClassSource.OPERATOR_LIST, Confidence.VERIFIED
+)

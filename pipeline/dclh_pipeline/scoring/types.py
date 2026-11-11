@@ -47,7 +47,14 @@ class SiteFeatures:
     expansion_ha: Fact[float] | None = None
     # grid
     dist_line110_km: Fact[float] | None = None
-    dist_gpz110_km: Fact[float] | None = None
+    dist_gpz110_km: Fact[float] | None = (
+        None  # nearest GPZ that can be a connection point (operator or unknown)
+    )
+    dist_gpz110_operator_km: Fact[float] | None = None  # nearest operator_gpz (full weight in the score)
+    dist_gpz110_unknown_km: Fact[float] | None = None  # nearest GPZ of unknown class (reduced weight)
+    dist_other_station_km: Fact[float] | None = None  # nearest generator/customer 110 kV station
+    other_station_class: Fact[str] | None = None  # its class: "generator" or "customer"
+    other_station_name: Fact[str] | None = None
     dist_node_220_400_km: Fact[float] | None = None
     independent_110_lines_near: Fact[int] | None = None  # distinct 110 kV lines within the N-1 radius
     dist_pse_planned_station_km: Fact[float] | None = None

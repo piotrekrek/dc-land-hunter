@@ -26,7 +26,7 @@ from shapely import box
 from shapely.geometry.base import BaseGeometry
 
 from dclh_pipeline.config import ScoringConfig, SourcesConfig
-from dclh_pipeline.grid_capacity import GridCapacity, load_grid_capacity
+from dclh_pipeline.grid_capacity import GridCapacity, load_grid_capacity, upgrade_listed_stations
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.model.features import (
     POWERED_BROWNFIELD_NEAR_M,
@@ -136,14 +136,16 @@ def load_static_layers(
 
     admin = PrgConnector(config.get("prg")).parse(prg_snapshot)
     substations, lines = to_grid(OsmPowerConnector(config.get("osm_power")).parse(osm_snapshot))
+    # DSO capacity and PSE lists: optional; a source never fetched or imported stays missing in the scores.
+    # They come before the grid index: a station a DSO list names is an operator GPZ (verified).
+    grid_capacity = load_grid_capacity(store, config, substations, cfg)
+    substations = upgrade_listed_stations(substations, grid_capacity.results)
     grid = build_grid_index(substations, lines, as_of=osm_snapshot.fetched_at, source_id="osm_power")
     # Gas pipelines and runways from the same extract: estimated proxies, no public source exists.
     infra = read_infra(osm_snapshot.path)
     gas_layer = gas_zone_layer(infra, cfg.proxies.gas_zone_m, osm_snapshot.fetched_at)
     ols_layer = airport_ols_layer(infra, cfg.proxies.runway_min_m, osm_snapshot.fetched_at)
     res_layer = res_cluster_layer(read_res(osm_snapshot.path), osm_snapshot.fetched_at)
-    # DSO capacity and PSE lists: optional; a source never fetched or imported stays missing in the scores.
-    grid_capacity = load_grid_capacity(store, config, substations, cfg)
     gdos = GdosConnector(config.get("gdos")).parse(gdos_snapshot)
     protected_layer = Layer(
         source_id="gdos",

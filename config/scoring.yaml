@@ -42,6 +42,9 @@ grid:
   closed_switchyard_km: 3                   # Phase 3: a closed PSE switchyard this close counts
   gpz_match_min_score: 90                   # Phase 3: fuzzy GPZ name match threshold (0-100); 88 let
                                             # "Ostrowite" match "Ostrowiec" on live data (19.10.2026)
+  unknown_station_weight: 0.5               # share of GPZ-distance points for a station of unknown class
+                                            # (operator_gpz = 1, generator/customer = 0); owner may override
+  other_station_context_km: 3               # a generator/customer 110 kV station this close: context line
 
 zoning: {mpzp_production: 100, plan_ogolny_SG: 80, procedure_in_progress: 50, unknown: 30, other: 0}
 

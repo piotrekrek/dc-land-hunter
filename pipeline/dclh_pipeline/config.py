@@ -77,6 +77,11 @@ class GridParams(_Model):
     closed_switchyard_km: float = Field(default=3.0, gt=0)
     # Fuzzy GPZ name matches below this score (0–100) are not used; manual mappings always are.
     gpz_match_min_score: float = Field(default=90.0, ge=0, le=100)
+    # Share of the GPZ distance points a station of unknown class earns (an operator GPZ earns all of them,
+    # a generator or customer station none). 1.0 switches the class off.
+    unknown_station_weight: float = Field(default=0.5, ge=0, le=1)
+    # A generator/customer station this close is shown as a context line (cable pooling, PPA); no points.
+    other_station_context_km: float = Field(default=3.0, gt=0)
 
     @model_validator(mode="after")
     def _ranges(self) -> GridParams:

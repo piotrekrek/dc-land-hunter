@@ -2250,6 +2250,14 @@
             },
             "type": "array",
             "title": "Areas"
+          },
+          "station_classes": {
+            "items": {
+              "$ref": "#/components/schemas/StationClassShare"
+            },
+            "type": "array",
+            "title": "Station Classes",
+            "default": []
           }
         },
         "type": "object",
@@ -2553,6 +2561,19 @@
             "minimum": 0.0,
             "title": "Gpz Match Min Score",
             "default": 90.0
+          },
+          "unknown_station_weight": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Unknown Station Weight",
+            "default": 0.5
+          },
+          "other_station_context_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Other Station Context Km",
+            "default": 3.0
           }
         },
         "additionalProperties": false,
@@ -4677,6 +4698,52 @@
           "sources"
         ],
         "title": "SourcesList"
+      },
+      "StationClassShare": {
+        "properties": {
+          "teryt": {
+            "type": "string",
+            "title": "Teryt"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "operator_gpz": {
+            "type": "integer",
+            "title": "Operator Gpz"
+          },
+          "generator": {
+            "type": "integer",
+            "title": "Generator"
+          },
+          "customer": {
+            "type": "integer",
+            "title": "Customer"
+          },
+          "unknown": {
+            "type": "integer",
+            "title": "Unknown"
+          },
+          "unknown_share": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Unknown Share"
+          }
+        },
+        "type": "object",
+        "required": [
+          "teryt",
+          "name",
+          "operator_gpz",
+          "generator",
+          "customer",
+          "unknown",
+          "unknown_share"
+        ],
+        "title": "StationClassShare",
+        "description": "110 kV/SN stations of one voivodeship by class; a high `unknown_share` means a guessed GPZ score."
       },
       "StepOut": {
         "properties": {

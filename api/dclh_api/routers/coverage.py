@@ -17,7 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from dclh_api.deps import db_session
-from dclh_api.schemas import CoverageArea, CoverageOut
+from dclh_api.schemas import CoverageArea, CoverageOut, StationClassShare
 from dclh_api.security import current_user
 
 router = APIRouter(tags=["coverage"], dependencies=[Depends(current_user)])
@@ -55,6 +55,21 @@ _ITEM_COUNTS = text(
     """
 )
 
+# One voivodeship per station (a point on a shared border is counted once), as in the pipeline's counts.
+_STATION_CLASSES = text(
+    """
+    SELECT v.teryt, v.name, s.station_class, count(*) AS n
+    FROM substations s
+    JOIN LATERAL (
+        SELECT a.teryt, a.name FROM admin_units a
+        WHERE a.level = 'voivodeship' AND ST_Covers(a.geom, s.geom)
+        ORDER BY a.teryt LIMIT 1
+    ) v ON true
+    WHERE s.cls = 'GPZ_110_SN'
+    GROUP BY v.teryt, v.name, s.station_class
+    """
+)
+
 _GEOMETRY = text(
     """
     SELECT teryt,
@@ -71,6 +86,31 @@ def _unavailable() -> HTTPException:
 
 def _share(part: int, whole: int) -> float:
     return part / whole if whole else 0.0
+
+
+def build_station_classes(rows: Sequence[Mapping[str, Any]]) -> list[StationClassShare]:
+    """Pure assembly of the per-class counts into one row per voivodeship."""
+    by_area: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        area = by_area.setdefault(
+            row["teryt"],
+            {
+                "teryt": row["teryt"],
+                "name": row["name"],
+                "operator_gpz": 0,
+                "generator": 0,
+                "customer": 0,
+                "unknown": 0,
+            },
+        )
+        if row["station_class"] in ("operator_gpz", "generator", "customer", "unknown"):
+            area[row["station_class"]] += row["n"]
+    out: list[StationClassShare] = []
+    for teryt in sorted(by_area):
+        area = by_area[teryt]
+        total = area["operator_gpz"] + area["generator"] + area["customer"] + area["unknown"]
+        out.append(StationClassShare(**area, unknown_share=_share(area["unknown"], total)))
+    return out
 
 
 def build_areas(
@@ -125,6 +165,7 @@ def get_coverage(
     try:
         site_rows = [dict(r) for r in session.execute(_SITE_COUNTS, params).mappings()]
         item_rows = [dict(r) for r in session.execute(_ITEM_COUNTS, params).mappings()]
+        station_rows = [dict(r) for r in session.execute(_STATION_CLASSES).mappings()]
         geometries: dict[str, dict[str, Any]] | None = None
         if include_geometry and site_rows:
             shapes = session.execute(
@@ -138,4 +179,5 @@ def get_coverage(
         level=level,
         item=item,
         areas=build_areas(site_rows, item_rows, item, geometries),
+        station_classes=build_station_classes(station_rows),
     )

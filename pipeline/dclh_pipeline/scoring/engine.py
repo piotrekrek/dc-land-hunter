@@ -149,18 +149,34 @@ def _grid_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
         )
     else:
         line_s = ramp_down(line.value, g.line110_km_full, g.line110_km_zero) if line else 0.0
-        gpz_s = ramp_down(gpz.value, g.gpz110_km_full, g.gpz110_km_zero) if gpz else 0.0
+        # Only an operator's station is a connection point at full weight; a station of unknown class earns
+        # `unknown_station_weight` of it; generator/customer stations earn nothing (see `other_station` below).
+        op, unk = f.dist_gpz110_operator_km, f.dist_gpz110_unknown_km
+        if op is None and unk is None:
+            op = gpz  # features without station classes (stored before they existed): all count in full
+        op_s = ramp_down(op.value, g.gpz110_km_full, g.gpz110_km_zero) if op else 0.0
+        unk_s = (
+            g.unknown_station_weight * ramp_down(unk.value, g.gpz110_km_full, g.gpz110_km_zero)
+            if unk
+            else 0.0
+        )
+        gpz_s = max(op_s, unk_s)
+        gpz_used = op if op_s >= unk_s else unk
         best = max(line_s, gpz_s)
-        used = line if line_s >= gpz_s and line else (gpz or line)
+        used = line if line_s >= gpz_s and line else (gpz_used or gpz or line)
         assert used is not None
         parts = []
         if line:
             parts.append(
                 f"linia 110 kV: {_n(line.value)} km (pełne punkty do {_n(g.line110_km_full)} km, zero od {_n(g.line110_km_zero)} km)"
             )
-        if gpz:
+        ramp = f"pełne do {_n(g.gpz110_km_full)} km, zero od {_n(g.gpz110_km_zero)} km"
+        if op:
+            parts.append(f"GPZ operatora 110 kV: {_n(op.value)} km ({ramp})")
+        if unk:
             parts.append(
-                f"GPZ 110 kV: {_n(gpz.value)} km (pełne do {_n(g.gpz110_km_full)} km, zero od {_n(g.gpz110_km_zero)} km)"
+                f"stacja 110 kV/SN o nieustalonym właścicielu: {_n(unk.value)} km "
+                f"({ramp}; punkty × {_n(g.unknown_station_weight, 2)}, bo nie wiadomo, czy to stacja OSD)"
             )
         items.append(
             _Draft(
@@ -177,6 +193,37 @@ def _grid_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
                 + "; ".join(parts)
                 + ". To przybliżenie, nie gwarancja mocy.",
                 used.value,
+            )
+        )
+
+    other = f.dist_other_station_km
+    if other is not None and other.value <= g.other_station_context_km:
+        kind = f.other_station_class.value if f.other_station_class else "customer"
+        name = f.other_station_name.value if f.other_station_name else ""
+        what = (
+            "Stacja farmy wiatrowej, PV lub elektrowni"
+            if kind == "generator"
+            else "Stacja odbiorcza przemysłowa (nie OSD)"
+        )
+        hint = (
+            "możliwy cable pooling lub PPA"
+            if kind == "generator"
+            else "możliwe wykorzystanie istniejącego przyłącza po uzgodnieniu z właścicielem"
+        )
+        items.append(
+            _Draft(
+                "grid_other_station",
+                "grid",
+                "Stacja 110 kV poza siecią OSD w pobliżu",
+                0.0,
+                0.0,
+                0.0,
+                other.confidence,
+                other.source_id,
+                other.as_of,
+                f"{what}{f' „{name}”' if name else ''} {_n(other.value)} km — {hint}. "
+                "Nie jest punktem przyłączenia OSD, więc bez punktów w ocenie.",
+                other.value,
             )
         )
 
