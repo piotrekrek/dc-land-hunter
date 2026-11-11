@@ -17,7 +17,12 @@ from shapely import STRtree, unary_union
 from shapely.geometry.base import BaseGeometry
 
 from dclh_pipeline.config import Prefilter, ScoringConfig
-from dclh_pipeline.model.grid import SubstationClass, is_foreign_operator
+from dclh_pipeline.model.grid import (
+    ClassSource,
+    StationClass,
+    SubstationClass,
+    is_foreign_operator,
+)
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.psi import PsiLayer, psi_points_fact
 from dclh_pipeline.model.sites import Site
@@ -63,6 +68,10 @@ class GeomIndex:
     def __len__(self) -> int:
         return len(self.geoms)
 
+    def nearest_index(self, geom: BaseGeometry) -> int | None:
+        """Position of the nearest geometry, or None for an empty index."""
+        return None if self._tree is None else int(self._tree.nearest(geom))
+
     def nearest_distance_m(self, geom: BaseGeometry) -> float | None:
         """Distance to the nearest geometry in metres (0 when they touch), or None for an empty index."""
         if self._tree is None:
@@ -103,6 +112,11 @@ class Substation:
     geom: BaseGeometry  # Point, EPSG:2180
     name: str | None = None  # OSM `name` tag, used to match DSO capacity lists to GPZ
     operator: str | None = None  # OSM `operator` tag: tells a DSO/PSE station from an industrial one
+    station_class: StationClass = (
+        StationClass.UNKNOWN
+    )  # whose station it is (model/grid.py `classify_station`)
+    class_source: ClassSource | None = None  # what decided `station_class`; None for unknown
+    class_confidence: Confidence = Confidence.MISSING
 
 
 @dataclass(frozen=True)
@@ -120,7 +134,11 @@ class GridIndex:
     as_of: datetime | None
     confidence: Confidence
     line110: _IdIndex
-    gpz110: _IdIndex
+    gpz110: _IdIndex  # GPZs that can be a connection point: operator_gpz and unknown (not generator/customer)
+    gpz110_operator: _IdIndex  # operator_gpz only: full weight in the score
+    gpz110_unknown: _IdIndex  # unknown class: reduced weight (`grid.unknown_station_weight`)
+    other_stations: _IdIndex  # 110 kV/SN stations of a generator or customer: context, no points
+    other_station_info: dict[int, tuple[StationClass, str | None]]  # osm_id → (class, name)
     hv110_substations: _IdIndex
     own_hv110: _IdIndex  # 110 kV substations whose operator is named and is not a DSO or PSE
     node: _IdIndex
@@ -187,6 +205,9 @@ class _IdIndex:
         return {self.ids[i] for i in self.geoms.indices_within_m(geom, radius_m)}
 
 
+_COUNTED = frozenset({StationClass.OPERATOR_GPZ, StationClass.UNKNOWN})
+
+
 def build_grid_index(
     substations: Iterable[Substation],
     lines: Iterable[Line],
@@ -196,6 +217,7 @@ def build_grid_index(
     confidence: Confidence = Confidence.ESTIMATED,
 ) -> GridIndex:
     subs = list(substations)
+    gpz = [s for s in subs if s.cls is SubstationClass.GPZ_110_SN]
     return GridIndex(
         source_id=source_id,
         as_of=as_of,
@@ -203,7 +225,15 @@ def build_grid_index(
         line110=_IdIndex(
             [(ln.osm_id, ln.geom) for ln in lines if ln.voltage is not None and V_110 <= ln.voltage < V_220]
         ),
-        gpz110=_IdIndex([(s.osm_id, s.geom) for s in subs if s.cls is SubstationClass.GPZ_110_SN]),
+        gpz110=_IdIndex([(s.osm_id, s.geom) for s in gpz if s.station_class in _COUNTED]),
+        gpz110_operator=_IdIndex(
+            [(s.osm_id, s.geom) for s in gpz if s.station_class is StationClass.OPERATOR_GPZ]
+        ),
+        gpz110_unknown=_IdIndex([(s.osm_id, s.geom) for s in gpz if s.station_class is StationClass.UNKNOWN]),
+        other_stations=_IdIndex([(s.osm_id, s.geom) for s in gpz if s.station_class not in _COUNTED]),
+        other_station_info={
+            s.osm_id: (s.station_class, s.name) for s in gpz if s.station_class not in _COUNTED
+        },
         hv110_substations=_IdIndex(
             [(s.osm_id, s.geom) for s in subs if any(V_110 <= v < V_220 for v in s.voltages)]
         ),
@@ -242,6 +272,22 @@ def passes_grid_prefilter(geom: BaseGeometry, grid: GridIndex, prefilter: Prefil
     return False
 
 
+def other_station_facts(site: BaseGeometry, grid: GridIndex) -> dict[str, Fact[Any] | None]:
+    """The nearest generator/customer 110 kV station: its distance, class and name (context, never points)."""
+    index = grid.other_stations.geoms
+    position = index.nearest_index(site)
+    if position is None:
+        return {"dist_other_station_km": None, "other_station_class": None, "other_station_name": None}
+    distance = site.distance(index.geoms[position])
+    station_class, name = grid.other_station_info[grid.other_stations.ids[position]]
+    src, as_of, conf = grid.source_id, grid.as_of, grid.confidence
+    return {
+        "dist_other_station_km": _fact(distance / M_PER_KM, src, as_of, conf),
+        "other_station_class": _fact(station_class.value, src, as_of, conf),
+        "other_station_name": _fact(name or "", src, as_of, conf),
+    }
+
+
 def grid_facts(
     site: BaseGeometry, grid: GridIndex, cfg: ScoringConfig
 ) -> dict[str, Fact[float] | Fact[int] | None]:
@@ -257,6 +303,9 @@ def grid_facts(
     return {
         "dist_line110_km": km(grid.line110),
         "dist_gpz110_km": km(grid.gpz110),
+        "dist_gpz110_operator_km": km(grid.gpz110_operator),
+        "dist_gpz110_unknown_km": km(grid.gpz110_unknown),
+        **other_station_facts(site, grid),
         "dist_node_220_400_km": km(grid.node),
         "independent_110_lines_near": n1,
     }

@@ -1,5 +1,26 @@
 # Status
 
+## Substation classification: only DSO/PSE stations are connection points (11.11.2026, Rzepin RTB spec 1)
+
+- `classify_station()` (`model/grid.py`) gives every OSM substation a `station_class`: `operator_gpz`, `generator`,
+  `customer` or `unknown`, with a `class_source` (`osm_substation_tag`, `osm_operator_tag`, `name_pattern`,
+  `operator_list`) and a confidence. `substation=generation|industrial` and names such as "GPO …", farma, FW, PV,
+  elektrownia, stacja odbiorcza mean "not the operator's". A station named in a DSO capacity list is upgraded to
+  `operator_gpz`, `verified` (`upgrade_listed_stations`, used in `layers.py`).
+- `osm_power.parse()` now keeps the `owner` and `substation` tags. Migration 0018 adds `station_class`, `class_source`,
+  `class_confidence` to `substations`; run `dclh load-grid` once to fill them (old rows read `unknown`).
+- Score: GPZ distance points are full for `operator_gpz`, `grid.unknown_station_weight` (0.5) for `unknown`, none for
+  `generator`/`customer`. A generator or customer station within `grid.other_station_context_km` (3 km) is a context
+  line with 0 points ("możliwy cable pooling lub PPA"). Features stored before this change count all GPZs in full
+  until the next rescore.
+- MCP: `nearest_gpz` is the nearest operator GPZ (else the nearest `unknown`, labelled); `nearest_other_station` is new.
+  `coverage` returns `station_classes` (counts and `unknown_share` per voivodeship). The map popup of a station shows
+  the class and its source.
+- **Not done / to check:** `dclh load-grid` classifies from tags only (no DSO-list upgrade), so the map and
+  `nearest_gpz` can show `unknown` for a station the score treats as verified. The class shares are not measured on
+  production yet: after `load-grid`, read `coverage` (`station_classes`); if `unknown_share` is above ~40% in a
+  voivodeship, report it before relying on the 0.5 weight. The web checks were not run (no Node in the build sandbox).
+
 ## Search runs keep the time per step and the cache use (05.11.2026)
 
 - `runs.summary` of a search now also has `step_seconds`, the time per step: seed, parcels (the EGiB download), cluster,

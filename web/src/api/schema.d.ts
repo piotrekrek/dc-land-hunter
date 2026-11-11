@@ -820,6 +820,11 @@ export interface components {
             item: string;
             /** Areas */
             areas: components["schemas"]["CoverageArea"][];
+            /**
+             * Station Classes
+             * @default []
+             */
+            station_classes: components["schemas"]["StationClassShare"][];
         };
         /** CreatedOut */
         CreatedOut: {
@@ -956,6 +961,16 @@ export interface components {
              * @default 90
              */
             gpz_match_min_score: number;
+            /**
+             * Unknown Station Weight
+             * @default 0.5
+             */
+            unknown_station_weight: number;
+            /**
+             * Other Station Context Km
+             * @default 3
+             */
+            other_station_context_km: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1668,6 +1683,26 @@ export interface components {
             database: boolean;
             /** Sources */
             sources: components["schemas"]["SourceOut"][];
+        };
+        /**
+         * StationClassShare
+         * @description 110 kV/SN stations of one voivodeship by class. `unknown_share` high means the GPZ score is half guesswork.
+         */
+        StationClassShare: {
+            /** Teryt */
+            teryt: string;
+            /** Name */
+            name: string;
+            /** Operator Gpz */
+            operator_gpz: number;
+            /** Generator */
+            generator: number;
+            /** Customer */
+            customer: number;
+            /** Unknown */
+            unknown: number;
+            /** Unknown Share */
+            unknown_share: number;
         };
         /** StepOut */
         StepOut: {

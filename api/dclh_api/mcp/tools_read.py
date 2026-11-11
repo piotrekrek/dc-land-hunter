@@ -318,6 +318,18 @@ def register(mcp: FastMCP, public_url: str) -> None:
                 for a in result.areas
                 if a.sites > 0
             ],
+            "station_classes": [
+                {
+                    "teryt": c.teryt,
+                    "name": c.name,
+                    "operator_gpz": c.operator_gpz,
+                    "generator": c.generator,
+                    "customer": c.customer,
+                    "unknown": c.unknown,
+                    "unknown_share": round(c.unknown_share, 2),
+                }
+                for c in result.station_classes
+            ],
         }
 
     @mcp.tool(annotations=READ_ONLY)

@@ -209,7 +209,21 @@ class CoverageArea(BaseModel):
     geometry: dict[str, Any] | None = None  # GeoJSON, WGS84, simplified for display; only when asked for
 
 
+class StationClassShare(BaseModel):
+    """110 kV/SN stations of one voivodeship by class; a high `unknown_share` means a guessed GPZ score."""
+
+    teryt: str
+    name: str
+    operator_gpz: int
+    generator: int
+    customer: int
+    unknown: int
+    unknown_share: float = Field(ge=0, le=1)
+
+
 class CoverageOut(BaseModel):
     level: Literal["wojewodztwo", "powiat", "gmina"]
     item: str
     areas: list[CoverageArea]
+    # Always per voivodeship, whatever `level` is; empty when no grid is loaded.
+    station_classes: list[StationClassShare] = []
