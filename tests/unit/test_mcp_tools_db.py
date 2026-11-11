@@ -25,7 +25,15 @@ from tests.unit.test_scoring_run import CFG, layers, parcel_sites
 pytestmark = [pytest.mark.db, pytest.mark.usefixtures("migrated_db"), pytest.mark.anyio]
 
 NOTE = "TAJNA-NOTATKA-123"
-READ_TOOLS = ("search_sites", "list_pipeline", "list_powiaty", "coverage", "scoring_rules", "get_queue")
+READ_TOOLS = (
+    "search_sites",
+    "list_pipeline",
+    "list_powiaty",
+    "coverage",
+    "scoring_rules",
+    "get_queue",
+    "what_changed",
+)
 
 
 @pytest.fixture

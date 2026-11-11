@@ -1084,3 +1084,39 @@ Acceptance criteria:
   jobs and failing powiats.
 - AC6: a read-only token can read the queue but not change it; `added_by` is the connected user.
 - AC7: the consent page and the Claude tab say Claude can change queue priorities; the leak test covers `get_queue`.
+
+## MCP: "what changed since last week?" (plan of 11.11.2026)
+
+The app kept no history: each powiat search rewrites that powiat's rows in `sites`. A small history table and a
+read tool answer the brief's job "What changed since last week?".
+
+Design:
+
+- Migration 0018 adds `site_history`. One row per event, written only on change: `new` (a kept site appears),
+  `changed` (its score, rounded to 0.1, or a per-profile verdict changed; the row has the new values and the
+  `prev_*` ones), `dropped` (it left the kept set; the row has the last values and the gmina). `baseline` rows are
+  seeded from `sites` by the migration and mark the history start. Only kept standard sites are tracked
+  (`kind = 'standard' AND NOT excluded`, what the list shows).
+- `write_sites` diffs the powiat's old rows (read by `powiat`, the `sites_powiat_ix` index) against the new rows
+  in Python and inserts the events in the same transaction. No pass over other powiats.
+- `what_changed(since, voivodeship?, powiat?, profile?, limit?)` (read): new sites, dropped sites, verdict
+  changes (with from/to), score jumps of at least `SCORE_JUMP` (5 points) and powiats searched for the first time.
+  The history starts at the deploy date: `history_since` says so. No web tab.
+
+Acceptance criteria:
+
+- AC1: the migration upgrades and downgrades cleanly (downgrade drops the table and its indexes).
+- AC2: the first write of a site records `new`; an unchanged re-search writes nothing.
+- AC3: a verdict change and a score change are recorded as `changed` with the previous values.
+- AC4: a site missing from the new run (or now excluded) is recorded as `dropped`.
+- AC5: the migration seeds a `baseline` row for every kept site, so the first nightly run after deploy records
+  real differences, not "everything is new".
+- AC6: `what_changed` filters by period (ISO date or `Nd`/`Nw`, default 7 days, at most 90) and by area
+  (voivodeship, powiat by name or code), caps `limit` (default 20, at most 50 per category), reports counts per
+  category and `history_since`, and says so when `since` is before the history start.
+- AC7: net per site over the period: a site new and dropped again shows in neither list; a verdict change reports
+  the first "from" and the last "to"; sites of a powiat searched for the first time are listed under
+  `first_searched_powiats`, not as new.
+- AC8: the owner note never leaks; `what_changed` is in `READ_TOOLS` (leak test) and in `TOOLS` (read-only).
+- AC9: cost: the diff reads one powiat's rows through an index and writes only changes; the migration seed is one
+  `INSERT ... SELECT`. Checked on a table of about 130k rows with 30k kept sites (numbers in STATUS.md).

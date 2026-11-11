@@ -8,7 +8,7 @@ from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, Re
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from dclh_api.mcp import tools_queue, tools_read, tools_write
+from dclh_api.mcp import tools_changes, tools_queue, tools_read, tools_write
 from dclh_api.mcp.oauth import SCOPES, DclhOAuthProvider
 
 INSTRUCTIONS = """\
@@ -27,7 +27,7 @@ For "the best sites" use top_picks (different regions, one per gmina) or search_
 neighbouring parcels often form one cluster. search_sites already returns the reasons behind each verdict,
 the nearest GPZ and the parcel ids, so open a card (get_site) only for the few sites you go into.
 Area filters take Polish names ("dolnośląskie", "lęborski") as well as TERYT codes.
-verdict_counts answers "how many are green".
+verdict_counts answers "how many are green". what_changed answers "what is new since last week".
 """
 
 
@@ -69,4 +69,5 @@ def build_mcp(public_url: str, provider: DclhOAuthProvider | None = None) -> Fas
     tools_read.register(mcp, public_url)
     tools_write.register(mcp, public_url)
     tools_queue.register(mcp)
+    tools_changes.register(mcp, public_url)
     return mcp
