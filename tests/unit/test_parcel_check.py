@@ -196,6 +196,18 @@ def test_next_steps_carry_the_id_the_obreb_and_the_gmina_for_a_letter() -> None:
     assert steps["kw"].copy_text is None
 
 
+def test_next_steps_add_the_geological_opinion_only_on_a_deposit() -> None:
+    from dclh_pipeline.scoring.types import Fact, SiteFeatures
+
+    on = SiteFeatures(deposit_overlap_pct=Fact(30.0, "midas"))
+    off = SiteFeatures(deposit_overlap_pct=Fact(0.0, "midas"))
+    assert "deposit" in {s.key for s in next_steps(parcel_for_steps(), on)}
+    assert "deposit" not in {s.key for s in next_steps(parcel_for_steps(), off)}
+    assert "deposit" not in {s.key for s in next_steps(parcel_for_steps())}
+    text = next(s for s in next_steps(parcel_for_steps(), on) if s.key == "deposit").copy_text or ""
+    assert "opinii geologicznej" in text and "plan ogólny" in text
+
+
 class FakeClient:
     """Answers ULDK from the saved live answers; `raise_for` makes a request fail like a server error."""
 

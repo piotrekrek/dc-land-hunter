@@ -26,8 +26,14 @@ file or calling the endpoint, as described here.
   `https://cbdgmapa.pgi.gov.pl/arcgis/rest/services/midas/MapServer`: layer 1 "obszary górnicze" (`mining_area`, 6,201
   current features) and layer 2 "tereny górnicze" (`mining_terrain`, 6,022). Query with `inSR=2180&outSR=2180`,
   `f=geojson` (the answer is in EPSG:2180), `maxRecordCount` 1000, paged by `resultOffset`. The count-only request
-  (`returnCountOnly=true`) gives the total to check against. Layers 3–5 are archive, layer 0 is deposits: not used.
-  The `status` field is `aktualny`. `dclh search` loads it per powiat (`sources/midas.py`).
+  (`returnCountOnly=true`) gives the total to check against. Layers 3–5 are archive: not used.
+  The `status` field is `aktualny`. Layer 0 "udokumentowane złoża kopalin" (`mineral_deposit`, 18,187 features, checked
+  11.11.2026) has been loaded since the Rzepin RTB review: fields `NR_ZLOZA`, `NAZWA_ZL`, `KOPALINA`, `KOPALINA_ALL`,
+  `AKTUALIZACJA`, `UWAGI`, `NADZ_GOR` and others. It has **no `STATUS` field and no `ID_KONTURU`** (the deposit
+  development status P/R/E/Z is not in this service; the status shown in the spec comes from the geological
+  balance), so the app keeps name, mineral and the update note only. It feeds the 8-point penalty
+  `mineral_deposit` and cancels the PSI bonus (`bonus.deposit_cancels_psi`). Live sample:
+  `tests/fixtures/live/source-verification-2026-11-11/` (Rzepin lignite, deposit no. 5604). `dclh search` loads it per powiat (`sources/midas.py`).
 - **`isok` 0.2% zones (21.10.2026).** The same WFS now also returns `loo_ql_probabilityofoccurrence = 0.002` in one request
   with the 1% zones (`fes:Or`). `flood_0_2` is the 10-point penalty; the 1% zones stay the hard filter.
 - **`gdos` landscape parks and OChK (21.10.2026).** The same WFS has `GDOS:ParkiKrajobrazowe` (213 features, 25 MB)

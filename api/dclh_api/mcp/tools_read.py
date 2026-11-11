@@ -298,7 +298,7 @@ def register(mcp: FastMCP, public_url: str) -> None:
     async def coverage(
         level: Literal["wojewodztwo", "powiat"] = "wojewodztwo",
         item: Annotated[
-            Literal["all", "zoning", "pen_soil_iii", "bonus_psi", "grid_headroom"],
+            Literal["all", "zoning", "pen_soil_iii", "bonus_psi", "grid_headroom", "pen_mineral_deposit"],
             Field(description="Which data item the share of sites with data refers to"),
         ] = "all",
     ) -> dict[str, Any]:

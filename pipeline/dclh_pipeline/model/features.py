@@ -34,6 +34,7 @@ PCT_CONSTRAINTS: dict[str, str] = {
     "flood_0_2": "flood_0_2_pct",
     "mining_area": "mining_area_pct",
     "mining_terrain": "mining_terrain_pct",
+    "mineral_deposit": "deposit_overlap_pct",
     "forest": "forest_pct",
     "soil_class_i_ii": "soil_class_i_ii_pct",
     "soil_class_iii": "soil_class_iii_pct",
@@ -79,6 +80,12 @@ class GeomIndex:
     def within_m(self, geom: BaseGeometry, radius_m: float) -> list[BaseGeometry]:
         return [self.geoms[i] for i in self.indices_within_m(geom, radius_m)]
 
+    def intersecting_indices(self, geom: BaseGeometry) -> list[int]:
+        """Positions of the geometries that intersect `geom`, in ascending order."""
+        if self._tree is None:
+            return []
+        return sorted(int(i) for i in self._tree.query(geom, predicate="intersects"))
+
     def intersecting(self, geom: BaseGeometry) -> list[BaseGeometry]:
         if self._tree is None:
             return []
@@ -93,6 +100,8 @@ class Layer:
     index: GeomIndex
     as_of: datetime | None = None
     confidence: Confidence = Confidence.ESTIMATED
+    # Optional per-geometry attributes, parallel to `index.geoms` (deposits keep name, mineral).
+    attrs: tuple[Mapping[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -316,17 +325,39 @@ def overlap_pct(site: BaseGeometry, geoms: Sequence[BaseGeometry]) -> float:
     return float(min(100.0, 100.0 * covered / site.area))
 
 
+def deposit_list(site: BaseGeometry, layer: Layer) -> list[dict[str, str]]:
+    """The distinct deposits (name, mineral, status) under the site; one deposit has several contours.
+
+    `status` is the development status (P, R, E, Z) when the layer carries it; the MIDAS layer does not,
+    so it is usually empty.
+    """
+    seen: dict[tuple[str, str, str], dict[str, str]] = {}
+    for i in layer.index.intersecting_indices(site):
+        attrs = layer.attrs[i] if i < len(layer.attrs) else {}
+        entry = {
+            "name": attrs.get("name", ""),
+            "mineral": attrs.get("mineral", ""),
+            "status": attrs.get("status", ""),
+        }
+        seen.setdefault((entry["name"], entry["mineral"], entry["status"]), entry)
+    return list(seen.values())
+
+
 def constraint_facts(
     site: BaseGeometry, constraints: Mapping[str, Layer]
-) -> dict[str, Fact[float] | Fact[bool] | None]:
+) -> dict[str, Fact[float] | Fact[bool] | Fact[list[dict[str, str]]] | None]:
     """Percent-overlap and touch facts for each constraint layer that is loaded (SiteFeatures fields)."""
-    out: dict[str, Fact[float] | Fact[bool] | None] = {}
+    out: dict[str, Fact[float] | Fact[bool] | Fact[list[dict[str, str]]] | None] = {}
     for name, field_name in PCT_CONSTRAINTS.items():
         layer = constraints.get(name)
         if layer is None:
             continue
         pct = overlap_pct(site, layer.index.intersecting(site))
         out[field_name] = _fact(pct, layer.source_id, layer.as_of, layer.confidence)
+        if name == "mineral_deposit":
+            out["deposit_list"] = _fact(
+                deposit_list(site, layer), layer.source_id, layer.as_of, layer.confidence
+            )
     for name, field_name in BOOL_CONSTRAINTS.items():
         layer = constraints.get(name)
         if layer is None:

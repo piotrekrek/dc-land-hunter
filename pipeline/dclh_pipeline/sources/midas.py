@@ -1,11 +1,21 @@
-"""PIG-PIB MIDAS: mining areas and mining terrains for one search area, from the CBDG ArcGIS MapServer.
+"""PIG-PIB MIDAS: mining areas, mining terrains and documented deposits for one search area, from the CBDG
+ArcGIS MapServer.
 
-Feeds two constraint layers: `mining_area` (hard filter `mining_area_active`: any part of the site excludes
-it) and `mining_terrain` (penalty `mining_terrain`). Layer 1 is "obszary górnicze" (mining areas, in force)
-and layer 2 is "tereny górnicze" (mining terrains). Verified 21.10.2026 (docs/SOURCES.md): `query` answers in
-EPSG:2180 with `outSR=2180` and `f=geojson`, `maxRecordCount` is 1000, and the layers hold 6,201 and 6,022
-current features. Deposits (layer 0) and the archive layers (3–5) are not used: a deposit is not a mining
-area, and an archived area is no longer in force.
+Feeds three constraint layers: `mining_area` (hard filter `mining_area_active`: any part of the site excludes
+it), `mining_terrain` (penalty `mining_terrain`) and `mineral_deposit` (penalty `mineral_deposit`, and it
+cancels the PSI bonus). Layer 1 is "obszary górnicze" (mining areas, in force), layer 2 is "tereny górnicze"
+(mining terrains) and layer 0 is "udokumentowane złoża kopalin" (documented deposits). Verified 21.10.2026
+(docs/SOURCES.md): `query` answers in EPSG:2180 with `outSR=2180` and `f=geojson`, `maxRecordCount` is 1000,
+and layers 1 and 2 hold 6,201 and 6,022 current features. The archive layers (3–5) are not used: an archived
+area is no longer in force.
+
+Deposits (layer 0) were left out until 11.11.2026, because a deposit is not a mining area and does not block
+building by itself. The Rzepin RTB review (lignite deposit under a candidate site, 11.11.2026) showed it still
+matters: building on a documented deposit needs a geological opinion and can be refused or conditioned, and it
+may cost the PSI exemption. So it is a penalty and a "check" item, not a hard filter. Layer 0 has no STATUS
+field (checked 11.11.2026), so the development status of a deposit (P, R, E, Z) is not available from this
+service; `status` stays empty for deposits. `AKTUALIZACJA` (boundary update note, usually null) is kept as
+`source_date`.
 
 The connector asks for one bbox (a powiat), like ISOK. It pages with `resultOffset` in
 `orderByFields=OBJECTID` order and checks the total against `returnCountOnly`, so a server cap cannot truncate
@@ -32,12 +42,19 @@ from dclh_pipeline.sources.prg import POLAND_BOUNDS
 
 MAP_URL = "https://cbdgmapa.pgi.gov.pl/arcgis/rest/services/midas/MapServer"
 # kind (used in our tables and constraint names) -> MapServer layer id
-LAYERS: dict[str, int] = {"mining_area": 1, "mining_terrain": 2}
-# Field that names the feature, per kind (the two layers name it differently).
-NAME_FIELDS: dict[str, str] = {"mining_area": "NAZWA_OG", "mining_terrain": "NAZWA_TG"}
-# Asked per layer with only that layer's name field: since 22.10.2026 the server answers 400 "Failed to
-# execute query" when outFields names a field the layer lacks (NAZWA_TG on layer 1).
+LAYERS: dict[str, int] = {"mining_area": 1, "mining_terrain": 2, "mineral_deposit": 0}
+# Field that names the feature, per kind (the layers name it differently).
+NAME_FIELDS: dict[str, str] = {
+    "mining_area": "NAZWA_OG",
+    "mining_terrain": "NAZWA_TG",
+    "mineral_deposit": "NAZWA_ZL",
+}
+# Asked per layer with only the fields that layer has: since 22.10.2026 the server answers 400 "Failed to
+# execute query" when outFields names a field the layer lacks (NAZWA_TG on layer 1, STATUS on layer 0).
 COMMON_FIELDS = ("ID_KONTURU", "STATUS", "KOPALINA")
+# Layer 0 identifies a deposit by NR_ZLOZA (one deposit has several contours) and has no STATUS.
+EXTRA_FIELDS: dict[str, tuple[str, ...]] = {"mineral_deposit": ("NR_ZLOZA", "AKTUALIZACJA")}
+COMMON_FIELDS_BY_KIND: dict[str, tuple[str, ...]] = {"mineral_deposit": ("KOPALINA",)}
 EPSG = 2180
 PAGE_SIZE = 1000
 MAX_PAGES = 100
@@ -84,7 +101,13 @@ class MidasConnector(Source):
                 url,
                 {
                     **geometry,
-                    "outFields": ",".join((*COMMON_FIELDS, NAME_FIELDS[kind])),
+                    "outFields": ",".join(
+                        (
+                            *COMMON_FIELDS_BY_KIND.get(kind, COMMON_FIELDS),
+                            *EXTRA_FIELDS.get(kind, ()),
+                            NAME_FIELDS[kind],
+                        )
+                    ),
                     "returnGeometry": "true",
                     "orderByFields": "OBJECTID",
                     "resultOffset": len(features),
@@ -114,7 +137,10 @@ class MidasConnector(Source):
         _check_bounds(table)
         # Whole polygons come back; the search needs only the powiat, and a whole area is slow to overlay.
         table = table.set_geometry(table.geometry.clip_by_rect(*request["bbox"]))
-        return table[table.geometry.notna() & ~table.geometry.is_empty].reset_index(drop=True)
+        table = table[table.geometry.notna() & ~table.geometry.is_empty].reset_index(drop=True)
+        # Which layers the snapshot asked for: an older snapshot has no deposits, which is not "no deposit".
+        table.attrs["kinds"] = list(request["layers"])
+        return table
 
 
 def _json(client: PoliteClient, url: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -141,13 +167,22 @@ def _read_layer(kind: str, geojson: bytes) -> gpd.GeoDataFrame:
     name_field = NAME_FIELDS[kind]
     if name_field not in raw.columns:
         raise ValueError(f"MIDAS {kind}: field {name_field!r} not found; available: {sorted(raw.columns)}")
+    deposit = kind == "mineral_deposit"
+    id_field = "NR_ZLOZA" if deposit else "ID_KONTURU"
+    missing = [c for c in (id_field, "KOPALINA") if c not in raw.columns]
+    if missing:
+        raise ValueError(f"MIDAS {kind}: fields {missing} not found; available: {sorted(raw.columns)}")
+    empty = pd.Series("", index=raw.index)
+    status = empty if deposit else raw["STATUS"]
+    source_date = raw["AKTUALIZACJA"] if deposit and "AKTUALIZACJA" in raw.columns else empty
     return gpd.GeoDataFrame(
         {
             "kind": kind,
-            "object_id": pd.to_numeric(raw["ID_KONTURU"], errors="coerce").to_numpy(),
-            "status": raw["STATUS"].fillna("").astype(str).to_numpy(),
+            "object_id": pd.to_numeric(raw[id_field], errors="coerce").to_numpy(),
+            "status": status.fillna("").astype(str).to_numpy(),
             "name": raw[name_field].fillna("").astype(str).str.strip().to_numpy(),
             "mineral": raw["KOPALINA"].fillna("").astype(str).to_numpy(),
+            "source_date": source_date.fillna("").astype(str).str.strip().to_numpy(),
         },
         geometry=raw.geometry.to_numpy(),
         crs=f"EPSG:{EPSG}",
@@ -162,6 +197,7 @@ def _empty(kind: str) -> gpd.GeoDataFrame:
             "status": pd.Series(dtype=str),
             "name": pd.Series(dtype=str),
             "mineral": pd.Series(dtype=str),
+            "source_date": pd.Series(dtype=str),
         },
         geometry=gpd.GeoSeries([], dtype="geometry"),
         crs=f"EPSG:{EPSG}",

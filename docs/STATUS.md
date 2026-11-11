@@ -16,6 +16,20 @@
 - Not done: Settings still only displays the target block (it is read-only), so `target_mw` is edited in
   `config/scoring.yaml`.
 
+## Mineral deposits: penalty and PSI cancel (11.11.2026, Rzepin RTB spec 2)
+
+- `sources/midas.py` now also loads MIDAS layer 0 (documented deposits) as kind `mineral_deposit`. Live fields checked
+  11.11.2026: `NR_ZLOZA`, `NAZWA_ZL`, `KOPALINA`, `AKTUALIZACJA`. Layer 0 has **no status field**, so the deposit
+  development status (P/R/E/Z) is not available: `deposit_list[].status` is empty. Needs another source if the owner wants it.
+- Site facts `deposit_overlap_pct` and `deposit_list` (name, mineral, status) carry `midas` / `as_of` / `verified`.
+  A snapshot taken before this change has no layer 0: the facts stay missing (not "no deposit") until `dclh fetch midas`.
+- Penalty `mineral_deposit` (8 pts) for any overlap, no hard filter (status E included for now).
+  `bonus.deposit_cancels_psi: true` sets `bonus_psi` to 0 with a reason "do weryfikacji z KSSSE". The legal basis is unconfirmed.
+- Parcel check: new next step `deposit` (geological opinion, plan ogólny); site card "do sprawdzenia" lists the fired penalty.
+  The sheet draws the deposit outline.
+- `scoring_rules` lists the penalty and the switch; `coverage` accepts `pen_mineral_deposit` (share of sites with the layer, per area).
+- Not run here: web checks (no node/pnpm on this machine) and database tests. Rescore on the VPS after `dclh fetch midas`.
+
 ## Search runs keep the time per step and the cache use (05.11.2026)
 
 - `runs.summary` of a search now also has `step_seconds`, the time per step: seed, parcels (the EGiB download), cluster,

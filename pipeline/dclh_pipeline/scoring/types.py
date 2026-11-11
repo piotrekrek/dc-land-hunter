@@ -70,6 +70,10 @@ class SiteFeatures:
     flood_0_2_pct: Fact[float] | None = None
     mining_area_pct: Fact[float] | None = None  # obszar górniczy
     mining_terrain_pct: Fact[float] | None = None  # teren górniczy
+    deposit_overlap_pct: Fact[float] | None = None  # documented mineral deposit (MIDAS layer 0)
+    deposit_list: Fact[list[dict[str, str]]] | None = (
+        None  # name, mineral, status of each deposit under the site
+    )
     forest_pct: Fact[float] | None = None
     soil_class_i_ii_pct: Fact[float] | None = None
     soil_class_iii_pct: Fact[float] | None = None
