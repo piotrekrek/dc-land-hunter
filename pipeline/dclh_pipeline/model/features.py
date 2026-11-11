@@ -18,6 +18,7 @@ from shapely.geometry.base import BaseGeometry
 
 from dclh_pipeline.config import Prefilter, ScoringConfig
 from dclh_pipeline.model.grid import SubstationClass, is_foreign_operator
+from dclh_pipeline.model.planning import PlanOgolnyLayer, planning_facts
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.psi import PsiLayer, psi_points_fact
 from dclh_pipeline.model.sites import Site
@@ -464,6 +465,7 @@ class SiteLayers:
 
     grid: GridIndex | None = None
     zoning: tuple[ZoningLayer, ...] = ()  # in order of precedence, see `zoning_fact`
+    plan_ogolny: PlanOgolnyLayer | None = None  # OUZ, plan acts and zone parameters (RU)
     industrial: Layer | None = None  # OSM / BDOT10k industrial and brownfield areas
     residential: Layer | None = None  # residential buildings
     roads: Layer | None = None  # public roads (BDOT10k lines)
@@ -509,6 +511,13 @@ def build_site_features(
     features["dist_big_city_km"] = big_city_km_fact(site.geom, layers.big_cities)
     features["dist_res_cluster_km"] = res_cluster_km_fact(site.geom, layers.res_clusters)
     features["zoning"] = zoning_fact(site.geom, layers.zoning, layers.industrial)
+    features.update(
+        planning_facts(
+            site.geom,
+            layers.plan_ogolny,
+            mpzp_from_kimpzp=features["zoning"] is not None and features["zoning"].source_id == "kimpzp",
+        )
+    )
     features["residential_min_m"] = residential_fact(site.geom, layers.residential)
     features["dist_public_road_m"] = public_road_fact(site.geom, layers.roads)
     features["residential_clear_ha"] = residential_clear_fact(

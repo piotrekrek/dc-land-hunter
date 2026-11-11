@@ -80,7 +80,7 @@ def patched(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
         [LineString([(4_000, 4_500), (4_800, 4_500)]), LineString([(9_000, 9_000), (9_500, 9_000)])]
     )
     monkeypatch.setattr(layers, "Bdot10kConnector", fake_connector(houses, forest=trees, roads=roads))
-    monkeypatch.setattr(layers, "ru_zoning_layers", lambda *a, **k: ())
+    monkeypatch.setattr(layers, "ru_zoning_layers", lambda *a, **k: ((), None))
     return monkeypatch
 
 

@@ -18,6 +18,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Protocol
 
 import geopandas as gpd
@@ -36,6 +37,7 @@ from dclh_pipeline.model.features import (
     ZoningLayer,
     build_grid_index,
 )
+from dclh_pipeline.model.planning import PlanOgolnyLayer, build_plan_layer
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.psi import PsiLayer
 from dclh_pipeline.model.sites import Site
@@ -63,7 +65,12 @@ from dclh_pipeline.sources.osm_power import OsmPowerConnector, to_grid
 from dclh_pipeline.sources.osm_res import read_res, res_cluster_layer
 from dclh_pipeline.sources.prg import PrgConnector, big_city_layer
 from dclh_pipeline.sources.psi import load_psi_layer
-from dclh_pipeline.sources.ru import RuMpzpConnector, RuPlanOgolnyConnector
+from dclh_pipeline.sources.ru import (
+    RuMpzpConnector,
+    RuOuzConnector,
+    RuPlanActConnector,
+    RuPlanOgolnyConnector,
+)
 
 # Area steps, in the order they run. Keys are what a reporter and the check page see.
 ROAD_MARGIN_M = 3_000.0  # how far beyond a check's window a road still counts as "the nearest one"
@@ -114,6 +121,7 @@ class AreaLayers:
     forest: Layer | None = None
     roads: Layer | None = None  # public roads (BDOT10k): lines
     zoning: tuple[ZoningLayer, ...] = ()
+    plan_ogolny: PlanOgolnyLayer | None = None
 
 
 def load_static_layers(
@@ -231,6 +239,7 @@ def load_area_layers(
     flood = flood_02 = housing = forest = roads = None
     mining: dict[str, Layer] | None = None
     zoning: tuple[ZoningLayer, ...] = ()
+    plan_ogolny: PlanOgolnyLayer | None = None
 
     with _step(reporter, STEP_FLOOD, strict) as done:
         connector = IsokConnector(config.get("isok"), bbox=bbox)
@@ -304,7 +313,7 @@ def load_area_layers(
         done({"housing": housing, "forest": forest, "roads": roads})
 
     with _step(reporter, STEP_ZONING, strict) as done:
-        zoning = ru_zoning_layers(config, client, store, bbox)
+        zoning, plan_ogolny = ru_zoning_layers(config, client, store, bbox)
         done(zoning)
 
     return AreaLayers(
@@ -315,13 +324,15 @@ def load_area_layers(
         forest=forest,
         roads=roads,
         zoning=zoning,
+        plan_ogolny=plan_ogolny,
     )
 
 
 def ru_zoning_layers(
     config: SourcesConfig, client: PoliteClient, store: SnapshotStore, bbox: BBox
-) -> tuple[ZoningLayer, ...]:
-    """The RU zoning layers of one bbox, in order of precedence: MPZP procedures, then plan ogólny zones.
+) -> tuple[tuple[ZoningLayer, ...], PlanOgolnyLayer]:
+    """The RU zoning layers of one bbox, in order of precedence: MPZP procedures, then plan ogólny zones; and
+    the plan ogólny layer (OUZ, plan acts, zone parameters) built from the same tables.
 
     An MPZP outline in force has no designations, so it does not decide the zoning (KIMPZP does, ahead of
     these layers). Plan ogólny drafts count only as a procedure for a strefa gospodarcza
@@ -330,10 +341,14 @@ def ru_zoning_layers(
     mpzp = RuMpzpConnector(config.get("ru"), bbox=bbox)
     pog = RuPlanOgolnyConnector(config.get("ru"), bbox=bbox)
     layers = []
+    tables: dict[str, gpd.GeoDataFrame] = {}
+    as_of: datetime | None = None
     for connector in (mpzp, pog):
         snapshot = connector.fetch(client, store)
         table = connector.parse(snapshot)
         store.mark_good(snapshot)
+        tables[connector.layer] = table
+        as_of = snapshot.fetched_at
         if connector is pog:
             kinds = [
                 plan_ogolny_kind(z, s) for z, s in zip(table["zone_href"], table["status_href"], strict=True)
@@ -342,7 +357,21 @@ def ru_zoning_layers(
             kinds = [mpzp_outline_kind(s) for s in table["status_href"]]
         zones = tuple((k, g) for k, g in zip(kinds, table.geometry, strict=True) if k is not None)
         layers.append(ZoningLayer("ru", snapshot.fetched_at, zones))
-    return tuple(layers)
+    for extra in (
+        RuOuzConnector(config.get("ru"), bbox=bbox),
+        RuPlanActConnector(config.get("ru"), bbox=bbox),
+    ):
+        snapshot = extra.fetch(client, store)
+        tables[extra.layer] = extra.parse(snapshot)
+        store.mark_good(snapshot)
+    plan = build_plan_layer(
+        tables[pog.layer],
+        tables[RuOuzConnector.layer],
+        tables[RuPlanActConnector.layer],
+        tables[mpzp.layer],
+        as_of,
+    )
+    return tuple(layers), plan
 
 
 def build_site_layers(static: StaticLayers, area: AreaLayers, industrial: Layer | None) -> SiteLayers:
@@ -366,6 +395,7 @@ def build_site_layers(static: StaticLayers, area: AreaLayers, industrial: Layer 
     return SiteLayers(
         grid=static.grid,
         zoning=area.zoning,
+        plan_ogolny=area.plan_ogolny,
         residential=area.housing,
         roads=area.roads,
         industrial=industrial,

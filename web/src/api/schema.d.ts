@@ -2194,7 +2194,7 @@ export interface operations {
         parameters: {
             query?: {
                 level?: "wojewodztwo" | "powiat" | "gmina";
-                item?: "all" | "zoning" | "pen_soil_iii" | "bonus_psi" | "grid_headroom";
+                item?: "all" | "zoning" | "pen_soil_iii" | "bonus_psi" | "grid_headroom" | "plan_ogolny";
                 include_geometry?: boolean;
             };
             header?: never;

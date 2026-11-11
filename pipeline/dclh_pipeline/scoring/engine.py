@@ -20,6 +20,7 @@ from dclh_pipeline.config import ScoringConfig
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.sites import EXPANSION_GAP_M
 from dclh_pipeline.scoring.types import (
+    PATH_MPZP_OR_ZPI,
     CategoryScore,
     Exclusion,
     Fact,
@@ -349,6 +350,13 @@ def _zoning_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
         ]  # fmt: skip
     kind = f.zoning.value
     pts = table[kind]
+    outside_ouz = (
+        kind is ZoningKind.PLAN_OGOLNY_SG
+        and f.planning_path is not None
+        and f.planning_path.value == PATH_MPZP_OR_ZPI
+    )
+    if outside_ouz:
+        pts = z.zone_allows_dc_outside_ouz
     unknown = kind is ZoningKind.UNKNOWN
     conf = Confidence.MISSING if unknown else f.zoning.confidence
     # An unknown zoning has no source: the fact may carry the layer that was looked at (an OSM industrial area, an
@@ -357,7 +365,10 @@ def _zoning_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
     return [
         _Draft(
             "zoning", "zoning", "Przeznaczenie terenu", pts, 100.0, table[ZoningKind.MPZP_PRODUCTION] if conf is Confidence.MISSING else pts,
-            conf, source, as_of, f"{_ZONING_LABEL[kind].capitalize()}: {_n(pts, 0)}% maksymalnej punktacji za przeznaczenie.", kind.value,
+            conf, source, as_of,
+            f"{_ZONING_LABEL[kind].capitalize()}: {_n(pts, 0)}% maksymalnej punktacji za przeznaczenie."
+            + (" Teren poza OUZ i bez MPZP: ścieżka to MPZP lub ZPI (12–24 miesiące), nie decyzja WZ." if outside_ouz else ""),
+            kind.value,
         )
     ]  # fmt: skip
 

@@ -22,6 +22,21 @@ file or calling the endpoint, as described here.
 
 ### Hard filters and zoning
 
+- **`ru` OUZ, plan act and zone parameters ✓ (11.11.2026, live from Poland, gm. Rzepin 080504).** `app-pog/wfs`
+  GetCapabilities lists six layers: `app-pog:AktPlanowaniaPrzestrzennego`, `DokumentFormalny`,
+  `ObszarStandardowDostepnosciInfrastrukturySpolecznej`, **`ObszarUzupelnieniaZabudowy`** (the OUZ; polygons with
+  `symbol` OUZ, `oznaczenie`, `status`, `plan` xlink), `ObszarZabudowySrodmiejskiej` and `StrefaPlanistyczna`.
+  `DescribeFeatureType` only returns an `xsd:include` of the APP 3.0 schema, so the fields were read from real
+  features. `StrefaPlanistyczna` carries `maksWysokoscZabudowy` (`uom="m"`), `maksUdzialPowierzchniZabudowy` (%),
+  `minUdzialPowierzchniBiologicznieCzynnej` (%) and `maksNadziemnaIntensywnoscZabudowy`; a zone may omit any of them
+  (open zones have none). Rzepin SP (strefa gospodarcza): 20 m, 70%, 20%, as in the RTB review. The plan act
+  (`AktPlanowaniaPrzestrzennego`, extent in `zasiegPrzestrzenny`) has `tytul`, `obowiazujeOd` (11.09.2026 for Rzepin),
+  `status` and `dokumentUchwalajacy` as an xlink to the `DokumentFormalny` whose id holds the resolution number
+  (`POG_Rzepin_XXXIV_224_2026_uchwalajaca`). The number is read from that id; the adoption date (27.08.2026) is
+  only in the `DokumentFormalny` (`data`, `dataWejsciaWZycie`, `numerIdentyfikacyjny` = the voivodeship journal
+  position), which the app does not load yet. Same paging as the other RU layers (10 per page, bbox northing-first).
+  Rzepin bbox ±4 km: 375 zones, 53 OUZ areas, 1 plan act. Fixtures: `tests/fixtures/live/rzepin-2026-11-11/`.
+
 - **`midas` ✓ mining (21.10.2026, loaded live for powiat 1421).** ArcGIS MapServer
   `https://cbdgmapa.pgi.gov.pl/arcgis/rest/services/midas/MapServer`: layer 1 "obszary górnicze" (`mining_area`, 6,201
   current features) and layer 2 "tereny górnicze" (`mining_terrain`, 6,022). Query with `inSR=2180&outSR=2180`,

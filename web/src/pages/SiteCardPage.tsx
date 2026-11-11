@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { mapsUrl } from "@/components/map/popup";
 import { PageScroll } from "@/components/PageScroll";
 import { Sheet } from "@/components/check/Sheet";
+import { PlanningPath } from "@/components/site/PlanningPath";
 import { ConnectionCostCalculator } from "@/components/site/ConnectionCostCalculator";
 import { ParcelIds } from "@/components/site/ParcelIds";
 import { ProfileCards } from "@/components/site/ProfileCards";
@@ -79,6 +80,8 @@ function SiteCard({ site }: { site: SiteDetail }) {
       </section>
 
       <ProfileCards profiles={site.profiles} className="mt-6" />
+
+      <PlanningPath features={site.features} />
 
       <dl className="grid grid-cols-3 gap-3">
         <Fact label="Działki" value={`${parcels}`} />

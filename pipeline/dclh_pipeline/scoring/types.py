@@ -18,6 +18,13 @@ class ZoningKind(StrEnum):
     OTHER = "other"
 
 
+# Planning path facts (`model/planning.py`): the value of `SiteFeatures.planning_path` and `.in_ouz`.
+PATH_MPZP_IN_FORCE = "mpzp_in_force"  # MPZP obowiązuje
+PATH_MPZP_OR_ZPI = "mpzp_or_zpi"  # potrzebny MPZP lub ZPI (outside the OUZ, no MPZP)
+PATH_WZ_POSSIBLE = "wz_possible"  # WZ możliwa (inside the OUZ, no MPZP)
+IN_OUZ_YES, IN_OUZ_NO, IN_OUZ_PARTIAL = "yes", "no", "partial"
+
+
 class GridBadge(StrEnum):
     """How much to trust the grid score (brief section 6.2)."""
 
@@ -57,6 +64,15 @@ class SiteFeatures:
     powered_brownfield: Fact[bool] | None = None
     # zoning, connectivity, bonus
     zoning: Fact[ZoningKind] | None = None
+    # Planning path after the reform (`model/planning.py`); missing = no plan ogólny in the register.
+    in_ouz: Fact[str] | None = None  # yes | no | partial
+    planning_path: Fact[str] | None = None  # mpzp_in_force | mpzp_or_zpi | wz_possible
+    plan_ogolny_act: Fact[str] | None = None  # resolution number, e.g. "XXXIV/224/2026"
+    plan_ogolny_from: Fact[str] | None = None  # ISO date the plan takes effect
+    zone_max_height_m: Fact[float] | None = None
+    zone_max_build_up_pct: Fact[float] | None = None
+    zone_min_pbc_pct: Fact[float] | None = None
+    zone_max_intensity: Fact[float] | None = None
     dist_telecom_node_km: Fact[float] | None = None
     dist_big_city_km: Fact[float] | None = None
     dist_heat_network_km: Fact[float] | None = None
