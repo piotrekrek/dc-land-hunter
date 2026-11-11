@@ -37,9 +37,7 @@ TOOLS = {
     "compare_sites",
     "get_queue",
     "sites_near",
-
     "what_changed",
-
     "connection_costs",
 }
 # See test_mcp_write.py and test_mcp_queue_db.py.

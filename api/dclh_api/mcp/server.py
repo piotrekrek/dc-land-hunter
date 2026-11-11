@@ -8,7 +8,16 @@ from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, Re
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from dclh_api.mcp import tools_changes, tools_costs, tools_deals, tools_near, tools_queue, tools_read, tools_search_now, tools_write
+from dclh_api.mcp import (
+    tools_changes,
+    tools_costs,
+    tools_deals,
+    tools_near,
+    tools_queue,
+    tools_read,
+    tools_search_now,
+    tools_write,
+)
 from dclh_api.mcp.oauth import SCOPES, DclhOAuthProvider
 
 INSTRUCTIONS = """\
@@ -20,18 +29,16 @@ Grid scores are proxies from distances and public operator data, never a confirm
 never tell the user that a given power is available. Only the operator's connection conditions bind.
 estimated_mw is land capacity (area x 6 MW/ha), not power from the grid.
 Tools that change something (watch_site, unwatch_site, check_parcel, add_priority, remove_priority, set_stage,
-remove_from_pipeline) act for
-the user: use only on request. The priority list of the search queue is shared by the whole team.
-get_queue shows the search queue (Kolejka): priority powiats, what the nightly search takes next, what runs.
-search_now queues one powiat search immediately (admin only, capped per day): only on explicit request.
+remove_from_pipeline, search_now) act for the user: use only on request. The priority list of the search queue
+is shared by the whole team. get_queue shows the search queue (Kolejka): priority powiats, what the nightly
+search takes next, what runs now. search_now queues one powiat search immediately (admin only, capped per day).
 Answer the user in Polish and give each site's `url` so they can open its card.
 For "the best sites" use top_picks (different regions, one per gmina) or search_sites with max_per_gmina:
 neighbouring parcels often form one cluster. search_sites already returns the reasons behind each verdict,
 the nearest GPZ and the parcel ids, so open a card (get_site) only for the few sites you go into.
 Area filters take Polish names ("dolnośląskie", "lęborski") as well as TERYT codes.
-verdict_counts answers "how many are green".
-sites_near finds sites within a radius of a gmina, a powiat or lat/lon ("what is within 20 km of Kutno?").
 verdict_counts answers "how many are green". what_changed answers "what is new since last week".
+sites_near finds sites within a radius of a gmina, a powiat or lat/lon ("what is within 20 km of Kutno?").
 connection_costs(mw) gives what securing a grid connection ties up (fee, advance, security);
 the figures need legal verification.
 """
