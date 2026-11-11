@@ -139,3 +139,33 @@ def test_openapi_is_committed_and_current(client: TestClient) -> None:
 
     committed = json.loads((Path(__file__).parents[2] / "api" / "openapi.json").read_text(encoding="utf-8"))
     assert committed == client.app.openapi(), "run: uv run python -m dclh_api.export_openapi"  # type: ignore[attr-defined]
+
+
+def _item(
+    key: str, points: float, max_points: float, *, category: str = "grid", confidence: str = "verified"
+):
+    return {
+        "key": key,
+        "category": category,
+        "label_pl": f"Etykieta {key}",
+        "points": points,
+        "max_points": max_points,
+        "confidence": confidence,
+    }
+
+
+def test_weakest_label_picks_the_lowest_share_and_skips_bonuses_and_unfed_items() -> None:
+    from dclh_api.routers.sites import weakest_label
+
+    items = [
+        _item("grid_node", 5, 10),
+        _item("land_area", 9, 10, category="land"),
+        _item("bonus_x", 0, 5, category="bonus"),
+        _item("conn_telecom", 0, 5, category="connectivity", confidence="missing"),
+    ]
+    assert weakest_label(items) == "Etykieta grid_node"
+    # A tie in share goes to the item worth more points; a missing item says so.
+    tie = [_item("a", 0, 5), _item("b", 0, 10, confidence="missing")]
+    assert weakest_label(tie) == "Etykieta b (brak danych)"
+    assert weakest_label([_item("full", 10, 10)]) is None
+    assert weakest_label([]) is None
