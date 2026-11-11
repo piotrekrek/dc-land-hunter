@@ -25,7 +25,15 @@ from tests.unit.test_scoring_run import CFG, layers, parcel_sites
 pytestmark = [pytest.mark.db, pytest.mark.usefixtures("migrated_db"), pytest.mark.anyio]
 
 NOTE = "TAJNA-NOTATKA-123"
-READ_TOOLS = ("search_sites", "list_pipeline", "list_powiaty", "coverage", "scoring_rules", "get_queue")
+READ_TOOLS = (
+    "search_sites",
+    "list_pipeline",
+    "list_powiaty",
+    "coverage",
+    "scoring_rules",
+    "get_queue",
+    "connection_costs",
+)
 
 
 @pytest.fixture
@@ -103,6 +111,7 @@ async def test_owner_note_never_leaks_through_any_read_tool(seeded: None, mcp: F
     site_id = await first_site_id(mcp)
     await put_in_pipeline(site_id)
     arguments: dict[str, dict[str, Any]] = {name: {} for name in READ_TOOLS}
+    arguments["connection_costs"] = {"site_id": site_id}
     arguments["search_sites"] = {"min_mw": 0, "detail": "full"}
     arguments["top_picks"] = {"profile": "container", "verdict": ["green", "yellow", "red", "manual"]}
     arguments["compare_sites"] = {"site_ids": [site_id, "other"]}
@@ -298,3 +307,11 @@ async def test_top_picks_spreads_by_distance_by_default(seeded: None, mcp: FastM
         per_region=2, min_distance_km=1,
     )  # fmt: skip
     assert nearby["total"] == 2
+
+
+async def test_connection_costs_uses_the_site_estimated_mw(seeded: None, mcp: FastMCP) -> None:
+    site_id = await first_site_id(mcp)
+    out = await call(mcp, "connection_costs", site_id=site_id)
+    assert out["site_id"] == site_id and out["mw"] > 0
+    with pytest.raises(ToolError, match="Nie znaleziono lokalizacji"):
+        await call(mcp, "connection_costs", site_id="nie-ma")

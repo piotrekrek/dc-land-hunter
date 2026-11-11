@@ -1,5 +1,13 @@
 # Status
 
+## Claude can price a grid connection: `connection_costs` (11.11.2026)
+
+- New read tool `connection_costs(mw)` (or `site_id`, which uses the site's `estimated_mw`): application fee, advance, security,
+  frozen total, caps flagged, 12-month validity, caveats, and source/as_of/confidence per figure (`estimated` while
+  `connection_cost.verified` is false in `config/scoring.yaml`).
+- The site card keeps its own copy of the defaults in `web/src/lib/connectionCost.ts`; `tests/unit/test_mcp_costs.py` fails if they drift from the yaml.
+- Open legal question: the brief gives security "up to 100 MW" only; above that we keep 3 mln PLN, like the card.
+
 ## Search runs keep the time per step and the cache use (05.11.2026)
 
 - `runs.summary` of a search now also has `step_seconds`, the time per step: seed, parcels (the EGiB download), cluster,

@@ -8,7 +8,7 @@ from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, Re
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from dclh_api.mcp import tools_queue, tools_read, tools_write
+from dclh_api.mcp import tools_costs, tools_queue, tools_read, tools_write
 from dclh_api.mcp.oauth import SCOPES, DclhOAuthProvider
 
 INSTRUCTIONS = """\
@@ -28,6 +28,8 @@ neighbouring parcels often form one cluster. search_sites already returns the re
 the nearest GPZ and the parcel ids, so open a card (get_site) only for the few sites you go into.
 Area filters take Polish names ("dolnośląskie", "lęborski") as well as TERYT codes.
 verdict_counts answers "how many are green".
+connection_costs(mw) gives what securing a grid connection ties up (fee, advance, security);
+the figures need legal verification.
 """
 
 
@@ -69,4 +71,5 @@ def build_mcp(public_url: str, provider: DclhOAuthProvider | None = None) -> Fas
     tools_read.register(mcp, public_url)
     tools_write.register(mcp, public_url)
     tools_queue.register(mcp)
+    tools_costs.register(mcp)
     return mcp

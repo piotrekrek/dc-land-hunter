@@ -1084,3 +1084,25 @@ Acceptance criteria:
   jobs and failing powiats.
 - AC6: a read-only token can read the queue but not change it; `added_by` is the connected user.
 - AC7: the consent page and the Claude tab say Claude can change queue priorities; the leak test covers `get_queue`.
+
+## MCP: connection cost calculator (`connection_costs`)
+
+Claude can answer "what does securing 80 MW tie up?". The figures live in `config/scoring.yaml` (`connection_cost`,
+served by `/api/config/scoring`). The web calculator keeps its own copy of the defaults in
+`web/src/lib/connectionCost.ts`; a test proves the two agree (changing the web to read the API is a larger change, left out).
+
+- Read tool `connection_costs(mw, site_id?)` in `api/dclh_api/mcp/tools_costs.py`. With `site_id` and no `mw` it uses
+  the site's `estimated_mw` (land capacity, not grid power).
+
+Acceptance criteria:
+
+- AC1: 60 MW gives fee 60 000 + advance 3 600 000 + security 1 800 000 PLN; frozen (advance + security) 5 400 000.
+- AC2: the fee cap (100 000 PLN) applies from 100 MW, the advance cap (6 mln PLN) from 100 MW; each is flagged `cap_applied`.
+- AC3: security is charged on at most 100 MW (as in the site card); above that it stays at 3 mln PLN and the answer says so.
+  OPEN QUESTION (legal): the brief says "30 PLN/kW up to 100 MW" and does not say what happens above; we follow the
+  existing code and flag it.
+- AC4: `mw` <= 0, NaN or above 1000 is refused in Polish; neither `mw` nor `site_id` is refused too.
+- AC5: validity (12 months), milestone expiry, operator re-verification and the caveats (figures need legal verification,
+  conditions are contested when transferred to a buyer with the SPV share-sale workaround, not legal advice) are present.
+- AC6: every figure carries `source_id`, `as_of`, `confidence` (`estimated` while `verified: false` in the config).
+- AC7: the Python numbers equal the web constants (test parses `connectionCost.ts`); the tool is covered by the owner-note leak test.
