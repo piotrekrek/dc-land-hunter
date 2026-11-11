@@ -1018,3 +1018,48 @@ Facts checked 05.11.2026 (re-check them at Task 4, they move fast):
 - **Output size.** Large results eat Claude's context: list limit 50, no geometry, detail only through `get_site`.
 - **Abuse of DCR.** Anyone can register a client; it is useless without a user with `mcp_access`, and the
   redirect URI allowlist plus the 200-client cap and the daily purge keep the table small.
+
+## Claude tab: share the connector with the team (plan of 11.11.2026)
+
+**Readiness check (11.11.2026, PROD):** the connector is live at `https://dc-land-hunter.online/mcp`. OAuth discovery
+answers, `/mcp` refuses a request without a token (401), the owner's Claude connection works (a real `top_picks` call
+returned sites). So it can be shared. What stops a second person today:
+
+1. Their Claude access can only be switched on over SSH (`dclh user mcp-access … --on`).
+2. The steps sit at the bottom of Ustawienia, a screen a partner has no reason to open, and the wording is out of date:
+   claude.ai now says **Customize → Connectors → + Add → Add custom connector** (Anthropic help, 11.11.2026), and the
+   Free plan allows one custom connector (not "Pro or higher"). On Team/Enterprise only an owner adds the connector.
+3. Nothing shows what to ask Claude once it is connected.
+
+New accounts still need the CLI (`dclh user create`, it sets a password). Out of scope: no self-signup (brief).
+
+### UX decisions
+
+- **Where:** a labelled top-level tab **"Claude"** (`/claude`, icon `Sparkles`) after "Sprawdź działkę". It is a working
+  screen, used once per person, but the owner wants to point partners at it, so a name in the bar beats an icon. The
+  Ustawienia card shrinks to one line with a link to the tab (one source of truth for the steps).
+- **Layout, top to bottom:** status of my access (Włączony / brak: poproś administratora) → the address with "Kopiuj" →
+  steps per app, chosen with two buttons (claude.ai / Claude Code) → "Wypróbuj" example prompts with copy →
+  "Co widzi Claude" (data goes to Anthropic, notes never, changes only on request, grid is an estimate) → Połączone
+  aplikacje (disconnect) → admin only: "Dostęp zespołu" (switch per user, plus "Kopiuj zaproszenie": a Polish message
+  with the app address and steps, to paste into an email or chat).
+- **Phone:** the tab is in the mobile menu; the text says the phone app uses the connector added on the web.
+
+### Acceptance criteria
+
+- AC1: "Claude" is in the main nav (desktop bar and mobile menu) for every logged-in user and opens `/claude`; the browser
+  tab reads "Claude · DC Land Hunter".
+- AC2: the page shows the connector address (`DCLH_PUBLIC_URL` + `/mcp`) and copies it with one click; with the connector
+  off it says so and shows no steps.
+- AC3: steps for claude.ai (web, desktop, phone) use the current Claude wording; the Claude Code tab shows a copyable
+  `claude mcp add --transport http dclh <address>` command.
+- AC4: the page states whether my account has access; without access it says to ask the administrator.
+- AC5: at least three example prompts in Polish, each copyable.
+- AC6: connected apps are listed and can be disconnected (as in Ustawienia today).
+- AC7: an admin sees every user with their access state and can switch it on or off; off also signs that user's Claude out
+  (same as the CLI). A member sees no such section and the API answers 403 to a member.
+- AC8: an admin can copy an invitation text with the app address, the connector address and the steps.
+- AC9: Ustawienia links to the tab instead of repeating the steps.
+- AC10: tests: API (admin list, switch on/off drops tokens, 403 for a member, unknown email 404), web (each AC above),
+  full fast checks green; after deploy a smoke test on PROD: `/claude` loads, `/api/admin/users` 401 without a session,
+  OAuth discovery 200, `/mcp` 401 without a token, and a real MCP tool call works.

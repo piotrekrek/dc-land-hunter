@@ -58,3 +58,30 @@ export function useDecision(reqId: string) {
     },
   });
 }
+
+// The Claude tab (PLAN.md, "Claude tab").
+
+export const EXAMPLE_PROMPTS = [
+  "Pokaż 5 najlepszych lokalizacji pod DC budowane w Wielkopolsce i wyjaśnij, co trzeba jeszcze sprawdzić.",
+  "Porównaj dwie najlepsze lokalizacje w dolnośląskim: odległość do GPZ, powierzchnia, ryzyka.",
+  "Ile jest zielonych i żółtych lokalizacji w województwie śląskim? Które powiaty nie są jeszcze przeszukane?",
+  "Obserwuj najlepszą lokalizację w powiecie wrocławskim.",
+];
+
+export const claudeCodeCommand = (url: string) => `claude mcp add --transport http dclh ${url}`;
+
+/** The message an admin pastes into an email or a chat to invite a partner. */
+export function invitation(connectorUrl: string): string {
+  const app = connectorUrl.replace(/\/mcp$/, "");
+  return [
+    "Cześć! Możesz pytać Claude o lokalizacje z DC Land Hunter.",
+    "",
+    `1. Zaloguj się w aplikacji: ${app} i otwórz zakładkę Claude.`,
+    "2. W claude.ai wejdź w Customize → Connectors → + Add → Add custom connector.",
+    `3. Nazwa: DC Land Hunter, adres: ${connectorUrl}`,
+    "4. Kliknij Connect, zaloguj się i wybierz Zezwól.",
+    "",
+    "Na telefonie konektor działa sam, gdy dodasz go w przeglądarce. W Claude Code:",
+    claudeCodeCommand(connectorUrl),
+  ].join("\n");
+}

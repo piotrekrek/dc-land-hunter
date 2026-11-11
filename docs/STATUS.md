@@ -35,6 +35,20 @@
   - The backup ran against production: 377 MB in 40 s, `pg_restore --list` passed, and rotation kept the newest dumps by name.
   - Unit tests for the log file. The compose file validates.
 
+## Claude tab: share the connector with the team (11.11.2026)
+
+- **Readiness:** the connector was already live on PROD (OAuth discovery 200, `/mcp` 401 without a token, the owner's
+  Claude connection answers tool calls), so it can be shared. The blockers were access over SSH only and steps hidden
+  in Ustawienia with outdated claude.ai wording.
+- **What works:** a top-level tab **Claude** (`/claude`): access status, the address with copy, steps for claude.ai
+  (Customize → Connectors) and Claude Code (copyable command), example prompts, what Claude sees, connected apps
+  (disconnect), and for admins "Dostęp zespołu": switch access per user (`PUT /api/team/{email}/mcp-access`, the same
+  as the CLI, off signs Claude out) and "Kopiuj zaproszenie". Ustawienia links to the tab. Plan and AC: PLAN.md
+  "Claude tab".
+- **Not covered:** new accounts are still created with `dclh user create` (no self-signup, by design).
+- **Test note:** DB test modules that sort after `test_sites_db.py` abort the run (that module leaves `sites` rows and
+  the guard refuses a populated database), so the new test is `test_oauth_team_db.py`.
+
 ## MCP: distance between picks (05.11.2026)
 
 - **`min_distance_km`** on `search_sites` and `top_picks` keeps only sites at least that far apart (outline to outline,

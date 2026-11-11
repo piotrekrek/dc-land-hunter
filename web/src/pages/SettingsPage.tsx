@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { LoaderCircle, ServerCrash } from "lucide-react";
+import { Link } from "react-router";
 
 import { api, unwrap } from "@/api/client";
-import { ClaudeConnector } from "@/components/ClaudeConnector";
 import { EmptyState } from "@/components/EmptyState";
 import { PageScroll } from "@/components/PageScroll";
 import { Badge } from "@/components/ui/badge";
@@ -81,7 +81,18 @@ export function SettingsPage() {
             </Card>
           </div>
         )}
-        <ClaudeConnector className="mt-4" />
+        <Card className="mt-4" data-testid="claude-link">
+          <CardHeader>
+            <CardTitle>Połączenie z Claude</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            Jak podłączyć Claude, połączone aplikacje i dostęp zespołu:{" "}
+            <Link to="/claude" className="font-medium text-accent underline-offset-2 hover:underline">
+              zakładka Claude
+            </Link>
+            .
+          </CardContent>
+        </Card>
       </div>
       <SourcesSection />
     </PageScroll>
