@@ -20,6 +20,7 @@ class _Model(BaseModel):
 
 class Target(_Model):
     mw_min: float
+    target_mw: float = Field(gt=0)
     mw_per_ha: float = Field(gt=0)
     ha_min: float = Field(gt=0)
     ha_ideal: tuple[float, float]
@@ -31,6 +32,8 @@ class Target(_Model):
         lo, hi = self.ha_ideal
         if not lo < hi <= self.large_site_split_ha:
             raise ValueError("target.ha_ideal must be (low, high) with low < high <= large_site_split_ha")
+        if self.target_mw < self.mw_min:
+            raise ValueError("target.target_mw must be at least target.mw_min")
         return self
 
 

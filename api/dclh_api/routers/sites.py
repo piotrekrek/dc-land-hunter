@@ -29,8 +29,10 @@ from dclh_api.schemas import (
 from dclh_api.security import current_user
 from dclh_pipeline.check_job import build_client
 from dclh_pipeline.check_sheet import build_sheet
+from dclh_pipeline.config import load_scoring
 from dclh_pipeline.db.models import UserRow
 from dclh_pipeline.orthophoto import OrthophotoUnavailable, fetch_orthophoto, request_for_sheet
+from dclh_pipeline.scoring.engine import project_capacity
 from dclh_pipeline.settings import get_settings
 
 router = APIRouter(tags=["sites"], dependencies=[Depends(current_user)])
@@ -222,18 +224,33 @@ def weakest_label(items: list[dict[str, Any]]) -> str | None:
     return f"{worst['label_pl']}{suffix}"
 
 
+def project_capacity_of(row: Mapping[str, Any]) -> tuple[float, float]:
+    """project_mw and spare_ha as the scorer stored them; older rows get them from the area."""
+    score = row["detail"]["score"]
+    if score.get("project_mw") is not None and score.get("spare_ha") is not None:
+        return score["project_mw"], score["spare_ha"]
+    _, project_mw, spare_ha = project_capacity(row["area_ha"], load_scoring().target)
+    return project_mw, spare_ha
+
+
 def _summary(row: Mapping[str, Any]) -> SiteSummary:
     # Parcel checks are not placed in a gmina: their rows carry no place columns.
     place_fields = ("gmina", "powiat", "voivodeship")
-    derived = ("mw_fact", "profile_categories", "weakest_label_pl")
+    derived = ("mw_fact", "profile_categories", "weakest_label_pl", "project_mw", "spare_ha")
     fields = {
         k: row.get(k) if k in place_fields else row[k] for k in SiteSummary.model_fields if k not in derived
     }
+    project_mw, spare_ha = project_capacity_of(row)
     built, container = row.get("verdict_built"), row.get("verdict_container")
     categories = {"built": built, "container": container} if built and container else None
     weakest = weakest_label(row["detail"]["score"]["items"])
     return SiteSummary(
-        **fields, mw_fact=_mw_fact(row), profile_categories=categories, weakest_label_pl=weakest
+        **fields,
+        project_mw=project_mw,
+        spare_ha=spare_ha,
+        mw_fact=_mw_fact(row),
+        profile_categories=categories,
+        weakest_label_pl=weakest,
     )
 
 

@@ -52,6 +52,8 @@ def make_score(**over: object) -> SiteScore:
         categories=[CategoryScore("grid", 40, 45, 45)],
         items=[item("line110", 27, 27), item("plan", 5, 25)],
         estimated_mw=75.0,
+        project_mw=60.0,
+        spare_ha=2.5,
         large_campus=False,
         split_suggested=False,
         grid_badge=GridBadge.PROXY,

@@ -1586,6 +1586,14 @@
             "type": "number",
             "title": "Estimated Mw"
           },
+          "project_mw": {
+            "type": "number",
+            "title": "Project Mw"
+          },
+          "spare_ha": {
+            "type": "number",
+            "title": "Spare Ha"
+          },
           "score": {
             "type": "number",
             "title": "Score"
@@ -1873,6 +1881,8 @@
           "zone_id",
           "area_ha",
           "estimated_mw",
+          "project_mw",
+          "spare_ha",
           "score",
           "upside_score",
           "completeness",
@@ -3894,6 +3904,14 @@
             "type": "number",
             "title": "Estimated Mw"
           },
+          "project_mw": {
+            "type": "number",
+            "title": "Project Mw"
+          },
+          "spare_ha": {
+            "type": "number",
+            "title": "Spare Ha"
+          },
           "score": {
             "type": "number",
             "title": "Score"
@@ -4122,6 +4140,8 @@
           "zone_id",
           "area_ha",
           "estimated_mw",
+          "project_mw",
+          "spare_ha",
           "score",
           "upside_score",
           "completeness",
@@ -4211,6 +4231,14 @@
           "estimated_mw": {
             "type": "number",
             "title": "Estimated Mw"
+          },
+          "project_mw": {
+            "type": "number",
+            "title": "Project Mw"
+          },
+          "spare_ha": {
+            "type": "number",
+            "title": "Spare Ha"
           },
           "score": {
             "type": "number",
@@ -4342,6 +4370,8 @@
           "zone_id",
           "area_ha",
           "estimated_mw",
+          "project_mw",
+          "spare_ha",
           "score",
           "upside_score",
           "completeness",
@@ -4720,6 +4750,11 @@
             "type": "number",
             "title": "Mw Min"
           },
+          "target_mw": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Target Mw"
+          },
           "mw_per_ha": {
             "type": "number",
             "exclusiveMinimum": 0.0,
@@ -4757,6 +4792,7 @@
         "type": "object",
         "required": [
           "mw_min",
+          "target_mw",
           "mw_per_ha",
           "ha_min",
           "ha_ideal",

@@ -113,9 +113,53 @@ def test_proximity_uses_the_better_of_line_and_gpz() -> None:
     )
 
 
+def _target(**over: float) -> ScoringConfig:
+    return CFG.model_copy(update={"target": CFG.target.model_copy(update=over)})
+
+
+def test_big_land_is_a_60_mw_project_with_spare_land_not_a_large_campus() -> None:
+    for ha in (40.0, 41.0):
+        s = score_site(full_features(area_ha=F(ha)), CFG)
+        assert s.estimated_mw == pytest.approx(ha * 6)
+        assert s.project_mw == pytest.approx(60.0)
+        assert s.spare_ha == pytest.approx(ha - 10.0)
+        assert not s.large_campus and not any("Duży kampus" in x for x in s.flags_pl)
+        assert (
+            item(s, "grid_node").max_points == item(score_site(full_features(), CFG), "grid_node").max_points
+        )
+
+
+def test_small_site_project_is_its_land_capacity() -> None:
+    s = score_site(full_features(area_ha=F(8.0)), CFG)
+    assert s.project_mw == pytest.approx(48.0) and s.spare_ha == 0.0
+
+
+def test_spare_land_adds_to_the_expansion_reserve_once() -> None:
+    plain = score_site(full_features(area_ha=F(10.0), expansion_ha=F(5.0)), CFG)
+    spare = score_site(full_features(area_ha=F(20.0), expansion_ha=F(5.0)), CFG)  # 10 ha spare
+    assert item(plain, "land_expansion").value == pytest.approx(5.0)
+    assert item(spare, "land_expansion").value == pytest.approx(15.0)
+    assert "własnego terenu" in item(spare, "land_expansion").explanation_pl
+    only_spare = score_site(full_features(area_ha=F(20.0), expansion_ha=None), CFG)
+    assert item(only_spare, "land_expansion").value == pytest.approx(10.0)
+
+
+def test_target_above_large_campus_brings_the_flag_back() -> None:
+    cfg = _target(target_mw=200.0)
+    s = score_site(full_features(area_ha=F(40.0)), cfg)
+    assert s.project_mw == pytest.approx(200.0) and s.spare_ha == pytest.approx(40 - 200 / 6)
+    assert s.large_campus and any("Duży kampus" in x for x in s.flags_pl)
+
+
+def test_target_mw_below_mw_min_is_rejected() -> None:
+    with pytest.raises(ValueError, match="target_mw"):
+        CFG.target.__class__(**{**CFG.target.model_dump(), "target_mw": 10.0})
+
+
 def test_large_campus_needs_a_node() -> None:
-    big_with_node = score_site(full_features(area_ha=F(40.0)), CFG)  # 240 MW
-    big_without = score_site(full_features(area_ha=F(40.0), dist_node_220_400_km=F(60.0)), CFG)
+    cfg = _target(target_mw=240.0)
+    big_with_node = score_site(full_features(area_ha=F(40.0)), cfg)  # 240 MW
+    big_without = score_site(full_features(area_ha=F(40.0), dist_node_220_400_km=F(60.0)), cfg)
     assert big_with_node.large_campus and any("Duży kampus" in x for x in big_with_node.flags_pl)
     assert (
         item(big_with_node, "grid_node").max_points

@@ -66,7 +66,12 @@ def register(mcp: FastMCP, public_url: str) -> None:
     async def search_sites(
         powiat: AreaName = None,
         voivodeship: AreaName = None,
-        min_mw: Annotated[float, Field(ge=0, description="Minimum estimated MW (area x density)")] = 60,
+        min_mw: Annotated[
+            float,
+            Field(
+                ge=0, description="Minimum land capacity in MW (area x density, estimated_mw), not project_mw"
+            ),
+        ] = 60,
         min_ha: Annotated[float, Field(ge=0)] = 0,
         profile: Annotated[
             Literal["built", "container"] | None,

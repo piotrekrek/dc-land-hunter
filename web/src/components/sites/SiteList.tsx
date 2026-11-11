@@ -79,7 +79,11 @@ function SiteRow({ site, profile, selected, hovered, onSelect, onHover }: RowPro
         <ScoreBadge score={site.score} excluded={site.excluded} />
         <span className="block min-w-0 flex-1">
           <span className="block font-medium">
-            {formatHa(site.area_ha)} · ok. {formatMW(site.estimated_mw)}
+            {formatMW(site.project_mw)} · {formatHa(site.area_ha)}
+          </span>
+          <span className="block text-xs text-muted-foreground">
+            pojemność terenu {formatMW(site.estimated_mw)}
+            {site.spare_ha > 0 && ` · rezerwa na drugą fazę: ${formatHa(site.spare_ha)}`}
           </span>
           {placeLine(site) && <span className="block text-xs text-muted-foreground">{placeLine(site)}</span>}
           <span className="mt-1 flex flex-wrap gap-1.5">
