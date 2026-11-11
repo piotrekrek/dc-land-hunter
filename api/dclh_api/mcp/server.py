@@ -8,7 +8,7 @@ from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, Re
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from dclh_api.mcp import tools_changes, tools_deals, tools_near, tools_queue, tools_read, tools_search_now, tools_write
+from dclh_api.mcp import tools_changes, tools_costs, tools_deals, tools_near, tools_queue, tools_read, tools_search_now, tools_write
 from dclh_api.mcp.oauth import SCOPES, DclhOAuthProvider
 
 INSTRUCTIONS = """\
@@ -32,6 +32,8 @@ Area filters take Polish names ("dolnośląskie", "lęborski") as well as TERYT 
 verdict_counts answers "how many are green".
 sites_near finds sites within a radius of a gmina, a powiat or lat/lon ("what is within 20 km of Kutno?").
 verdict_counts answers "how many are green". what_changed answers "what is new since last week".
+connection_costs(mw) gives what securing a grid connection ties up (fee, advance, security);
+the figures need legal verification.
 """
 
 
@@ -77,4 +79,5 @@ def build_mcp(public_url: str, provider: DclhOAuthProvider | None = None) -> Fas
     tools_near.register(mcp, public_url)
     tools_search_now.register(mcp)
     tools_changes.register(mcp, public_url)
+    tools_costs.register(mcp)
     return mcp

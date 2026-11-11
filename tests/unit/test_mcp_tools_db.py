@@ -35,6 +35,8 @@ READ_TOOLS = (
     "sites_near",
 
     "what_changed",
+
+    "connection_costs",
 )
 
 
@@ -113,6 +115,7 @@ async def test_owner_note_never_leaks_through_any_read_tool(seeded: None, mcp: F
     site_id = await first_site_id(mcp)
     await put_in_pipeline(site_id)
     arguments: dict[str, dict[str, Any]] = {name: {} for name in READ_TOOLS}
+    arguments["connection_costs"] = {"site_id": site_id}
     arguments["search_sites"] = {"min_mw": 0, "detail": "full"}
     arguments["sites_near"] = {"lat": 51.7, "lon": 19.4, "radius_km": 100, "min_mw": 0, "detail": "full"}
     arguments["top_picks"] = {"profile": "container", "verdict": ["green", "yellow", "red", "manual"]}
@@ -309,3 +312,11 @@ async def test_top_picks_spreads_by_distance_by_default(seeded: None, mcp: FastM
         per_region=2, min_distance_km=1,
     )  # fmt: skip
     assert nearby["total"] == 2
+
+
+async def test_connection_costs_uses_the_site_estimated_mw(seeded: None, mcp: FastMCP) -> None:
+    site_id = await first_site_id(mcp)
+    out = await call(mcp, "connection_costs", site_id=site_id)
+    assert out["site_id"] == site_id and out["mw"] > 0
+    with pytest.raises(ToolError, match="Nie znaleziono lokalizacji"):
+        await call(mcp, "connection_costs", site_id="nie-ma")
