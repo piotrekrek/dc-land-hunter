@@ -25,8 +25,13 @@ router = APIRouter(tags=["coverage"], dependencies=[Depends(current_user)])
 # API level -> `admin_units.level`
 LEVELS: dict[str, str] = {"wojewodztwo": "voivodeship", "powiat": "powiat", "gmina": "gmina"}
 # The score items the view tracks, by their key in score.items[]; the labels live in the web app.
-TRACKED_ITEMS = ("zoning", "pen_soil_iii", "bonus_psi", "grid_headroom", "pen_mineral_deposit")
-ItemKey = Literal["all", "zoning", "pen_soil_iii", "bonus_psi", "grid_headroom", "pen_mineral_deposit"]
+TRACKED_ITEMS = ("zoning", "pen_soil_iii", "bonus_psi", "grid_headroom", "pen_mineral_deposit", "plan_ogolny")
+ItemKey = Literal[
+    "all", "zoning", "pen_soil_iii", "bonus_psi", "grid_headroom", "pen_mineral_deposit", "plan_ogolny"
+]
+# `plan_ogolny` is not a score item: it is the planning path (OUZ, plan act) the Rejestr Urbanistyczny gave
+# a site, so it is counted from the site's features and stays out of "all".
+PLAN_ITEM = "plan_ogolny"
 # Metres in EPSG:2180: invisible at gmina scale, and it keeps the response small.
 SIMPLIFY_M = 20
 
@@ -67,6 +72,18 @@ _STATION_CLASSES = text(
     ) v ON true
     WHERE s.cls = 'GPZ_110_SN'
     GROUP BY v.teryt, v.name, s.station_class
+    """
+)
+
+_PLAN_COUNTS = text(
+    """
+    SELECT a.teryt,
+           count(*) FILTER (
+               WHERE jsonb_typeof(s.detail->'features'->'planning_path') = 'object') AS with_data
+    FROM sites s
+    JOIN admin_units a ON a.level = :level AND ST_Covers(a.geom, ST_PointOnSurface(s.geom))
+    WHERE NOT s.excluded AND s.kind = 'standard'
+    GROUP BY a.teryt
     """
 )
 
@@ -118,6 +135,7 @@ def build_areas(
     item_rows: Sequence[Mapping[str, Any]],
     item: str,
     geometries: Mapping[str, dict[str, Any]] | None = None,
+    plan_rows: Sequence[Mapping[str, Any]] = (),
 ) -> list[CoverageArea]:
     """Pure assembly from the two aggregate queries; `item` picks the headline share (see CoverageArea)."""
     known_total: dict[str, int] = defaultdict(int)
@@ -129,6 +147,8 @@ def build_areas(
         known_total[row["teryt"]] += row["known"]
         entry_total[row["teryt"]] += row["entries"]
         with_data[(row["teryt"], row["key"])] = row["with_data"]
+    for row in plan_rows:
+        with_data[(row["teryt"], PLAN_ITEM)] = row["with_data"]
 
     areas: list[CoverageArea] = []
     for row in sorted(site_rows, key=lambda r: r["teryt"]):
@@ -166,6 +186,7 @@ def get_coverage(
         site_rows = [dict(r) for r in session.execute(_SITE_COUNTS, params).mappings()]
         item_rows = [dict(r) for r in session.execute(_ITEM_COUNTS, params).mappings()]
         station_rows = [dict(r) for r in session.execute(_STATION_CLASSES).mappings()]
+        plan_rows = [dict(r) for r in session.execute(_PLAN_COUNTS, params).mappings()]
         geometries: dict[str, dict[str, Any]] | None = None
         if include_geometry and site_rows:
             shapes = session.execute(
@@ -178,6 +199,6 @@ def get_coverage(
     return CoverageOut(
         level=level,
         item=item,
-        areas=build_areas(site_rows, item_rows, item, geometries),
+        areas=build_areas(site_rows, item_rows, item, geometries, plan_rows),
         station_classes=build_station_classes(station_rows),
     )

@@ -49,6 +49,25 @@
   `nearest_gpz` can show `unknown` for a station the score treats as verified. The class shares are not measured on
   production yet: after `load-grid`, read `coverage` (`station_classes`); if `unknown_share` is above ~40% in a
   voivodeship, report it before relying on the 0.5 weight. The web checks were not run (no Node in the build sandbox).
+## OUZ and the planning path from the Rejestr Urbanistyczny (11.11.2026, task 4 of the Rzepin RTB spec; not deployed)
+
+- `sources/ru.py` also reads the OUZ layer, the plan act and the zone limits (`docs/SOURCES.md`). `model/planning.py`
+  turns them into site facts with source `ru`: `in_ouz` (yes / no / partial), `planning_path` (MPZP obowiązuje,
+  potrzebny MPZP lub ZPI, WZ możliwa; `estimated`), `plan_ogolny_act` (resolution number) and `plan_ogolny_from`,
+  and the zone limits `zone_max_height_m`, `zone_max_build_up_pct`, `zone_min_pbc_pct`, `zone_max_intensity`.
+  Checked live on gm. Rzepin: a site in a strefa gospodarcza outside the OUZ gets "potrzebny MPZP lub ZPI", 20 m,
+  70%, 20%.
+- A gmina with no plan ogólny in force in the register gets no facts: it stays "do sprawdzenia", not bad. Where the
+  facts exist, the "OUZ" to-check item is gone. New to-check items: the path (outside OUZ), the plan's validity
+  (journal publication, not annulled, with the resolution number) and, at a height limit of 20 m or less, the
+  chimney and cooling flag (`HEIGHT_FLAG_M` in `profiles.py`).
+- Score: `zoning.zone_allows_dc_outside_ouz: 60` (SG zone, no MPZP, site outside the OUZ or only partly in it);
+  `plan_ogolny_SG` 80 stays for sites inside the OUZ or without OUZ data; an MPZP in force stays 100.
+- Site card has a "Ścieżka planistyczna" block; `get_site` (MCP and API) carry the facts in `features`.
+  The coverage view has a new item `plan_ogolny`: the share of kept sites with a planning path, per area (use
+  `level=gmina` for the share of gminas).
+- Not done: the adoption date from `DokumentFormalny` (the card shows "obowiązuje od"); sites already stored need a
+  new scoring run to get the facts; a WZ possible inside the OUZ is a rule of the reform, not a legal opinion.
 
 ## Search runs keep the time per step and the cache use (05.11.2026)
 

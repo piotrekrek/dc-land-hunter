@@ -95,6 +95,9 @@ class GridParams(_Model):
 class ZoningPoints(_Model):
     mpzp_production: float = Field(ge=0, le=100)
     plan_ogolny_SG: float = Field(ge=0, le=100)
+    # A zone that allows production, but the site lies outside the OUZ and has no MPZP: only an MPZP or ZPI
+    # leads to a permit (12–24 months), so it scores below `plan_ogolny_SG` and above `procedure_in_progress`.
+    zone_allows_dc_outside_ouz: float = Field(ge=0, le=100)
     procedure_in_progress: float = Field(ge=0, le=100)
     unknown: float = Field(ge=0, le=100)
     other: float = Field(ge=0, le=100)

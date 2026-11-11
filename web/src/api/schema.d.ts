@@ -1829,6 +1829,8 @@ export interface components {
             mpzp_production: number;
             /** Plan Ogolny Sg */
             plan_ogolny_SG: number;
+            /** Zone Allows Dc Outside Ouz */
+            zone_allows_dc_outside_ouz: number;
             /** Procedure In Progress */
             procedure_in_progress: number;
             /** Unknown */
@@ -2250,7 +2252,7 @@ export interface operations {
         parameters: {
             query?: {
                 level?: "wojewodztwo" | "powiat" | "gmina";
-                item?: "all" | "zoning" | "pen_soil_iii" | "bonus_psi" | "grid_headroom" | "pen_mineral_deposit";
+                item?: "all" | "zoning" | "pen_soil_iii" | "bonus_psi" | "grid_headroom" | "pen_mineral_deposit" | "plan_ogolny";
                 include_geometry?: boolean;
             };
             header?: never;

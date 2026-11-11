@@ -737,7 +737,8 @@
                 "pen_soil_iii",
                 "bonus_psi",
                 "grid_headroom",
-                "pen_mineral_deposit"
+                "pen_mineral_deposit",
+                "plan_ogolny"
               ],
               "type": "string",
               "default": "all",
@@ -5049,6 +5050,12 @@
             "minimum": 0.0,
             "title": "Plan Ogolny Sg"
           },
+          "zone_allows_dc_outside_ouz": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Zone Allows Dc Outside Ouz"
+          },
           "procedure_in_progress": {
             "type": "number",
             "maximum": 100.0,
@@ -5073,6 +5080,7 @@
         "required": [
           "mpzp_production",
           "plan_ogolny_SG",
+          "zone_allows_dc_outside_ouz",
           "procedure_in_progress",
           "unknown",
           "other"

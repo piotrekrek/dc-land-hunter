@@ -50,7 +50,16 @@ def test_share_for_one_item_counts_sites() -> None:
         "bonus_psi": 0.0,
         "grid_headroom": 0.0,
         "pen_mineral_deposit": 0.0,
+        "plan_ogolny": 0.0,
     }
+
+
+def test_plan_ogolny_share_counts_sites_with_a_planning_path() -> None:
+    sites = [site_row("080504", "gmina Rzepin", 4), site_row("080505", "gmina X", 2)]
+    areas = build_areas(sites, [], "plan_ogolny", plan_rows=[{"teryt": "080504", "with_data": 3}])
+    rzepin, other = areas
+    assert (rzepin.with_data, rzepin.total, rzepin.share) == (3, 4, 0.75)
+    assert (other.with_data, other.share) == (0, 0.0)  # no plan ogólny in the register: "do sprawdzenia"
 
 
 def test_all_items_counts_score_entries_not_sites() -> None:
@@ -214,6 +223,7 @@ def test_powiat_coverage_counts_kept_sites_only(db_client: TestClient) -> None:
         "bonus_psi": 0.5,
         "grid_headroom": 0.5,
         "pen_mineral_deposit": 0.0,
+        "plan_ogolny": 0.0,
     }
     # Overall: 2 sites x 4 items = 8 entries, 4 with data.
     assert (powiat["with_data"], powiat["total"], powiat["share"]) == (4, 8, 0.5)

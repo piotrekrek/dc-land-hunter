@@ -46,7 +46,9 @@ grid:
                                             # (operator_gpz = 1, generator/customer = 0); owner may override
   other_station_context_km: 3               # a generator/customer 110 kV station this close: context line
 
-zoning: {mpzp_production: 100, plan_ogolny_SG: 80, procedure_in_progress: 50, unknown: 30, other: 0}
+zoning: {mpzp_production: 100, plan_ogolny_SG: 80, zone_allows_dc_outside_ouz: 60, procedure_in_progress: 50,
+         unknown: 30, other: 0}
+# zone_allows_dc_outside_ouz: plan ogólny zone allows production, site outside the OUZ, no MPZP (path: MPZP or ZPI).
 
 land: {compactness_min: 0.35, parcels_full: 3, parcels_zero: 30, expansion_ha_bonus_per_10ha: 3}
 
