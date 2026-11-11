@@ -86,6 +86,7 @@ def summary(site_id: str = "site-1") -> SiteSummary:
         gmina="Lębork",
         powiat="lęborski",
         voivodeship="pomorskie",
+        weakest_label_pl=None,
         mw_fact=FactOut(
             value=74.07, source_id="egib", as_of=datetime(2026, 11, 1, tzinfo=UTC), confidence="estimated"
         ),
