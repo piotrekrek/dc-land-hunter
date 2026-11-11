@@ -1018,3 +1018,130 @@ Facts checked 05.11.2026 (re-check them at Task 4, they move fast):
 - **Output size.** Large results eat Claude's context: list limit 50, no geometry, detail only through `get_site`.
 - **Abuse of DCR.** Anyone can register a client; it is useless without a user with `mcp_access`, and the
   redirect URI allowlist plus the 200-client cap and the daily purge keep the table small.
+
+## Rzepin RTB review: improvement spec (plan of 11.11.2026)
+
+Source: the doc "DC Land Hunter: improvement spec after the Rzepin RTB review" (11.11.2026). Nine changes; the
+fixed test case is gm. Rzepin (powiat słubicki, TERYT 080504). Integration branch: `spec/rzepin-rtb`. Each task
+below is its own branch and PR into `spec/rzepin-rtb`; the integration branch goes to `main` as one PR after a
+rescore on the VPS shows the expected Rzepin diff.
+
+### What already exists (checked 11.11.2026, so the spec's effort estimates shrink or grow)
+
+- `sources/midas.py` already pages the CBDG MIDAS MapServer for layers 1 (mining areas) and 2 (mining terrains).
+  Deposits are layer 0 of the same service and were left out on purpose. Spec 2 is "add layer 0", not a new source.
+- `sources/ru.py` already reads plan ogólny zones (`app-pog:StrefaPlanistyczna`) and MPZP outlines. Spec 5 adds the
+  OUZ layer and the zone parameters to the same connector.
+- `model/grid.py` classifies substations by voltage only; `derive_operator()` already maps the OSM `operator` tag
+  to a DSO/PSE. `model/gpz_match.py` already fuzzy-matches DSO capacity lists to OSM names. Spec 1 builds on both.
+- "Sprawdź działkę" takes up to 20 parcels but scores **each parcel alone** (`parcel_check.py`). Spec 3's
+  `check_set` (score the union) is new work.
+- `model/sites.py` already cuts clusters above `large_site_split_ha` into ~80 ha pieces (`split_cluster`). It does
+  not look for the best 10–30 ha part. That part of spec 3 is the hardest item here (L, not M).
+- `connection_cost` rules exist in `config/scoring.yaml` (`verified: false`).
+
+### Defaults taken for the spec's open questions (owner can override)
+
+- `unknown` station class: 50% of the GPZ distance points (spec default). Measure the class shares first (task 1,
+  step 1); if `unknown` is above ~40% in a voivodeship, report it before turning the weight on.
+- Deposit status E (exploited): penalty, not exclusion, until the owner decides.
+- PSI: "deposit cancels the PSI bonus" is behind `bonus.deposit_cancels_psi: true` and the reason text says
+  "do weryfikacji". The legal basis is not confirmed in this repo; the bonus is only 3 points.
+- Parcel 208's obręb: unknown. `check_set` acceptance uses 4/36 + its real neighbour once the owner gives the id.
+
+### Task 0 (critical, S): Rzepin regression snapshot
+
+- [ ] `dclh snapshot-sites --gmina 080504 --site <ids…> --out <file.json>`: read-only dump of score, verdict per
+  profile, category scores, flags, nearest GPZ for the 5 sites in the spec table plus one Dolnośląskie control.
+- [ ] `dclh diff-snapshots a.json b.json`: lists sites whose verdict changed or score moved > 5 points.
+- [ ] Unit tests on the diff logic. No DB writes.
+
+### Task 1 (critical, M): substation classification (spec 1)
+
+- [ ] Step 1: `station_class` (`operator_gpz` | `generator` | `customer` | `unknown`) + `class_source` +
+  confidence on `Substation`, from OSM tags in `model/grid.py`: `operator` via `derive_operator`; `substation=
+  generation|industrial`; name patterns (GPO, farma, FW, PV, elektrownia, stacja odbiorcza) → not operator.
+  An operator-list match (`gpz_match`) upgrades to `operator_gpz`, `verified`. Pure function, table-driven tests.
+- [ ] Step 2: carry the class through `osm_power.parse()` and the substations table (alembic migration; parse the
+  `substation` tag too).
+- [ ] Step 3: scoring: GPZ distance points full for `operator_gpz`, `grid.unknown_station_weight` (0.5) for
+  `unknown`, 0 for `generator`/`customer`; those stay as a context line ("stacja farmy wiatrowej 0,7 km — możliwy
+  cable pooling lub PPA").
+- [ ] Step 4: API/MCP: `nearest_gpz` = nearest `operator_gpz` (falls back to `unknown`, labelled);
+  `nearest_other_station` for the rest. Site card shows class + source. `coverage` reports the `unknown` share per
+  voivodeship.
+- [ ] Tests: "GPO Lubiechnia Wielka 110/20 kV" → `generator`; an Enea-tagged GPZ → `operator_gpz`; untagged →
+  `unknown` at half weight.
+
+### Task 2 (critical, S): mineral deposits (spec 2)
+
+- [ ] Add MIDAS layer 0 as kind `mineral_deposit` (keep name, mineral, status, source date) in `sources/midas.py`.
+  Check the layer's field names against the live service first (the server 400s on unknown `outFields`).
+- [ ] Site facts `deposit_overlap_pct`, `deposit_list`; penalty `mineral_deposit` (8 pts) when overlap > 0;
+  `bonus_psi` = 0 with the reason when `deposit_cancels_psi`; a new "do sprawdzenia" item (geological opinion,
+  deposit in plan ogólny). `scoring_rules` lists it; `coverage` reports the layer.
+- [ ] Tests: overlap → penalty + PSI 0; no overlap → unchanged.
+
+### Task 3 (critical, S): target MW and the large-campus flag (spec 4)
+
+- [ ] `target.target_mw` (default = `mw_min`), `project_mw = min(estimated_mw, target_mw)`,
+  `spare_ha = max(0, area_ha − target_mw / mw_per_ha)`.
+- [ ] Large-campus flag and the 220/400 kV requirement in `_grid_items` fire only when `target_mw >
+  large_campus_mw`. Spare land feeds the existing expansion bonus.
+- [ ] API/MCP/UI expose `project_mw` and `spare_ha`; `estimated_mw` is relabelled "pojemność terenu";
+  `min_mw` still filters on land capacity.
+- [ ] Tests: 41 ha → 60 MW, no flag; `target_mw = 200` → flag back.
+
+### Task 4 (high, M): Rejestr Urbanistyczny OUZ and zone parameters (spec 5)
+
+- [ ] Find the OUZ layer and the zone parameter fields in `app-pog/wfs` GetCapabilities/DescribeFeatureType
+  (record in `docs/SOURCES.md`). Add them to `sources/ru.py`.
+- [ ] Site facts `in_ouz` (yes/no/partial), `planning_path`, `zone_params` (max height, build-up %, PBC %), plan
+  number and adoption date. A gmina with no plan ogólny in the register stays "do sprawdzenia".
+- [ ] Planning score: new `zoning.zone_allows_dc_outside_ouz: 60`. Height flag at ≤ 20 m.
+- [ ] Tests on the classification of `planning_path` from fixtures.
+
+### Task 5 (high, M–L): parcel sets (spec 3)
+
+- [ ] `check_set`: the parcel-check pipeline on the union of 2–20 parcels; one score, verdicts, constraints and
+  unknowns for the set; warning when a gap > 50 m; per-id errors for ids ULDK does not know. Web: "Sprawdź jako
+  jeden teren" in Sprawdź działkę; MCP `check_set`.
+- [ ] Saved, named sets that can be watched (reuse the watch table with a set id).
+- [ ] Later step, after task 1 lands: best-subset child site for sites > 80 ha (greedy growth from the parcel
+  nearest the operator GPZ, skipping parcels with forest/flood/protected overlap, stop at 30 ha); `parent_site_id`;
+  `max_per_gmina` treats parent + child as one cluster.
+
+### Task 6 (nice, M): RCN price comparables (spec 6)
+
+Information only, no score impact. Monthly bulk import per powiat; median and p25–p75 zł/m² within 10 km over 36
+months; `asking_price_zl_m2` with a > 10× flag. Starts after the format of the RCN bulk files is checked from a
+Polish IP.
+
+### Task 7 (nice, S): connection timing (spec 7)
+
+Cost block at `project_mw` (needs task 3) and a timing note from `planning_path` (needs task 4). The security value
+(30 zł/kW) needs a lawyer or the operator tariff; code cannot verify it.
+
+### Task 8 (not now, L): cable route and easements (spec 8)
+
+Deferred. A least-cost path over a cost raster plus the parcels it crosses is a large piece of GIS work for an
+"indicative line". Straight-line distance to an **operator** GPZ (task 1) removes most of today's error.
+
+### Task 9 (nice, M): RTB evidence export (spec 9)
+
+Split: the manual `power_evidence` field (S, worth doing early) and the PDF/JSON annex with RAG rules (M, after
+tasks 1–5 so the annex has the new facts).
+
+### Execution order
+
+Wave 1, in parallel (separate worktrees, Sonnet): tasks 0, 1, 2, 3, 4. Tasks 1–3 all touch
+`scoring/engine.py` and `config/scoring.yaml` in different functions; merge order 0 → 3 → 2 → 1 → 4, rebasing each.
+Wave 2: task 5 (`check_set`, then best-subset), task 7, `power_evidence`. Wave 3 on the owner's go: tasks 6, 9.
+
+### Risks
+
+- Deposit polygons are large (lignite, sand, gravel). An 8-point penalty on any overlap may move many sites, not
+  just Rzepin. Task 0's diff over a whole voivodeship shows the spread before merge.
+- OSM `operator` tags are patchy. If most stations end `unknown`, the grid score drops everywhere by up to half of
+  the GPZ points. Step 1 of task 1 measures this first.
+- Acceptance on live Rzepin data needs a rescore on the VPS; the worktrees have no production database.
