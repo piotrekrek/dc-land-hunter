@@ -23,6 +23,7 @@ from dclh_pipeline.model.features import (
     grid_facts,
     overlap_pct,
     passes_grid_prefilter,
+    physical_lines,
     powered_brownfield,
     residential_clear_fact,
     residential_fact,
@@ -92,6 +93,54 @@ def test_n1_counts_distinct_110kv_lines_within_radius() -> None:
     facts = grid_facts(SITE, grid, CFG)
     assert facts["independent_110_lines_near"].value == 2  # type: ignore[union-attr]
     assert facts["dist_line110_km"].value == pytest.approx(1.0)  # type: ignore[union-attr]
+
+
+def seg(osm_id: int, *coords: tuple[float, float]) -> Line:
+    return Line(osm_id, 110_000, LineString(coords))
+
+
+def n1(lines: list[Line]) -> int:
+    return grid_facts(SITE, build_grid_index([], lines), CFG)["independent_110_lines_near"].value  # type: ignore[union-attr,return-value]
+
+
+def test_n1_counts_a_line_split_into_many_ways_once() -> None:
+    # One physical line east of the site, cut into four ways that meet end to end (as OSM maps it).
+    ys = [-5_000, -2_000, 0, 2_000, 5_000]
+    ways = [seg(100 + k, (1_500, ys[k]), (1_500, ys[k + 1])) for k in range(4)]
+    assert n1(ways) == 1
+    assert n1([*ways, line(10, 2_500)]) == 2
+
+
+def test_n1_skips_busbar_and_portal_stubs_inside_a_substation() -> None:
+    # Two lines end at a GPZ 1 km east of the site; the station's busbars are mapped as 10-40 m line ways,
+    # one of them touching a line's end (Rzepin, GPZ Lubiechnia Wielka: 11 ways, 4 physical lines).
+    west = seg(1, (1_500, 250), (1_500, 9_000))
+    east = seg(2, (1_520, 250), (9_000, 250))
+    stubs = [
+        seg(3, (1_500, 250), (1_500, 240)),  # continues `west`: joined, the line stays one line
+        seg(4, (1_505, 230), (1_535, 230)),
+        seg(5, (1_535, 230), (1_545, 230)),  # joined with 4, still 40 m in total
+        seg(6, (1_510, 220), (1_510, 210)),
+    ]
+    assert n1([west, east, *stubs]) == 2
+
+
+def test_n1_keeps_the_legs_of_a_branch_apart() -> None:
+    # Three ways meet at one tower: a branch point, not a line split in two, so nothing is joined.
+    t = (1_500, 250)
+    assert n1([seg(1, t, (1_500, 9_000)), seg(2, t, (1_500, -9_000)), seg(3, t, (9_000, 250))]) == 3
+
+
+def test_ways_ending_where_another_line_passes_are_not_joined() -> None:
+    # Two ways end at a vertex in the middle of a third way: three ways touch that node.
+    through = seg(1, (0, -9_000), (1_500, 250), (0, 9_000))
+    a = seg(2, (1_500, 250), (9_000, 250))
+    b = seg(3, (1_500, 250), (9_000, 5_000))
+    assert physical_lines([(w.osm_id, w.geom) for w in (through, a, b)]) == [1, 2, 3]
+
+
+def test_only_stubs_within_radius_is_a_real_zero() -> None:
+    assert n1([seg(1, (1_500, 250), (1_500, 260)), line(10, 500 + 4_000)]) == 0
 
 
 def test_empty_grid_layer_is_missing_not_zero() -> None:
