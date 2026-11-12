@@ -1,6 +1,6 @@
 # Status
 
-## RCN land-price comparables (12.11.2026; Rzepin RTB spec 6; branch `rtb/t6-rcn`; not deployed)
+## RCN land-price comparables (12.11.2026; Rzepin RTB spec 6; PRs #180, #182, #184; deployed 12.11.2026)
 
 - New source `rcn` (`sources/rcn.py`): the national RCN WFS (`ms:dzialki`), checked live 12.11.2026. **The service uses
   northing-first axis order** (BBOX and `posList`); the connector swaps both and rejects points outside Poland. Features
@@ -22,11 +22,14 @@
   asking > 10 x the agricultural median. MCP `get_site` carries a compact `price_comparables`. `coverage` has an `rcn`
   item (an area counts as covered from 20 transactions) and `rcn_count` / `rcn_weak` per area; the Sources page table
   shows "Transakcje RCN" with "słabe dane" under 20. Site card section "Ceny transakcyjne (RCN)".
-- No score impact. Not done: nothing is imported yet (run `dclh import-rcn` per powiat on the VPS after deploy; until
-  then cards say "Brak zaimportowanych transakcji"); the DB tests (`tests/unit/test_prices_db.py`) were not run locally
+- No score impact. First all-powiat import 12.11.2026: 163 of 270 powiats done (1,31 mln transactions). 99 failed on a
+  GUGiK outage (`Database connection failed`, from 15:06) and are re-queued with `dclh enqueue import_rcn`; 8 failed on
+  connector bugs fixed in PR #184 (big cities over the page cap now split into quadrants; control characters in
+  free text are stripped). Rzepin (0805): no qualifying sales within 10 km, the powiat medians are used (agricultural
+  15,05 zł/m2 from 5 sales). The DB tests (`tests/unit/test_prices_db.py`) were not run locally
   (no PostGIS here, CI runs them). Small plots (a few hundred m2) are included in the medians as the register has them.
 
-## RTB evidence: power evidence ladder and annex export (12.11.2026, Rzepin RTB spec 9; not deployed)
+## RTB evidence: power evidence ladder and annex export (12.11.2026, Rzepin RTB spec 9; PRs #181, #182, #183; deployed 12.11.2026)
 
 - Table `power_evidence` (migration `0021`, no free text): level `rumour` | `informal_opinion` | `application_filed` |
   `conditions_issued` | `agreement_signed`, document date, conditions expiry (only for the last two), http(s) link,
@@ -38,14 +41,15 @@
 - `GET /api/sites/{id}/rtb` (JSON) and print page `/lokalizacje/:id/rtb` ("Aneks RTB" link on the card): map, red flags,
   statuses, power evidence, connection cost (at `project_mw`, from `scoring.yaml`), RCN section, facts table with
   verified / estimated / missing. "Pobierz PDF" is the browser print dialog (A4); "Pobierz JSON" saves the export.
-- Stubbed: `price_comparables` is `null` (page says "Brak danych RCN") until task 6 lands; the integrator wires
-  `GET /api/sites/{id}/prices` at the `TODO(integrator, task 6)` in `routers/rtb.py`.
+- `price_comparables` comes from `site_prices` (wired in PR #182); "Brak danych RCN" shows until the powiat is imported.
+- Fixed in PR #183: sites on a deposit (2833) returned 500 on the card, the annex and parcel checks, because the
+  list-valued `deposit_list` fact failed `FactOut`. `_fact_map` now leaves list-valued facts out.
 - Known gap: forest, flood, Natura 2000 and deposit outlines are not stored (only their share of the site), so the
   annex map draws the site, 110 kV lines and stations; the share of each constraint is in the facts table.
 - Migration number: this branch uses `0021` (down revision `0019`); renumber against the parallel `0020`.
 
 
-## Target MW and the large-campus flag (11.11.2026; Rzepin RTB spec 4, task 3; not deployed)
+## Target MW and the large-campus flag (11.11.2026; Rzepin RTB spec 4, task 3; PR #179; deployed 12.11.2026)
 
 - `target.target_mw` (default 60, must be at least `mw_min`) is the project size sought. `project_mw = min(estimated_mw,
   target_mw)` is now the headline power; `spare_ha = max(0, area_ha - target_mw / mw_per_ha)` is land left for a second
@@ -95,7 +99,7 @@
   `nearest_gpz` can show `unknown` for a station the score treats as verified. The class shares are not measured on
   production yet: after `load-grid`, read `coverage` (`station_classes`); if `unknown_share` is above ~40% in a
   voivodeship, report it before relying on the 0.5 weight. The web checks were not run (no Node in the build sandbox).
-## OUZ and the planning path from the Rejestr Urbanistyczny (11.11.2026, task 4 of the Rzepin RTB spec; not deployed)
+## OUZ and the planning path from the Rejestr Urbanistyczny (11.11.2026, task 4 of the Rzepin RTB spec; PR #179; deployed 12.11.2026)
 
 - `sources/ru.py` also reads the OUZ layer, the plan act and the zone limits (`docs/SOURCES.md`). `model/planning.py`
   turns them into site facts with source `ru`: `in_ouz` (yes / no / partial), `planning_path` (MPZP obowiązuje,

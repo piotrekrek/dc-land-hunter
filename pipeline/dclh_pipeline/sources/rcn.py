@@ -43,7 +43,10 @@ from dclh_pipeline.sources.prg import POLAND_BOUNDS
 WFS_URL = "https://mapy.geoportal.gov.pl/wss/service/rcn"
 EPSG = 2180
 PAGE_SIZE = 1000
-MAX_PAGES = 400
+MAX_PAGES = 50  # per box; a fuller box (a big city) is split into quadrants
+MAX_SPLIT_DEPTH = 4  # at most 4**4 = 256 boxes per powiat
+# XML 1.0 forbids these; the live service passes them through from free-text fields.
+_ILLEGAL_XML = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
 _NS = {
     "wfs": "http://www.opengis.net/wfs/2.0",
     "gml": "http://www.opengis.net/gml/3.2",
@@ -80,7 +83,34 @@ class RcnConnector(Source):
         self.page_size = page_size
 
     def fetch(self, client: PoliteClient, store: SnapshotStore) -> Snapshot:
-        x0, y0, x1, y1 = self.bbox
+        records: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        boxes: list[tuple[BBox, int]] = [(self.bbox, 0)]
+        while boxes:
+            box, depth = boxes.pop()
+            batch = self._fetch_box(client, box)
+            if batch is None:
+                if depth >= MAX_SPLIT_DEPTH:
+                    raise ValueError(f"RCN: more than {MAX_PAGES} pages in a box of powiat {self.powiat}")
+                boxes.extend((quarter, depth + 1) for quarter in _quadrants(box))
+                continue
+            for record in batch:
+                key = json.dumps(record, sort_keys=True)  # a parcel on a split line is in both boxes
+                if key not in seen:
+                    seen.add(key)
+                    records.append(record)
+        body = {"powiat": self.powiat, "bbox": self.bbox, "records": records}
+        return store.save(
+            self.id,
+            json.dumps(body, ensure_ascii=False, sort_keys=True).encode(),
+            suffix=".json",
+            url=WFS_URL,
+            content_type="application/json",
+        )
+
+    def _fetch_box(self, client: PoliteClient, box: BBox) -> list[dict[str, Any]] | None:
+        """This powiat's records in one box, or None when the box holds more than MAX_PAGES pages."""
+        x0, y0, x1, y1 = box
         wfs_bbox = f"{y0},{x0},{y1},{x1},urn:ogc:def:crs:EPSG::{EPSG}"  # northing first, see the module doc
         records: list[dict[str, Any]] = []
         for page in range(MAX_PAGES):
@@ -100,17 +130,8 @@ class RcnConnector(Source):
             returned, batch = parse_page(resp.content)
             records.extend(r for r in batch if r["powiat"] == self.powiat)
             if returned < self.page_size:
-                break
-        else:
-            raise ValueError(f"RCN: more than {MAX_PAGES} pages for powiat {self.powiat}")
-        body = {"powiat": self.powiat, "bbox": self.bbox, "records": records}
-        return store.save(
-            self.id,
-            json.dumps(body, ensure_ascii=False, sort_keys=True).encode(),
-            suffix=".json",
-            url=WFS_URL,
-            content_type="application/json",
-        )
+                return records
+        return None
 
     def parse(self, snapshot: Snapshot) -> gpd.GeoDataFrame:
         body = json.loads(snapshot.path.read_bytes())
@@ -122,7 +143,8 @@ def parse_page(xml: bytes) -> tuple[int, list[dict[str, Any]]]:
 
     Raises on a WFS exception report: an error page must not read as "no transactions".
     """
-    root = ET.fromstring(xml)
+    text = _ILLEGAL_XML.sub("", xml.decode("utf-8", errors="replace"))
+    root = ET.fromstring(text.encode())
     if root.tag.endswith("ExceptionReport"):
         raise ValueError(f"RCN returned an error: {xml[:300]!r}")
     returned = int(root.get("numberReturned") or 0)
@@ -132,6 +154,12 @@ def parse_page(xml: bytes) -> tuple[int, list[dict[str, Any]]]:
         if record is not None:
             out.append(record)
     return returned, out
+
+
+def _quadrants(box: BBox) -> list[BBox]:
+    x0, y0, x1, y1 = box
+    mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+    return [(x0, y0, mx, my), (mx, y0, x1, my), (x0, my, mx, y1), (mx, my, x1, y1)]
 
 
 def _text(feature: ET.Element, name: str) -> str:
