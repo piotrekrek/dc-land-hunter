@@ -44,7 +44,7 @@ WFS_URL = "https://mapy.geoportal.gov.pl/wss/service/rcn"
 EPSG = 2180
 PAGE_SIZE = 1000
 MAX_PAGES = 50  # per box; a fuller box (a big city) is split into quadrants
-MAX_SPLIT_DEPTH = 4  # at most 4**4 = 256 boxes per powiat
+MAX_SPLIT_DEPTH = 6  # boxes down to ~500 m: central Warsaw and Gdańsk hold over 50 pages in a 2 km box
 # XML 1.0 forbids these; the live service passes them through from free-text fields.
 _ILLEGAL_XML = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
 _NS = {
