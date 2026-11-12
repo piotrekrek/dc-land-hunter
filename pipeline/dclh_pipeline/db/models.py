@@ -116,6 +116,10 @@ class SubstationRow(Base):
     voltage_tag: Mapped[str | None] = mapped_column(Text)
     cls: Mapped[str] = mapped_column(String(32))
     confidence: Mapped[str] = mapped_column(String(16))
+    # Whose station it is (model/grid.py `classify_station`); migration 0019.
+    station_class: Mapped[str] = mapped_column(String(16), default="unknown", server_default="unknown")
+    class_source: Mapped[str | None] = mapped_column(String(24))
+    class_confidence: Mapped[str] = mapped_column(String(16), default="missing", server_default="missing")
     source_id: Mapped[str] = mapped_column(String(64), default="osm_power")
     as_of: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

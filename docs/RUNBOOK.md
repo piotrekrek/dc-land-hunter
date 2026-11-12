@@ -191,6 +191,24 @@ uv run dclh reprofile        # recomputes every stored site from detail.features
 
 Run it again after editing `config/profiles.yaml`. Until then a profile filter does not hide those rows (no verdict is not red).
 
+## Site snapshots (regression check around scoring changes)
+
+Two read-only commands; they never write to the database. Snapshot before and after a rescore, then diff:
+
+```bash
+uv run dclh snapshot-sites --site site-8cb533d084db --site site-5b98a44d8408 --site site-0e03a53b846f \
+  --site site-4755d239dc1f --site site-cb505a5f0870 --gmina 080504 --out before.json
+# ... change scoring, `dclh search <powiat> --write` ...
+uv run dclh snapshot-sites <same arguments> --out after.json
+uv run dclh diff-snapshots before.json after.json [--threshold 5]
+```
+
+`--site` and `--gmina` (TERYT) add up: every listed site plus every site whose representative point lies in the
+gmina. Each entry has score, upside, verdict per profile, category points, flags, nearest 110/SN GPZ (name,
+distance) and estimated MW and area. The diff lists verdict changes in any profile, score moves above the
+threshold (default 5 points) and sites present in only one file. The five Rzepin RTB sites above are the
+reference set for the Rzepin improvement spec.
+
 ## Adding a source connector
 
 1. Add or update the entry in `config/sources.yaml` (id, plan, cadence, probes).

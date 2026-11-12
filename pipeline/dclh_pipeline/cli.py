@@ -386,6 +386,58 @@ def search_cmd(
         console.print(f"wrote {count} sites for powiat {found.teryt}")
 
 
+@app.command("snapshot-sites")
+def snapshot_sites_cmd(
+    out: Annotated[Path, typer.Option("--out", help="JSON file to write")],
+    site: Annotated[list[str] | None, typer.Option("--site", help="Site id; repeat for several")] = None,
+    gmina: Annotated[str | None, typer.Option("--gmina", help="Gmina TERYT; adds every site in it")] = None,
+) -> None:
+    """Dump score, verdicts, category scores, flags and nearest GPZ of sites to JSON (read-only).
+
+    Run before and after a scoring change, then compare with `dclh diff-snapshots`.
+    """
+    from dclh_pipeline.db import session_scope
+    from dclh_pipeline.site_snapshot import snapshot_sites
+
+    if not site and not gmina:
+        raise typer.BadParameter("give at least one --site or a --gmina")
+    with session_scope() as session:
+        sites = snapshot_sites(session, site or [], gmina)
+    for missing in sorted(set(site or []) - sites.keys()):
+        console.print(f"[yellow]not found: {missing}[/yellow]")
+    out.write_text(json.dumps({"sites": sites}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    console.print(f"wrote {len(sites)} sites to {out}")
+
+
+@app.command("diff-snapshots")
+def diff_snapshots_cmd(
+    a: Annotated[Path, typer.Argument(help="Earlier snapshot")],
+    b: Annotated[Path, typer.Argument(help="Later snapshot")],
+    threshold: Annotated[float, typer.Option(help="Report score moves larger than this")] = 5.0,
+) -> None:
+    """Print sites whose verdict changed or score moved past the threshold, and sites in one file only."""
+    from dclh_pipeline.site_snapshot import diff_snapshots
+
+    def load(path: Path) -> dict[str, Any]:
+        try:
+            return dict(json.loads(path.read_text(encoding="utf-8"))["sites"])
+        except (OSError, ValueError, KeyError) as exc:
+            raise typer.BadParameter(f"{path}: not a site snapshot ({exc})") from exc
+
+    diff = diff_snapshots(load(a), load(b), threshold)
+    for site_id, changes in diff.verdict_changes.items():
+        for profile, (was, now) in changes.items():
+            console.print(f"{site_id} verdict {profile}: {was} -> {now}")
+    for site_id, (before, after) in diff.score_moves.items():
+        console.print(f"{site_id} score: {before:.1f} -> {after:.1f} ({after - before:+.1f})")
+    for site_id in diff.only_a:
+        console.print(f"{site_id} only in {a}")
+    for site_id in diff.only_b:
+        console.print(f"{site_id} only in {b}")
+    if diff.empty:
+        console.print("no differences")
+
+
 @app.command("reprofile")
 def reprofile_cmd() -> None:
     """Recompute the profile verdicts of every stored site from its stored features (no new search)."""

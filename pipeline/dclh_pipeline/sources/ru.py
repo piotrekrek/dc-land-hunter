@@ -6,6 +6,10 @@ Verified 19.10.2026 (docs/SOURCES.md, "Hard filters and zoning"):
   type in `nazwa` (an xlink to the code list). The strefa gospodarcza is `nazwa = …/strefaGospodarcza`,
   symbol SP.
   A server-side filter on `nazwa` returns nothing, so the client filters (`model/zoning.py`).
+- 11.11.2026 (docs/SOURCES.md, "OUZ and zone parameters"): `app-pog/wfs` also has
+  `app-pog:ObszarUzupelnieniaZabudowy` (OUZ) and `app-pog:AktPlanowaniaPrzestrzennego` (the plan act with
+  its extent), and `StrefaPlanistyczna` carries `maksWysokoscZabudowy`, `maksUdzialPowierzchniZabudowy`,
+  `minUdzialPowierzchniBiologicznieCzynnej` and `maksNadziemnaIntensywnoscZabudowy`.
 - `app-mpzp/wfs`, layer `app-mpzp:AktPlanowaniaPrzestrzennego`: MPZP outlines only, no designations. Its
   `status` tells a plan in force (`legalForce`) from one in procedure (`elaboration`, `adoption`).
 
@@ -102,6 +106,9 @@ class _RuWfs(Source):
     path: ClassVar[str]
     layer: ClassVar[str]
     columns: ClassVar[dict[str, str]]  # output column → GDAL field
+    # Output columns whose GDAL field may be absent: GDAL builds the schema from each page, so a page whose
+    # features all lack an optional element (a zone with no height limit) has no such field. They read "".
+    optional: ClassVar[frozenset[str]] = frozenset()
 
     def __init__(self, spec: SourceSpec, *, bbox: BBox, page_size: int = PAGE_SIZE) -> None:
         super().__init__(spec)
@@ -226,12 +233,19 @@ class _RuWfs(Source):
             path = Path(tmp_dir) / "page.gml"
             path.write_bytes(gml)
             raw = read_dataframe(path, SWAP_COORDINATES="YES", GML_ATTRIBUTES_TO_OGR_FIELDS="YES")
-        missing = [f for f in ("gml_id", *self.columns.values()) if f not in raw.columns]
+        wanted = ["gml_id", *(f for c, f in self.columns.items() if c not in self.optional)]
+        missing = [f for f in wanted if f not in raw.columns]
         if missing:
             raise ValueError(f"RU {self.layer}: fields {missing} not found; available: {sorted(raw.columns)}")
         raw = raw[raw.geometry.notna() & ~raw.geometry.is_empty]
         out = gpd.GeoDataFrame(
-            {"gml_id": raw["gml_id"].astype(str), **{c: raw[f].astype(str) for c, f in self.columns.items()}},
+            {
+                "gml_id": raw["gml_id"].astype(str),
+                **{
+                    c: (raw[f].astype(str) if f in raw.columns else pd.Series("", index=raw.index))
+                    for c, f in self.columns.items()
+                },
+            },
             geometry=raw.geometry,
         )
         return out.set_crs(f"EPSG:{EPSG}", allow_override=True)
@@ -255,7 +269,44 @@ class RuPlanOgolnyConnector(_RuWfs):
         "symbol": "symbol",
         "zone_href": "nazwa_href",
         "status_href": "status_href",
+        # Zone parameters (checked live around Rzepin, 11.11.2026). Optional: a zone may set none of them.
+        "max_height_m": "maksWysokoscZabudowy",
+        "max_build_up_pct": "maksUdzialPowierzchniZabudowy",
+        "min_pbc_pct": "minUdzialPowierzchniBiologicznieCzynnej",
+        "max_intensity": "maksNadziemnaIntensywnoscZabudowy",
     }
+    optional: ClassVar[frozenset[str]] = frozenset(
+        {"max_height_m", "max_build_up_pct", "min_pbc_pct", "max_intensity"}
+    )
+
+
+class RuOuzConnector(_RuWfs):
+    """Obszary uzupełnienia zabudowy (OUZ) of the plans ogólne: one row per area with its plan and status."""
+
+    path = "app-pog/wfs"
+    layer = "app-pog:ObszarUzupelnieniaZabudowy"
+    columns: ClassVar[dict[str, str]] = {
+        "plan_id": "przestrzenNazw",
+        "local_id": "lokalnyId",
+        "status_href": "status_href",
+    }
+
+
+class RuPlanActConnector(_RuWfs):
+    """Plan ogólny acts: one row per gmina plan with its extent, title, date it takes effect and the adopting
+    resolution (`resolution_href` ends in the document id, e.g. `POG_Rzepin_XXXIV_224_2026_uchwalajaca`)."""
+
+    path = "app-pog/wfs"
+    layer = "app-pog:AktPlanowaniaPrzestrzennego"
+    columns: ClassVar[dict[str, str]] = {
+        "plan_id": "przestrzenNazw",
+        "local_id": "lokalnyId",
+        "title": "tytul",
+        "in_force_from": "obowiazujeOd",
+        "status_href": "status_href",
+        "resolution_href": "dokumentUchwalajacy_href",
+    }
+    optional: ClassVar[frozenset[str]] = frozenset({"title", "in_force_from", "resolution_href"})
 
 
 class RuMpzpConnector(_RuWfs):

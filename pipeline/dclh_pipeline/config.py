@@ -20,6 +20,7 @@ class _Model(BaseModel):
 
 class Target(_Model):
     mw_min: float
+    target_mw: float = Field(gt=0)
     mw_per_ha: float = Field(gt=0)
     ha_min: float = Field(gt=0)
     ha_ideal: tuple[float, float]
@@ -31,6 +32,8 @@ class Target(_Model):
         lo, hi = self.ha_ideal
         if not lo < hi <= self.large_site_split_ha:
             raise ValueError("target.ha_ideal must be (low, high) with low < high <= large_site_split_ha")
+        if self.target_mw < self.mw_min:
+            raise ValueError("target.target_mw must be at least target.mw_min")
         return self
 
 
@@ -74,6 +77,11 @@ class GridParams(_Model):
     closed_switchyard_km: float = Field(default=3.0, gt=0)
     # Fuzzy GPZ name matches below this score (0–100) are not used; manual mappings always are.
     gpz_match_min_score: float = Field(default=90.0, ge=0, le=100)
+    # Share of the GPZ distance points a station of unknown class earns (an operator GPZ earns all of them,
+    # a generator or customer station none). 1.0 switches the class off.
+    unknown_station_weight: float = Field(default=0.5, ge=0, le=1)
+    # A generator/customer station this close is shown as a context line (cable pooling, PPA); no points.
+    other_station_context_km: float = Field(default=3.0, gt=0)
 
     @model_validator(mode="after")
     def _ranges(self) -> GridParams:
@@ -87,6 +95,9 @@ class GridParams(_Model):
 class ZoningPoints(_Model):
     mpzp_production: float = Field(ge=0, le=100)
     plan_ogolny_SG: float = Field(ge=0, le=100)
+    # A zone that allows production, but the site lies outside the OUZ and has no MPZP: only an MPZP or ZPI
+    # leads to a permit (12–24 months), so it scores below `plan_ogolny_SG` and above `procedure_in_progress`.
+    zone_allows_dc_outside_ouz: float = Field(ge=0, le=100)
     procedure_in_progress: float = Field(ge=0, le=100)
     unknown: float = Field(ge=0, le=100)
     other: float = Field(ge=0, le=100)
@@ -132,12 +143,15 @@ class BonusParams(_Model):
     res_cluster_km: float
     env_decision_found: float
     public_seller: float
+    # A documented mineral deposit under the site sets the PSI bonus to 0 (flagged "do weryfikacji").
+    deposit_cancels_psi: bool = False
 
 
 class Penalties(_Model):
     flood_0_2pct: float
     landscape_park_or_ochk: float
     mining_terrain: float
+    mineral_deposit: float
     soil_class_III_pct_over_30: float
     residential_100_300m: float
     gas_pipeline_zone: float

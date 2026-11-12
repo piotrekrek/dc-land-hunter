@@ -736,7 +736,9 @@
                 "zoning",
                 "pen_soil_iii",
                 "bonus_psi",
-                "grid_headroom"
+                "grid_headroom",
+                "pen_mineral_deposit",
+                "plan_ogolny"
               ],
               "type": "string",
               "default": "all",
@@ -1397,6 +1399,11 @@
           "public_seller": {
             "type": "number",
             "title": "Public Seller"
+          },
+          "deposit_cancels_psi": {
+            "type": "boolean",
+            "title": "Deposit Cancels Psi",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -1678,6 +1685,14 @@
           "estimated_mw": {
             "type": "number",
             "title": "Estimated Mw"
+          },
+          "project_mw": {
+            "type": "number",
+            "title": "Project Mw"
+          },
+          "spare_ha": {
+            "type": "number",
+            "title": "Spare Ha"
           },
           "score": {
             "type": "number",
@@ -1966,6 +1981,8 @@
           "zone_id",
           "area_ha",
           "estimated_mw",
+          "project_mw",
+          "spare_ha",
           "score",
           "upside_score",
           "completeness",
@@ -2327,6 +2344,14 @@
             },
             "type": "array",
             "title": "Areas"
+          },
+          "station_classes": {
+            "items": {
+              "$ref": "#/components/schemas/StationClassShare"
+            },
+            "type": "array",
+            "title": "Station Classes",
+            "default": []
           }
         },
         "type": "object",
@@ -2630,6 +2655,19 @@
             "minimum": 0.0,
             "title": "Gpz Match Min Score",
             "default": 90.0
+          },
+          "unknown_station_weight": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Unknown Station Weight",
+            "default": 0.5
+          },
+          "other_station_context_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Other Station Context Km",
+            "default": 3.0
           }
         },
         "additionalProperties": false,
@@ -3081,6 +3119,10 @@
             "type": "number",
             "title": "Mining Terrain"
           },
+          "mineral_deposit": {
+            "type": "number",
+            "title": "Mineral Deposit"
+          },
           "soil_class_III_pct_over_30": {
             "type": "number",
             "title": "Soil Class Iii Pct Over 30"
@@ -3104,6 +3146,7 @@
           "flood_0_2pct",
           "landscape_park_or_ochk",
           "mining_terrain",
+          "mineral_deposit",
           "soil_class_III_pct_over_30",
           "residential_100_300m",
           "gas_pipeline_zone",
@@ -3992,6 +4035,14 @@
             "type": "number",
             "title": "Estimated Mw"
           },
+          "project_mw": {
+            "type": "number",
+            "title": "Project Mw"
+          },
+          "spare_ha": {
+            "type": "number",
+            "title": "Spare Ha"
+          },
           "score": {
             "type": "number",
             "title": "Score"
@@ -4220,6 +4271,8 @@
           "zone_id",
           "area_ha",
           "estimated_mw",
+          "project_mw",
+          "spare_ha",
           "score",
           "upside_score",
           "completeness",
@@ -4309,6 +4362,14 @@
           "estimated_mw": {
             "type": "number",
             "title": "Estimated Mw"
+          },
+          "project_mw": {
+            "type": "number",
+            "title": "Project Mw"
+          },
+          "spare_ha": {
+            "type": "number",
+            "title": "Spare Ha"
           },
           "score": {
             "type": "number",
@@ -4440,6 +4501,8 @@
           "zone_id",
           "area_ha",
           "estimated_mw",
+          "project_mw",
+          "spare_ha",
           "score",
           "upside_score",
           "completeness",
@@ -4735,6 +4798,52 @@
         ],
         "title": "SourcesList"
       },
+      "StationClassShare": {
+        "properties": {
+          "teryt": {
+            "type": "string",
+            "title": "Teryt"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "operator_gpz": {
+            "type": "integer",
+            "title": "Operator Gpz"
+          },
+          "generator": {
+            "type": "integer",
+            "title": "Generator"
+          },
+          "customer": {
+            "type": "integer",
+            "title": "Customer"
+          },
+          "unknown": {
+            "type": "integer",
+            "title": "Unknown"
+          },
+          "unknown_share": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Unknown Share"
+          }
+        },
+        "type": "object",
+        "required": [
+          "teryt",
+          "name",
+          "operator_gpz",
+          "generator",
+          "customer",
+          "unknown",
+          "unknown_share"
+        ],
+        "title": "StationClassShare",
+        "description": "110 kV/SN stations of one voivodeship by class; a high `unknown_share` means a guessed GPZ score."
+      },
       "StepOut": {
         "properties": {
           "parcel": {
@@ -4818,6 +4927,11 @@
             "type": "number",
             "title": "Mw Min"
           },
+          "target_mw": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Target Mw"
+          },
           "mw_per_ha": {
             "type": "number",
             "exclusiveMinimum": 0.0,
@@ -4855,6 +4969,7 @@
         "type": "object",
         "required": [
           "mw_min",
+          "target_mw",
           "mw_per_ha",
           "ha_min",
           "ha_ideal",
@@ -5061,6 +5176,12 @@
             "minimum": 0.0,
             "title": "Plan Ogolny Sg"
           },
+          "zone_allows_dc_outside_ouz": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Zone Allows Dc Outside Ouz"
+          },
           "procedure_in_progress": {
             "type": "number",
             "maximum": 100.0,
@@ -5085,6 +5206,7 @@
         "required": [
           "mpzp_production",
           "plan_ogolny_SG",
+          "zone_allows_dc_outside_ouz",
           "procedure_in_progress",
           "unknown",
           "other"

@@ -248,6 +248,29 @@ def test_constraint_facts_use_their_own_source_and_confidence() -> None:
     assert "soil_class_i_ii_pct" not in facts  # layer not loaded: missing, not zero
 
 
+def test_deposit_facts_list_each_deposit_once_with_its_source() -> None:
+    # Two contours of one deposit and a second deposit under the site; a third one far away.
+    geoms = [box(0, 0, 100, 100), box(100, 0, 200, 100), box(300, 300, 400, 400), box(5_000, 0, 6_000, 100)]
+    names = ["Rzepin", "Rzepin", "Piaski", "Daleko"]
+    deposits = Layer(
+        source_id="midas",
+        index=GeomIndex(geoms),
+        as_of=None,
+        confidence=Confidence.VERIFIED,
+        attrs=tuple({"name": n, "mineral": "WĘGLE BRUNATNE", "status": ""} for n in names),
+    )
+    facts = constraint_facts(SITE, {"mineral_deposit": deposits})
+    pct = facts["deposit_overlap_pct"]
+    assert pct is not None and pct.value == pytest.approx(100.0 * (20_000 + 10_000) / 250_000)
+    assert pct.source_id == "midas" and pct.confidence is Confidence.VERIFIED
+    listed = facts["deposit_list"]
+    assert listed is not None and listed.source_id == "midas" and listed.confidence is Confidence.VERIFIED
+    assert [d["name"] for d in listed.value] == ["Rzepin", "Piaski"]  # type: ignore[index,union-attr]
+    # No deposit under the site: a real zero and an empty list, not missing.
+    clear = constraint_facts(box(10_000, 0, 10_100, 100), {"mineral_deposit": deposits})
+    assert clear["deposit_overlap_pct"].value == 0.0 and clear["deposit_list"].value == []  # type: ignore[union-attr]
+
+
 def test_residential_distance_in_metres() -> None:
     fact = residential_fact(SITE, layer([box(650, 0, 700, 50)], "bdot10k"))
     assert fact is not None and fact.value == pytest.approx(150.0)

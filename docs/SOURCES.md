@@ -22,12 +22,33 @@ file or calling the endpoint, as described here.
 
 ### Hard filters and zoning
 
+- **`ru` OUZ, plan act and zone parameters ✓ (11.11.2026, live from Poland, gm. Rzepin 080504).** `app-pog/wfs`
+  GetCapabilities lists six layers: `app-pog:AktPlanowaniaPrzestrzennego`, `DokumentFormalny`,
+  `ObszarStandardowDostepnosciInfrastrukturySpolecznej`, **`ObszarUzupelnieniaZabudowy`** (the OUZ; polygons with
+  `symbol` OUZ, `oznaczenie`, `status`, `plan` xlink), `ObszarZabudowySrodmiejskiej` and `StrefaPlanistyczna`.
+  `DescribeFeatureType` only returns an `xsd:include` of the APP 3.0 schema, so the fields were read from real
+  features. `StrefaPlanistyczna` carries `maksWysokoscZabudowy` (`uom="m"`), `maksUdzialPowierzchniZabudowy` (%),
+  `minUdzialPowierzchniBiologicznieCzynnej` (%) and `maksNadziemnaIntensywnoscZabudowy`; a zone may omit any of them
+  (open zones have none). Rzepin SP (strefa gospodarcza): 20 m, 70%, 20%, as in the RTB review. The plan act
+  (`AktPlanowaniaPrzestrzennego`, extent in `zasiegPrzestrzenny`) has `tytul`, `obowiazujeOd` (11.09.2026 for Rzepin),
+  `status` and `dokumentUchwalajacy` as an xlink to the `DokumentFormalny` whose id holds the resolution number
+  (`POG_Rzepin_XXXIV_224_2026_uchwalajaca`). The number is read from that id; the adoption date (27.08.2026) is
+  only in the `DokumentFormalny` (`data`, `dataWejsciaWZycie`, `numerIdentyfikacyjny` = the voivodeship journal
+  position), which the app does not load yet. Same paging as the other RU layers (10 per page, bbox northing-first).
+  Rzepin bbox ±4 km: 375 zones, 53 OUZ areas, 1 plan act. Fixtures: `tests/fixtures/live/rzepin-2026-11-11/`.
+
 - **`midas` ✓ mining (21.10.2026, loaded live for powiat 1421).** ArcGIS MapServer
   `https://cbdgmapa.pgi.gov.pl/arcgis/rest/services/midas/MapServer`: layer 1 "obszary górnicze" (`mining_area`, 6,201
   current features) and layer 2 "tereny górnicze" (`mining_terrain`, 6,022). Query with `inSR=2180&outSR=2180`,
   `f=geojson` (the answer is in EPSG:2180), `maxRecordCount` 1000, paged by `resultOffset`. The count-only request
-  (`returnCountOnly=true`) gives the total to check against. Layers 3–5 are archive, layer 0 is deposits: not used.
-  The `status` field is `aktualny`. `dclh search` loads it per powiat (`sources/midas.py`).
+  (`returnCountOnly=true`) gives the total to check against. Layers 3–5 are archive: not used.
+  The `status` field is `aktualny`. Layer 0 "udokumentowane złoża kopalin" (`mineral_deposit`, 18,187 features, checked
+  11.11.2026) has been loaded since the Rzepin RTB review: fields `NR_ZLOZA`, `NAZWA_ZL`, `KOPALINA`, `KOPALINA_ALL`,
+  `AKTUALIZACJA`, `UWAGI`, `NADZ_GOR` and others. It has **no `STATUS` field and no `ID_KONTURU`** (the deposit
+  development status P/R/E/Z is not in this service; the status shown in the spec comes from the geological
+  balance), so the app keeps name, mineral and the update note only. It feeds the 8-point penalty
+  `mineral_deposit` and cancels the PSI bonus (`bonus.deposit_cancels_psi`). Live sample:
+  `tests/fixtures/live/source-verification-2026-11-11/` (Rzepin lignite, deposit no. 5604). `dclh search` loads it per powiat (`sources/midas.py`).
 - **`isok` 0.2% zones (21.10.2026).** The same WFS now also returns `loo_ql_probabilityofoccurrence = 0.002` in one request
   with the 1% zones (`fes:Or`). `flood_0_2` is the 10-point penalty; the 1% zones stay the hard filter.
 - **`gdos` landscape parks and OChK (21.10.2026).** The same WFS has `GDOS:ParkiKrajobrazowe` (213 features, 25 MB)

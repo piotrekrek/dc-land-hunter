@@ -66,7 +66,12 @@ def register(mcp: FastMCP, public_url: str) -> None:
     async def search_sites(
         powiat: AreaName = None,
         voivodeship: AreaName = None,
-        min_mw: Annotated[float, Field(ge=0, description="Minimum estimated MW (area x density)")] = 60,
+        min_mw: Annotated[
+            float,
+            Field(
+                ge=0, description="Minimum land capacity in MW (area x density, estimated_mw), not project_mw"
+            ),
+        ] = 60,
         min_ha: Annotated[float, Field(ge=0)] = 0,
         profile: Annotated[
             Literal["built", "container"] | None,
@@ -293,7 +298,7 @@ def register(mcp: FastMCP, public_url: str) -> None:
     async def coverage(
         level: Literal["wojewodztwo", "powiat"] = "wojewodztwo",
         item: Annotated[
-            Literal["all", "zoning", "pen_soil_iii", "bonus_psi", "grid_headroom"],
+            Literal["all", "zoning", "pen_soil_iii", "bonus_psi", "grid_headroom", "pen_mineral_deposit"],
             Field(description="Which data item the share of sites with data refers to"),
         ] = "all",
     ) -> dict[str, Any]:
@@ -317,6 +322,18 @@ def register(mcp: FastMCP, public_url: str) -> None:
                 }
                 for a in result.areas
                 if a.sites > 0
+            ],
+            "station_classes": [
+                {
+                    "teryt": c.teryt,
+                    "name": c.name,
+                    "operator_gpz": c.operator_gpz,
+                    "generator": c.generator,
+                    "customer": c.customer,
+                    "unknown": c.unknown,
+                    "unknown_share": round(c.unknown_share, 2),
+                }
+                for c in result.station_classes
             ],
         }
 

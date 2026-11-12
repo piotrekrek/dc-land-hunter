@@ -34,7 +34,7 @@ The brief gives distances and bonus sizes but not how sub-criteria share a categ
 | | Expansion land: 3 points per 10 ha (config), capped. Hectares of other EGiB parcels within 20 m of the site | 10 |
 | **Connectivity** | Telecom node: full ≤ 2 km, zero ≥ 15 km | 50 |
 | | Large city: full ≤ 30 km, zero ≥ 120 km | 50 |
-| **Zoning** | Lookup from `zoning:` in the config (MPZP 100, SG 80, procedure 50, unknown 30, other 0) | 100 |
+| **Zoning** | Lookup from `zoning:` in the config (MPZP 100, SG 80, SG outside the OUZ with no MPZP 60, procedure 50, unknown 30, other 0) | 100 |
 | **Bonus** | In final-score points, capped at 10: heat network ≤ 5 km (3), PSI aid (up to 3), RES cluster ≤ 10 km (2), environmental decision (3), public seller (2) | 13 → 10 |
 
 - The grid sub-criteria add up to 118 and are capped at 100: a site can reach the full grid score without every bonus.
