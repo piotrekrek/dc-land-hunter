@@ -11,6 +11,7 @@ import { PlanningPath } from "@/components/site/PlanningPath";
 import { ConnectionCostCalculator } from "@/components/site/ConnectionCostCalculator";
 import { ParcelIds } from "@/components/site/ParcelIds";
 import { PriceComparables } from "@/components/site/PriceComparables";
+import { PowerEvidenceEditor } from "@/components/site/PowerEvidenceEditor";
 import { ProfileCards } from "@/components/site/ProfileCards";
 import { ProjectActions } from "@/components/site/ProjectActions";
 import { Protokol } from "@/components/site/Protokol";
@@ -52,6 +53,15 @@ function SiteCard({ site }: { site: SiteDetail }) {
             >
               Pokaż w Mapach Google
             </a>
+          </p>
+          <p className="mt-1 text-sm">
+            <Link
+              to={`/lokalizacje/${encodeURIComponent(site.site_id)}/rtb`}
+              className="text-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              Aneks RTB
+            </Link>{" "}
+            <span className="text-muted-foreground">(PDF i JSON do wysłania partnerowi)</span>
           </p>
           {parcels > 0 && parcels <= 20 && (
             <p className="mt-1 text-sm">
@@ -108,6 +118,7 @@ function SiteCard({ site }: { site: SiteDetail }) {
       <Protokol site={site} />
 
       <PriceComparables key={`prices-${site.site_id}`} siteId={site.site_id} />
+      <PowerEvidenceEditor key={site.site_id} siteId={site.site_id} evidence={site.power_evidence} />
 
       <ConnectionCostCalculator key={site.site_id} estimatedMw={site.project_mw} />
     </>

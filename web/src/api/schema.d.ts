@@ -252,6 +252,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sites/{site_id}/power-evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Power Evidence
+         * @description Records how firmly the power is documented (RTB export). Manual, team-wide, idempotent.
+         */
+        put: operations["put_power_evidence_api_sites__site_id__power_evidence_put"];
+        post?: never;
+        /**
+         * Delete Power Evidence
+         * @description Back to the default (`rumour`). Idempotent, and allowed for a site that has since left the list.
+         */
+        delete: operations["delete_power_evidence_api_sites__site_id__power_evidence_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sites/{site_id}/orthophoto": {
         parameters: {
             query?: never;
@@ -264,6 +288,23 @@ export interface paths {
          * @description The Geoportal orthophoto for exactly the card map's box, asked for only when the card shows it.
          */
         get: operations["get_site_orthophoto_api_sites__site_id__orthophoto_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/{site_id}/rtb": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Rtb */
+        get: operations["get_rtb_api_sites__site_id__rtb_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -762,6 +803,13 @@ export interface components {
             stage?: ("new" | "watching" | "analysis" | "owner_contact" | "negotiation" | "rejected" | "secured") | null;
             /** Project Note */
             project_note?: string | null;
+            /**
+             * @default {
+             *       "level": "rumour",
+             *       "recorded": false
+             *     }
+             */
+            power_evidence: components["schemas"]["PowerEvidenceOut"];
             /** N */
             n: number;
             /** Check Id */
@@ -1266,6 +1314,45 @@ export interface components {
             /** Lon */
             lon: number;
         };
+        /** PowerEvidenceBody */
+        PowerEvidenceBody: {
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "rumour" | "informal_opinion" | "application_filed" | "conditions_issued" | "agreement_signed";
+            /** Document Date */
+            document_date?: string | null;
+            /** Conditions Expiry */
+            conditions_expiry?: string | null;
+            /** Attachment Url */
+            attachment_url?: string | null;
+        };
+        /**
+         * PowerEvidenceOut
+         * @description How firmly the power is documented. Typed in by the team, never derived; `recorded` false = default.
+         */
+        PowerEvidenceOut: {
+            /**
+             * Level
+             * @default rumour
+             * @enum {string}
+             */
+            level: "rumour" | "informal_opinion" | "application_filed" | "conditions_issued" | "agreement_signed";
+            /** Document Date */
+            document_date?: string | null;
+            /** Conditions Expiry */
+            conditions_expiry?: string | null;
+            /** Attachment Url */
+            attachment_url?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Recorded
+             * @default false
+             */
+            recorded: boolean;
+        };
         /** PowiatItem */
         PowiatItem: {
             /** Teryt */
@@ -1533,6 +1620,184 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /**
+         * Rtb
+         * @description Thresholds of the RTB workstream proposal (`rtb.py`). Distances in km, shares in percent.
+         */
+        Rtb: {
+            /**
+             * Line110 Acceptable Km
+             * @default 3
+             */
+            line110_acceptable_km: number;
+            /**
+             * Gpz110 Acceptable Km
+             * @default 5
+             */
+            gpz110_acceptable_km: number;
+            /**
+             * Node 220 400 Km
+             * @default 25
+             */
+            node_220_400_km: number;
+            /**
+             * Parcels Yellow Over
+             * @default 10
+             */
+            parcels_yellow_over: number;
+            /**
+             * Forest Yellow Pct
+             * @default 10
+             */
+            forest_yellow_pct: number;
+            /**
+             * Soil Iii Yellow Pct
+             * @default 30
+             */
+            soil_iii_yellow_pct: number;
+            /**
+             * Residential Yellow M
+             * @default 300
+             */
+            residential_yellow_m: number;
+        };
+        /** RtbConnectionCost */
+        RtbConnectionCost: {
+            /** Mw */
+            mw: number;
+            /** Lines */
+            lines: components["schemas"]["RtbCostLine"][];
+            /** Frozen Pln */
+            frozen_pln: number;
+            /** Total Pln */
+            total_pln: number;
+            /** Conditions Valid Months */
+            conditions_valid_months: number;
+            /** Legal Basis */
+            legal_basis: string;
+            /** Verified */
+            verified: boolean;
+            /** Caveats Pl */
+            caveats_pl: string[];
+        };
+        /** RtbCostLine */
+        RtbCostLine: {
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "application_fee" | "advance" | "security";
+            /** Label Pl */
+            label_pl: string;
+            /** Pln */
+            pln: number;
+            /** Basis Pl */
+            basis_pl: string;
+            /** Source Id */
+            source_id: string;
+            /** As Of */
+            as_of: string;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "verified" | "estimated" | "missing";
+        };
+        /** RtbExport */
+        RtbExport: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            site: components["schemas"]["SiteSummary"];
+            /** Parcel Ids */
+            parcel_ids: string[];
+            /**
+             * Scored At
+             * Format: date-time
+             */
+            scored_at: string;
+            power_evidence: components["schemas"]["PowerEvidenceOut"];
+            /** Status Note Pl */
+            status_note_pl: string;
+            /** Workstreams */
+            workstreams: components["schemas"]["RtbWorkstream"][];
+            /** Red Flags */
+            red_flags: components["schemas"]["RtbRedFlag"][];
+            connection_cost: components["schemas"]["RtbConnectionCost"];
+            price_comparables?: components["schemas"]["SitePrices"] | null;
+            /** Facts */
+            facts: components["schemas"]["RtbFact"][];
+            map: components["schemas"]["SheetOut"];
+            /** Map Note Pl */
+            map_note_pl: string;
+        };
+        /** RtbFact */
+        RtbFact: {
+            /** Key */
+            key: string;
+            /** Label Pl */
+            label_pl: string;
+            /** Value */
+            value: number | boolean | string | null;
+            /** Unit */
+            unit: string | null;
+            /** Source Id */
+            source_id: string | null;
+            /** As Of */
+            as_of: string | null;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "verified" | "estimated" | "missing";
+        };
+        /** RtbReason */
+        RtbReason: {
+            /** Text Pl */
+            text_pl: string;
+            /** Source Id */
+            source_id: string | null;
+            /** As Of */
+            as_of: string | null;
+        };
+        /** RtbRedFlag */
+        RtbRedFlag: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "exclusion" | "penalty";
+            /** Key */
+            key: string;
+            /** Label Pl */
+            label_pl: string;
+            /** Reason Pl */
+            reason_pl: string;
+            /** Points */
+            points: number;
+            /** Source Id */
+            source_id: string | null;
+            /** As Of */
+            as_of: string | null;
+            /** Confidence */
+            confidence: string | null;
+        };
+        /** RtbWorkstream */
+        RtbWorkstream: {
+            /** Key */
+            key: string;
+            /** Label Pl */
+            label_pl: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "green" | "yellow" | "red";
+            /** Reasons */
+            reasons: components["schemas"]["RtbReason"][];
+        };
         /** ScopeOut */
         ScopeOut: {
             /** Id */
@@ -1623,6 +1888,18 @@ export interface components {
              */
             rcn: components["schemas"]["RcnParams"];
             connection_cost: components["schemas"]["ConnectionCost"];
+            /**
+             * @default {
+             *       "line110_acceptable_km": 3,
+             *       "gpz110_acceptable_km": 5,
+             *       "node_220_400_km": 25,
+             *       "parcels_yellow_over": 10,
+             *       "forest_yellow_pct": 10,
+             *       "soil_iii_yellow_pct": 30,
+             *       "residential_yellow_m": 300
+             *     }
+             */
+            rtb: components["schemas"]["Rtb"];
         };
         /** SearchParams */
         SearchParams: {
@@ -1746,6 +2023,13 @@ export interface components {
             stage?: ("new" | "watching" | "analysis" | "owner_contact" | "negotiation" | "rejected" | "secured") | null;
             /** Project Note */
             project_note?: string | null;
+            /**
+             * @default {
+             *       "level": "rumour",
+             *       "recorded": false
+             *     }
+             */
+            power_evidence: components["schemas"]["PowerEvidenceOut"];
         };
         /**
          * SiteMapOut
@@ -2512,6 +2796,70 @@ export interface operations {
             };
         };
     };
+    put_power_evidence_api_sites__site_id__power_evidence_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PowerEvidenceBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PowerEvidenceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_power_evidence_api_sites__site_id__power_evidence_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_site_orthophoto_api_sites__site_id__orthophoto_get: {
         parameters: {
             query?: never;
@@ -2530,6 +2878,37 @@ export interface operations {
                 };
                 content: {
                     "image/jpeg": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_rtb_api_sites__site_id__rtb_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RtbExport"];
                 };
             };
             /** @description Validation Error */

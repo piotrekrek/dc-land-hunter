@@ -18,7 +18,7 @@ import {
 } from "@/lib/prices";
 import { CONFIDENCE_LABEL } from "@/lib/sites";
 
-function Group({ label, group }: { label: string; group: PriceGroup }) {
+export function PriceGroupCard({ label, group }: { label: string; group: PriceGroup }) {
   const range = formatRange(group);
   const dates = formatDateRange(group);
   return (
@@ -161,8 +161,8 @@ export function PriceComparables({ siteId }: { siteId: string }) {
                 {formatNumber(comp.radius_km, 0)} km (osobno dla każdej grupy, gdy za mało transakcji: cały powiat).
               </p>
               <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Group label="Grunty rolne" group={comp.agricultural} />
-                <Group label="Pozostałe grunty" group={comp.other} />
+                <PriceGroupCard label="Grunty rolne" group={comp.agricultural} />
+                <PriceGroupCard label="Pozostałe grunty" group={comp.other} />
               </dl>
             </>
           )}
@@ -173,5 +173,40 @@ export function PriceComparables({ siteId }: { siteId: string }) {
         </>
       )}
     </section>
+  );
+}
+
+/** The same figures without the editor, for the RTB annex (print page). */
+export function PriceSummary({ prices }: { prices: SitePrices }) {
+  const comp = prices.comparables;
+  if (comp.confidence === "missing") {
+    return (
+      <p className="text-sm" data-testid="rcn-empty">
+        Brak danych RCN
+      </p>
+    );
+  }
+  return (
+    <div data-testid="rcn-present">
+      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <PriceGroupCard label="Grunty rolne" group={comp.agricultural} />
+        <PriceGroupCard label="Pozostałe grunty" group={comp.other} />
+      </dl>
+      {prices.asking_zl_m2 != null && (
+        <p className="mt-2 text-sm" data-testid="rcn-asking">
+          Cena ofertowa: <span className="tabular-nums">{formatZlM2(prices.asking_zl_m2)}</span>
+          {prices.asking_outlier && (
+            <span className="ml-2 font-medium text-bad">
+              {OUTLIER_WARNING}
+              {prices.asking_outlier_widened ? " (mediana z całego powiatu)" : ""}
+            </span>
+          )}
+        </p>
+      )}
+      <p className="mt-2 text-xs text-muted-foreground">
+        Źródło: RCN (GUGiK){comp.as_of ? `, import ${formatDate(comp.as_of)}` : ""}; niezabudowane grunty, ostatnie{" "}
+        {comp.months} miesiące, promień {formatNumber(comp.radius_km, 0)} km. Informacyjnie, nie wpływa na punktację.
+      </p>
+    </div>
   );
 }

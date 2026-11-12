@@ -26,6 +26,25 @@
   then cards say "Brak zaimportowanych transakcji"); the DB tests (`tests/unit/test_prices_db.py`) were not run locally
   (no PostGIS here, CI runs them). Small plots (a few hundred m2) are included in the medians as the register has them.
 
+## RTB evidence: power evidence ladder and annex export (12.11.2026, Rzepin RTB spec 9; not deployed)
+
+- Table `power_evidence` (migration `0021`, no free text): level `rumour` | `informal_opinion` | `application_filed` |
+  `conditions_issued` | `agreement_signed`, document date, conditions expiry (only for the last two), http(s) link,
+  updated by/at. No row reads `rumour`. `PUT` / `DELETE /api/sites/{id}/power-evidence`; the site detail carries
+  `power_evidence`; MCP `get_site` shows the level and dates (read only, no link). Card editor "Dowod mocy".
+- `rtb.py` proposes six workstream statuses with Polish reasons (fact, source, date); thresholds in `rtb:` of
+  `scoring.yaml`; rules in `docs/SCORING.md`. Rzepin, as stored on 12.11.2026 (rumour): land yellow (compactness 0,24),
+  power yellow, planning yellow, environment yellow (deposit "Rzepin", 63%), concept and commercial yellow.
+- `GET /api/sites/{id}/rtb` (JSON) and print page `/lokalizacje/:id/rtb` ("Aneks RTB" link on the card): map, red flags,
+  statuses, power evidence, connection cost (at `project_mw`, from `scoring.yaml`), RCN section, facts table with
+  verified / estimated / missing. "Pobierz PDF" is the browser print dialog (A4); "Pobierz JSON" saves the export.
+- Stubbed: `price_comparables` is `null` (page says "Brak danych RCN") until task 6 lands; the integrator wires
+  `GET /api/sites/{id}/prices` at the `TODO(integrator, task 6)` in `routers/rtb.py`.
+- Known gap: forest, flood, Natura 2000 and deposit outlines are not stored (only their share of the site), so the
+  annex map draws the site, 110 kV lines and stations; the share of each constraint is in the facts table.
+- Migration number: this branch uses `0021` (down revision `0019`); renumber against the parallel `0020`.
+
+
 ## Target MW and the large-campus flag (11.11.2026; Rzepin RTB spec 4, task 3; not deployed)
 
 - `target.target_mw` (default 60, must be at least `mw_min`) is the project size sought. `project_mw = min(estimated_mw,

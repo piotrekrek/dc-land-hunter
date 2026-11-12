@@ -11,7 +11,20 @@ from sqlalchemy.orm import sessionmaker
 
 from dclh_api.mcp.oauth import DclhOAuthProvider
 from dclh_api.mcp.server import build_mcp
-from dclh_api.routers import auth, checks, config, coverage, health, oauth, ops, powiats, sites, sources, team
+from dclh_api.routers import (
+    auth,
+    checks,
+    config,
+    coverage,
+    health,
+    oauth,
+    ops,
+    powiats,
+    rtb,
+    sites,
+    sources,
+    team,
+)
 from dclh_pipeline import __version__
 from dclh_pipeline.db import get_engine
 from dclh_pipeline.settings import get_settings
@@ -50,6 +63,7 @@ def create_app() -> FastAPI:
         sources.router,
         config.router,
         sites.router,
+        rtb.router,
         coverage.router,
         ops.router,
         powiats.router,

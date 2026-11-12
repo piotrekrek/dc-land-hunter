@@ -20,6 +20,8 @@ from dclh_api.schemas import (
     AskingPriceBody,
     FactOut,
     GridBadgeLabel,
+    PowerEvidenceBody,
+    PowerEvidenceOut,
     ProjectBody,
     ProjectState,
     SiteDetail,
@@ -288,6 +290,7 @@ def get_site(
             .mappings()
             .first()
         )
+        detail.power_evidence = load_power_evidence(session, site_id)
     except SQLAlchemyError as exc:
         raise _unavailable() from exc
     detail.watched = watched
@@ -429,6 +432,68 @@ def put_asking_price(
     if prices is None:
         raise HTTPException(404, "Nie ma takiej lokalizacji.")
     return prices
+
+
+def load_power_evidence(session: Session, site_id: str) -> PowerEvidenceOut:
+    """The stored evidence, or the default (`rumour`, not recorded) when the team has typed nothing."""
+    row = (
+        session.execute(
+            text(
+                "SELECT level, document_date, conditions_expiry, attachment_url, updated_at "
+                "FROM power_evidence WHERE site_id = :s"
+            ),
+            {"s": site_id},
+        )
+        .mappings()
+        .first()
+    )
+    return PowerEvidenceOut(**row, recorded=True) if row is not None else PowerEvidenceOut()
+
+
+@router.put("/sites/{site_id}/power-evidence", response_model=PowerEvidenceOut)
+def put_power_evidence(
+    site_id: str,
+    body: PowerEvidenceBody,
+    session: Annotated[Session, Depends(db_session)],
+    user: Annotated[UserRow, Depends(current_user)],
+) -> PowerEvidenceOut:
+    """Records how firmly the power is documented (RTB export). Manual, team-wide, idempotent."""
+    _require_site(session, site_id)
+    try:
+        session.execute(
+            text(
+                "INSERT INTO power_evidence (site_id, level, document_date, conditions_expiry, "
+                "attachment_url, "
+                "updated_by) VALUES (:s, :level, :doc, :expiry, :url, :u) "
+                "ON CONFLICT (site_id) DO UPDATE SET level = EXCLUDED.level, "
+                "document_date = EXCLUDED.document_date, conditions_expiry = EXCLUDED.conditions_expiry, "
+                "attachment_url = EXCLUDED.attachment_url, updated_at = now(), "
+                "updated_by = EXCLUDED.updated_by"
+            ),
+            {
+                "s": site_id,
+                "level": body.level,
+                "doc": body.document_date,
+                "expiry": body.conditions_expiry,
+                "url": body.attachment_url,
+                "u": user.id,
+            },
+        )
+        session.commit()
+        return load_power_evidence(session, site_id)
+    except SQLAlchemyError as exc:
+        raise _unavailable() from exc
+
+
+@router.delete("/sites/{site_id}/power-evidence", status_code=204)
+def delete_power_evidence(site_id: str, session: Annotated[Session, Depends(db_session)]) -> Response:
+    """Back to the default (`rumour`). Idempotent, and allowed for a site that has since left the list."""
+    try:
+        session.execute(text("DELETE FROM power_evidence WHERE site_id = :s"), {"s": site_id})
+        session.commit()
+    except SQLAlchemyError as exc:
+        raise _unavailable() from exc
+    return Response(status_code=204)
 
 
 def _site_row(session: Session, site_id: str) -> RowMapping | None:

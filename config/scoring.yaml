@@ -136,3 +136,13 @@ connection_cost:
   security_pln_per_kw: 30
   security_applies_up_to_mw: 100
   conditions_valid_months: 12
+
+# RTB evidence export (rtb.py): thresholds of the proposed workstream status (green / yellow / red). Not scoring.
+rtb:
+  line110_acceptable_km: 3      # power: red when no 110 kV line is this close and no GPZ is within gpz110_acceptable_km
+  gpz110_acceptable_km: 5
+  node_220_400_km: 25           # power: above target.large_campus_mw a 220/400 kV node this close is needed for green
+  parcels_yellow_over: 10       # land: more parcels than this means many owners (yellow)
+  forest_yellow_pct: 10         # environment: more forest than this is yellow (the hard filter excludes above 30%)
+  soil_iii_yellow_pct: 30
+  residential_yellow_m: 300
