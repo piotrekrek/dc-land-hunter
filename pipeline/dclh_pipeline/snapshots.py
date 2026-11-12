@@ -9,10 +9,15 @@ can mount the data folder at different places and still read the same manifest. 
 paths are rebased onto the root when read, and rewritten as relative on the next `mark_good`.
 
 A fetch that returns identical bytes adds a manifest line (so `as_of` moves forward) but no new object.
+
+An object can be stored gzipped as `<sha256><suffix>.gz`. The name keeps the hash of the uncompressed bytes,
+so identical content is still stored once and a bundle that names `<sha256><suffix>` finds either form
+(`stored_object`).
 """
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
 import shutil
@@ -75,6 +80,13 @@ def resolve_path(stored: str, root: Path, source_id: str) -> Path:
 def object_path(objects_dir: Path, sha: str, suffix: str) -> Path:
     """Where an object lives: `<objects_dir>/<sha[:2]>/<sha><suffix>`."""
     return objects_dir / sha[:2] / f"{sha}{suffix}"
+
+
+def stored_object(objects_dir: Path, sha: str, suffix: str) -> Path:
+    """The object as it is on disk: the plain file, or its gzipped form when only that exists."""
+    plain = object_path(objects_dir, sha, suffix)
+    packed = plain.with_name(plain.name + ".gz")
+    return packed if not plain.exists() and packed.exists() else plain
 
 
 def sha256_file(path: Path) -> str:
@@ -141,12 +153,25 @@ class SnapshotStore:
             fh.write(json.dumps(snap.to_json(self.root), ensure_ascii=False) + "\n")
         return snap
 
-    def put_object(self, source_id: str, content: bytes, *, suffix: str = ".bin") -> str:
+    def put_object(
+        self, source_id: str, content: bytes, *, suffix: str = ".bin", compress: bool = False
+    ) -> str:
         """Store raw bytes as an object without a manifest line; returns the sha256.
 
         For parts of a snapshot (e.g. the pages of a tiled download). Only the snapshot that refers to them
         is recorded in the manifest, so `latest()` and change detection see one entry per fetch.
+        With `compress`, the bytes are kept gzipped as `<sha256><suffix>.gz`; the sha256 is of `content`.
         """
+        if compress:
+            sha = hashlib.sha256(content).hexdigest()
+            objects_dir = self._source_dir(source_id) / "objects"
+            if not stored_object(objects_dir, sha, suffix).exists():
+                target = object_path(objects_dir, sha, suffix + ".gz")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                tmp = target.with_name(target.name + ".tmp")
+                tmp.write_bytes(gzip.compress(content, mtime=0))
+                tmp.replace(target)
+            return sha
         tmp_dir = self._source_dir(source_id) / "tmp"
         tmp_dir.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(dir=tmp_dir, delete=False) as fh:
@@ -164,6 +189,25 @@ class SnapshotStore:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(file, target)
         return sha, target
+
+    def compact_objects(self, source_id: str, suffix: str) -> tuple[int, int, int]:
+        """Gzip every plain `<suffix>` object of a source in place; returns (files, bytes before, after).
+
+        The gzipped file is written next to the plain one and the plain one is removed only after that, so an
+        interrupted run leaves every object readable. Run it while no job reads this source.
+        """
+        files = before = after = 0
+        for plain in sorted((self._source_dir(source_id) / "objects").glob(f"*/*{suffix}")):
+            packed = plain.with_name(plain.name + ".gz")
+            if not packed.exists():
+                tmp = packed.with_name(packed.name + ".tmp")
+                tmp.write_bytes(gzip.compress(plain.read_bytes(), mtime=0))
+                tmp.replace(packed)
+            files += 1
+            before += plain.stat().st_size
+            after += packed.stat().st_size
+            plain.unlink()
+        return files, before, after
 
     def history(self, source_id: str) -> list[Snapshot]:
         manifest = self._manifest(source_id)

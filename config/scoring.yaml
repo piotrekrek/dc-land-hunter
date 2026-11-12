@@ -4,10 +4,11 @@
 
 target:
   mw_min: 60
+  target_mw: 60           # the project size sought; land beyond it is spare (second phase), not a bigger campus
   mw_per_ha: 6            # 60 MW ≈ 10 ha
   ha_min: 10
   ha_ideal: [10, 30]
-  large_campus_mw: 150    # above: flag "duży kampus", needs 220/400 kV
+  large_campus_mw: 150    # when target_mw is above: flag "duży kampus", needs 220/400 kV
   large_site_split_ha: 80 # above: flag "duży teren, do podziału" and suggest a 10–30 ha sub-site
 
 # Hard filters (6.1). mode: exclude | penalty. In "penalty" mode the filter subtracts
@@ -41,8 +42,13 @@ grid:
   closed_switchyard_km: 3                   # Phase 3: a closed PSE switchyard this close counts
   gpz_match_min_score: 90                   # Phase 3: fuzzy GPZ name match threshold (0-100); 88 let
                                             # "Ostrowite" match "Ostrowiec" on live data (19.10.2026)
+  unknown_station_weight: 0.5               # share of GPZ-distance points for a station of unknown class
+                                            # (operator_gpz = 1, generator/customer = 0); owner may override
+  other_station_context_km: 3               # a generator/customer 110 kV station this close: context line
 
-zoning: {mpzp_production: 100, plan_ogolny_SG: 80, procedure_in_progress: 50, unknown: 30, other: 0}
+zoning: {mpzp_production: 100, plan_ogolny_SG: 80, zone_allows_dc_outside_ouz: 60, procedure_in_progress: 50,
+         unknown: 30, other: 0}
+# zone_allows_dc_outside_ouz: plan ogólny zone allows production, site outside the OUZ, no MPZP (path: MPZP or ZPI).
 
 land: {compactness_min: 0.35, parcels_full: 3, parcels_zero: 30, expansion_ha_bonus_per_10ha: 3}
 
@@ -55,13 +61,15 @@ connectivity:
 
 # Bonus category: points are final-score points (the category is capped at weights.bonus).
 bonus: {heat_network_km: 5, heat_network_pts: 3, psi_aid_max_pts: 3, psi_aid_full_pct: 50, res_cluster_km: 10,
-        res_cluster_pts: 2, env_decision_found: 3, public_seller: 2}
+        res_cluster_pts: 2, env_decision_found: 3, public_seller: 2, deposit_cancels_psi: true}
 # psi_aid_full_pct: the regional aid rate (%) that earns psi_aid_max_pts; points scale linearly below it.
+# deposit_cancels_psi: a documented mineral deposit under the site sets bonus_psi to 0 (legal basis unconfirmed).
 
 penalties:
   flood_0_2pct: 10
   landscape_park_or_ochk: 8
   mining_terrain: 8
+  mineral_deposit: 8       # documented deposit (MIDAS layer 0) under the site; any overlap, no hard filter
   soil_class_III_pct_over_30: 8
   residential_100_300m: 10
   gas_pipeline_zone: 5

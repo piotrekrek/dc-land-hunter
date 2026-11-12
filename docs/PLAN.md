@@ -725,3 +725,619 @@ is a property of the grid nearby, not of the land.
 **Risks:** volume (thousands of farm parcels near lines; the tight seed and hard filters are the guard, measured on one
 powiat before backfill); a 60 MW load on 0,5–2 ha needs ~30–120 MW/ha, which only dense liquid-cooled containers reach,
 so the card says so; zoning for most small plots will be "unknown".
+
+## Claude connector (MCP) (plan of 05.11.2026)
+
+**Goal:** a person with an app account adds DC Land Hunter as a custom connector in Claude (claude.ai web, desktop or
+phone, or Claude Code), logs in with their app login, and Claude can then search sites, read site cards, coverage and
+pipeline stages, watch sites and queue a parcel check.
+
+**Architecture:** a remote MCP server (official Python MCP SDK, `FastMCP`, Streamable HTTP, stateless) mounted inside
+the existing `api` container. The same SDK's OAuth 2.1 authorization server module issues tokens. Clients, codes and
+tokens live in Postgres. Login and consent use the app's own login: the SDK's `/authorize` sends the browser to a new
+web page, `/polacz-claude`, where a logged-in user approves or denies. The tools call the existing router functions
+in-process, so Claude sees exactly what the UI shows. No new container and no paid service.
+
+**Tech stack:** `mcp` (PyPI, latest 1.x, exact version locked in `uv.lock`), FastAPI, SQLAlchemy, Alembic, React.
+
+**Executor:** written for Sonnet 5.5. Each task is one PR, in order. Do not merge: the owner merges.
+
+### Decisions (owner, 04–05.11.2026)
+
+| Topic | Decision |
+|---|---|
+| Route | Option A: remote server with OAuth, so claude.ai, the phone app and Claude Code all work. It will be handed over to other users. |
+| Pipeline data | Claude sees **stages only, never `owner_note`** (it may hold personal data; brief 9.6). |
+| Writes | **Safe writes only:** watch or unwatch a site, and queue a parcel check. No pipeline edits, no priority list changes. |
+| Access | **An admin enables each user** (`users.mcp_access`, `dclh user mcp-access`). Turning it off kills that user's tokens at once. |
+| Registration | Dynamic Client Registration (RFC 7591), which claude.ai supports. CIMD is out of scope. |
+
+Facts checked 05.11.2026 (re-check them at Task 4, they move fast):
+- Claude's OAuth callback is `https://claude.ai/api/mcp/auth_callback`. Anthropic says it may move to
+  `https://claude.com/api/mcp/auth_callback`, so allow both.
+- Claude supports DCR, token expiry and refresh. Custom connectors need a Pro, Max, Team or Enterprise plan.
+- MCP spec 2025-11-25 makes Protected Resource Metadata (RFC 9728) mandatory. A 401 must carry
+  `WWW-Authenticate` with `resource_metadata`.
+- Sources: [Anthropic: building custom connectors](https://support.claude.com/en/articles/11503834-building-custom-connectors-via-remote-mcp-servers),
+  [connector authentication](https://claude.com/docs/connectors/building/authentication),
+  [MCP authorization 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization).
+
+### Global constraints
+
+- Every rule in `CLAUDE.md` applies. In particular: code and docs in English, every UI text in Polish, a PR per task,
+  never merge, DB tests only against a `*_test` database, invoke the `karpathy-guidelines` skill before coding.
+- **Never return `project_cards.owner_note`**, from any tool, in any field.
+- Every tool result that carries grid information also carries `GRID_NOTE` (Task 1) and the `confidence` values
+  the API already has. Claude must not be able to say "60 MW is available" from our data.
+- Tokens, codes and request ids are stored as SHA-256 hashes only (as `sessions` does in `dclh_pipeline/auth.py`).
+- Lifetimes: consent request 10 min, authorization code 5 min, access token 1 h, refresh token 30 days with rotation.
+- Scopes: `dclh.read` (all read tools) and `dclh.write` (write tools). Both are offered by default.
+- The server is stateless (`stateless_http=True`, `json_response=True`): no in-memory session or token state, so an
+  `api` restart breaks nothing.
+- The MCP and OAuth routes exist only when `DCLH_PUBLIC_URL` is set (for example `https://<domain>`, no trailing
+  slash). Without it, the API behaves exactly as today.
+- Tool names and descriptions in English (Claude reads them). Messages Claude passes on to a user are in Polish.
+
+### Review focus
+
+1. A user whose `mcp_access` was switched off still has a valid access token → the next call must get a 401 (test in Task 2).
+2. Someone registers a client with a non-Claude redirect URI to phish a code → registration is rejected (Task 2).
+3. A consent link opened twice, or after 10 minutes → a clear Polish message, no second code (Task 3).
+4. `api` restarts between connect and the next call, or between two refreshes → everything keeps working, because
+   the provider has no memory state (Task 2 builds a fresh provider between steps).
+5. A planted `owner_note` must never appear in any tool output (Task 1 and Task 5 tests serialise every tool result
+   and search for the note text).
+
+### Task 1: MCP server with the read tools (not exposed yet)
+
+**Files:**
+- Modify: `api/pyproject.toml` (add `mcp`), `uv.lock`, `api/dclh_api/main.py`
+- Create: `api/dclh_api/mcp/__init__.py`, `api/dclh_api/mcp/server.py`, `api/dclh_api/mcp/context.py`,
+  `api/dclh_api/mcp/tools_read.py`
+- Test: `tests/unit/test_mcp_tools.py` (no DB), `tests/unit/test_mcp_tools_db.py` (DB-gated, like the other `*_db.py`)
+
+**Interfaces:**
+- Produces: `build_mcp(public_url: str, provider: OAuthAuthorizationServerProvider | None) -> FastMCP` in `server.py`
+  (Task 1 passes `None`, Task 4 passes the provider); `tool_user(session: Session) -> UserRow` in `context.py`
+  (reads the SDK's `get_access_token()`, expects a `DclhAccessToken` with `user_id: int` from Task 2, raises
+  `ToolError` otherwise); `GRID_NOTE: str`; `site_url(public_url: str, site_id: str) -> str`.
+
+- [ ] **Step 1:** read the installed SDK source (`mcp/server/fastmcp/server.py`, `mcp/server/auth/`) and note the real
+  names of `FastMCP`, `AuthSettings`, `ClientRegistrationOptions`, `RevocationOptions`, `get_access_token` and
+  `OAuthAuthorizationServerProvider`. If a name in this plan differs, use the SDK's and say so in the PR.
+- [ ] **Step 2: failing tests.** In `test_mcp_tools.py`, with `tool_user` and the router functions monkeypatched:
+  `test_tools_listed` (the server lists exactly `search_sites`, `get_site`, `list_pipeline`, `list_powiaty`,
+  `coverage`, `get_check`, `scoring_rules`, each with `readOnlyHint=True`); `test_search_limit_clamped`
+  (`limit=500` → the router gets `limit=50`); `test_search_result_has_grid_note`; `test_get_site_drops_heavy_fields`
+  (no `geometry`, `map`, `project_note` keys); `test_http_error_becomes_tool_error` (router raises
+  `HTTPException(404, "Nie ma takiej lokalizacji.")` → `ToolError` with that text). In `test_mcp_tools_db.py`:
+  `test_owner_note_never_leaks` (insert a project card with note `"TAJNA-NOTATKA-123"`, call every read tool,
+  `json.dumps` each result, assert the string is absent) and `test_list_pipeline_returns_stage`.
+- [ ] **Step 3:** run `uv run pytest tests/unit/test_mcp_tools.py -v`. Expected: FAIL (module missing).
+- [ ] **Step 4: implement.** The tools (each opens its own session from `db_session()` and calls the router function
+  directly with explicit arguments):
+  - `search_sites(powiat: str | None = None, voivodeship: str | None = None, min_mw: float = 60, min_ha: float = 0,
+    profile: Literal["built", "container"] | None = None, hide_red: bool = False,
+    sort: Literal["score", "upside", "area", "mw"] = "score", limit: int = 20, cursor: str | None = None) -> dict`:
+    calls `routers.sites.list_sites`; returns `total`, `next_cursor`, `grid_note`, and per site `site_id`, place,
+    `area_ha`, `estimated_mw`, `score`, both verdicts, `grid_badge`, `flags`, `url`.
+  - `get_site(site_id: str) -> dict`: `routers.sites.get_site` minus `geometry`, `map`, `project_note`; plus `url`
+    and `grid_note`.
+  - `list_pipeline() -> list[dict]`: new SQL `SELECT site_id, stage, updated_at FROM project_cards` joined to `sites`
+    for place and score. Name the columns explicitly; never `SELECT *`.
+  - `list_powiaty()`, `coverage(voivodeship: str | None = None)`, `get_check(check_id: str)`, `scoring_rules()`:
+    thin wrappers around `powiats.list_powiats`, `coverage`, `checks` get and `config` scoring.
+  - Server `instructions` (English, ≤ 15 lines): what the app is, what green/yellow/red/manual verdicts mean
+    (Warto / Warunkowo / Odpada / Do weryfikacji), that grid scores are proxies, to answer the user in Polish
+    and to give each site's `url`.
+  - `GRID_NOTE = "Ocena sieci to szacunek z odległości do sieci i danych publicznych operatorów, a nie potwierdzona
+    moc przyłączeniowa. Wiążą tylko warunki przyłączenia wydane przez OSD."`
+  - `main.py`: nothing is mounted yet (Task 4 mounts it). Only `build_mcp` exists and is tested in-process.
+- [ ] **Step 5:** run `uv run pytest tests/unit/test_mcp_tools.py -v` (PASS), then the full checks from `CLAUDE.md`.
+- [ ] **Step 6:** commit, push, open the PR "MCP: server with read tools (not exposed yet)".
+
+### Task 2: OAuth storage and provider
+
+**Files:**
+- Create: `api/alembic/versions/0015_oauth.py`, `api/dclh_api/mcp/oauth.py`
+- Modify: `pipeline/dclh_pipeline/db/models.py`
+- Test: `tests/unit/test_mcp_oauth.py` (no DB), `tests/unit/test_mcp_oauth_db.py` (DB-gated)
+
+**Interfaces:**
+- Consumes: the SDK provider protocol and its types (`OAuthClientInformationFull`, `AuthorizationParams`,
+  `AuthorizationCode`, `RefreshToken`, `AccessToken`, `OAuthToken`).
+- Produces: `class DclhAccessToken(AccessToken)` with `user_id: int`;
+  `class DclhOAuthProvider(public_url: str, session_factory: Callable[[], Session])`;
+  `redirect_uri_allowed(uri: str) -> bool`; `approve_request(session, req_id: str, user: UserRow) -> str`
+  and `deny_request(session, req_id: str) -> str` (each returns the redirect URL; raise `LookupError` for an unknown
+  or expired request); `purge_oauth(session, now: datetime) -> int`.
+
+- [ ] **Step 1: migration 0015.** `users.mcp_access boolean NOT NULL DEFAULT false`, plus:
+  - `oauth_clients(client_id text PK, info jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now())`
+  - `oauth_requests(id_hash text PK, client_id text FK ON DELETE CASCADE, params jsonb NOT NULL, expires_at timestamptz NOT NULL)`
+  - `oauth_codes(code_hash text PK, client_id FK CASCADE, user_id FK users CASCADE, params jsonb NOT NULL, expires_at timestamptz NOT NULL)`
+  - `oauth_tokens(token_hash text PK, kind text CHECK (kind IN ('access','refresh')), client_id FK CASCADE,
+    user_id FK users CASCADE, scopes text[] NOT NULL, resource text, expires_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now())`, with an index on `(user_id)`.
+
+  Add the matching rows to `models.py`.
+- [ ] **Step 2: failing tests.** In `test_mcp_oauth.py` (pure): `test_redirect_uri_allowed` (true:
+  both Claude callbacks, `http://localhost:33418/callback`, `http://127.0.0.1:6274/oauth/callback`; false:
+  `https://claude.ai.evil.com/api/mcp/auth_callback`, `http://claude.ai/api/mcp/auth_callback`,
+  `https://example.com/cb`, `http://localhost.evil.com/cb`). In `test_mcp_oauth_db.py`, build a **new
+  `DclhOAuthProvider` before every step** (restart safety):
+  - `test_full_flow`: register → authorize returns `{public_url}/polacz-claude?req=…` → `approve_request` returns the
+    redirect with `code` and `state` → exchange gives access and refresh tokens → `load_access_token` gives the
+    user id → refresh rotates (the old refresh token no longer works) → revoke → `load_access_token` returns `None`.
+  - `test_register_rejects_foreign_redirect`.
+  - `test_code_single_use_and_expiry`: a second exchange fails; a code older than 5 min fails.
+  - `test_mcp_access_off_kills_token`: approve, then set `mcp_access = false` → `load_access_token` returns `None`.
+  - `test_approve_needs_mcp_access`: a user without the flag gets `PermissionError`.
+  - `test_purge` removes expired requests, codes and tokens, and clients older than 7 days with no tokens.
+- [ ] **Step 3:** run them. Expected: FAIL.
+- [ ] **Step 4: implement `oauth.py`.** The SDK methods are `async`. Run the sync DB work with
+  `anyio.to_thread.run_sync`. Random values come from `secrets.token_urlsafe(32)`. `register_client` raises the
+  SDK's registration error (`invalid_redirect_uri`) when any URI fails `redirect_uri_allowed`, and refuses when
+  200 clients already exist. `load_access_token` joins `users` and returns `None` when the token is expired or
+  `mcp_access` is false.
+- [ ] **Step 5:** tests PASS, then the full checks. Commit, push, open the PR "MCP: OAuth storage and provider".
+
+### Task 3: consent API and the `/polacz-claude` page
+
+**Files:**
+- Create: `api/dclh_api/routers/oauth.py`, `web/src/pages/PolaczClaudePage.tsx`, `web/src/pages/PolaczClaudePage.test.tsx`
+- Modify: `api/dclh_api/main.py` (router), `api/dclh_api/routers/auth.py` (`UserOut.mcp_access: bool`),
+  `web/src/` router (route under `RequireAuth`, not in the nav), `web/src/api/schema.d.ts` (regenerate)
+- Test: `tests/unit/test_oauth_router.py` (DB-gated), plus the web test
+
+**Interfaces:**
+- Consumes: `approve_request`, `deny_request` (Task 2).
+- Produces: `GET /api/oauth/requests/{req_id}` → `ConsentInfo{client_name: str, scopes: list[ScopeOut{id, label}],
+  user_email: str, can_connect: bool}`; `POST /api/oauth/requests/{req_id}/decision` with `{approve: bool}` →
+  `{redirect_to: str}`; `GET /api/oauth/connections` → the current user's clients (`client_name`, `connected_at`);
+  `DELETE /api/oauth/connections/{client_id}` → deletes that user's tokens for the client (204).
+
+- [ ] **Step 1: failing tests.** API: unknown or expired request → 404 with
+  `"Prośba o połączenie wygasła lub została już użyta. Zacznij łączenie w Claude od nowa."`; a user without access →
+  `can_connect: false` on GET and 403 on POST with `"Twoje konto nie ma włączonego dostępu dla Claude. Poproś
+  administratora."`; approve → `redirect_to` starts with the registered redirect URI and has `code` and `state`;
+  deny → `error=access_denied`; a second POST → 404; `GET /api/oauth/connections` lists only the current user's
+  clients; `DELETE` on one makes that user's token for it fail `load_access_token`. Web: renders the client name, the account email and both
+  scope labels; "Zezwól" posts `approve: true` and navigates to `redirect_to`; the 404 and 403 texts render;
+  it does **not** navigate when `redirect_to` is neither `https:` nor `http://localhost` / `http://127.0.0.1`.
+- [ ] **Step 2:** run them. Expected: FAIL.
+- [ ] **Step 3: implement.** Page copy (exact):
+  - Title: "Połączyć Claude z DC Land Hunter?"
+  - Body: "Claude będzie działać w Twoim imieniu (konto: {email}) i będzie mógł:"
+  - `dclh.read`: "czytać lokalizacje, oceny, pokrycie powiatów i etapy projektów (bez notatek)"
+  - `dclh.write`: "obserwować lokalizacje i zlecać sprawdzenie działki"
+  - Footer: "Dane, które Claude odczyta, trafią do Anthropic. Notatki z projektów nie są udostępniane.
+    Połączenie możesz odłączyć w Ustawieniach."
+  - Buttons: "Zezwól" (primary) and "Odmów".
+- [ ] **Step 4:** tests PASS, then the full checks (Python and web). Commit, push, open the PR
+  "MCP: consent page for connecting Claude".
+
+### Task 4: mount the server, Caddy routes, admin CLI
+
+**Files:**
+- Modify: `api/dclh_api/main.py`, `pipeline/dclh_pipeline/settings.py` (`public_url: str | None = None`, env
+  `DCLH_PUBLIC_URL`), `infra/Caddyfile`, `infra/crontab`, `pipeline/dclh_pipeline/cli.py`, `.env.example`
+- Test: `tests/unit/test_mcp_mount.py` (no DB)
+
+**Interfaces:**
+- Consumes: `build_mcp` (Task 1), `DclhOAuthProvider` and `purge_oauth` (Task 2).
+- Produces: the public endpoints `/mcp`, `/authorize`, `/token`, `/register`, `/revoke`,
+  `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource…` (the exact paths come from
+  the SDK); CLI `dclh user mcp-access EMAIL --on|--off` (`--off` also deletes the user's tokens),
+  `dclh oauth list` and `dclh oauth purge`.
+
+- [ ] **Step 1: failing tests.** With `DCLH_PUBLIC_URL=https://dclh.example`:
+  `test_protected_resource_metadata` (`authorization_servers` holds the issuer); `test_as_metadata` (has
+  `registration_endpoint`, `code_challenge_methods_supported == ["S256"]`, scopes `dclh.read` and `dclh.write`);
+  `test_mcp_without_token_401` (`WWW-Authenticate` contains `resource_metadata=`); `test_api_routes_unchanged`
+  (`/api/health` still answers). Without the variable: `test_mcp_absent` (`/mcp` → 404).
+- [ ] **Step 2: implement.**
+  - `create_app()` mounts `build_mcp(...).streamable_http_app()` at `/` **after** all `/api` routers, and runs the
+    SDK session manager in the app lifespan.
+  - `AuthSettings`: `issuer_url = public_url`, `resource_server_url = f"{public_url}/mcp"`, registration enabled
+    (`valid_scopes` and `default_scopes` both `["dclh.read", "dclh.write"]`), revocation enabled,
+    `required_scopes = ["dclh.read"]`.
+  - Caddy: one `handle` with a path matcher for exactly the routes above, proxied to `api:8000`, placed before the SPA
+    fallback. Responses must not be cached (`Cache-Control: no-store`).
+  - Crontab: `dclh oauth purge` daily at 04:30.
+  - Validate the Caddyfile with
+    `docker run --rm -v $PWD/infra/Caddyfile:/etc/caddy/Caddyfile caddy:2 caddy validate --config /etc/caddy/Caddyfile`.
+- [ ] **Step 3: local end-to-end.** Run the compose stack with `DCLH_PUBLIC_URL=http://localhost` (the SDK accepts
+  `http` only for localhost) and connect the MCP Inspector (`npx @modelcontextprotocol/inspector`, run in a
+  `node:22` container since the host has no Node). Expected: register, the consent page, the token exchange, and
+  `search_sites` returning sites. Put the Inspector screenshots in the PR.
+- [ ] **Step 4:** full checks. Commit, push, open the PR "MCP: expose the server with OAuth behind Caddy".
+
+### Task 5: write tools
+
+**Files:**
+- Create: `api/dclh_api/mcp/tools_write.py`
+- Modify: `api/dclh_api/mcp/server.py`
+- Test: `tests/unit/test_mcp_write.py` (no DB), `tests/unit/test_mcp_write_db.py`
+
+**Interfaces:**
+- Consumes: `tool_user` (Task 1); the token's `scopes` from `get_access_token()`.
+- Produces: `watch_site(site_id: str)`, `unwatch_site(site_id: str)` (both `readOnlyHint=False`,
+  `destructiveHint=False`, `idempotentHint=True`); `check_parcel(parcel_id: str) -> {check_id, status, url}`
+  (`readOnlyHint=False`, `destructiveHint=False`). It calls `routers.checks.resolve` and then `start_check`, so the
+  existing check limits apply.
+
+- [ ] **Step 1: failing tests.** No `dclh.write` scope → `ToolError("Brak uprawnienia do zapisu (dclh.write).")`;
+  watching twice leaves one row; a malformed `parcel_id` gives the router's Polish message as `ToolError`;
+  `check_parcel` returns a `check_id` that `get_check` (Task 1) can read; the owner-note leak test from Task 1
+  is extended to the write tools.
+- [ ] **Step 2:** implement until the tests pass, run the full checks, then commit, push and open the PR
+  "MCP: watch sites and queue a parcel check".
+
+### Task 6: Settings section, docs, rollout
+
+**Files:**
+- Modify: `web/src/pages/SettingsPage.tsx` (+ test), `docs/RUNBOOK.md`, `docs/STATUS.md`, this section's checklist
+
+**Steps:**
+- [ ] **Step 1: Settings card "Połączenie z Claude".** It shows the connector URL `{window.location.origin}/mcp` with a
+  copy button, and the steps:
+  1. "W Claude otwórz Ustawienia → Konektory → Dodaj własny konektor."
+  2. "Nazwa: DC Land Hunter. Adres: {url}."
+  3. "Kliknij Połącz, zaloguj się i wybierz Zezwól."
+
+  Then "Claude na telefonie użyje tego samego konektora.", and a status line from `/api/auth/me`:
+  "Twoje konto ma dostęp." or "Poproś administratora o włączenie dostępu dla Claude.". Below that, the list from
+  `GET /api/oauth/connections` with an "Odłącz" button. Web tests cover both statuses and the "Odłącz" call.
+- [ ] **Step 2: RUNBOOK.**
+  - The owner appends `DCLH_PUBLIC_URL=https://<domain>` to `infra/.env` **by hand**. Never overwrite that file.
+  - Commands to enable and disable a user, list and purge clients.
+  - Claude Code: `claude mcp add --transport http dclh https://<domain>/mcp`.
+  - What to do when Claude says the connection expired (reconnect from the Settings card).
+- [ ] **Step 3: production acceptance**, run with the owner after the merge and deploy. Each item passes or the
+  PR notes why:
+  - [ ] `dclh user mcp-access <owner> --on`; the connector is added in claude.ai web; the consent page shows; the
+    connection succeeds.
+  - [ ] "Pokaż 5 najlepszych lokalizacji w powiecie lęborskim dla DC budowanego" → `search_sites` is called, the
+    answer is in Polish, has links and says the grid figures are an estimate.
+  - [ ] "Obserwuj pierwszą z nich" → Claude asks for confirmation; the site shows as watched in the app.
+  - [ ] The same question works in the Claude phone app.
+  - [ ] `dclh user mcp-access <owner> --off` → the next question fails and Claude asks to reconnect.
+  - [ ] `docker compose restart api` mid-conversation → the next question still works.
+- [ ] **Step 4:** update `docs/STATUS.md`, commit, push, open the PR "MCP: Settings card, runbook".
+
+### Risks
+
+- **claude.ai connector bugs.** There are public reports of the web flow stalling at the token step while Claude
+  Code works with the same server. Mitigation: Task 4's Inspector run proves the server is correct, so a failure
+  there is Anthropic's; Claude Code is the fallback.
+- **SDK churn.** The MCP SDK changes its auth API between minor versions. Pin the exact version; Task 1 step 1 reads
+  the source before coding.
+- **Data leaves the server.** Everything a tool returns goes to Anthropic. The no-notes rule and the leak tests are
+  the guard. Adding a field to `SiteDetail` later means re-checking that test.
+- **Output size.** Large results eat Claude's context: list limit 50, no geometry, detail only through `get_site`.
+- **Abuse of DCR.** Anyone can register a client; it is useless without a user with `mcp_access`, and the
+  redirect URI allowlist plus the 200-client cap and the daily purge keep the table small.
+
+## Rzepin RTB review: improvement spec (plan of 11.11.2026)
+
+Source: the doc "DC Land Hunter: improvement spec after the Rzepin RTB review" (11.11.2026). Nine changes; the
+fixed test case is gm. Rzepin (powiat słubicki, TERYT 080504). Integration branch: `spec/rzepin-rtb`. Each task
+below is its own branch and PR into `spec/rzepin-rtb`; the integration branch goes to `main` as one PR after a
+rescore on the VPS shows the expected Rzepin diff.
+
+### What already exists (checked 11.11.2026, so the spec's effort estimates shrink or grow)
+
+- `sources/midas.py` already pages the CBDG MIDAS MapServer for layers 1 (mining areas) and 2 (mining terrains).
+  Deposits are layer 0 of the same service and were left out on purpose. Spec 2 is "add layer 0", not a new source.
+- `sources/ru.py` already reads plan ogólny zones (`app-pog:StrefaPlanistyczna`) and MPZP outlines. Spec 5 adds the
+  OUZ layer and the zone parameters to the same connector.
+- `model/grid.py` classifies substations by voltage only; `derive_operator()` already maps the OSM `operator` tag
+  to a DSO/PSE. `model/gpz_match.py` already fuzzy-matches DSO capacity lists to OSM names. Spec 1 builds on both.
+- "Sprawdź działkę" takes up to 20 parcels but scores **each parcel alone** (`parcel_check.py`). Spec 3's
+  `check_set` (score the union) is new work.
+- `model/sites.py` already cuts clusters above `large_site_split_ha` into ~80 ha pieces (`split_cluster`). It does
+  not look for the best 10–30 ha part. That part of spec 3 is the hardest item here (L, not M).
+- `connection_cost` rules exist in `config/scoring.yaml` (`verified: false`).
+
+### Defaults taken for the spec's open questions (owner can override)
+
+- `unknown` station class: 50% of the GPZ distance points (spec default). Measure the class shares first (task 1,
+  step 1); if `unknown` is above ~40% in a voivodeship, report it before turning the weight on.
+- Deposit status E (exploited): penalty, not exclusion, until the owner decides.
+- PSI: "deposit cancels the PSI bonus" is behind `bonus.deposit_cancels_psi: true` and the reason text says
+  "do weryfikacji". The legal basis is not confirmed in this repo; the bonus is only 3 points.
+- Parcel 208's obręb: unknown. `check_set` acceptance uses 4/36 + its real neighbour once the owner gives the id.
+
+### Task 0 (critical, S): Rzepin regression snapshot
+
+- [ ] `dclh snapshot-sites --gmina 080504 --site <ids…> --out <file.json>`: read-only dump of score, verdict per
+  profile, category scores, flags, nearest GPZ for the 5 sites in the spec table plus one Dolnośląskie control.
+- [ ] `dclh diff-snapshots a.json b.json`: lists sites whose verdict changed or score moved > 5 points.
+- [ ] Unit tests on the diff logic. No DB writes.
+
+### Task 1 (critical, M): substation classification (spec 1)
+
+- [ ] Step 1: `station_class` (`operator_gpz` | `generator` | `customer` | `unknown`) + `class_source` +
+  confidence on `Substation`, from OSM tags in `model/grid.py`: `operator` via `derive_operator`; `substation=
+  generation|industrial`; name patterns (GPO, farma, FW, PV, elektrownia, stacja odbiorcza) → not operator.
+  An operator-list match (`gpz_match`) upgrades to `operator_gpz`, `verified`. Pure function, table-driven tests.
+- [ ] Step 2: carry the class through `osm_power.parse()` and the substations table (alembic migration; parse the
+  `substation` tag too).
+- [ ] Step 3: scoring: GPZ distance points full for `operator_gpz`, `grid.unknown_station_weight` (0.5) for
+  `unknown`, 0 for `generator`/`customer`; those stay as a context line ("stacja farmy wiatrowej 0,7 km — możliwy
+  cable pooling lub PPA").
+- [ ] Step 4: API/MCP: `nearest_gpz` = nearest `operator_gpz` (falls back to `unknown`, labelled);
+  `nearest_other_station` for the rest. Site card shows class + source. `coverage` reports the `unknown` share per
+  voivodeship.
+- [ ] Tests: "GPO Lubiechnia Wielka 110/20 kV" → `generator`; an Enea-tagged GPZ → `operator_gpz`; untagged →
+  `unknown` at half weight.
+
+### Task 2 (critical, S): mineral deposits (spec 2)
+
+- [ ] Add MIDAS layer 0 as kind `mineral_deposit` (keep name, mineral, status, source date) in `sources/midas.py`.
+  Check the layer's field names against the live service first (the server 400s on unknown `outFields`).
+- [ ] Site facts `deposit_overlap_pct`, `deposit_list`; penalty `mineral_deposit` (8 pts) when overlap > 0;
+  `bonus_psi` = 0 with the reason when `deposit_cancels_psi`; a new "do sprawdzenia" item (geological opinion,
+  deposit in plan ogólny). `scoring_rules` lists it; `coverage` reports the layer.
+- [ ] Tests: overlap → penalty + PSI 0; no overlap → unchanged.
+
+### Task 3 (critical, S): target MW and the large-campus flag (spec 4)
+
+- [ ] `target.target_mw` (default = `mw_min`), `project_mw = min(estimated_mw, target_mw)`,
+  `spare_ha = max(0, area_ha − target_mw / mw_per_ha)`.
+- [ ] Large-campus flag and the 220/400 kV requirement in `_grid_items` fire only when `target_mw >
+  large_campus_mw`. Spare land feeds the existing expansion bonus.
+- [ ] API/MCP/UI expose `project_mw` and `spare_ha`; `estimated_mw` is relabelled "pojemność terenu";
+  `min_mw` still filters on land capacity.
+- [ ] Tests: 41 ha → 60 MW, no flag; `target_mw = 200` → flag back.
+
+### Task 4 (high, M): Rejestr Urbanistyczny OUZ and zone parameters (spec 5)
+
+- [ ] Find the OUZ layer and the zone parameter fields in `app-pog/wfs` GetCapabilities/DescribeFeatureType
+  (record in `docs/SOURCES.md`). Add them to `sources/ru.py`.
+- [ ] Site facts `in_ouz` (yes/no/partial), `planning_path`, `zone_params` (max height, build-up %, PBC %), plan
+  number and adoption date. A gmina with no plan ogólny in the register stays "do sprawdzenia".
+- [ ] Planning score: new `zoning.zone_allows_dc_outside_ouz: 60`. Height flag at ≤ 20 m.
+- [ ] Tests on the classification of `planning_path` from fixtures.
+
+### Task 5 (high, M–L): parcel sets (spec 3)
+
+- [ ] `check_set`: the parcel-check pipeline on the union of 2–20 parcels; one score, verdicts, constraints and
+  unknowns for the set; warning when a gap > 50 m; per-id errors for ids ULDK does not know. Web: "Sprawdź jako
+  jeden teren" in Sprawdź działkę; MCP `check_set`.
+- [ ] Saved, named sets that can be watched (reuse the watch table with a set id).
+- [ ] Later step, after task 1 lands: best-subset child site for sites > 80 ha (greedy growth from the parcel
+  nearest the operator GPZ, skipping parcels with forest/flood/protected overlap, stop at 30 ha); `parent_site_id`;
+  `max_per_gmina` treats parent + child as one cluster.
+
+### Task 6 (nice, M): RCN price comparables (spec 6)
+
+Information only, no score impact. Monthly bulk import per powiat; median and p25–p75 zł/m² within 10 km over 36
+months; `asking_price_zl_m2` with a > 10× flag. Starts after the format of the RCN bulk files is checked from a
+Polish IP.
+
+### Task 7 (nice, S): connection timing (spec 7)
+
+Cost block at `project_mw` (needs task 3) and a timing note from `planning_path` (needs task 4). The security value
+(30 zł/kW) needs a lawyer or the operator tariff; code cannot verify it.
+
+### Task 8 (not now, L): cable route and easements (spec 8)
+
+Deferred. A least-cost path over a cost raster plus the parcels it crosses is a large piece of GIS work for an
+"indicative line". Straight-line distance to an **operator** GPZ (task 1) removes most of today's error.
+
+### Task 9 (nice, M): RTB evidence export (spec 9)
+
+Split: the manual `power_evidence` field (S, worth doing early) and the PDF/JSON annex with RAG rules (M, after
+tasks 1–5 so the annex has the new facts).
+
+### Execution order
+
+Wave 1, in parallel (separate worktrees, Sonnet): tasks 0, 1, 2, 3, 4. Tasks 1–3 all touch
+`scoring/engine.py` and `config/scoring.yaml` in different functions; merge order 0 → 3 → 2 → 1 → 4, rebasing each.
+Wave 2: task 5 (`check_set`, then best-subset), task 7, `power_evidence`. Wave 3 on the owner's go: tasks 6, 9.
+
+### Risks
+
+- Deposit polygons are large (lignite, sand, gravel). An 8-point penalty on any overlap may move many sites, not
+  just Rzepin. Task 0's diff over a whole voivodeship shows the spread before merge.
+- OSM `operator` tags are patchy. If most stations end `unknown`, the grid score drops everywhere by up to half of
+  the GPZ points. Step 1 of task 1 measures this first.
+- Acceptance on live Rzepin data needs a rescore on the VPS; the worktrees have no production database.
+
+## Claude tab: share the connector with the team (plan of 11.11.2026)
+
+**Readiness check (11.11.2026, PROD):** the connector is live at `https://dc-land-hunter.online/mcp`. OAuth discovery
+answers, `/mcp` refuses a request without a token (401), the owner's Claude connection works (a real `top_picks` call
+returned sites). So it can be shared. What stops a second person today:
+
+1. Their Claude access can only be switched on over SSH (`dclh user mcp-access … --on`).
+2. The steps sit at the bottom of Ustawienia, a screen a partner has no reason to open, and the wording is out of date:
+   claude.ai now says **Customize → Connectors → + Add → Add custom connector** (Anthropic help, 11.11.2026), and the
+   Free plan allows one custom connector (not "Pro or higher"). On Team/Enterprise only an owner adds the connector.
+3. Nothing shows what to ask Claude once it is connected.
+
+New accounts still need the CLI (`dclh user create`, it sets a password). Out of scope: no self-signup (brief).
+
+### UX decisions
+
+- **Where:** a labelled top-level tab **"Claude"** (`/claude`, icon `Sparkles`) after "Sprawdź działkę". It is a working
+  screen, used once per person, but the owner wants to point partners at it, so a name in the bar beats an icon. The
+  Ustawienia card shrinks to one line with a link to the tab (one source of truth for the steps).
+- **Layout, top to bottom:** status of my access (Włączony / brak: poproś administratora) → the address with "Kopiuj" →
+  steps per app, chosen with two buttons (claude.ai / Claude Code) → "Wypróbuj" example prompts with copy →
+  "Co widzi Claude" (data goes to Anthropic, notes never, changes only on request, grid is an estimate) → Połączone
+  aplikacje (disconnect) → admin only: "Dostęp zespołu" (switch per user, plus "Kopiuj zaproszenie": a Polish message
+  with the app address and steps, to paste into an email or chat).
+- **Phone:** the tab is in the mobile menu; the text says the phone app uses the connector added on the web.
+
+### Acceptance criteria
+
+- AC1: "Claude" is in the main nav (desktop bar and mobile menu) for every logged-in user and opens `/claude`; the browser
+  tab reads "Claude · DC Land Hunter".
+- AC2: the page shows the connector address (`DCLH_PUBLIC_URL` + `/mcp`) and copies it with one click; with the connector
+  off it says so and shows no steps.
+- AC3: steps for claude.ai (web, desktop, phone) use the current Claude wording; the Claude Code tab shows a copyable
+  `claude mcp add --transport http dclh <address>` command.
+- AC4: the page states whether my account has access; without access it says to ask the administrator.
+- AC5: at least three example prompts in Polish, each copyable.
+- AC6: connected apps are listed and can be disconnected (as in Ustawienia today).
+- AC7: an admin sees every user with their access state and can switch it on or off; off also signs that user's Claude out
+  (same as the CLI). A member sees no such section and the API answers 403 to a member.
+- AC8: an admin can copy an invitation text with the app address, the connector address and the steps.
+- AC9: Ustawienia links to the tab instead of repeating the steps.
+- AC10: tests: API (admin list, switch on/off drops tokens, 403 for a member, unknown email 404), web (each AC above),
+  full fast checks green; after deploy a smoke test on PROD: `/claude` loads, `/api/admin/users` 401 without a session,
+  OAuth discovery 200, `/mcp` 401 without a token, and a real MCP tool call works.
+
+## MCP: the search queue (plan of 11.11.2026)
+
+The owner wants Claude to read the search queue (Kolejka) and add or remove priority powiats.
+
+- `get_queue` (read): the priority list in order, each with its state (`waiting`, `in_progress`, `searched`,
+  `outside_aoi`), who added it and when, the last search (date, status, sites, error); `next_up` (the first 4 of the
+  nightly plan); search jobs pending or running; powiats whose latest search failed; a note on how the planner works.
+- `add_priority` / `remove_priority` (write scope, "use only on request"): 1 to 20 powiats by Polish name or TERYT.
+  They go through the app's `save_priority`, so the order (`added_at`) and `added_by` match the Kolejka tab.
+
+Acceptance criteria:
+
+- AC1: names ("wrocławski", "powiat Wrocławski") and codes both work; an unknown or ambiguous name is a Polish error.
+- AC2: adding appends; a powiat already on the list keeps its place and is reported as `already_in_queue`.
+- AC3: a powiat outside the AOI is refused with a Polish reason and nothing is saved (the planner would skip it).
+- AC4: removing keeps the rest in order and reports `not_in_queue` for powiats that were not there; both are idempotent.
+- AC5: `get_queue` shows the states above, next_up (a waiting priority powiat first, never a running one), running
+  jobs and failing powiats.
+- AC6: a read-only token can read the queue but not change it; `added_by` is the connected user.
+- AC7: the consent page and the Claude tab say Claude can change queue priorities; the leak test covers `get_queue`.
+
+## MCP: manage deals from Claude (plan of 11.11.2026)
+
+Claude can read the pipeline (`list_pipeline`) but not change it. Two write tools finish "track my deals":
+
+- `set_stage(site_id, stage)`: puts a site in a pipeline stage, creating its project card if needed. It goes through
+  the app's `put_project` with the stage only, so an existing `owner_note` is kept.
+- `remove_from_pipeline(site_id)`: deletes the project card through `delete_project`. The card's private owner note
+  goes with it, so the tool is marked `destructiveHint` and its description tells Claude to ask the user first.
+
+Acceptance criteria:
+
+- AC1: a valid stage (`new`, `watching`, `analysis`, `owner_contact`, `negotiation`, `rejected`, `secured`) creates or
+  moves the card and returns `site_id`, `stage`, `url`; repeating it changes nothing.
+- AC2: an unknown stage gives a Polish error listing the valid stages; an unknown site gives "Nie ma takiej
+  lokalizacji." and creates no card.
+- AC3: `set_stage` on a card that has an owner note keeps the note; the note is never in any tool output.
+- AC4: `remove_from_pipeline` deletes only that site's card (other cards stay), and is idempotent when there is none.
+- AC5: a read-only token (or none) can call neither tool.
+- AC6: `list_pipeline` shows the new stage; the leak test still passes.
+
+## MCP: sites near a place (plan of 11.11.2026)
+
+"Someone mentioned Kutno, what is within 20 km?" Claude could only filter by powiat or voivodeship.
+
+- `sites_near(place | lat+lon, radius_km=20, ...)` (read): the same ranked lines and `verdict_counts` as `search_sites`
+  plus `distance_km` per site, nearest first (or `sort="score"`). The place is a gmina or powiat (name or TERYT code) from
+  the boundaries in `admin_units`, or a WGS84 point. No geocoder and no new cost: a village or town that is not a gmina
+  cannot be found by name, and the error says to give a gmina name, a code or lat/lon.
+- Built on `search.py`: an optional `Near` filter (`ST_DWithin` on `sites.geom` in EPSG:2180; a point is converted with
+  `ST_Transform`), a distance sort and a `dist_m` column for the page rows only. `areas.py` gains the gmina level.
+
+Acceptance criteria:
+
+- AC1: a gmina name (any case and diacritics), a gmina TERYT (7 digits), a powiat name or code (4 digits) and lat/lon all work.
+- AC2: an ambiguous name ("Brzeziny") is a Polish error listing the candidates with TERYT, powiat and voivodeship; an unknown
+  name or code, a code of a wrong length, and a gmina and a powiat of one name (the gmina wins) behave as documented.
+- AC3: lat/lon outside Poland (also swapped) is refused; `place` together with lat/lon, neither, or one of lat/lon is refused.
+- AC4: `radius_km` default 20, capped at 100 (the answer says so); zero or negative is refused.
+- AC5: on a synthetic geometry in EPSG:2180 `distance_km` is the distance from the place's border or point to the site's
+  outline (1.0 and 6.0 km in the test; 0 inside a gmina), results are nearest first, the radius cuts by that distance.
+- AC6: `min_mw`, `min_ha`, `profile`, `verdict`, `hide_red`, `max_per_gmina`, `detail`, `sort`, `limit` and `cursor` work, and
+  `verdict_counts` covers the sites in the radius.
+- AC7: the owner note never reaches Claude; `sites_near` is in `READ_TOOLS` of the leak test.
+- AC8: EXPLAIN with sequential scans disallowed shows `sites_geom_gix` for both place kinds; `search_sites` is unchanged
+  (no near filter adds no SQL; its tests still pass).
+
+## MCP: search a powiat now (plan of 11.11.2026)
+
+Claude can queue one powiat search right now instead of waiting for the 01:00 run. Searches are heavy (long calls to
+public services, disk), so the tool is admin-only and capped.
+
+- `search_now(powiat)` (write scope, admin only, "use only on explicit request", `openWorldHint`): enqueues the same
+  `search` job the planner does, through `jobs.enqueue`, with payload `{"powiat": teryt}` and `requested_by` = the
+  user's email (the planner uses `planner`, the CLI `scheduler`, a memory retry `memory-retry`). No `not_after`: that
+  window only stops a nightly run at 05:00; a manual run has no deadline. The worker's disk guard (`make_room`) runs
+  inside the search, so it applies unchanged.
+- Cap: `MANUAL_SEARCHES_PER_DAY = 3` per UTC day across all users, counted as `search` jobs created today whose
+  `requested_by` is a user's email (failed ones count too).
+
+Acceptance criteria:
+
+- AC1: an admin queues a powiat by name and by TERYT code; the `jobs` row is kind `search`, status `pending`, payload
+  `{"powiat": teryt}`, `requested_by` = the admin's email; the answer has job_id, powiat name, status, requested_by,
+  searches left today and a note to follow it with `get_queue` (`in_progress`).
+- AC2: a member is refused (Polish message), and nothing is queued.
+- AC3: a read-only token is refused.
+- AC4: an unknown powiat, and one outside the AOI, are refused in Polish; nothing is queued.
+- AC5: a powiat with a pending or running search job is refused, naming the job; another powiat is fine.
+- AC6: the 4th manual search of a UTC day is refused; planner jobs do not count; the count resets the next day.
+- AC7: the tool is write (not read-only, not destructive, not idempotent, open world); the leak test covers nothing new
+  (no read tool added).
+
+## MCP: "what changed since last week?" (plan of 11.11.2026)
+
+The app kept no history: each powiat search rewrites that powiat's rows in `sites`. A small history table and a
+read tool answer the brief's job "What changed since last week?".
+
+Design:
+
+- Migration 0018 adds `site_history`. One row per event, written only on change: `new` (a kept site appears),
+  `changed` (its score, rounded to 0.1, or a per-profile verdict changed; the row has the new values and the
+  `prev_*` ones), `dropped` (it left the kept set; the row has the last values and the gmina). `baseline` rows are
+  seeded from `sites` by the migration and mark the history start. Only kept standard sites are tracked
+  (`kind = 'standard' AND NOT excluded`, what the list shows).
+- `write_sites` diffs the powiat's old rows (read by `powiat`, the `sites_powiat_ix` index) against the new rows
+  in Python and inserts the events in the same transaction. No pass over other powiats.
+- `what_changed(since, voivodeship?, powiat?, profile?, limit?)` (read): new sites, dropped sites, verdict
+  changes (with from/to), score jumps of at least `SCORE_JUMP` (5 points) and powiats searched for the first time.
+  The history starts at the deploy date: `history_since` says so. No web tab.
+
+Acceptance criteria:
+
+- AC1: the migration upgrades and downgrades cleanly (downgrade drops the table and its indexes).
+- AC2: the first write of a site records `new`; an unchanged re-search writes nothing.
+- AC3: a verdict change and a score change are recorded as `changed` with the previous values.
+- AC4: a site missing from the new run (or now excluded) is recorded as `dropped`.
+- AC5: the migration seeds a `baseline` row for every kept site, so the first nightly run after deploy records
+  real differences, not "everything is new".
+- AC6: `what_changed` filters by period (ISO date or `Nd`/`Nw`, default 7 days, at most 90) and by area
+  (voivodeship, powiat by name or code), caps `limit` (default 20, at most 50 per category), reports counts per
+  category and `history_since`, and says so when `since` is before the history start.
+- AC7: net per site over the period: a site new and dropped again shows in neither list; a verdict change reports
+  the first "from" and the last "to"; sites of a powiat searched for the first time are listed under
+  `first_searched_powiats`, not as new.
+- AC8: the owner note never leaks; `what_changed` is in `READ_TOOLS` (leak test) and in `TOOLS` (read-only).
+- AC9: cost: the diff reads one powiat's rows through an index and writes only changes; the migration seed is one
+  `INSERT ... SELECT`. Checked on a table of about 130k rows with 30k kept sites (numbers in STATUS.md).
+
+## MCP: connection cost calculator (`connection_costs`)
+
+Claude can answer "what does securing 80 MW tie up?". The figures live in `config/scoring.yaml` (`connection_cost`,
+served by `/api/config/scoring`). The web calculator keeps its own copy of the defaults in
+`web/src/lib/connectionCost.ts`; a test proves the two agree (changing the web to read the API is a larger change, left out).
+
+- Read tool `connection_costs(mw, site_id?)` in `api/dclh_api/mcp/tools_costs.py`. With `site_id` and no `mw` it uses
+  the site's `estimated_mw` (land capacity, not grid power).
+
+Acceptance criteria:
+
+- AC1: 60 MW gives fee 60 000 + advance 3 600 000 + security 1 800 000 PLN; frozen (advance + security) 5 400 000.
+- AC2: the fee cap (100 000 PLN) applies from 100 MW, the advance cap (6 mln PLN) from 100 MW; each is flagged `cap_applied`.
+- AC3: security is charged on at most 100 MW (as in the site card); above that it stays at 3 mln PLN and the answer says so.
+  OPEN QUESTION (legal): the brief says "30 PLN/kW up to 100 MW" and does not say what happens above; we follow the
+  existing code and flag it.
+- AC4: `mw` <= 0, NaN or above 1000 is refused in Polish; neither `mw` nor `site_id` is refused too.
+- AC5: validity (12 months), milestone expiry, operator re-verification and the caveats (figures need legal verification,
+  conditions are contested when transferred to a buyer with the SPV share-sale workaround, not legal advice) are present.
+- AC6: every figure carries `source_id`, `as_of`, `confidence` (`estimated` while `verified: false` in the config).
+- AC7: the Python numbers equal the web constants (test parses `connectionCost.ts`); the tool is covered by the owner-note leak test.

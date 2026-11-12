@@ -15,11 +15,18 @@ from typing import Any
 from dclh_pipeline.config import ProfilesConfig, ProfileSpec
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.scoring.engine import ramp_down
-from dclh_pipeline.scoring.types import Fact, SiteFeatures, ZoningKind
+from dclh_pipeline.scoring.types import (
+    IN_OUZ_PARTIAL,
+    PATH_MPZP_OR_ZPI,
+    Fact,
+    SiteFeatures,
+    ZoningKind,
+)
 
 NEUTRAL = 50.0  # soft score of an input we have no data for
 ROAD_ADJOINING_M = 25.0  # a public road this close runs along the plot
 ROAD_FAR_M = 300.0  # beyond this a public road is no longer "near": access needs a road or an easement
+HEIGHT_FLAG_M = 20.0  # a zone height limit at or below this may clash with generator stacks and cooling
 ROAD_UNKNOWN = "Dostęp do drogi publicznej (EGiB, księga wieczysta)"
 
 
@@ -67,6 +74,11 @@ def _n(x: float, digits: int = 1) -> str:
     return f"{x:.{digits}f}".replace(".", ",")
 
 
+def _pct(x: float) -> str:
+    """A share of the site: "<1%" rather than a rounded "0%" for a small but real overlap."""
+    return "<1%" if 0 < x < 1 else f"{_n(x, 0)}%"
+
+
 def _ramp_up(value: float, zero: float, full: float) -> float:
     """0.0 at or below `zero`, 1.0 at or above `full`, linear in between (housing distance, headroom)."""
     return 1.0 - ramp_down(value, zero, full)
@@ -110,11 +122,19 @@ def profile_verdict(f: SiteFeatures, name: str, cfg: ProfilesConfig) -> ProfileV
             missing(key, missing_what)
             cap_yellow = True
         elif fact.value > limit:
-            blockers.append(reason(key, f"{what}: {_n(fact.value, 0)}% terenu", fact))
+            if key == "forest" and area is not None:
+                forest_ha = area.value * fact.value / 100
+                if forest_ha < hard.forest_min_ha:
+                    continue
+                text = f"{what}: {_n(forest_ha, 2)} ha ({_pct(fact.value)} terenu)"
+                blockers.append(reason(key, text, fact))
+                continue
+            blockers.append(reason(key, f"{what}: {_pct(fact.value)} terenu", fact))
     heritage = f.on_heritage_register
     if heritage is None:
+        # No source feeds the register (docs/SCORING.md), so the gap is on every site: listed, but it does not
+        # cap the verdict, or green could never be reached.
         missing("heritage", "rejestru zabytków")
-        cap_yellow = True
     elif hard.heritage_register and heritage.value:
         blockers.append(reason("heritage", "obiekt w rejestrze zabytków", heritage))
 
@@ -151,13 +171,15 @@ def profile_verdict(f: SiteFeatures, name: str, cfg: ProfilesConfig) -> ProfileV
         positives.append(reason("zoning", "MPZP z funkcją produkcyjną lub usługową", f.zoning))
     elif z is ZoningKind.PLAN_OGOLNY_SG:
         positives.append(reason("zoning", "plan ogólny: strefa gospodarcza", f.zoning))
-        to_check.append(
-            ToCheck(
-                "ouz",
-                "Czy działka leży w obszarze uzupełnienia zabudowy (OUZ); bez OUZ ścieżka to MPZP lub ZPI",
-                False,
+        if f.in_ouz is None:  # the register has no OUZ data for this gmina
+            to_check.append(
+                ToCheck(
+                    "ouz",
+                    "Czy działka leży w obszarze uzupełnienia zabudowy (OUZ); "
+                    "bez OUZ ścieżka to MPZP lub ZPI",
+                    False,
+                )
             )
-        )
         cap_yellow = True
     elif z is ZoningKind.OTHER:
         if spec.zoning_other == "block":
@@ -173,9 +195,38 @@ def profile_verdict(f: SiteFeatures, name: str, cfg: ProfilesConfig) -> ProfileV
                 )
             )
     else:  # unknown, plan in procedure, or no zoning fact at all
+        where = "MPZP i plan ogólny" if f.in_ouz is not None else "MPZP, plan ogólny i OUZ"
+        to_check.append(
+            ToCheck("zoning", f"Brak planu miejscowego w rejestrze: sprawdź {where} w gminie", True)
+        )
+
+    # --- planning path after the plan ogólny reform (facts exist only where the register has the plan)
+    if f.planning_path is not None and f.planning_path.value == PATH_MPZP_OR_ZPI:
+        part = " (tylko część terenu leży w OUZ)" if f.in_ouz and f.in_ouz.value == IN_OUZ_PARTIAL else ""
         to_check.append(
             ToCheck(
-                "zoning", "Brak planu miejscowego w rejestrze: sprawdź MPZP, plan ogólny i OUZ w gminie", True
+                "planning_path",
+                f"Poza OUZ{part} i bez MPZP: w gminie z planem ogólnym decyzja WZ jest wykluczona, "
+                "jedyna ścieżka to MPZP lub ZPI (12–24 miesiące)",
+                False,
+            )
+        )
+    if f.plan_ogolny_act is not None:
+        to_check.append(
+            ToCheck(
+                "plan_validity",
+                f"Sprawdź, czy uchwała {f.plan_ogolny_act.value} o planie ogólnym została opublikowana "
+                "w dzienniku urzędowym województwa i nie została unieważniona",
+                False,
+            )
+        )
+    height = f.zone_max_height_m
+    if height is not None and height.value <= HEIGHT_FLAG_M:
+        to_check.append(
+            ToCheck(
+                "zone_height",
+                f"Sprawdź kominy agregatów i chłodzenie względem limitu wysokości ({_n(height.value, 0)} m).",
+                False,
             )
         )
 

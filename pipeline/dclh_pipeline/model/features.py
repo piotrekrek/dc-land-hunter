@@ -18,7 +18,13 @@ from shapely import STRtree, unary_union
 from shapely.geometry.base import BaseGeometry
 
 from dclh_pipeline.config import Prefilter, ScoringConfig
-from dclh_pipeline.model.grid import SubstationClass, is_foreign_operator
+from dclh_pipeline.model.grid import (
+    ClassSource,
+    StationClass,
+    SubstationClass,
+    is_foreign_operator,
+)
+from dclh_pipeline.model.planning import PlanOgolnyLayer, planning_facts
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.psi import PsiLayer, psi_points_fact
 from dclh_pipeline.model.sites import Site
@@ -35,6 +41,7 @@ PCT_CONSTRAINTS: dict[str, str] = {
     "flood_0_2": "flood_0_2_pct",
     "mining_area": "mining_area_pct",
     "mining_terrain": "mining_terrain_pct",
+    "mineral_deposit": "deposit_overlap_pct",
     "forest": "forest_pct",
     "soil_class_i_ii": "soil_class_i_ii_pct",
     "soil_class_iii": "soil_class_iii_pct",
@@ -67,6 +74,10 @@ class GeomIndex:
     def __len__(self) -> int:
         return len(self.geoms)
 
+    def nearest_index(self, geom: BaseGeometry) -> int | None:
+        """Position of the nearest geometry, or None for an empty index."""
+        return None if self._tree is None else int(self._tree.nearest(geom))
+
     def nearest_distance_m(self, geom: BaseGeometry) -> float | None:
         """Distance to the nearest geometry in metres (0 when they touch), or None for an empty index."""
         if self._tree is None:
@@ -83,6 +94,12 @@ class GeomIndex:
     def within_m(self, geom: BaseGeometry, radius_m: float) -> list[BaseGeometry]:
         return [self.geoms[i] for i in self.indices_within_m(geom, radius_m)]
 
+    def intersecting_indices(self, geom: BaseGeometry) -> list[int]:
+        """Positions of the geometries that intersect `geom`, in ascending order."""
+        if self._tree is None:
+            return []
+        return sorted(int(i) for i in self._tree.query(geom, predicate="intersects"))
+
     def intersecting(self, geom: BaseGeometry) -> list[BaseGeometry]:
         if self._tree is None:
             return []
@@ -97,6 +114,8 @@ class Layer:
     index: GeomIndex
     as_of: datetime | None = None
     confidence: Confidence = Confidence.ESTIMATED
+    # Optional per-geometry attributes, parallel to `index.geoms` (deposits keep name, mineral).
+    attrs: tuple[Mapping[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -107,6 +126,11 @@ class Substation:
     geom: BaseGeometry  # Point, EPSG:2180
     name: str | None = None  # OSM `name` tag, used to match DSO capacity lists to GPZ
     operator: str | None = None  # OSM `operator` tag: tells a DSO/PSE station from an industrial one
+    station_class: StationClass = (
+        StationClass.UNKNOWN
+    )  # whose station it is (model/grid.py `classify_station`)
+    class_source: ClassSource | None = None  # what decided `station_class`; None for unknown
+    class_confidence: Confidence = Confidence.MISSING
 
 
 @dataclass(frozen=True)
@@ -125,7 +149,11 @@ class GridIndex:
     confidence: Confidence
     line110: _IdIndex
     line110_physical: _IdIndex  # 110 kV ways keyed by physical line (`physical_lines`), stubs left out
-    gpz110: _IdIndex
+    gpz110: _IdIndex  # GPZs that can be a connection point: operator_gpz and unknown (not generator/customer)
+    gpz110_operator: _IdIndex  # operator_gpz only: full weight in the score
+    gpz110_unknown: _IdIndex  # unknown class: reduced weight (`grid.unknown_station_weight`)
+    other_stations: _IdIndex  # 110 kV/SN stations of a generator or customer: context, no points
+    other_station_info: dict[int, tuple[StationClass, str | None]]  # osm_id → (class, name)
     hv110_substations: _IdIndex
     own_hv110: _IdIndex  # 110 kV substations whose operator is named and is not a DSO or PSE
     node: _IdIndex
@@ -235,6 +263,9 @@ def physical_lines(ways: Sequence[tuple[int, BaseGeometry]]) -> list[int | None]
     return [line_id[root(i)] if length[root(i)] >= MIN_PHYSICAL_LINE_M else None for i in range(len(ways))]
 
 
+_COUNTED = frozenset({StationClass.OPERATOR_GPZ, StationClass.UNKNOWN})
+
+
 def build_grid_index(
     substations: Iterable[Substation],
     lines: Iterable[Line],
@@ -246,6 +277,7 @@ def build_grid_index(
     subs = list(substations)
     ways110 = [(ln.osm_id, ln.geom) for ln in lines if ln.voltage is not None and V_110 <= ln.voltage < V_220]
     line_ids = physical_lines(ways110)
+    gpz = [s for s in subs if s.cls is SubstationClass.GPZ_110_SN]
     return GridIndex(
         source_id=source_id,
         as_of=as_of,
@@ -254,7 +286,15 @@ def build_grid_index(
         line110_physical=_IdIndex(
             [(pid, geom) for pid, (_, geom) in zip(line_ids, ways110, strict=True) if pid is not None]
         ),
-        gpz110=_IdIndex([(s.osm_id, s.geom) for s in subs if s.cls is SubstationClass.GPZ_110_SN]),
+        gpz110=_IdIndex([(s.osm_id, s.geom) for s in gpz if s.station_class in _COUNTED]),
+        gpz110_operator=_IdIndex(
+            [(s.osm_id, s.geom) for s in gpz if s.station_class is StationClass.OPERATOR_GPZ]
+        ),
+        gpz110_unknown=_IdIndex([(s.osm_id, s.geom) for s in gpz if s.station_class is StationClass.UNKNOWN]),
+        other_stations=_IdIndex([(s.osm_id, s.geom) for s in gpz if s.station_class not in _COUNTED]),
+        other_station_info={
+            s.osm_id: (s.station_class, s.name) for s in gpz if s.station_class not in _COUNTED
+        },
         hv110_substations=_IdIndex(
             [(s.osm_id, s.geom) for s in subs if any(V_110 <= v < V_220 for v in s.voltages)]
         ),
@@ -293,6 +333,22 @@ def passes_grid_prefilter(geom: BaseGeometry, grid: GridIndex, prefilter: Prefil
     return False
 
 
+def other_station_facts(site: BaseGeometry, grid: GridIndex) -> dict[str, Fact[Any] | None]:
+    """The nearest generator/customer 110 kV station: its distance, class and name (context, never points)."""
+    index = grid.other_stations.geoms
+    position = index.nearest_index(site)
+    if position is None:
+        return {"dist_other_station_km": None, "other_station_class": None, "other_station_name": None}
+    distance = site.distance(index.geoms[position])
+    station_class, name = grid.other_station_info[grid.other_stations.ids[position]]
+    src, as_of, conf = grid.source_id, grid.as_of, grid.confidence
+    return {
+        "dist_other_station_km": _fact(distance / M_PER_KM, src, as_of, conf),
+        "other_station_class": _fact(station_class.value, src, as_of, conf),
+        "other_station_name": _fact(name or "", src, as_of, conf),
+    }
+
+
 def grid_facts(
     site: BaseGeometry, grid: GridIndex, cfg: ScoringConfig
 ) -> dict[str, Fact[float] | Fact[int] | None]:
@@ -312,6 +368,9 @@ def grid_facts(
     return {
         "dist_line110_km": km(grid.line110),
         "dist_gpz110_km": km(grid.gpz110),
+        "dist_gpz110_operator_km": km(grid.gpz110_operator),
+        "dist_gpz110_unknown_km": km(grid.gpz110_unknown),
+        **other_station_facts(site, grid),
         "dist_node_220_400_km": km(grid.node),
         "independent_110_lines_near": n1,
     }
@@ -371,17 +430,39 @@ def overlap_pct(site: BaseGeometry, geoms: Sequence[BaseGeometry]) -> float:
     return float(min(100.0, 100.0 * covered / site.area))
 
 
+def deposit_list(site: BaseGeometry, layer: Layer) -> list[dict[str, str]]:
+    """The distinct deposits (name, mineral, status) under the site; one deposit has several contours.
+
+    `status` is the development status (P, R, E, Z) when the layer carries it; the MIDAS layer does not,
+    so it is usually empty.
+    """
+    seen: dict[tuple[str, str, str], dict[str, str]] = {}
+    for i in layer.index.intersecting_indices(site):
+        attrs = layer.attrs[i] if i < len(layer.attrs) else {}
+        entry = {
+            "name": attrs.get("name", ""),
+            "mineral": attrs.get("mineral", ""),
+            "status": attrs.get("status", ""),
+        }
+        seen.setdefault((entry["name"], entry["mineral"], entry["status"]), entry)
+    return list(seen.values())
+
+
 def constraint_facts(
     site: BaseGeometry, constraints: Mapping[str, Layer]
-) -> dict[str, Fact[float] | Fact[bool] | None]:
+) -> dict[str, Fact[float] | Fact[bool] | Fact[list[dict[str, str]]] | None]:
     """Percent-overlap and touch facts for each constraint layer that is loaded (SiteFeatures fields)."""
-    out: dict[str, Fact[float] | Fact[bool] | None] = {}
+    out: dict[str, Fact[float] | Fact[bool] | Fact[list[dict[str, str]]] | None] = {}
     for name, field_name in PCT_CONSTRAINTS.items():
         layer = constraints.get(name)
         if layer is None:
             continue
         pct = overlap_pct(site, layer.index.intersecting(site))
         out[field_name] = _fact(pct, layer.source_id, layer.as_of, layer.confidence)
+        if name == "mineral_deposit":
+            out["deposit_list"] = _fact(
+                deposit_list(site, layer), layer.source_id, layer.as_of, layer.confidence
+            )
     for name, field_name in BOOL_CONSTRAINTS.items():
         layer = constraints.get(name)
         if layer is None:
@@ -519,6 +600,7 @@ class SiteLayers:
 
     grid: GridIndex | None = None
     zoning: tuple[ZoningLayer, ...] = ()  # in order of precedence, see `zoning_fact`
+    plan_ogolny: PlanOgolnyLayer | None = None  # OUZ, plan acts and zone parameters (RU)
     industrial: Layer | None = None  # OSM / BDOT10k industrial and brownfield areas
     residential: Layer | None = None  # residential buildings
     roads: Layer | None = None  # public roads (BDOT10k lines)
@@ -564,6 +646,13 @@ def build_site_features(
     features["dist_big_city_km"] = big_city_km_fact(site.geom, layers.big_cities)
     features["dist_res_cluster_km"] = res_cluster_km_fact(site.geom, layers.res_clusters)
     features["zoning"] = zoning_fact(site.geom, layers.zoning, layers.industrial)
+    features.update(
+        planning_facts(
+            site.geom,
+            layers.plan_ogolny,
+            mpzp_from_kimpzp=features["zoning"] is not None and features["zoning"].source_id == "kimpzp",
+        )
+    )
     features["residential_min_m"] = residential_fact(site.geom, layers.residential)
     features["dist_public_road_m"] = public_road_fact(site.geom, layers.roads)
     features["residential_clear_ha"] = residential_clear_fact(

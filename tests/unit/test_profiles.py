@@ -115,6 +115,26 @@ def test_missing_input_counts_neutral_and_is_listed() -> None:
     assert v.score < verdict("built").score
 
 
+@pytest.mark.parametrize("name", ["built", "container"])
+def test_missing_heritage_data_is_listed_but_does_not_cap_green(name: str) -> None:
+    # No source feeds the register, so capping on it made green unreachable for every stored site.
+    v = verdict(name, on_heritage_register=None)
+    assert v.category is Category.GREEN
+    assert "heritage" in keys(v.to_check)
+
+
+def test_headroom_is_measured_against_the_60_mw_target() -> None:
+    for name in ("built", "container"):
+        low, half, full = (verdict(name, published_gpz_headroom_mw=F(mw)).score for mw in (10.0, 30.0, 60.0))
+        assert low < half < full
+        assert verdict(name, published_gpz_headroom_mw=F(90.0)).score == full
+
+
+def test_container_needs_half_a_hectare() -> None:
+    assert verdict("container", area_ha=F(0.4)).category is Category.RED
+    assert verdict("container", area_ha=F(0.5)).category is Category.GREEN
+
+
 def test_missing_flood_data_caps_green_at_yellow() -> None:
     v = verdict("built", flood_10_or_1_pct=None)
     assert v.category is Category.YELLOW
@@ -196,3 +216,31 @@ def test_a_road_far_away_caps_the_verdict_at_yellow_but_never_makes_it_red() -> 
 
 def test_an_unmeasured_road_keeps_the_old_manual_wording() -> None:
     assert road_text(verdict("built")) == "Dostęp do drogi publicznej (EGiB, księga wieczysta)"
+
+
+@pytest.mark.parametrize("name", ["built", "container"])
+def test_a_forest_sliver_under_0_10_ha_does_not_exclude(name: str) -> None:
+    """Parcels (EGiB) and forest outlines (BDOT10k) are drawn apart; their seams leave slivers of square metres.
+
+    A forest is at least 0.10 ha (ustawa o lasach, art. 3), so a smaller overlap is no reason to drop a site.
+    """
+    v = verdict(name, area_ha=F(30.0), forest_pct=F(0.15))  # 0.045 ha
+    assert "forest" not in keys(v.blockers)
+
+
+def test_forest_of_0_10_ha_or_more_excludes_and_says_how_much() -> None:
+    v = verdict("built", area_ha=F(30.0), forest_pct=F(0.5))  # 0.15 ha
+    assert v.category is Category.RED
+    (forest,) = [b for b in v.blockers if b.key == "forest"]
+    assert forest.text_pl == "las: 0,15 ha (<1% terenu)"
+
+
+def test_forest_on_a_site_of_unknown_area_still_excludes() -> None:
+    v = verdict("container", area_ha=None, forest_pct=F(0.15))
+    assert "forest" in keys(v.blockers)
+
+
+def test_a_small_overlap_is_shown_as_under_1_percent_not_0() -> None:
+    v = verdict("built", flood_10_or_1_pct=F(0.2))
+    (flood,) = [b for b in v.blockers if b.key == "flood"]
+    assert flood.text_pl == "strefa zalewowa 10% lub 1%: <1% terenu"

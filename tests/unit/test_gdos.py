@@ -224,3 +224,23 @@ def test_powiat_search_needs_a_saved_gdos_snapshot(tmp_path: Path) -> None:
     store.save("osm_power", b"placeholder", suffix=".pbf")
     with pytest.raises(ValueError, match="gdos"):
         search_powiat("1421", settings)
+
+
+def test_a_self_intersecting_area_is_repaired_so_the_overlap_with_a_site_still_works(tmp_path: Path) -> None:
+    """GDOŚ publishes a few self-intersecting rings (one broke the 0806 search); an overlay with them raises."""
+    parts = good_parts()
+    square = "600000 500000 601000.0 500000 601000.0 501000.0 600000 501000.0 600000 500000"
+    bowtie = "600000 500000 601000.0 501000.0 601000.0 500000 600000 501000.0 600000 500000"
+    reserve = feature_collection(LAYERS["reserve"], "PL.r", "r", 600_000, 500_000)
+    assert square.encode() in reserve
+    parts["reserve"] = reserve.replace(square.encode(), bowtie.encode())
+    parts["natura2000_soo"] = feature_collection(LAYERS["natura2000_soo"], "PL.n", "n", 600_500, 500_000)
+    table = GdosConnector(SPEC).parse(save(SnapshotStore(tmp_path), bundle(parts)))
+    assert table.geometry.is_valid.all()
+
+    protected = Layer(source_id="gdos", index=GeomIndex(protected_areas(table).geometry))
+    from shapely.geometry import box
+
+    facts = constraint_facts(box(600_000, 500_000, 601_000, 501_000), {"protected_nature": protected})
+    pct = facts["protected_nature_pct"]
+    assert pct is not None and 0.0 < pct.value <= 100.0

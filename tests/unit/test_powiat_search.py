@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import errno
+import shutil
 from datetime import UTC, datetime
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 from dclh_pipeline.jobs import _job_search
-from dclh_pipeline.powiat_search import merge_priority, pick_powiats, window_closed
+from dclh_pipeline.powiat_search import make_room, merge_priority, pick_powiats, window_closed
 from dclh_pipeline.powiat_search import next_window_end as window_end
+from dclh_pipeline.settings import Settings
 
 WARSAW_NIGHT = datetime(2026, 10, 14, 23, 30, tzinfo=UTC)  # 01:30 in Warsaw (CEST, UTC+2)
 
@@ -106,3 +110,69 @@ class _FrozenDatetime:
 
     def now(self, tz: object = None) -> datetime:
         return self._now
+
+
+# ----------------------------------------------------------------------------- disk: stop early, don't punish the powiat
+
+
+def test_a_search_stops_before_it_starts_when_the_disk_is_short(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dclh_pipeline import powiat_search
+
+    free = {"bytes": 5 * 1024**3}
+    monkeypatch.setattr(
+        powiat_search.shutil,
+        "disk_usage",
+        lambda _p: shutil._ntuple_diskusage(100 * 1024**3, 0, free["bytes"]),
+    )
+    settings = Settings(data_dir=tmp_path, contact_email="test@example.org")
+    with pytest.raises(OSError) as raised:
+        make_room(settings)
+    assert raised.value.errno == errno.ENOSPC and "10 GB" in str(raised.value)
+    free["bytes"] = 20 * 1024**3
+    make_room(settings)  # enough room: no error
+
+
+def test_make_room_prunes_the_answer_cache_first(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from dclh_pipeline import powiat_search
+
+    calls: list[int] = []
+    monkeypatch.setattr(
+        powiat_search.ResponseCache, "prune", lambda _self, max_bytes: calls.append(max_bytes) or (0, 0)
+    )
+    make_room(Settings(data_dir=tmp_path, contact_email="test@example.org"))
+    assert calls == [powiat_search.SEARCH_CACHE_MAX_BYTES]
+
+
+def test_a_full_disk_is_not_recorded_as_an_attempt_on_the_powiat(monkeypatch: pytest.MonkeyPatch) -> None:
+    from dclh_pipeline import jobs
+
+    def full(teryt: str, *args: object, **kwargs: object) -> None:
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+    def no_db() -> None:
+        raise AssertionError("a full disk must not record an attempt")
+
+    monkeypatch.setattr(jobs, "search_powiat", full)
+    monkeypatch.setattr(jobs, "session_scope", no_db)
+    with pytest.raises(OSError):
+        _job_search(MagicMock(), {"powiat": "0801"})
+
+
+def test_another_os_error_is_still_recorded_as_an_attempt(monkeypatch: pytest.MonkeyPatch) -> None:
+    from dclh_pipeline import jobs
+
+    def broken(teryt: str, *args: object, **kwargs: object) -> None:
+        raise OSError(errno.ECONNRESET, "connection reset")
+
+    recorded: list[dict[str, object]] = []
+    scope = MagicMock()
+    monkeypatch.setattr(jobs, "search_powiat", broken)
+    monkeypatch.setattr(jobs, "session_scope", lambda: scope)
+    monkeypatch.setattr(
+        jobs, "record_attempt", lambda _s, teryt, **kw: recorded.append({"teryt": teryt, **kw})
+    )
+    with pytest.raises(OSError):
+        _job_search(MagicMock(), {"powiat": "0801"})
+    assert recorded and recorded[0]["teryt"] == "0801" and recorded[0]["ok"] is False

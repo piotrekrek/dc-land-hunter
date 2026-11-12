@@ -8,6 +8,9 @@ hard:
   protected_nature_pct_over: 0   # Natura 2000, national park, reserve
   flood_pct_over: 0              # flood zones Q10 / Q1
   forest_pct_over: 0
+  # A forest is at least 0.10 ha (ustawa o lasach, art. 3). A smaller overlap is a seam between EGiB parcels
+  # and BDOT10k outlines, not forest. On a site of unknown area the percentage alone decides.
+  forest_min_ha: 0.10
   mining_area_pct_over: 0
   heritage_register: true
 
@@ -21,13 +24,15 @@ profiles:
     zoning_other: block          # zoning kind "other": block | check (container may sit in U, which we cannot tell apart yet)
     housing_m: {full: 400, min: 250}      # nearest house: full points at 'full', zero at or below 'min'
     gpz110_km: {full: 3, zero: 15}
-    headroom_mw: {full: 10, zero: 0}      # published DSO headroom at the nearest GPZ (a signal only)
+    # Published DSO headroom at the nearest GPZ (a signal only). Full marks at the 60 MW target of both profiles
+    # (scoring.yaml target.mw_min); until 11.11.2026 it was 10 MW built and 2 MW container.
+    headroom_mw: {full: 60, zero: 0}
     weights: {housing: 15, gpz110: 20, headroom: 15, soil: 8}
   container:
     label_pl: Kontenerowe
-    min_area_ha: 0.15
+    min_area_ha: 0.5             # 60 MW of containers plus a 110/SN bay; same as scoring.yaml small.ha_min
     zoning_other: check
     housing_m: {full: 150, min: 80}
     gpz110_km: {full: 1, zero: 5}
-    headroom_mw: {full: 2, zero: 0}
+    headroom_mw: {full: 60, zero: 0}
     weights: {housing: 15, gpz110: 15, headroom: 10, soil: 8}

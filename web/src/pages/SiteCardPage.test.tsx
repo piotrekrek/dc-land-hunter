@@ -23,6 +23,8 @@ const detail: SiteDetail = {
   zone_id: "z-a",
   area_ha: 32,
   estimated_mw: 192,
+  project_mw: 60,
+  spare_ha: 22,
   score: 81.4,
   upside_score: 84,
   completeness: 0.75,
@@ -36,6 +38,7 @@ const detail: SiteDetail = {
   gmina: "Brwinów",
   powiat: "powiat pruszkowski",
   voivodeship: "mazowieckie",
+  weakest_label_pl: null,
   mw_fact: { value: 192, source_id: "egib", as_of: "2026-10-10T06:00:00+00:00", confidence: "estimated" },
   parcel_ids: ["1", "2"],
   scored_at: "2026-10-10T06:00:00+00:00",
@@ -85,7 +88,9 @@ describe("SiteCardPage", () => {
     mockFetch({ "/api/sites/site-a": detail });
     renderCard("/lokalizacje/site-a");
     expect(await screen.findByRole("heading", { name: /Lokalizacja: 32.ha/ })).toBeInTheDocument();
-    expect(screen.getByText(/Szacowana moc 192 MW/)).toBeInTheDocument();
+    expect(screen.getByTestId("project-mw")).toHaveTextContent("60 MW");
+    expect(screen.getByTestId("spare-ha")).toHaveTextContent("rezerwa na drugą fazę: 22 ha");
+    expect(screen.getByText(/Pojemność terenu 192 MW/)).toBeInTheDocument();
     expect(screen.getByText("Duży kampus: wymaga węzła 220/400 kV")).toBeInTheDocument();
     // The ruler replaces the round badge: the score, the potential and the thresholds are in one figure.
     expect(screen.getByRole("img", { name: "Linijka wyniku: 81, potencjał 84, progi 40 i 70" })).toBeInTheDocument();
@@ -226,7 +231,7 @@ describe("SiteCardPage", () => {
   });
 
   it("calculates the connection cost from the estimate and lets the user change the power", async () => {
-    mockFetch({ "/api/sites/site-a": { ...detail, estimated_mw: 60 } });
+    mockFetch({ "/api/sites/site-a": { ...detail, project_mw: 60 } });
     renderCard("/lokalizacje/site-a");
     const calc = await screen.findByTestId("cost-calculator");
     expect(within(calc).getByText("wymaga weryfikacji prawnej")).toBeInTheDocument();

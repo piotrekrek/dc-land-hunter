@@ -22,6 +22,8 @@ class LoginIn(BaseModel):
 class UserOut(BaseModel):
     email: str
     role: str
+    # An admin switched on connecting Claude for this account (the Settings card says so).
+    mcp_access: bool = False
 
 
 def _client_host(request: Request) -> str:
@@ -63,7 +65,7 @@ def login(
         secure=request.url.scheme == "https",
         path="/",
     )
-    return UserOut(email=user.email, role=user.role)
+    return UserOut(email=user.email, role=user.role, mcp_access=bool(user.mcp_access))
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -79,4 +81,4 @@ def logout(
 
 @router.get("/me", response_model=UserOut)
 def me(user: Annotated[UserRow, Depends(current_user)]) -> UserOut:
-    return UserOut(email=user.email, role=user.role)
+    return UserOut(email=user.email, role=user.role, mcp_access=bool(user.mcp_access))

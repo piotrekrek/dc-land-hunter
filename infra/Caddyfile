@@ -15,6 +15,15 @@
 		reverse_proxy api:8000
 	}
 
+	# Claude connector: the MCP server and its OAuth endpoints (api/dclh_api/mcp). The API serves them only when
+	# DCLH_PUBLIC_URL is set. Never cached: tokens and codes pass through here.
+	@claude path /mcp /mcp/* /authorize /token /register /revoke /.well-known/*
+	handle @claude {
+		reverse_proxy api:8000 {
+			header_down Cache-Control "no-store"
+		}
+	}
+
 	# Tiles and basemap need a login. Each request asks the API whether the session cookie is valid
 	# (GET /api/auth/me); a non-2xx answer is returned to the client as is.
 	handle /tiles/* {

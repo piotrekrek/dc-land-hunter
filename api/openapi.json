@@ -323,6 +323,70 @@
             }
           },
           {
+            "name": "bbox",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "west,south,east,north, WGS84",
+              "title": "Bbox"
+            },
+            "description": "west,south,east,north, WGS84"
+          },
+          {
+            "name": "grid_badge",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "Opublikowana moc",
+                    "Bliskość sieci",
+                    "Brak danych"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Grid Badge"
+            }
+          },
+          {
+            "name": "large_campus",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only sites flagged 'duży kampus'",
+              "default": false,
+              "title": "Large Campus"
+            },
+            "description": "Only sites flagged 'duży kampus'"
+          },
+          {
+            "name": "split_suggested",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only sites that should be split",
+              "default": false,
+              "title": "Split Suggested"
+            },
+            "description": "Only sites that should be split"
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -672,7 +736,9 @@
                 "zoning",
                 "pen_soil_iii",
                 "bonus_psi",
-                "grid_headroom"
+                "grid_headroom",
+                "pen_mineral_deposit",
+                "plan_ogolny"
               ],
               "type": "string",
               "default": "all",
@@ -1043,10 +1109,262 @@
           }
         }
       }
+    },
+    "/api/oauth/requests/{req_id}": {
+      "get": {
+        "tags": [
+          "oauth"
+        ],
+        "summary": "Get Request",
+        "operationId": "get_request_api_oauth_requests__req_id__get",
+        "parameters": [
+          {
+            "name": "req_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "title": "Req Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/oauth/requests/{req_id}/decision": {
+      "post": {
+        "tags": [
+          "oauth"
+        ],
+        "summary": "Decide",
+        "description": "Approving needs `mcp_access`; refusing never does. A request can be decided once.",
+        "operationId": "decide_api_oauth_requests__req_id__decision_post",
+        "parameters": [
+          {
+            "name": "req_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "title": "Req Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/oauth/connections": {
+      "get": {
+        "tags": [
+          "oauth"
+        ],
+        "summary": "List Connections",
+        "description": "The apps this user connected (one per client that holds a token), newest first.",
+        "operationId": "list_connections_api_oauth_connections_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/oauth/connections/{client_id}": {
+      "delete": {
+        "tags": [
+          "oauth"
+        ],
+        "summary": "Disconnect",
+        "description": "Drops this user's tokens for the client. Idempotent; never touches another user's connection.",
+        "operationId": "disconnect_api_oauth_connections__client_id__delete",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "title": "Client Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/team": {
+      "get": {
+        "tags": [
+          "team"
+        ],
+        "summary": "List Team",
+        "operationId": "list_team_api_team_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TeamMember"
+                  },
+                  "type": "array",
+                  "title": "Response List Team Api Team Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/team/{email}/mcp-access": {
+      "put": {
+        "tags": [
+          "team"
+        ],
+        "summary": "Switch Access",
+        "description": "Off also drops the user's tokens and codes, so Claude is signed out at once.",
+        "operationId": "switch_access_api_team__email__mcp_access_put",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 320,
+              "title": "Email"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamMember"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AccessIn": {
+        "properties": {
+          "on": {
+            "type": "boolean",
+            "title": "On"
+          }
+        },
+        "type": "object",
+        "required": [
+          "on"
+        ],
+        "title": "AccessIn"
+      },
       "BonusParams": {
         "properties": {
           "heat_network_km": {
@@ -1081,6 +1399,11 @@
           "public_seller": {
             "type": "number",
             "title": "Public Seller"
+          },
+          "deposit_cancels_psi": {
+            "type": "boolean",
+            "title": "Deposit Cancels Psi",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -1363,6 +1686,14 @@
             "type": "number",
             "title": "Estimated Mw"
           },
+          "project_mw": {
+            "type": "number",
+            "title": "Project Mw"
+          },
+          "spare_ha": {
+            "type": "number",
+            "title": "Spare Ha"
+          },
           "score": {
             "type": "number",
             "title": "Score"
@@ -1445,6 +1776,17 @@
               }
             ],
             "title": "Voivodeship"
+          },
+          "weakest_label_pl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weakest Label Pl"
           },
           "mw_fact": {
             "$ref": "#/components/schemas/FactOut"
@@ -1639,6 +1981,8 @@
           "zone_id",
           "area_ha",
           "estimated_mw",
+          "project_mw",
+          "spare_ha",
           "score",
           "upside_score",
           "completeness",
@@ -1652,6 +1996,7 @@
           "gmina",
           "powiat",
           "voivodeship",
+          "weakest_label_pl",
           "mw_fact",
           "parcel_ids",
           "scored_at",
@@ -1797,6 +2142,58 @@
         ],
         "title": "ConnectionCost"
       },
+      "ConnectionList": {
+        "properties": {
+          "connector_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connector Url"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ConnectionOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "connector_url",
+          "items"
+        ],
+        "title": "ConnectionList"
+      },
+      "ConnectionOut": {
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "title": "Client Id"
+          },
+          "client_name": {
+            "type": "string",
+            "title": "Client Name"
+          },
+          "connected_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Connected At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_id",
+          "client_name",
+          "connected_at"
+        ],
+        "title": "ConnectionOut"
+      },
       "ConnectivityParams": {
         "properties": {
           "telecom_node_km_full": {
@@ -1833,6 +2230,37 @@
           "cities"
         ],
         "title": "ConnectivityParams"
+      },
+      "ConsentInfo": {
+        "properties": {
+          "client_name": {
+            "type": "string",
+            "title": "Client Name"
+          },
+          "scopes": {
+            "items": {
+              "$ref": "#/components/schemas/ScopeOut"
+            },
+            "type": "array",
+            "title": "Scopes"
+          },
+          "user_email": {
+            "type": "string",
+            "title": "User Email"
+          },
+          "can_connect": {
+            "type": "boolean",
+            "title": "Can Connect"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_name",
+          "scopes",
+          "user_email",
+          "can_connect"
+        ],
+        "title": "ConsentInfo"
       },
       "CoverageArea": {
         "properties": {
@@ -1916,6 +2344,14 @@
             },
             "type": "array",
             "title": "Areas"
+          },
+          "station_classes": {
+            "items": {
+              "$ref": "#/components/schemas/StationClassShare"
+            },
+            "type": "array",
+            "title": "Station Classes",
+            "default": []
           }
         },
         "type": "object",
@@ -1938,6 +2374,32 @@
           "id"
         ],
         "title": "CreatedOut"
+      },
+      "DecisionIn": {
+        "properties": {
+          "approve": {
+            "type": "boolean",
+            "title": "Approve"
+          }
+        },
+        "type": "object",
+        "required": [
+          "approve"
+        ],
+        "title": "DecisionIn"
+      },
+      "DecisionOut": {
+        "properties": {
+          "redirect_to": {
+            "type": "string",
+            "title": "Redirect To"
+          }
+        },
+        "type": "object",
+        "required": [
+          "redirect_to"
+        ],
+        "title": "DecisionOut"
       },
       "DiscoverIn": {
         "properties": {
@@ -2193,6 +2655,19 @@
             "minimum": 0.0,
             "title": "Gpz Match Min Score",
             "default": 90.0
+          },
+          "unknown_station_weight": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Unknown Station Weight",
+            "default": 0.5
+          },
+          "other_station_context_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Other Station Context Km",
+            "default": 3.0
           }
         },
         "additionalProperties": false,
@@ -2639,6 +3114,10 @@
             "type": "number",
             "title": "Mining Terrain"
           },
+          "mineral_deposit": {
+            "type": "number",
+            "title": "Mineral Deposit"
+          },
           "soil_class_III_pct_over_30": {
             "type": "number",
             "title": "Soil Class Iii Pct Over 30"
@@ -2662,6 +3141,7 @@
           "flood_0_2pct",
           "landscape_park_or_ochk",
           "mining_terrain",
+          "mineral_deposit",
           "soil_class_III_pct_over_30",
           "residential_100_300m",
           "gas_pipeline_zone",
@@ -3219,6 +3699,24 @@
         ],
         "title": "ResolvedParcelOut"
       },
+      "ScopeOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "ScopeOut"
+      },
       "ScoreItemOut": {
         "properties": {
           "key": {
@@ -3532,6 +4030,14 @@
             "type": "number",
             "title": "Estimated Mw"
           },
+          "project_mw": {
+            "type": "number",
+            "title": "Project Mw"
+          },
+          "spare_ha": {
+            "type": "number",
+            "title": "Spare Ha"
+          },
           "score": {
             "type": "number",
             "title": "Score"
@@ -3614,6 +4120,17 @@
               }
             ],
             "title": "Voivodeship"
+          },
+          "weakest_label_pl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weakest Label Pl"
           },
           "mw_fact": {
             "$ref": "#/components/schemas/FactOut"
@@ -3749,6 +4266,8 @@
           "zone_id",
           "area_ha",
           "estimated_mw",
+          "project_mw",
+          "spare_ha",
           "score",
           "upside_score",
           "completeness",
@@ -3762,6 +4281,7 @@
           "gmina",
           "powiat",
           "voivodeship",
+          "weakest_label_pl",
           "mw_fact",
           "parcel_ids",
           "scored_at",
@@ -3837,6 +4357,14 @@
           "estimated_mw": {
             "type": "number",
             "title": "Estimated Mw"
+          },
+          "project_mw": {
+            "type": "number",
+            "title": "Project Mw"
+          },
+          "spare_ha": {
+            "type": "number",
+            "title": "Spare Ha"
           },
           "score": {
             "type": "number",
@@ -3921,6 +4449,17 @@
             ],
             "title": "Voivodeship"
           },
+          "weakest_label_pl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weakest Label Pl"
+          },
           "mw_fact": {
             "$ref": "#/components/schemas/FactOut"
           },
@@ -3957,6 +4496,8 @@
           "zone_id",
           "area_ha",
           "estimated_mw",
+          "project_mw",
+          "spare_ha",
           "score",
           "upside_score",
           "completeness",
@@ -3970,6 +4511,7 @@
           "gmina",
           "powiat",
           "voivodeship",
+          "weakest_label_pl",
           "mw_fact"
         ],
         "title": "SiteSummary",
@@ -4251,6 +4793,52 @@
         ],
         "title": "SourcesList"
       },
+      "StationClassShare": {
+        "properties": {
+          "teryt": {
+            "type": "string",
+            "title": "Teryt"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "operator_gpz": {
+            "type": "integer",
+            "title": "Operator Gpz"
+          },
+          "generator": {
+            "type": "integer",
+            "title": "Generator"
+          },
+          "customer": {
+            "type": "integer",
+            "title": "Customer"
+          },
+          "unknown": {
+            "type": "integer",
+            "title": "Unknown"
+          },
+          "unknown_share": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Unknown Share"
+          }
+        },
+        "type": "object",
+        "required": [
+          "teryt",
+          "name",
+          "operator_gpz",
+          "generator",
+          "customer",
+          "unknown",
+          "unknown_share"
+        ],
+        "title": "StationClassShare",
+        "description": "110 kV/SN stations of one voivodeship by class; a high `unknown_share` means a guessed GPZ score."
+      },
       "StepOut": {
         "properties": {
           "parcel": {
@@ -4334,6 +4922,11 @@
             "type": "number",
             "title": "Mw Min"
           },
+          "target_mw": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Target Mw"
+          },
           "mw_per_ha": {
             "type": "number",
             "exclusiveMinimum": 0.0,
@@ -4371,6 +4964,7 @@
         "type": "object",
         "required": [
           "mw_min",
+          "target_mw",
           "mw_per_ha",
           "ha_min",
           "ha_ideal",
@@ -4378,6 +4972,34 @@
           "large_site_split_ha"
         ],
         "title": "Target"
+      },
+      "TeamMember": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "mcp_access": {
+            "type": "boolean",
+            "title": "Mcp Access"
+          },
+          "connections": {
+            "type": "integer",
+            "title": "Connections"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "role",
+          "mcp_access",
+          "connections"
+        ],
+        "title": "TeamMember"
       },
       "UnknownOut": {
         "properties": {
@@ -4406,6 +5028,11 @@
           "role": {
             "type": "string",
             "title": "Role"
+          },
+          "mcp_access": {
+            "type": "boolean",
+            "title": "Mcp Access",
+            "default": false
           }
         },
         "type": "object",
@@ -4544,6 +5171,12 @@
             "minimum": 0.0,
             "title": "Plan Ogolny Sg"
           },
+          "zone_allows_dc_outside_ouz": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Zone Allows Dc Outside Ouz"
+          },
           "procedure_in_progress": {
             "type": "number",
             "maximum": 100.0,
@@ -4568,6 +5201,7 @@
         "required": [
           "mpzp_production",
           "plan_ogolny_SG",
+          "zone_allows_dc_outside_ouz",
           "procedure_in_progress",
           "unknown",
           "other"

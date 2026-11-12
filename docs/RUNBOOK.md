@@ -50,6 +50,69 @@ Non-interactive (scripts, CI): `--password-env VAR` reads the password from an e
 Admins see "Uruchom teraz" on the Sources page; everything except `/api/health` requires login.
 The session cookie is `Secure` automatically when the request arrives over HTTPS (Caddy forwards the scheme).
 
+## Claude connector (MCP)
+
+Lets a person connect Claude (claude.ai on the web, the desktop and phone apps, or Claude Code) to this app. Claude
+can then search sites, read site cards, coverage, the deal pipeline (stages only, never notes) and parcel checks, and
+can watch a site, queue a parcel check, or add and remove priority powiats in the search queue (Kolejka; the
+list is shared by the team). Everything is done as the person who connected it, and Claude asks before
+it runs a tool that changes something. Design and decisions: `docs/PLAN.md`, "Claude connector (MCP)".
+
+**What leaves the server:** everything a tool returns goes to Anthropic. The pipeline `owner_note` is never returned
+(it may hold personal data, brief 9.6). Before adding a field to `SiteDetail` or a new tool, run the leak tests
+(`tests/unit/test_mcp_tools_db.py`, `tests/unit/test_mcp_write_db.py`) and extend them.
+
+### Switch it on (once)
+
+1. On the VPS, append the public address to `infra/.env` **by hand** (never overwrite that file). `SITE_ADDRESS` must
+   already be the domain, so Caddy serves HTTPS; Claude's servers only reach an HTTPS address:
+
+   ```
+   DCLH_PUBLIC_URL=https://<domain>
+   ```
+
+   No trailing slash and no path. It must be exactly what people type in the browser.
+2. Deploy as usual (`scripts/deploy.sh`). Check `curl https://<domain>/.well-known/oauth-authorization-server`
+   (JSON) and `docker compose -f infra/docker-compose.yml logs api` (no error).
+3. Allow each person: in the app, tab **Claude → Dostęp zespołu** (admins only; "Kopiuj zaproszenie" copies a message
+   with the steps to send them), or from the CLI. Off also drops that person's tokens, so Claude is signed out at once:
+
+   ```bash
+   docker compose -f infra/docker-compose.yml exec api dclh user mcp-access partner@example.org --on
+   docker compose -f infra/docker-compose.yml exec api dclh user mcp-access partner@example.org --off
+   docker compose -f infra/docker-compose.yml exec api dclh oauth list     # who connected which app
+   docker compose -f infra/docker-compose.yml exec api dclh oauth purge    # expired rows; also daily at 04:30 (crontab)
+   ```
+
+4. The person opens the **Claude** tab in the app: it shows the address, the steps, example prompts and their apps.
+   - claude.ai, desktop, phone: Customize → Connectors → + Add → Add custom connector → name `DC Land Hunter`, the
+     address → Add → Connect → log in to the app → "Zezwól". The Free plan allows one custom connector; on Team or
+     Enterprise only an owner adds it. The phone app uses the connector added on the web.
+   - Claude Code: `claude mcp add --transport http dclh https://<domain>/mcp`, then `/mcp` inside Claude Code to log in.
+
+### Switch it off
+
+Remove `DCLH_PUBLIC_URL` from `infra/.env` and redeploy: `/mcp` and the OAuth endpoints disappear and the rest of the
+app is unchanged. To cut one person off, use `dclh user mcp-access … --off`. A person can also disconnect an app
+themselves in the Claude tab. Clients, codes and tokens are rows in the `oauth_*` tables; secrets are stored as SHA-256.
+
+### Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| The Claude tab says "Połączenie z Claude jest wyłączone na tym serwerze" | `DCLH_PUBLIC_URL` is missing from `infra/.env`, or the `api` container was not recreated after adding it |
+| The consent page says the account has no access | Claude tab → Dostęp zespołu → Włącz dostęp (or `dclh user mcp-access <email> --on`) |
+| Claude says the connection expired | Access tokens last 1 hour and are refreshed for 30 days. If that fails, disconnect in the Claude tab and connect again (Claude Code: `/mcp`) |
+| `/mcp` answers 421 | The Host header is not the public host. `DCLH_PUBLIC_URL` must match the address exactly (scheme and host) |
+| The consent page says "Prośba o połączenie wygasła…" | A request lives 10 minutes and works once. Start again from Claude |
+| claude.ai fails at "Connect", but Claude Code connects with the same address | There are public reports of the claude.ai web flow stalling at the token step ([#215](https://github.com/anthropics/claude-ai-mcp/issues/215), [#313](https://github.com/anthropics/claude-ai-mcp/issues/313)). If Claude Code works, the server is right: retry later and report it to Anthropic |
+
+### Trying it without Claude
+
+Set `DCLH_PUBLIC_URL=http://localhost:<port>` (plain http is accepted for localhost only) and point the MCP Inspector
+(`npx @modelcontextprotocol/inspector`, from a Node container if the host has none) at `http://localhost:<port>/mcp`.
+The automated checks do the same with the official MCP client: see the tests named `test_mcp_*` and `test_oauth_*`.
+
 ## Local development (without Docker for the app)
 
 ```bash
@@ -127,6 +190,24 @@ uv run dclh reprofile        # recomputes every stored site from detail.features
 ```
 
 Run it again after editing `config/profiles.yaml`. Until then a profile filter does not hide those rows (no verdict is not red).
+
+## Site snapshots (regression check around scoring changes)
+
+Two read-only commands; they never write to the database. Snapshot before and after a rescore, then diff:
+
+```bash
+uv run dclh snapshot-sites --site site-8cb533d084db --site site-5b98a44d8408 --site site-0e03a53b846f \
+  --site site-4755d239dc1f --site site-cb505a5f0870 --gmina 080504 --out before.json
+# ... change scoring, `dclh search <powiat> --write` ...
+uv run dclh snapshot-sites <same arguments> --out after.json
+uv run dclh diff-snapshots before.json after.json [--threshold 5]
+```
+
+`--site` and `--gmina` (TERYT) add up: every listed site plus every site whose representative point lies in the
+gmina. Each entry has score, upside, verdict per profile, category points, flags, nearest 110/SN GPZ (name,
+distance) and estimated MW and area. The diff lists verdict changes in any profile, score moves above the
+threshold (default 5 points) and sites present in only one file. The five Rzepin RTB sites above are the
+reference set for the Rzepin improvement spec.
 
 ## Adding a source connector
 
@@ -223,6 +304,71 @@ background (`exec -d worker sh -c '... > /data/osm_fetch.log 2>&1'`) and check t
 | `/tiles/catalog` is empty | Expected until Phase 1 creates views in the `tiles` schema |
 | Discovery shows ✗ everywhere | Running outside Poland, or outbound traffic is filtered |
 | Scheduler restarts in a loop | It must be started with the absolute path `/usr/local/bin/supercronic` |
+
+## Disk space
+
+The VPS disk (59 GB) filled up on 30.10.2026: the nightly search keeps every EGiB page (`data/raw/egib`) and every
+answer it downloads (`/data/http-cache` in the `dclh-data` volume), and nothing was ever deleted. Now:
+
+- New EGiB pages are stored gzipped (`<sha256>.gml.gz`, about 14 times smaller). Pages stored before that stay plain
+  until you compact them once, when no search is running (it refuses otherwise; it frees about 13 GB):
+  `docker compose -f infra/docker-compose.yml exec worker dclh compact-egib`
+- Each search first deletes expired cache answers (40 days) and then the oldest ones until the cache is at most 4 GB.
+- A search that starts with less than 10 GB free (data folder or temp folder) stops at once with
+  `No space left on device` in the job error. It is not counted as an attempt, so the planner retries the powiat.
+
+To see what takes the space: `df -h /`, `docker system df`, `du -sh data/raw/*`, and
+`docker compose -f infra/docker-compose.yml exec worker du -sh /data/http-cache`. Deleting `/data/http-cache`
+is always safe (searches download again); `data/raw` holds the evidence behind stored sites, so do not delete it.
+
+## Database backups
+
+`scripts/backup_db.sh` dumps the database (pg_dump custom format, about 380 MB in November 2026) to
+`~/backups/dclh-nightly-<date>-<time>.dump`, checks that `pg_restore` can read the dump, and keeps the newest 7
+nightly dumps (`KEEP=14` keeps more, `BACKUP_DIR=...` writes elsewhere). Dumps with other names, such as the ones
+made by hand before a risky deploy, are never deleted. Nightly host cron, after the search window and the 04:30
+OAuth purge (the VPS runs on Warsaw time):
+
+```
+15 5 * * * /home/piotr/dc-land-hunter/scripts/backup_db.sh >> /home/piotr/backups/backup.log 2>&1
+```
+
+The dumps stay on the VPS disk, so they cover a broken migration or a bad delete, not a lost VPS. Copy one off the
+machine now and then (for example `scp` to your laptop) until there is an off-site target.
+
+Restore into a fresh database (stop the app first: `docker compose -f infra/docker-compose.yml stop api worker
+check-worker scheduler martin`):
+
+```bash
+docker compose -f infra/docker-compose.yml exec -T db sh -c \
+  'dropdb -U "$POSTGRES_USER" --if-exists dclh_restore && createdb -U "$POSTGRES_USER" dclh_restore'
+docker compose -f infra/docker-compose.yml exec -T db sh -c \
+  'pg_restore -U "$POSTGRES_USER" -d dclh_restore --no-owner' < ~/backups/dclh-nightly-<date>-<time>.dump
+```
+
+Check `dclh_restore`, then rename it to the live name with `ALTER DATABASE` (or point `POSTGRES_DB` at it).
+
+## Logs
+
+Docker drops a container's log when the container is recreated, which every deploy does, and a capped json log
+(20 MB × 3 per container) is all it keeps otherwise. The two workers therefore also write their log to the
+`dclh-data` volume, rotated at 20 MB × 5:
+
+```bash
+docker compose -f infra/docker-compose.yml exec worker tail -n 200 /data/logs/worker.log
+docker compose -f infra/docker-compose.yml exec worker grep -h ERROR /data/logs/worker.log*
+```
+
+## Slow queries
+
+The db service preloads `pg_stat_statements`, and migration 0016 creates the extension. The slowest queries since
+the last database restart (or `SELECT pg_stat_statements_reset()`):
+
+```bash
+docker compose -f infra/docker-compose.yml exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
+  SELECT calls, round(mean_exec_time) AS mean_ms, round(total_exec_time / 1000) AS total_s, left(query, 100)
+  FROM pg_stat_statements ORDER BY total_exec_time DESC LIMIT 15"'
+```
 
 ## Source discovery on the VPS (automatic publish)
 

@@ -52,6 +52,19 @@ describe("stationPopup", () => {
     expect(m.coordinates).toBe("52,2; 18,2");
   });
 
+  it("shows whose station it is and what decided it", () => {
+    const rows = (p: Record<string, unknown>) =>
+      Object.fromEntries(stationPopup({ ...props, ...p }, 15, 52).rows.map((r) => [r.label, r.value]));
+    expect(rows({ station_class: "operator_gpz", class_source: "operator_list" })["Właściciel stacji"]).toBe(
+      "stacja OSD/PSE · źródło: lista OSD",
+    );
+    expect(rows({ station_class: "generator", class_source: "name_pattern" })["Właściciel stacji"]).toBe(
+      "stacja wytwórcy (farma, elektrownia) · źródło: wzorzec nazwy",
+    );
+    expect(rows({ station_class: "unknown", class_source: null })["Właściciel stacji"]).toBe("właściciel nieustalony");
+    expect(rows({})["Właściciel stacji"]).toBeUndefined();
+  });
+
   it("flags a non-utility owner as a possible brownfield", () => {
     const m = stationPopup({ ...props, operator: "KGHM", dso: null, foreign_operator: "true" }, 18, 52);
     expect(m.rows.find((r) => r.label === "Operator")?.value).toContain("obcy operator");

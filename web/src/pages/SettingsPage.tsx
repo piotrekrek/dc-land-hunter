@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { LoaderCircle, ServerCrash } from "lucide-react";
+import { Link } from "react-router";
 
 import { api, unwrap } from "@/api/client";
 import { EmptyState } from "@/components/EmptyState";
@@ -43,6 +44,8 @@ export function SettingsPage() {
                 <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 text-sm">
                   <dt className="text-muted-foreground">Minimalna moc</dt>
                   <dd>{formatMW(data.target.mw_min)}</dd>
+                  <dt className="text-muted-foreground">Moc projektu (cel)</dt>
+                  <dd>{formatMW(data.target.target_mw)}</dd>
                   <dt className="text-muted-foreground">Gęstość mocy</dt>
                   <dd>{formatNumber(data.target.mw_per_ha)}&nbsp;MW/ha</dd>
                   <dt className="text-muted-foreground">Minimalna powierzchnia</dt>
@@ -80,6 +83,18 @@ export function SettingsPage() {
             </Card>
           </div>
         )}
+        <Card className="mt-4" data-testid="claude-link">
+          <CardHeader>
+            <CardTitle>Połączenie z Claude</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            Jak podłączyć Claude, połączone aplikacje i dostęp zespołu:{" "}
+            <Link to="/claude" className="font-medium text-accent underline-offset-2 hover:underline">
+              zakładka Claude
+            </Link>
+            .
+          </CardContent>
+        </Card>
       </div>
       <SourcesSection />
     </PageScroll>

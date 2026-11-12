@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import pandas as pd
@@ -23,6 +23,7 @@ from dclh_pipeline.config import ScoringConfig, SourcesConfig
 from dclh_pipeline.model.capacity import build_gpz_capacity_layer, build_point_layer, locate_points
 from dclh_pipeline.model.features import GpzCapacityLayer, PointLayer, Substation
 from dclh_pipeline.model.gpz_match import MatchResult, gpz_candidates, node_candidates, station_points
+from dclh_pipeline.model.grid import OPERATOR_LIST_MATCH, ClassSource, StationClass, SubstationClass
 from dclh_pipeline.settings import REPO_ROOT
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
 from dclh_pipeline.sources.energa import EnergaConnector
@@ -54,6 +55,28 @@ def _parse_capacity(source_id: str, snapshot: Snapshot, sources: SourcesConfig) 
     if source_id == "energa" and suffix == ".pdf":
         return EnergaConnector(spec).parse(snapshot)
     return MANUAL_CAPACITY[source_id](spec, snapshot.path).parse(snapshot)
+
+
+def upgrade_listed_stations(
+    substations: Sequence[Substation], results: Sequence[MatchResult]
+) -> list[Substation]:
+    """A station that a DSO capacity list names is the operator's: class `operator_gpz`, verified.
+
+    Only matches that found a station count (`candidate_key`; a published location has no OSM station), and
+    only 110 kV/SN stations (a PSE list matched to a 220/400 kV node is not a GPZ).
+    """
+    listed = {r.candidate_key for r in results if r.candidate_key is not None}
+    return [
+        replace(
+            s,
+            station_class=StationClass.OPERATOR_GPZ,
+            class_source=ClassSource.OPERATOR_LIST,
+            class_confidence=OPERATOR_LIST_MATCH.confidence,
+        )
+        if s.osm_id in listed and s.cls is SubstationClass.GPZ_110_SN
+        else s
+        for s in substations
+    ]
 
 
 def load_grid_capacity(

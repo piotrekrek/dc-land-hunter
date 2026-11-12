@@ -5,6 +5,7 @@ Running everything through one sequential worker means scheduled runs and "Uruch
 
 from __future__ import annotations
 
+import errno
 import logging
 import time
 from collections.abc import Callable, Collection
@@ -22,6 +23,7 @@ from dclh_pipeline.db.models import JobRow, PowiatPriorityRow, RunRow, SearchRun
 from dclh_pipeline.discovery import discover, save_report
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.powiat_search import (
+    PowiatSearch,
     merge_priority,
     next_window_end,
     pick_powiats,
@@ -104,21 +106,35 @@ def _job_search(session: Session, payload: dict[str, Any]) -> dict[str, Any]:
             record_attempt(attempt, teryt, ok=False, at=now, error="not enough memory after retries")
         raise
     except Exception as exc:
+        if isinstance(exc, OSError) and exc.errno == errno.ENOSPC:
+            # A full disk is the host's problem, like memory: not an attempt, so the powiat keeps its place.
+            raise
         # The job's own session is rolled back on failure, so the attempt is recorded in a session of its own.
         with session_scope() as attempt:
             record_attempt(attempt, teryt, ok=False, at=now, error=str(exc)[:500])
         raise
     count = write_sites(session, found.result.scored, scored_at=found.scored_at, powiat=teryt)
     record_attempt(session, teryt, ok=True, at=now, sites=count, seconds=round(found.seconds, 1))
+    return search_summary(found, count)
+
+
+def search_summary(found: PowiatSearch, sites: int) -> dict[str, Any]:
+    """What a search run keeps in `runs.summary`: the funnel, the time per step and the cache use.
+
+    The time per step shows where a slow night went (parcel download or scoring) after Docker dropped the log.
+    """
     report = found.result.report
     return {
-        "powiat": teryt,
+        "powiat": found.teryt,
         "name": found.name,
-        "sites": count,
+        "sites": sites,
         "scored": report.scored,
         "excluded": report.excluded,
         "parcels_fetched": report.parcels_fetched,
+        "tiles": report.tiles,
         "seconds": round(found.seconds, 1),
+        "step_seconds": {step: round(sec, 1) for step, sec in report.seconds.items()},
+        "cache": {"hits": found.cache_hits, "misses": found.cache_misses},
     }
 
 

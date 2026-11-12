@@ -116,6 +116,10 @@ class SubstationRow(Base):
     voltage_tag: Mapped[str | None] = mapped_column(Text)
     cls: Mapped[str] = mapped_column(String(32))
     confidence: Mapped[str] = mapped_column(String(16))
+    # Whose station it is (model/grid.py `classify_station`); migration 0019.
+    station_class: Mapped[str] = mapped_column(String(16), default="unknown", server_default="unknown")
+    class_source: Mapped[str | None] = mapped_column(String(24))
+    class_confidence: Mapped[str] = mapped_column(String(16), default="missing", server_default="missing")
     source_id: Mapped[str] = mapped_column(String(64), default="osm_power")
     as_of: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -127,6 +131,8 @@ class UserRow(Base):
     email: Mapped[str] = mapped_column(Text, unique=True)
     password_hash: Mapped[str] = mapped_column(Text)
     role: Mapped[str] = mapped_column(String(16), default="member", server_default="member")
+    # An admin switches this on per user: only then can the user connect Claude (migration 0015).
+    mcp_access: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

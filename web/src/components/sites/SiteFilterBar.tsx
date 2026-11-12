@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { api, unwrap } from "@/api/client";
 import { cn } from "@/lib/utils";
-import { MW_OPTIONS, PROFILE_OPTIONS, SORT_OPTIONS, type SiteFilters } from "@/lib/sites";
+import { GRID_BADGE_OPTIONS, MW_OPTIONS, PROFILE_OPTIONS, SORT_OPTIONS, type SiteFilters } from "@/lib/sites";
 
 interface Props {
   filters: SiteFilters;
@@ -63,7 +63,7 @@ export function SiteFilterBar({ filters, onChange }: Props) {
         </select>
       </label>
       <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-        Szacowana moc od
+        Pojemność terenu od
         <select className={selectClass} value={filters.minMw} onChange={(e) => onChange({ ...filters, minMw: Number(e.target.value) })}>
           {MW_OPTIONS.map((mw) => (
             <option key={mw} value={mw}>
@@ -98,6 +98,29 @@ export function SiteFilterBar({ filters, onChange }: Props) {
             </option>
           ))}
         </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+        Dane o sieci
+        <select
+          className={selectClass}
+          value={filters.gridBadge}
+          onChange={(e) => onChange({ ...filters, gridBadge: e.target.value as SiteFilters["gridBadge"] })}
+        >
+          <option value="">dowolne</option>
+          {GRID_BADGE_OPTIONS.map((badge) => (
+            <option key={badge} value={badge}>
+              {badge}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex h-9 items-center gap-2 text-sm">
+        <input type="checkbox" checked={filters.largeCampus} onChange={(e) => onChange({ ...filters, largeCampus: e.target.checked })} />
+        Duży kampus
+      </label>
+      <label className="flex h-9 items-center gap-2 text-sm">
+        <input type="checkbox" checked={filters.splitSuggested} onChange={(e) => onChange({ ...filters, splitSuggested: e.target.checked })} />
+        Do podziału
       </label>
       <label className="flex h-9 items-center gap-2 text-sm">
         <input type="checkbox" checked={filters.includeExcluded} onChange={(e) => onChange({ ...filters, includeExcluded: e.target.checked })} />

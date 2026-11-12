@@ -18,6 +18,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Protocol
 
 import geopandas as gpd
@@ -25,7 +26,7 @@ from shapely import box
 from shapely.geometry.base import BaseGeometry
 
 from dclh_pipeline.config import ScoringConfig, SourcesConfig
-from dclh_pipeline.grid_capacity import GridCapacity, load_grid_capacity
+from dclh_pipeline.grid_capacity import GridCapacity, load_grid_capacity, upgrade_listed_stations
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.model.features import (
     POWERED_BROWNFIELD_NEAR_M,
@@ -36,6 +37,7 @@ from dclh_pipeline.model.features import (
     ZoningLayer,
     build_grid_index,
 )
+from dclh_pipeline.model.planning import PlanOgolnyLayer, build_plan_layer
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.psi import PsiLayer
 from dclh_pipeline.model.sites import Site
@@ -63,7 +65,12 @@ from dclh_pipeline.sources.osm_power import OsmPowerConnector, to_grid
 from dclh_pipeline.sources.osm_res import read_res, res_cluster_layer
 from dclh_pipeline.sources.prg import PrgConnector, big_city_layer
 from dclh_pipeline.sources.psi import load_psi_layer
-from dclh_pipeline.sources.ru import RuMpzpConnector, RuPlanOgolnyConnector
+from dclh_pipeline.sources.ru import (
+    RuMpzpConnector,
+    RuOuzConnector,
+    RuPlanActConnector,
+    RuPlanOgolnyConnector,
+)
 
 # Area steps, in the order they run. Keys are what a reporter and the check page see.
 ROAD_MARGIN_M = 3_000.0  # how far beyond a check's window a road still counts as "the nearest one"
@@ -114,6 +121,7 @@ class AreaLayers:
     forest: Layer | None = None
     roads: Layer | None = None  # public roads (BDOT10k): lines
     zoning: tuple[ZoningLayer, ...] = ()
+    plan_ogolny: PlanOgolnyLayer | None = None
 
 
 def load_static_layers(
@@ -135,14 +143,16 @@ def load_static_layers(
 
     admin = PrgConnector(config.get("prg")).parse(prg_snapshot)
     substations, lines = to_grid(OsmPowerConnector(config.get("osm_power")).parse(osm_snapshot))
+    # DSO capacity and PSE lists: optional; a source never fetched or imported stays missing in the scores.
+    # They come before the grid index: a station a DSO list names is an operator GPZ (verified).
+    grid_capacity = load_grid_capacity(store, config, substations, cfg)
+    substations = upgrade_listed_stations(substations, grid_capacity.results)
     grid = build_grid_index(substations, lines, as_of=osm_snapshot.fetched_at, source_id="osm_power")
     # Gas pipelines and runways from the same extract: estimated proxies, no public source exists.
     infra = read_infra(osm_snapshot.path)
     gas_layer = gas_zone_layer(infra, cfg.proxies.gas_zone_m, osm_snapshot.fetched_at)
     ols_layer = airport_ols_layer(infra, cfg.proxies.runway_min_m, osm_snapshot.fetched_at)
     res_layer = res_cluster_layer(read_res(osm_snapshot.path), osm_snapshot.fetched_at)
-    # DSO capacity and PSE lists: optional; a source never fetched or imported stays missing in the scores.
-    grid_capacity = load_grid_capacity(store, config, substations, cfg)
     gdos = GdosConnector(config.get("gdos")).parse(gdos_snapshot)
     protected_layer = Layer(
         source_id="gdos",
@@ -231,6 +241,7 @@ def load_area_layers(
     flood = flood_02 = housing = forest = roads = None
     mining: dict[str, Layer] | None = None
     zoning: tuple[ZoningLayer, ...] = ()
+    plan_ogolny: PlanOgolnyLayer | None = None
 
     with _step(reporter, STEP_FLOOD, strict) as done:
         connector = IsokConnector(config.get("isok"), bbox=bbox)
@@ -257,13 +268,11 @@ def load_area_layers(
         midas = connector_m.parse(snapshot_m)
         store.mark_good(snapshot_m)
         mining = {
-            kind: Layer(
-                source_id="midas",
-                index=GeomIndex(midas.geometry[midas["kind"] == kind]),
-                as_of=snapshot_m.fetched_at,
-                confidence=Confidence.VERIFIED,
-            )
-            for kind in ("mining_area", "mining_terrain")
+            kind: _midas_layer(midas, kind, snapshot_m.fetched_at)
+            for kind in ("mining_area", "mining_terrain", "mineral_deposit")
+            # A snapshot from before layer 0 was added did not ask for deposits: those facts stay missing
+            # instead of reading "no deposit here".
+            if kind != "mineral_deposit" or "mineral_deposit" in midas.attrs.get("kinds", ())
         }
         done(mining)
 
@@ -304,7 +313,7 @@ def load_area_layers(
         done({"housing": housing, "forest": forest, "roads": roads})
 
     with _step(reporter, STEP_ZONING, strict) as done:
-        zoning = ru_zoning_layers(config, client, store, bbox)
+        zoning, plan_ogolny = ru_zoning_layers(config, client, store, bbox)
         done(zoning)
 
     return AreaLayers(
@@ -315,13 +324,15 @@ def load_area_layers(
         forest=forest,
         roads=roads,
         zoning=zoning,
+        plan_ogolny=plan_ogolny,
     )
 
 
 def ru_zoning_layers(
     config: SourcesConfig, client: PoliteClient, store: SnapshotStore, bbox: BBox
-) -> tuple[ZoningLayer, ...]:
-    """The RU zoning layers of one bbox, in order of precedence: MPZP procedures, then plan ogólny zones.
+) -> tuple[tuple[ZoningLayer, ...], PlanOgolnyLayer]:
+    """The RU zoning layers of one bbox, in order of precedence: MPZP procedures, then plan ogólny zones; and
+    the plan ogólny layer (OUZ, plan acts, zone parameters) built from the same tables.
 
     An MPZP outline in force has no designations, so it does not decide the zoning (KIMPZP does, ahead of
     these layers). Plan ogólny drafts count only as a procedure for a strefa gospodarcza
@@ -330,10 +341,14 @@ def ru_zoning_layers(
     mpzp = RuMpzpConnector(config.get("ru"), bbox=bbox)
     pog = RuPlanOgolnyConnector(config.get("ru"), bbox=bbox)
     layers = []
+    tables: dict[str, gpd.GeoDataFrame] = {}
+    as_of: datetime | None = None
     for connector in (mpzp, pog):
         snapshot = connector.fetch(client, store)
         table = connector.parse(snapshot)
         store.mark_good(snapshot)
+        tables[connector.layer] = table
+        as_of = snapshot.fetched_at
         if connector is pog:
             kinds = [
                 plan_ogolny_kind(z, s) for z, s in zip(table["zone_href"], table["status_href"], strict=True)
@@ -342,7 +357,39 @@ def ru_zoning_layers(
             kinds = [mpzp_outline_kind(s) for s in table["status_href"]]
         zones = tuple((k, g) for k, g in zip(kinds, table.geometry, strict=True) if k is not None)
         layers.append(ZoningLayer("ru", snapshot.fetched_at, zones))
-    return tuple(layers)
+    for extra in (
+        RuOuzConnector(config.get("ru"), bbox=bbox),
+        RuPlanActConnector(config.get("ru"), bbox=bbox),
+    ):
+        snapshot = extra.fetch(client, store)
+        tables[extra.layer] = extra.parse(snapshot)
+        store.mark_good(snapshot)
+    plan = build_plan_layer(
+        tables[pog.layer],
+        tables[RuOuzConnector.layer],
+        tables[RuPlanActConnector.layer],
+        tables[mpzp.layer],
+        as_of,
+    )
+    return tuple(layers), plan
+
+
+def _midas_layer(midas: gpd.GeoDataFrame, kind: str, as_of: datetime) -> Layer:
+    rows = midas[midas["kind"] == kind]
+    return Layer(
+        source_id="midas",
+        index=GeomIndex(rows.geometry),
+        as_of=as_of,
+        confidence=Confidence.VERIFIED,
+        attrs=tuple(
+            {"name": str(n), "mineral": str(m), "status": str(s), "source_date": str(d)}
+            for n, m, s, d in zip(
+                rows["name"], rows["mineral"], rows["status"], rows["source_date"], strict=True
+            )
+        )
+        if kind == "mineral_deposit"
+        else (),
+    )
 
 
 def build_site_layers(static: StaticLayers, area: AreaLayers, industrial: Layer | None) -> SiteLayers:
@@ -366,6 +413,7 @@ def build_site_layers(static: StaticLayers, area: AreaLayers, industrial: Layer 
     return SiteLayers(
         grid=static.grid,
         zoning=area.zoning,
+        plan_ogolny=area.plan_ogolny,
         residential=area.housing,
         roads=area.roads,
         industrial=industrial,

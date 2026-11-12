@@ -3,7 +3,8 @@
 `fetch()` streams `poland-latest.osm.pbf` to disk (about 2 GB, never held in memory) and checks the size
 against `Content-Length`, so a cut-off download cannot become a snapshot. `parse()` reads substations
 (`power=substation`, nodes and ways) and lines (`power=line` ways) with pyosmium and returns one table in
-EPSG:2180 with the columns `kind`, `osm_id`, `name`, `operator`, `voltage` (the raw tag) and `geometry`.
+EPSG:2180 with the columns `kind`, `osm_id`, `name`, `operator`, `owner`, `substation` (the OSM
+`substation=*` tag), `voltage` (the raw tag) and `geometry`.
 
 Known gaps, on purpose:
 - Substations mapped as multipolygon relations are skipped. They are rare.
@@ -43,7 +44,9 @@ from dclh_pipeline.model.grid import (
     V_110,
     V_220,
     WAY_ID_OFFSET,
+    StationClass,
     SubstationClass,
+    classify_station,
     classify_substation,
     derive_operator,
     parse_voltages,
@@ -55,7 +58,7 @@ from dclh_pipeline.sources.prg import EPSG, POLAND_BOUNDS
 PBF_URL = "https://download.geofabrik.de/europe/poland-latest.osm.pbf"
 log = logging.getLogger(__name__)
 
-COLUMNS = ["kind", "osm_id", "name", "operator", "voltage"]
+COLUMNS = ["kind", "osm_id", "name", "operator", "owner", "substation", "voltage"]
 # A real extract has thousands of substations. Far fewer means a wrong or empty file.
 MIN_SUBSTATIONS_IN_EXTRACT = 1000
 # `parse()` peaks at a few hundred MB. It refuses to start when less than this is available, so a parse on a
@@ -244,6 +247,8 @@ class _PowerWay:
     kind: str
     name: str
     operator: str
+    owner: str
+    substation: str
     voltage: str
     refs: np.ndarray  # node ids, in order
 
@@ -253,6 +258,8 @@ class _PowerWay:
             "osm_id": self.osm_id,
             "name": self.name,
             "operator": self.operator,
+            "owner": self.owner,
+            "substation": self.substation,
             "voltage": self.voltage,
         }
 
@@ -282,6 +289,8 @@ def _power_objects(path: str) -> tuple[list[_PowerWay], list[tuple[dict[str, obj
                     kind=kind,
                     name=obj.tags.get("name") or "",
                     operator=obj.tags.get("operator") or "",
+                    owner=obj.tags.get("owner") or "",
+                    substation=obj.tags.get("substation") or "",
                     voltage=obj.tags.get("voltage") or "",
                     refs=refs,
                 )
@@ -295,6 +304,8 @@ def _power_objects(path: str) -> tuple[list[_PowerWay], list[tuple[dict[str, obj
                 "osm_id": obj.id,
                 "name": obj.tags.get("name", ""),
                 "operator": obj.tags.get("operator", ""),
+                "owner": obj.tags.get("owner", ""),
+                "substation": obj.tags.get("substation", ""),
                 "voltage": obj.tags.get("voltage", ""),
             }
             nodes.append((row, Point(obj.location.lon, obj.location.lat)))
@@ -384,14 +395,23 @@ def to_grid(table: gpd.GeoDataFrame) -> tuple[list[Substation], list[Line]]:
         voltage_tag = str(rec.voltage) or None
         if rec.kind == "substation":
             info = classify_substation(voltage_tag)
+            name = str(rec.name) or None
+            operator = str(rec.operator) or None
+            # Older tables (and some test tables) have no owner/substation column.
+            station = classify_station(
+                operator, str(getattr(rec, "owner", "")), name, str(getattr(rec, "substation", ""))
+            )
             substations.append(
                 Substation(
                     int(rec.osm_id),
                     info.cls,
                     info.voltages,
                     rec.geometry,
-                    name=str(rec.name) or None,
-                    operator=str(rec.operator) or None,
+                    name=name,
+                    operator=operator,
+                    station_class=station.station_class,
+                    class_source=station.source,
+                    class_confidence=station.confidence,
                 )
             )
         else:
@@ -440,6 +460,13 @@ def summarize_grid(table: gpd.GeoDataFrame) -> list[tuple[str, int]]:
             ),
         )
     )
+    for station_class in StationClass:
+        rows.append(
+            (
+                f"  GPZ 110 kV, station class {station_class.value}",
+                sum(1 for s in gpz if s.station_class is station_class),
+            )
+        )
     rows.append(("lines, all", len(lines)))
     bands: list[tuple[str, Callable[[int | None], bool]]] = [
         ("  voltage 110 kV band", lambda v: v is not None and V_110 <= v < V_220),

@@ -4,6 +4,8 @@ Used by `dclh search` only: parcels, KIUG and KIMPZP samples and the other WFS p
 is served for `ttl`, so a monthly refresh reuses the last month's downloads. A change upstream shows up on the
 first refresh after the answer expires. Only plain 200 answers are kept: an error, an empty body or a WFS
 ExceptionReport is always asked again.
+
+Nothing is deleted on read, so `prune` keeps the folder in bounds: each search calls it before it starts.
 """
 
 from __future__ import annotations
@@ -69,3 +71,31 @@ class ResponseCache:
             "content_type": response.headers.get("content-type", "application/octet-stream"),
         }
         meta_path.write_text(json.dumps(meta), encoding="utf-8")
+
+    def prune(self, max_bytes: int) -> tuple[int, int]:
+        """Delete expired answers, then the oldest ones until the cache holds at most `max_bytes`.
+
+        Returns (answers deleted, bytes freed). An answer without readable metadata is deleted as well: it is
+        never served (`get` needs both files), so it only takes space.
+        """
+        entries: list[tuple[float, int, Path, Path]] = []
+        for meta_path in self.root.glob("*/*.json"):
+            body_path = meta_path.with_suffix(".body")
+            try:
+                fetched_at = float(json.loads(meta_path.read_text(encoding="utf-8"))["fetched_at"])
+            except (OSError, ValueError, KeyError, TypeError):
+                fetched_at = float("-inf")
+            size = meta_path.stat().st_size + (body_path.stat().st_size if body_path.exists() else 0)
+            entries.append((fetched_at, size, meta_path, body_path))
+        entries.sort(key=lambda e: e[0])
+        total = sum(e[1] for e in entries)
+        oldest_kept = self._clock() - self.ttl_s
+        removed = freed = 0
+        for fetched_at, size, meta_path, body_path in entries:
+            if fetched_at >= oldest_kept and total - freed <= max_bytes:
+                break
+            meta_path.unlink(missing_ok=True)
+            body_path.unlink(missing_ok=True)
+            removed += 1
+            freed += size
+        return removed, freed

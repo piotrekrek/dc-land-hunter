@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import logging.handlers
 import os
 import resource
 from datetime import UTC, datetime, timedelta
@@ -34,6 +35,7 @@ from dclh_pipeline.sources.tauron import TauronConnector
 
 app = typer.Typer(help="DC Land Hunter pipeline", no_args_is_help=True)
 console = Console()
+REPROFILE_PAGE = 2000  # sites per page in `dclh reprofile`
 
 # Connectors that `dclh fetch` can run without the database.
 CONNECTORS: dict[str, type[Source]] = {
@@ -49,10 +51,15 @@ CONNECTORS: dict[str, type[Source]] = {
 
 @app.callback()
 def _main(verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False) -> None:
-    logging.basicConfig(
-        level=logging.DEBUG if verbose else logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
+    fmt = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+    logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO, format=fmt)
+    # Docker drops a container's log when the container is recreated (every deploy), so the workers also write
+    # to a file in the data volume. Capped at 5 × 20 MB; the per-request httpx lines make up most of it.
+    if log_file := os.environ.get("DCLH_LOG_FILE"):
+        Path(log_file).parent.mkdir(parents=True, exist_ok=True)
+        handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=20 * 1024**2, backupCount=4)
+        handler.setFormatter(logging.Formatter(fmt))
+        logging.getLogger().addHandler(handler)
 
 
 @app.command()
@@ -379,6 +386,58 @@ def search_cmd(
         console.print(f"wrote {count} sites for powiat {found.teryt}")
 
 
+@app.command("snapshot-sites")
+def snapshot_sites_cmd(
+    out: Annotated[Path, typer.Option("--out", help="JSON file to write")],
+    site: Annotated[list[str] | None, typer.Option("--site", help="Site id; repeat for several")] = None,
+    gmina: Annotated[str | None, typer.Option("--gmina", help="Gmina TERYT; adds every site in it")] = None,
+) -> None:
+    """Dump score, verdicts, category scores, flags and nearest GPZ of sites to JSON (read-only).
+
+    Run before and after a scoring change, then compare with `dclh diff-snapshots`.
+    """
+    from dclh_pipeline.db import session_scope
+    from dclh_pipeline.site_snapshot import snapshot_sites
+
+    if not site and not gmina:
+        raise typer.BadParameter("give at least one --site or a --gmina")
+    with session_scope() as session:
+        sites = snapshot_sites(session, site or [], gmina)
+    for missing in sorted(set(site or []) - sites.keys()):
+        console.print(f"[yellow]not found: {missing}[/yellow]")
+    out.write_text(json.dumps({"sites": sites}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    console.print(f"wrote {len(sites)} sites to {out}")
+
+
+@app.command("diff-snapshots")
+def diff_snapshots_cmd(
+    a: Annotated[Path, typer.Argument(help="Earlier snapshot")],
+    b: Annotated[Path, typer.Argument(help="Later snapshot")],
+    threshold: Annotated[float, typer.Option(help="Report score moves larger than this")] = 5.0,
+) -> None:
+    """Print sites whose verdict changed or score moved past the threshold, and sites in one file only."""
+    from dclh_pipeline.site_snapshot import diff_snapshots
+
+    def load(path: Path) -> dict[str, Any]:
+        try:
+            return dict(json.loads(path.read_text(encoding="utf-8"))["sites"])
+        except (OSError, ValueError, KeyError) as exc:
+            raise typer.BadParameter(f"{path}: not a site snapshot ({exc})") from exc
+
+    diff = diff_snapshots(load(a), load(b), threshold)
+    for site_id, changes in diff.verdict_changes.items():
+        for profile, (was, now) in changes.items():
+            console.print(f"{site_id} verdict {profile}: {was} -> {now}")
+    for site_id, (before, after) in diff.score_moves.items():
+        console.print(f"{site_id} score: {before:.1f} -> {after:.1f} ({after - before:+.1f})")
+    for site_id in diff.only_a:
+        console.print(f"{site_id} only in {a}")
+    for site_id in diff.only_b:
+        console.print(f"{site_id} only in {b}")
+    if diff.empty:
+        console.print("no differences")
+
+
 @app.command("reprofile")
 def reprofile_cmd() -> None:
     """Recompute the profile verdicts of every stored site from its stored features (no new search)."""
@@ -391,23 +450,54 @@ def reprofile_cmd() -> None:
     from dclh_pipeline.scoring.run import to_jsonable
 
     cfg = load_profiles()
-    with session_scope() as session:
-        rows = session.execute(text("SELECT site_id, detail -> 'features' FROM sites")).all()
-        for site_id, features in rows:
-            verdicts = profile_verdicts(features_from_detail(features), cfg)
-            session.execute(
+    done, last = 0, ""
+    # In pages by site_id: all 100k+ sites' features at once do not fit in a worker's memory.
+    while True:
+        with session_scope() as session:
+            rows = session.execute(
                 text(
-                    "UPDATE sites SET profiles = CAST(:p AS jsonb), verdict_built = :b, "
-                    "verdict_container = :c WHERE site_id = :id"
+                    "SELECT site_id, detail -> 'features' FROM sites WHERE site_id > :last "
+                    "ORDER BY site_id LIMIT :n"
                 ),
-                {
-                    "p": json.dumps(to_jsonable(verdicts), ensure_ascii=False),
-                    "b": verdicts["built"].category.value,
-                    "c": verdicts["container"].category.value,
-                    "id": site_id,
-                },
-            )
-    console.print(f"profile przeliczone dla {len(rows)} lokalizacji")
+                {"last": last, "n": REPROFILE_PAGE},
+            ).all()
+            for site_id, features in rows:
+                verdicts = profile_verdicts(features_from_detail(features), cfg)
+                session.execute(
+                    text(
+                        "UPDATE sites SET profiles = CAST(:p AS jsonb), verdict_built = :b, "
+                        "verdict_container = :c WHERE site_id = :id"
+                    ),
+                    {
+                        "p": json.dumps(to_jsonable(verdicts), ensure_ascii=False),
+                        "b": verdicts["built"].category.value,
+                        "c": verdicts["container"].category.value,
+                        "id": site_id,
+                    },
+                )
+        if not rows:
+            break
+        done, last = done + len(rows), rows[-1][0]
+    console.print(f"profile przeliczone dla {done} lokalizacji")
+
+
+@app.command("compact-egib")
+def compact_egib_cmd() -> None:
+    """Gzip the EGiB pages stored before pages were kept gzipped (about 14x smaller); not during a search."""
+    from sqlalchemy import text
+
+    from dclh_pipeline.db import session_scope
+
+    with session_scope() as session:
+        running = session.execute(
+            text("SELECT count(*) FROM jobs WHERE kind = 'search' AND status = 'running'")
+        ).scalar_one()
+    if running:
+        console.print("[red]trwa wyszukiwanie; uruchom po jego zakończeniu[/red]")
+        raise typer.Exit(1)
+    files, before, after = SnapshotStore(get_settings().raw_dir).compact_objects("egib", ".gml")
+    gb_before, gb_after = (f"{b / 1024**3:.1f}".replace(".", ",") for b in (before, after))
+    console.print(f"spakowano {files} stron EGiB: {gb_before} GB → {gb_after} GB")
 
 
 @app.command("kw-probe")
@@ -767,6 +857,58 @@ def user_list() -> None:
         for u in session.scalars(select(UserRow).order_by(UserRow.email)):
             table.add_row(u.email, u.role, u.created_at.strftime("%d.%m.%Y"))
     console.print(table)
+
+
+@user_app.command("mcp-access")
+def user_mcp_access(
+    email: str,
+    on: Annotated[bool, typer.Option("--on/--off", help="Allow or forbid connecting Claude")],
+) -> None:
+    """Switch Claude access for a user. --off also drops their tokens, so Claude is signed out at once."""
+    from dclh_pipeline.db import session_scope
+    from dclh_pipeline.oauth_admin import set_mcp_access
+
+    try:
+        with session_scope() as session:
+            user = set_mcp_access(session, email, on)
+            console.print(f"Claude access {'ON' if on else 'OFF'} for {user.email}")
+    except LookupError as exc:
+        console.print(f"[red]no such user: {exc}[/]")
+        raise typer.Exit(1) from exc
+
+
+oauth_app = typer.Typer(help="The Claude connector's OAuth data", no_args_is_help=True)
+app.add_typer(oauth_app, name="oauth")
+
+
+@oauth_app.command("list")
+def oauth_list() -> None:
+    """List connected Claude apps, per user."""
+    from dclh_pipeline.db import session_scope
+    from dclh_pipeline.oauth_admin import list_connections
+
+    table = Table("user", "app", "connected", "valid until")
+    with session_scope() as session:
+        for c in list_connections(session):
+            table.add_row(
+                c.email,
+                c.client_name or c.client_id,
+                c.connected_at.strftime("%d.%m.%Y"),
+                c.expires_at.strftime("%d.%m.%Y"),
+            )
+    console.print(table)
+
+
+@oauth_app.command("purge")
+def oauth_purge() -> None:
+    """Delete expired requests, codes and tokens, and idle clients. The scheduler runs it daily."""
+    from datetime import UTC, datetime
+
+    from dclh_pipeline.db import session_scope
+    from dclh_pipeline.oauth_admin import purge_oauth
+
+    with session_scope() as session:
+        console.print(f"removed {purge_oauth(session, datetime.now(UTC))} rows")
 
 
 if __name__ == "__main__":

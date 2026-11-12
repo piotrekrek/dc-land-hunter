@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import gzip
+import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -67,3 +69,20 @@ def test_legacy_absolute_manifest_is_rebased(store: SnapshotStore) -> None:
     assert latest.path == snap.path
     store.mark_good(latest)
     assert json.loads(manifest.read_text(encoding="utf-8"))["path"].startswith("src/objects/")
+
+
+def test_a_compressed_object_is_named_by_its_plain_content_and_stored_once(store: SnapshotStore) -> None:
+    body = b"<gml>" + b"parcel " * 1000 + b"</gml>"
+    first = store.put_object("egib", body, suffix=".gml", compress=True)
+    second = store.put_object("egib", body, suffix=".gml", compress=True)
+    assert first == second == hashlib.sha256(body).hexdigest()
+    (packed,) = (p for p in (store.root / "egib" / "objects").rglob("*") if p.is_file())
+    assert packed.name == f"{first}.gml.gz" and gzip.decompress(packed.read_bytes()) == body
+    assert packed.stat().st_size < len(body)
+
+
+def test_compacting_leaves_other_suffixes_and_an_empty_store_alone(store: SnapshotStore) -> None:
+    assert store.compact_objects("egib", ".gml") == (0, 0, 0)
+    store.save("egib", b"{}", suffix=".json")
+    assert store.compact_objects("egib", ".gml") == (0, 0, 0)
+    assert len(list((store.root / "egib" / "objects").rglob("*.json"))) == 1

@@ -33,9 +33,10 @@ CHUNK = 5000
 _INSERT_SUBSTATION = text(
     """
     INSERT INTO substations (osm_id, name, operator, dso, foreign_operator, voltages, cls, confidence,
-                             source_id, as_of, geom)
+                             station_class, class_source, class_confidence, source_id, as_of, geom)
     VALUES (:osm_id, :name, :operator, :dso, :foreign_operator, :voltages, :cls, :confidence,
-            :source_id, :as_of, ST_SetSRID(ST_GeomFromWKB(:wkb), 2180))
+            :station_class, :class_source, :class_confidence, :source_id, :as_of,
+            ST_SetSRID(ST_GeomFromWKB(:wkb), 2180))
     """
 )
 _INSERT_LINE = text(
@@ -73,6 +74,9 @@ def _substation_row(s: Substation, as_of: datetime | None) -> dict[str, Any]:
         "confidence": (
             Confidence.MISSING if s.cls is SubstationClass.UNKNOWN_VOLTAGE else Confidence.ESTIMATED
         ).value,
+        "station_class": s.station_class.value,
+        "class_source": s.class_source.value if s.class_source else None,
+        "class_confidence": s.class_confidence.value,
         "source_id": SOURCE_ID,
         "as_of": as_of,
         "wkb": wkb.dumps(s.geom),

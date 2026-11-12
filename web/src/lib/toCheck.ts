@@ -31,6 +31,8 @@ export const WHO_TO_ASK: Readonly<Record<string, string>> = {
   pen_flood_02: "RZGW (Wody Polskie): sprawdź mapy zagrożenia powodziowego dla działek.",
   pen_landscape: "Regionalna Dyrekcja Ochrony Środowiska: sprawdź park krajobrazowy i obszar chronionego krajobrazu.",
   pen_mining_terrain: "Okręgowy Urząd Górniczy: zapytaj o obszary i tereny górnicze na działkach.",
+  pen_mineral_deposit:
+    "Okręgowy Urząd Górniczy i geolog: uzyskaj opinię geologiczną o złożu pod działką; w gminie sprawdź, jak plan ogólny traktuje złoże. Zwolnienie CIT w PSI zweryfikuj z KSSSE.",
   pen_soil_iii: "Starostwo powiatowe: pobierz wypis z klasyfikacji gleb (klasy bonitacyjne) dla działek.",
   pen_residential: "Gmina: sprawdź zabudowę mieszkaniową w sąsiedztwie (MPZP, ewidencja budynków) i odległości.",
   pen_gas: "Operator gazociągu (Gaz-System lub OSD gazowy): zapytaj o gazociągi i strefy kontrolowane przy działce.",
@@ -50,14 +52,17 @@ export interface ToCheckEntry {
 
 type Item = Pick<SiteDetail["items"][number], "key" | "label_pl" | "points" | "upside_points" | "confidence">;
 
-/** Every score item without data, biggest possible gain first (ties keep the engine's order). */
+/** Penalties that need a manual answer once they fire (the data is there, the consequence is not). */
+const CHECK_WHEN_HIT: ReadonlySet<string> = new Set(["pen_mineral_deposit"]);
+
+/** Every score item without data, plus the penalties above that fired, biggest possible gain first (ties keep the engine's order). */
 export function toCheck(items: readonly Item[]): ToCheckEntry[] {
   return items
-    .filter((i) => i.confidence === "missing")
+    .filter((i) => i.confidence === "missing" || (CHECK_WHEN_HIT.has(i.key) && i.points < 0))
     .map((i) => ({
       key: i.key,
       label: i.label_pl,
-      gain: Math.max(0, i.upside_points - i.points),
+      gain: i.confidence === "missing" ? Math.max(0, i.upside_points - i.points) : -i.points,
       who: WHO_TO_ASK[i.key] ?? GENERIC_WHO_TO_ASK,
     }))
     .sort((a, b) => b.gain - a.gain);

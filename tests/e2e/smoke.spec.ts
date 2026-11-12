@@ -43,6 +43,21 @@ test("home shows the Polish shell, the map and an empty list", async ({ page, is
   await expectNoSeriousA11yViolations(page);
 });
 
+test("the list can follow the map, and the layers panel remembers how it was left", async ({ page, isMobile }) => {
+  await page.goto("/");
+  await expect(page.getByLabel("Szukaj w tym obszarze")).not.toBeChecked();
+  await expect(page.getByLabel("Dane o sieci")).toBeVisible();
+  await expect(page.getByLabel("Duży kampus")).not.toBeChecked();
+  if (isMobile) await page.getByRole("button", { name: "Mapa" }).click();
+  const panel = page.getByRole("button", { name: "Warstwy mapy" });
+  const wasOpen = (await panel.getAttribute("aria-expanded")) === "true";
+  await panel.click();
+  await page.reload();
+  if (isMobile) await page.getByRole("button", { name: "Mapa" }).click();
+  await expect(page.getByRole("button", { name: "Warstwy mapy" })).toHaveAttribute("aria-expanded", String(!wasOpen));
+  if (!wasOpen) await expect(page.getByLabel("Sieć energetyczna")).toBeVisible();
+});
+
 test("settings page lists every configured source", async ({ page, isMobile }) => {
   await page.goto("/ustawienia");
   await expect(page.getByRole("heading", { name: "Źródła danych" })).toBeVisible();

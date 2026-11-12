@@ -1,5 +1,256 @@
 # Status
 
+## Target MW and the large-campus flag (11.11.2026; Rzepin RTB spec 4, task 3; not deployed)
+
+- `target.target_mw` (default 60, must be at least `mw_min`) is the project size sought. `project_mw = min(estimated_mw,
+  target_mw)` is now the headline power; `spare_ha = max(0, area_ha - target_mw / mw_per_ha)` is land left for a second
+  phase. `estimated_mw` stays (area x 6 MW/ha) and is labelled "pojemność terenu" in the UI.
+- The "duży kampus" flag and the 220/400 kV requirement fire only when `target_mw > large_campus_mw`, so a 41 ha site
+  is a 60 MW project with spare land, not a 248 MW campus.
+- Spare land is added to the expansion reserve (`land_expansion`) next to the neighbouring parcels. They are different
+  land, so nothing is counted twice; the explanation names both parts.
+- `project_mw` and `spare_ha` are in `SiteScore` (and so in `sites.detail`), the API summary, `search_sites`,
+  `get_site` and `compare_sites`, and the web card and list. Rows scored before this get them computed from the area.
+  Re-run scoring to refresh the stored flags. `min_mw` still filters on `estimated_mw`.
+- The connection cost calculator on the card now starts from `project_mw`.
+- Not done: Settings still only displays the target block (it is read-only), so `target_mw` is edited in
+  `config/scoring.yaml`.
+
+## Mineral deposits: penalty and PSI cancel (11.11.2026, Rzepin RTB spec 2)
+
+- `sources/midas.py` now also loads MIDAS layer 0 (documented deposits) as kind `mineral_deposit`. Live fields checked
+  11.11.2026: `NR_ZLOZA`, `NAZWA_ZL`, `KOPALINA`, `AKTUALIZACJA`. Layer 0 has **no status field**, so the deposit
+  development status (P/R/E/Z) is not available: `deposit_list[].status` is empty. Needs another source if the owner wants it.
+- Site facts `deposit_overlap_pct` and `deposit_list` (name, mineral, status) carry `midas` / `as_of` / `verified`.
+  A snapshot taken before this change has no layer 0: the facts stay missing (not "no deposit") until `dclh fetch midas`.
+- Penalty `mineral_deposit` (8 pts) for any overlap, no hard filter (status E included for now).
+  `bonus.deposit_cancels_psi: true` sets `bonus_psi` to 0 with a reason "do weryfikacji z KSSSE". The legal basis is unconfirmed.
+- Parcel check: new next step `deposit` (geological opinion, plan ogólny); site card "do sprawdzenia" lists the fired penalty.
+  The sheet draws the deposit outline.
+- `scoring_rules` lists the penalty and the switch; `coverage` accepts `pen_mineral_deposit` (share of sites with the layer, per area).
+- Not run here: web checks (no node/pnpm on this machine) and database tests. Rescore on the VPS after `dclh fetch midas`.
+
+## Substation classification: only DSO/PSE stations are connection points (11.11.2026, Rzepin RTB spec 1)
+
+- `classify_station()` (`model/grid.py`) gives every OSM substation a `station_class`: `operator_gpz`, `generator`,
+  `customer` or `unknown`, with a `class_source` (`osm_substation_tag`, `osm_operator_tag`, `name_pattern`,
+  `operator_list`) and a confidence. `substation=generation|industrial` and names such as "GPO …", farma, FW, PV,
+  elektrownia, stacja odbiorcza mean "not the operator's". A station named in a DSO capacity list is upgraded to
+  `operator_gpz`, `verified` (`upgrade_listed_stations`, used in `layers.py`).
+- `osm_power.parse()` now keeps the `owner` and `substation` tags. Migration 0018 adds `station_class`, `class_source`,
+  `class_confidence` to `substations`; run `dclh load-grid` once to fill them (old rows read `unknown`).
+- Score: GPZ distance points are full for `operator_gpz`, `grid.unknown_station_weight` (0.5) for `unknown`, none for
+  `generator`/`customer`. A generator or customer station within `grid.other_station_context_km` (3 km) is a context
+  line with 0 points ("możliwy cable pooling lub PPA"). Features stored before this change count all GPZs in full
+  until the next rescore.
+- MCP: `nearest_gpz` is the nearest operator GPZ (else the nearest `unknown`, labelled); `nearest_other_station` is new.
+  `coverage` returns `station_classes` (counts and `unknown_share` per voivodeship). The map popup of a station shows
+  the class and its source.
+- **Not done / to check:** `dclh load-grid` classifies from tags only (no DSO-list upgrade), so the map and
+  `nearest_gpz` can show `unknown` for a station the score treats as verified. The class shares are not measured on
+  production yet: after `load-grid`, read `coverage` (`station_classes`); if `unknown_share` is above ~40% in a
+  voivodeship, report it before relying on the 0.5 weight. The web checks were not run (no Node in the build sandbox).
+## OUZ and the planning path from the Rejestr Urbanistyczny (11.11.2026, task 4 of the Rzepin RTB spec; not deployed)
+
+- `sources/ru.py` also reads the OUZ layer, the plan act and the zone limits (`docs/SOURCES.md`). `model/planning.py`
+  turns them into site facts with source `ru`: `in_ouz` (yes / no / partial), `planning_path` (MPZP obowiązuje,
+  potrzebny MPZP lub ZPI, WZ możliwa; `estimated`), `plan_ogolny_act` (resolution number) and `plan_ogolny_from`,
+  and the zone limits `zone_max_height_m`, `zone_max_build_up_pct`, `zone_min_pbc_pct`, `zone_max_intensity`.
+  Checked live on gm. Rzepin: a site in a strefa gospodarcza outside the OUZ gets "potrzebny MPZP lub ZPI", 20 m,
+  70%, 20%.
+- A gmina with no plan ogólny in force in the register gets no facts: it stays "do sprawdzenia", not bad. Where the
+  facts exist, the "OUZ" to-check item is gone. New to-check items: the path (outside OUZ), the plan's validity
+  (journal publication, not annulled, with the resolution number) and, at a height limit of 20 m or less, the
+  chimney and cooling flag (`HEIGHT_FLAG_M` in `profiles.py`).
+- Score: `zoning.zone_allows_dc_outside_ouz: 60` (SG zone, no MPZP, site outside the OUZ or only partly in it);
+  `plan_ogolny_SG` 80 stays for sites inside the OUZ or without OUZ data; an MPZP in force stays 100.
+- Site card has a "Ścieżka planistyczna" block; `get_site` (MCP and API) carry the facts in `features`.
+  The coverage view has a new item `plan_ogolny`: the share of kept sites with a planning path, per area (use
+  `level=gmina` for the share of gminas).
+- Not done: the adoption date from `DokumentFormalny` (the card shows "obowiązuje od"); sites already stored need a
+  new scoring run to get the facts; a WZ possible inside the OUZ is a rule of the reform, not a legal opinion.
+
+## Profile verdicts: green is reachable, both profiles measured against 60 MW (11.11.2026)
+
+- **Why:** no stored site was green in either profile. Measured on production, two causes: the heritage register has no
+  source, and a missing answer capped every site at yellow; and 188 of the 196 yellow built sites are plan ogólny
+  economic zones, capped at yellow on purpose until the OUZ is confirmed (unchanged).
+- **Changed:** a missing heritage answer is still listed but no longer caps the verdict; published GPZ headroom earns
+  full marks at 60 MW in both profiles (was 10 MW built, 2 MW container); the container minimum area is 0.5 ha (was
+  0.15 ha), the owner's target of 60 MW+ on 0.5 to 2 ha.
+- **Replay on the 2,224 production sites that were yellow** (new rules, stored features, kept sites only):
+  built 196 yellow becomes 3 green, 183 yellow, 10 red; container (10 ha+) 146 becomes 1 green, 127 yellow, 18 red;
+  container small plots 1,554 become 1,523 yellow, 31 red. Red and "do weryfikacji" sites cannot improve under these
+  changes, so they were not replayed.
+- **Not changed:** the container housing distance (150 m / 80 m) stays; a better number needs an acoustic estimate.
+  Unknown zoning still gives "do weryfikacji" (13,538 kept sites): that, not the verdict rules, is what keeps the
+  shortlist short. Next: a per-gmina "plan ogólny in force" fact (the 31.08.2026 deadline has passed).
+- **After deploy:** run `dclh reprofile` (RUNBOOK). Parcel checks already stored keep their old verdicts.
+
+## MCP: set_stage and remove_from_pipeline (11.11.2026)
+
+- Claude can move a site to a pipeline stage (`set_stage`, the note is kept) and remove its card
+  (`remove_from_pipeline`, destructive: the owner note is deleted with it, so Claude asks first).
+- Not verified against PROD; covered by `tests/unit/test_mcp_deals_db.py`.
+
+## MCP: sites near a place (11.11.2026)
+
+- New read tool `sites_near`: sites within a radius (default 20 km, cap 100) of a gmina or powiat (name or TERYT) or of a
+  lat/lon point, nearest first, each with `distance_km` (from the border or point to the site outline; 0 = inside).
+  Same lines, filters and `verdict_counts` as `search_sites`.
+- Towns and villages that are not a gmina cannot be found by name (no geocoder, no cost): the error asks for a gmina name,
+  a TERYT code or lat/lon.
+- Not checked: query time on the production-size table (the index use is proven with EXPLAIN on test data only).
+  A large powiat polygon as the place is slower than a point.
+
+## MCP: search a powiat now (11.11.2026)
+
+- New write tool `search_now(powiat)`: queues a `search` job for one powiat immediately (same `jobs.enqueue` call and
+  payload as the planner, without `not_after`). Admin only, write scope, powiat inside the AOI, refused while the powiat
+  has a pending or running search, capped at 3 manual searches per UTC day for the whole team (`requested_by` is a
+  user's email). Follow it with `get_queue` (`in_progress`). The worker's disk guard applies as for any search.
+- Not verified against PROD: nothing was queued there.
+
+## MCP: what changed since last week (11.11.2026)
+
+- Migration 0018 adds `site_history` (index on `scored_at` and on `site_id, scored_at`). `write_sites` diffs the powiat's old
+  kept rows against the new ones in the same transaction and stores a row only when a kept standard site is new, drops,
+  or changes its score (rounded to 0.1) or a per-profile verdict. The migration seeds a `baseline` row per kept site,
+  so the first nightly run after deploy shows real differences.
+- **The history starts on the deploy date.** Nothing earlier is known; `what_changed` says so (`history_since`).
+- New read tool `what_changed(since, voivodeship?, powiat?, profile?, limit?)`: new and dropped sites, verdict changes
+  (from/to), score jumps of at least 5 points, powiats searched for the first time. The web "Nowości" tab is unchanged.
+- Known limits: a powiat whose earlier searches found no sites shows as "searched for the first time" when it first
+  has sites; a dropped site has no card (no `url`); sites that become excluded count as dropped.
+- Cost, measured on a throwaway database with 130k `sites` rows (29.9k kept): the migration (table + baseline seed) takes
+  0.3 s; the diff reads one powiat's kept rows through `sites_list_ix` (69 rows, 0.12 ms, no scan of other powiats) and
+  writes only changes.
+
+## Claude can price a grid connection: `connection_costs` (11.11.2026)
+
+- New read tool `connection_costs(mw)` (or `site_id`, which uses the site's `estimated_mw`): application fee, advance, security,
+  frozen total, caps flagged, 12-month validity, caveats, and source/as_of/confidence per figure (`estimated` while
+  `connection_cost.verified` is false in `config/scoring.yaml`).
+- The site card keeps its own copy of the defaults in `web/src/lib/connectionCost.ts`; `tests/unit/test_mcp_costs.py` fails if they drift from the yaml.
+- Open legal question: the brief gives security "up to 100 MW" only; above that we keep 3 mln PLN, like the card.
+
+## Search runs keep the time per step and the cache use (05.11.2026)
+
+- `runs.summary` of a search now also has `step_seconds`, the time per step: seed, parcels (the EGiB download), cluster,
+  score, small, kimpzp and kiug. It also has `cache` (response-cache hits and misses) and `tiles`.
+  Before, only the total was kept, and the worker log that had the detail is lost on each deploy.
+- Read them with:
+  `SELECT summary->>'powiat', summary->'step_seconds', summary->'cache' FROM runs WHERE kind = 'search' ORDER BY id DESC`.
+- Used to decide whether to speed up the parcel download (rate, or fewer tiles) once a few nights are recorded.
+## Site list: partial indexes for the count and the sorts (05.11.2026)
+
+- Migration 0017 adds partial indexes on the kept standard sites (`kind = 'standard' AND NOT excluded`).
+  - The covering index `sites_list_ix` serves the list's count.
+  - One sort index each for upside, completeness, area and MW.
+- On production data:
+  - the count with the default filters went from 295 ms to 3 ms;
+  - a voivodeship filter sorted by upside went from 120 ms to 3 ms.
+- The list now writes `AND NOT excluded` literally, not `(:include_excluded OR NOT excluded)`. Only the literal form lets
+  the planner use the partial indexes. With "show excluded" on, the list reads the table as before.
+- Needs migration 0016 (PR "Operations: nightly database backup...") first.
+- **Checked:** the full suite with the database tests, on a throwaway PostGIS 16-3.5. That run passes `test_mcp_mount.py` too.
+
+## Operations: nightly backup, kept logs, query statistics (05.11.2026)
+
+- **Backup:** `scripts/backup_db.sh` dumps the database to `~/backups` and keeps the newest 7 nightly dumps.
+  It runs from host cron at 05:15. Before this, the only dump was a manual one from 25.10.
+  The dumps are on the same disk; off-site copies are still by hand.
+- **Logs:**
+  - Every container's Docker log is capped at 20 MB × 3. Before, the cap was unbounded.
+  - The workers also log to `/data/logs/*.log` (20 MB × 5), so a deploy no longer wipes the night's log.
+- **Slow queries:** `pg_stat_statements` is on (db preload plus migration 0016). The query is in RUNBOOK, "Slow queries".
+  Deploying this restarts the database once, so deploy outside the search window.
+- **Checked:**
+  - The backup ran against production: 377 MB in 40 s, `pg_restore --list` passed, and rotation kept the newest dumps by name.
+  - Unit tests for the log file. The compose file validates.
+
+## MCP: the search queue (11.11.2026)
+
+- **What works:** `get_queue` (priority powiats with state, next up, running and failing searches), `add_priority` and
+  `remove_priority` (names or TERYT codes, write scope, through the app's own save so Kolejka shows the same list).
+  Plan and AC: PLAN.md "MCP: the search queue". Existing connections get the new tools without reconnecting.
+- **Known limits:** powiats added in one call are ordered by code (they share `added_at`), as in the Kolejka tab.
+
+## Claude tab: share the connector with the team (11.11.2026)
+
+- **Readiness:** the connector was already live on PROD (OAuth discovery 200, `/mcp` 401 without a token, the owner's
+  Claude connection answers tool calls), so it can be shared. The blockers were access over SSH only and steps hidden
+  in Ustawienia with outdated claude.ai wording.
+- **What works:** a top-level tab **Claude** (`/claude`): access status, the address with copy, steps for claude.ai
+  (Customize → Connectors) and Claude Code (copyable command), example prompts, what Claude sees, connected apps
+  (disconnect), and for admins "Dostęp zespołu": switch access per user (`PUT /api/team/{email}/mcp-access`, the same
+  as the CLI, off signs Claude out) and "Kopiuj zaproszenie". Ustawienia links to the tab. Plan and AC: PLAN.md
+  "Claude tab".
+- **Not covered:** new accounts are still created with `dclh user create` (no self-signup, by design).
+- **Test note:** DB test modules that sort after `test_sites_db.py` abort the run (that module leaves `sites` rows and
+  the guard refuses a populated database), so the new test is `test_oauth_team_db.py`.
+
+## MCP: distance between picks (05.11.2026)
+
+- **`min_distance_km`** on `search_sites` and `top_picks` keeps only sites at least that far apart (outline to outline,
+  outlines thinned by 25 m), best first, so a cluster that crosses gmina borders shows once. `top_picks` uses 10 km by
+  default; `search_sites` is unchanged unless it is set. `total` and the cursor follow the spread list. With the region cap
+  the cap is applied together with the distance, so a site hidden by a pick in another voivodeship does not use up a place.
+- **On production data** (container, green and yellow): the top 10 drops Komorniki (inside 10 km of Dopiewo) and the second
+  and third Włocławek sites; 141 sites become 43. Without the verdict filter the pass takes 1.4 s.
+
+## MCP: richer search for Claude (05.11.2026; after the first real use)
+
+- **`search_sites`** now returns per site why (blockers and what is left to check, per profile), the nearest GPZ 110 kV
+  (name from OSM, distance and confidence from the grid facts), parcel ids and obręb (the form `check_parcel` takes) and
+  how many facts are verified, estimated or missing. `detail="full"` lifts the cap of 3 "to check" items. New filters:
+  `verdict` (one or more, needs `profile`) and `max_per_gmina`; `verdict_counts` gives the sites per verdict under the other
+  filters, and `total` follows every filter. `powiat` and `voivodeship` take a Polish name or a code; an ambiguous name
+  (two "średzki") is an error that lists the candidates.
+- **New tools:** `top_picks` (best site per voivodeship, one per gmina, green and yellow by default, on the same SQL) and
+  `compare_sites` (2 to 8 sites side by side, with score by category and the grid facts). `get_site` takes `site_ids`
+  (up to 10) and lists unknown ids instead of failing.
+- **Neighbours:** in the data the top container sites in Włocławek touch each other (0 to 7 m apart), so the cap is per
+  gmina. Two sites that touch across a gmina border can both still appear.
+- **Paging:** the cursor is now an offset (the old keyset cursor is refused with a message). The web list is unchanged.
+- **Not changed:** scoring weights and thresholds; grid values stay estimates; the write tools still act only on request.
+  Tools being loaded on demand is Claude's own behaviour (tool search), not a server setting, so there is nothing to change here.
+- **Checked:** unit and PostGIS tests (1180 Python); the new search also ran read-only against the production data
+  (a capped top 5 takes 0.4 s).
+
+## Claude connector: a remote MCP server with OAuth (05.11.2026; plan in PR #148, code in PRs #149 to #153 and the Settings PR; not deployed)
+
+- **What it is:** with `DCLH_PUBLIC_URL` set, the API serves an MCP server at `/mcp` and its OAuth endpoints, so a person can
+  add the app as a custom connector in claude.ai (web, desktop, phone) or Claude Code, log in with their app account and
+  approve. It is off without that variable, so merging and deploying changes nothing by itself. RUNBOOK "Claude connector".
+- **What Claude can do:** read: `search_sites`, `get_site`, `list_pipeline` (stages, never notes), `list_powiaty`, `coverage`,
+  `get_check`, `scoring_rules`. Write, each confirmed by the user in Claude: `watch_site`, `unwatch_site`, `check_parcel`.
+  Every grid answer carries a note that the figure is a proxy, not a confirmed capacity.
+- **Access:** an admin switches it on per user (`dclh user mcp-access EMAIL --on`); `--off` signs Claude out at once. Tokens
+  and clients are in Postgres (migration 0015), secrets stored hashed; the redirect allowlist is Claude's callback and
+  loopback only. Ustawienia has a card "Połączenie z Claude" with the address, the steps and a list to disconnect.
+- **Checked:** unit and PostGIS tests (1157 Python, 283 web); mutation checks on the security rules (access switch, redirect
+  allowlist, single-use codes, the write scope, the owner-note leak); and a local end-to-end run through the real Caddyfile
+  with the official MCP client (36 checks: discovery, consent, token, tools, refresh rotation, restart, switch-off).
+- **Not checked:** claude.ai itself and the live ULDK lookup behind `check_parcel` (tests stub it). Acceptance with the owner:
+  PLAN.md "Claude connector", Task 6, step 3.
+- **To do after deploy:** add `DCLH_PUBLIC_URL` to `infra/.env` by hand, redeploy, enable the owner's account, run the
+  acceptance list in the plan.
+- **Known limits:** anyone can register an OAuth client, but it grants nothing without a user's approval (200 clients max, idle
+  ones purged after 7 days); every connection has both scopes, since the SDK advertises the required scopes.
+
+## Disk space: compressed EGiB pages, a capped answer cache, a disk check before each search (30.10.2026; not deployed)
+
+- **Why:** on 30.10.2026 the VPS disk filled up (59 GB, 0 MB free). EGiB pages took 14 GB and the answer cache 9.9 GB,
+  together about 2.5 GB more every night, with no cleanup. The searches of 0801 and 0802 failed with "No space left on
+  device" and were counted as attempts. The cache was deleted by hand (18 GB free after).
+- **What works:** new EGiB pages are gzipped (`.gml.gz`, named by the hash of the plain page, so dedup and old bundles still
+  work); `dclh compact-egib` gzips the pages already stored; each search prunes the cache to 4 GB and stops before it starts
+  with under 10 GB free; a full disk (`ENOSPC`) is not recorded as an attempt. RUNBOOK "Disk space".
+- **Checked:** a real 894 kB page from the VPS reads the same gzipped (604 parcels, same geometry and attributes).
+- **To do after deploy:** run `dclh compact-egib` once while no search runs; check that 0801 and 0802 are searched again.
+- **Not covered:** `data/raw` of other sources (bdot10k 2.1 GB, osm_power 2 GB) still grows without a limit, but slowly.
+
 ## N-1 counts physical 110 kV lines, not OSM ways (30.10.2026; not yet deployed)
 
 - **Bug:** `independent_110_lines_near` counted distinct OSM way ids within 3 km. Rzepin (site-4755d239dc1f, parcel
@@ -52,6 +303,26 @@
   `stage` are not on `GET /api/sites` yet. The Playwright smoke has no site card (the e2e database has no sites), so the card is
   covered by jsdom tests only; axe contrast of the new blocks was not scanned in a browser.
 
+## Step 2 of the UX plan: the map and the list talk to each other (25.10.2026, API tested on PostGIS, web unit tests; Playwright not run locally; not yet deployed)
+
+- `GET /api/sites` takes `bbox=west,south,east,north` (WGS84; a site counts when its polygon touches the box, the box is densified before
+  it is projected to 2180), `grid_badge`, `large_campus` and `split_suggested`. A malformed or reversed box is a 422. `total` follows the
+  filters, so the cursor logic is unchanged; the web keys the query on the box, so a new box restarts from page one.
+- `SiteSummary.weakest_label_pl`: the scored item with the lowest points/max_points (ties go to the one worth more points), skipping
+  bonuses, penalties and the three criteria no data feeds yet; "(brak danych)" is appended for a missing item; null when nothing falls
+  short. It is the item's label only: the value is not in the label because items have no unit field. Rows show "najsłabsze: …".
+  `detail` is now read for every listed row (50 per page).
+- List: "Szukaj w tym obszarze" checkbox (off by default, not in the URL: the box changes with every pan). On, the list asks with the
+  map's box (rounded to about 100 m, reported on load and moveend, not while the map is hidden on a phone) and the line reads
+  "W widoku: N z <all>" (a second `limit=1` request without the box). An empty view has its own message.
+- Hover: a row outlines its site on the map (`sites-hover` layer) and rings its position (a marker, so it shows from far out where sites
+  are bubbles); the pointer on a site on the map highlights and scrolls to its row.
+- Layers panel: open/closed is kept in `localStorage` (`dclh.layersOpen`, try/catch; the breakpoint default only decides the first
+  visit). New "Sieć energetyczna" switch above the 110/220/400 kV lines and the stations; while off the children are disabled and hidden.
+  Defaults are unchanged (grid on).
+- Filters in the URL: `siec` (Opublikowana moc / Bliskość sieci), `kampus=1`, `podzial=1`.
+- Not done: the "best in this powiat" view still needs the user to pick the powiat and sort; no map-fit to the powiat filter.
+
 ## Honest navigation and a Kolejka limited to the AOI (UX plan step 3, 25.10.2026, tested on PostGIS; not yet deployed)
 
 - **Bug fixed in the nightly plan:** `plan_searches` took every powiat from the PRG snapshot, so it also searched ones east of the
@@ -66,7 +337,6 @@
 - Nav: `soon` flag in `nav.ts`; Moje projekty, Eksport and the Nowości bell show "wkrótce" and a muted style. **Sprawdź działkę is not
   tagged**: it is a working screen since #105 (the plan listed it from the audit time). Routes are unchanged.
 - `document.title` per route ("Kolejka · DC Land Hunter"), also for the login and 404 pages.
-
 
 ## Step 1 of the UX plan: say where a site is (25.10.2026, tested on PostGIS; not yet deployed)
 
@@ -186,7 +456,6 @@ Layers for 1421 (bbox of the powiat): 52 MPZP outlines (42 in force, 10 in proce
   Urbanistyczny must be complete and plans ogólne come into force. The nightly job runs the old code until this
   branch is merged and deployed.
 
-
 ## Housing filter and cluster split: why Reguły was excluded (19.10.2026)
 
 The 19.10.2026 run of `dclh search 1421 --write` (section below) excluded 293 of 315 sites, all six sites in obręb
@@ -235,7 +504,6 @@ of 161. `.564/2` is in a 41.1 ha site (33.1 ha clear), rank 19 of 161 (top 12%).
 flood. Two small Reguły sites stay excluded for housing (1.4 and 2.4 ha clear). `.408` is still not scored (1 ha lot
 cut). The golden expectation (top 20%) is met by the `.564/2` site; the golden coordinates are still unverified.
 
-
 ## Flood and housing hard filters: `isok` and `bdot10k` connectors (19.10.2026, run on the VPS)
 
 - `sources/isok.py` fetches the ISOK `wms_nz-core:NZ.Fluvial` zones with `loo_ql_probabilityofoccurrence = 0.01`
@@ -276,7 +544,6 @@ centre (394–456 m away) are among them. The golden-set coordinates are still u
 Reading the numbers: Pruszków is suburban, so almost every 10 ha+ cluster of farm parcels has a house within 100 m.
 The 100 m threshold (`config/scoring.yaml`) is the owner's call; with it, 22 sites survive. The top ten by score are
 all excluded.
-
 
 ## Phase 1 close-out (19.10.2026, on the VPS)
 
@@ -738,7 +1005,6 @@ available columns, which settles the names.
 - Migration `0009` moves the starter priorities (0805, 3021, 1465) from `infra/crontab` into `powiat_priority`
   (`added_by = 'seed'`); the crontab payload no longer carries `priority`, so the tab is the only place to change it.
 
-
 ## Navbar: "Kolejka" second, Źródła danych under Ustawienia (23.10.2026, web tests green; not yet deployed)
 
 - The "Powiaty" tab is now **Kolejka** (route is `/kolejka` since 23.10.2026; `/powiaty` redirects) and sits second in the navbar, right after "Mapa i lista".
@@ -895,7 +1161,6 @@ run nothing; `stack.yml` (Docker + Playwright) runs on pushes to `main`, by hand
 `tests/e2e/`; jobs have timeouts. If the allowance runs out again: wait for the monthly reset, set a small budget in GitHub
 Billing, or run the checks locally (RUNBOOK).
 
-
 ## Road access (26.10.2026)
 
 `dist_public_road_m` comes from the BDOT10k road layer (`parse_roads`), loaded with the housing and forest layers of the
@@ -919,7 +1184,6 @@ Deployed with #113, #114 and #115 (plan in PLAN.md, "Next round").
   800 x 600 m sheet. Not yet seen in a browser by the author (only the picture itself was looked at).
 - **Last night.** Of the nightly list, 3021 (Poznań) was interrupted at 23:00 by our own deploy, and 0223 to 0225 were
   skipped because the 04:00 UTC window had closed. Queued by hand at 10:50 UTC (jobs 113 to 116).
-
 
 ## Sprawdź działkę: 5a closed (25.10.2026)
 

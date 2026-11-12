@@ -11,6 +11,10 @@ import { cn } from "@/lib/utils";
 export function HomePage() {
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
   const [focus, setFocus] = useState<MapFocus | null>(null);
+  // The pointer is on a list row or on a site on the map; both sides outline that site.
+  const [hover, setHover] = useState<MapFocus | null>(null);
+  const [searchInView, setSearchInView] = useState(false);
+  const [bbox, setBbox] = useState<string | null>(null);
 
   // Picking a site flies the map to it; on a phone the map is a separate view, so switch to it.
   const select = (site: { site_id: string; lon: number; lat: number }) => {
@@ -40,11 +44,17 @@ export function HomePage() {
           <h1 className="text-base font-semibold">Lokalizacje</h1>
           <p className="mt-1 text-xs text-muted-foreground">Ranking kandydatów pod centrum danych w obszarze zainteresowania.</p>
         </div>
-        <SiteList selectedId={focus?.siteId} onSelect={select} />
+        <SiteList
+          selectedId={focus?.siteId}
+          hoveredId={hover?.siteId}
+          viewSearch={{ on: searchInView, bbox, onChange: setSearchInView }}
+          onSelect={select}
+          onHover={(site) => setHover(site && { siteId: site.site_id, lon: site.lon, lat: site.lat })}
+        />
       </section>
 
       <section aria-label="Mapa" className={cn("min-h-0 flex-1 lg:block", mobileView === "map" ? "block" : "hidden")}>
-        <MapView focus={focus} onSiteClick={setFocus} />
+        <MapView focus={focus} hover={hover} onSiteClick={setFocus} onSiteHover={setHover} onViewChange={setBbox} />
       </section>
     </div>
   );

@@ -57,7 +57,10 @@ class SiteSummary(BaseModel):
     site_id: str
     zone_id: str | None
     area_ha: float
-    estimated_mw: float
+    estimated_mw: float  # land capacity (area x MW/ha), not the project size
+    # The headline power: min(land capacity, target MW), and the land left beyond it for a second phase.
+    project_mw: float
+    spare_ha: float
     score: float
     upside_score: float
     completeness: float = Field(ge=0, le=1)
@@ -72,6 +75,8 @@ class SiteSummary(BaseModel):
     gmina: str | None
     powiat: str | None
     voivodeship: str | None
+    # The scored item furthest from its maximum (not bonuses or penalties); null if none falls short.
+    weakest_label_pl: str | None
     # estimated_mw is area × density from config: a derived value, so it carries its provenance too.
     mw_fact: FactOut
     # Category per investor profile; null for a site stored before profiles existed, and for parcel checks.
@@ -207,7 +212,21 @@ class CoverageArea(BaseModel):
     geometry: dict[str, Any] | None = None  # GeoJSON, WGS84, simplified for display; only when asked for
 
 
+class StationClassShare(BaseModel):
+    """110 kV/SN stations of one voivodeship by class; a high `unknown_share` means a guessed GPZ score."""
+
+    teryt: str
+    name: str
+    operator_gpz: int
+    generator: int
+    customer: int
+    unknown: int
+    unknown_share: float = Field(ge=0, le=1)
+
+
 class CoverageOut(BaseModel):
     level: Literal["wojewodztwo", "powiat", "gmina"]
     item: str
     areas: list[CoverageArea]
+    # Always per voivodeship, whatever `level` is; empty when no grid is loaded.
+    station_classes: list[StationClassShare] = []

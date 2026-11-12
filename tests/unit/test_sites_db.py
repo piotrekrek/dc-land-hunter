@@ -410,3 +410,52 @@ def test_small_plots_are_stored_with_their_tier_but_stay_out_of_the_list_and_the
     assert tiles == 0
     body = client.get("/api/sites", params={"include_excluded": True}).json()
     assert body["total"] == 3 and "site-small" not in {i["site_id"] for i in body["items"]}
+
+
+def test_bbox_keeps_the_sites_in_view_and_the_total_follows(seeded: None, client: TestClient) -> None:
+    everything = client.get("/api/sites", params={"include_excluded": "true"}).json()
+    assert everything["total"] == 3
+    first = everything["items"][0]
+    around = f"{first['lon'] - 0.001},{first['lat'] - 0.001},{first['lon'] + 0.001},{first['lat'] + 0.001}"
+    in_view = client.get("/api/sites", params={"include_excluded": "true", "bbox": around}).json()
+    assert first["site_id"] in {i["site_id"] for i in in_view["items"]}
+    assert in_view["total"] == len(in_view["items"]) <= 3
+    far = client.get("/api/sites", params={"include_excluded": "true", "bbox": "0,0,1,1"}).json()
+    assert far["total"] == 0 and far["items"] == []
+
+
+@pytest.mark.parametrize("bbox", ["1,2,3", "a,b,c,d", "5,0,4,1", "0,10,1,5", "-200,0,1,1", "0,0,1,95"])
+def test_malformed_bbox_is_rejected(client: TestClient, bbox: str) -> None:
+    assert client.get("/api/sites", params={"bbox": bbox}).status_code == 422
+
+
+def test_badge_campus_and_split_filters_narrow_the_total(seeded: None, client: TestClient) -> None:
+    params = {"include_excluded": "true"}
+    items = client.get("/api/sites", params=params).json()["items"]
+    for badge in {i["grid_badge"] for i in items}:
+        got = client.get("/api/sites", params=params | {"grid_badge": badge}).json()
+        assert got["total"] == sum(i["grid_badge"] == badge for i in items)
+        assert {i["grid_badge"] for i in got["items"]} == {badge}
+    campus = client.get("/api/sites", params=params | {"large_campus": "true"}).json()
+    assert campus["total"] == sum(i["large_campus"] for i in items)
+    split = client.get("/api/sites", params=params | {"split_suggested": "true"}).json()
+    assert split["total"] == sum(i["split_suggested"] for i in items)
+    assert client.get("/api/sites", params={"grid_badge": "nonsense"}).status_code == 422
+
+
+def test_filters_and_bbox_keep_the_keyset_cursor_consistent(seeded: None, client: TestClient) -> None:
+    params = {"include_excluded": "true", "limit": 1, "bbox": "10,48,25,56"}
+    seen: list[str] = []
+    page = client.get("/api/sites", params=params).json()
+    while True:
+        seen += [i["site_id"] for i in page["items"]]
+        if page["next_cursor"] is None:
+            break
+        page = client.get("/api/sites", params=params | {"cursor": page["next_cursor"]}).json()
+    assert len(seen) == len(set(seen)) == page["total"]
+
+
+def test_every_listed_site_names_its_weakest_item(seeded: None, client: TestClient) -> None:
+    items = client.get("/api/sites", params={"include_excluded": "true"}).json()["items"]
+    assert all(i["weakest_label_pl"] is None or i["weakest_label_pl"] for i in items)
+    assert any(i["weakest_label_pl"] for i in items)

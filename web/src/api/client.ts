@@ -45,6 +45,8 @@ export type CheckListItem = components["schemas"]["CheckListItem"];
 export type Sheet = components["schemas"]["SheetOut"];
 export type Verdict = components["schemas"]["VerdictOut"];
 export type ProfileVerdict = components["schemas"]["ProfileVerdictOut"];
+export type ConsentInfo = components["schemas"]["ConsentInfo"];
+export type ConnectionOut = components["schemas"]["ConnectionOut"];
 
 export class ApiError extends Error {
   constructor(

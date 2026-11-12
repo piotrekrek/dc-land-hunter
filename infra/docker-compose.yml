@@ -3,6 +3,14 @@
 # Settings come from infra/.env (copy infra/.env.example); every value has a safe local default.
 name: dclh
 
+# Docker keeps a container's log unbounded by default. Cap it: the worker logs one line per HTTP request, and
+# a night of searches writes tens of MB. (The workers also log to a file in the data volume, see DCLH_LOG_FILE.)
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "3"
+
 x-db-env: &db-env
   POSTGRES_USER: ${POSTGRES_USER:-dclh}
   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dclh}
@@ -23,11 +31,14 @@ x-python: &python
     # Raw snapshots live in the repo's gitignored data/raw, so the host and every container read one store.
     # (Container user dclh is uid 1000, the same as the VPS owner; keep it that way.)
     - ../data/raw:/data/raw
+  logging: *logging
   restart: unless-stopped
 
 services:
   db:
     image: postgis/postgis:16-3.5
+    # pg_stat_statements records how long each query takes (see "Slow queries" in docs/RUNBOOK.md).
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
     environment: *db-env
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -38,6 +49,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    logging: *logging
     restart: unless-stopped
 
   migrate:
@@ -52,6 +64,8 @@ services:
     environment:
       <<: *python-env
       DCLH_API_DOCS: ${DCLH_API_DOCS:-0}
+      # Switches on the Claude connector (MCP server + OAuth). Empty: off. See docs/RUNBOOK.md.
+      DCLH_PUBLIC_URL: ${DCLH_PUBLIC_URL:-}
     # Only Caddy (the web container, fixed address below) may set X-Forwarded-For. Trusting "*" let any client
     # pick its own IP, which defeats the login throttles (api/dclh_api/security.py).
     command:
@@ -81,12 +95,18 @@ services:
   worker:
     <<: *python
     command: ["dclh", "worker", "--exclude-kinds", "check_parcel", "--exit-after-idle", "900"]
+    environment:
+      <<: *python-env
+      DCLH_LOG_FILE: /data/logs/worker.log
     depends_on:
       migrate: { condition: service_completed_successfully }
 
   check-worker:
     <<: *python
     command: ["dclh", "worker", "--kinds", "check_parcel", "--interval", "2", "--exit-after-idle", "600"]
+    environment:
+      <<: *python-env
+      DCLH_LOG_FILE: /data/logs/check-worker.log
     mem_limit: 1200m # measured: the static layers and one check peak at about 750 MB
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -102,13 +122,16 @@ services:
 
   martin:
     image: ghcr.io/maplibre/martin:${MARTIN_TAG:-1.16.1}
-    command: ["--config", "/config/config.yaml", "--route-prefix", "/tiles"]
+    # Martin caches tiles in memory and nothing clears that cache, so sites from a new search stayed off the
+    # zoomed-out map until a restart. Expiry bounds that delay to 10 minutes.
+    command: ["--config", "/config/config.yaml", "--route-prefix", "/tiles", "--cache-expiry", "10m"]
     environment:
       MARTIN_DATABASE_URL: postgres://${POSTGRES_USER:-dclh}:${POSTGRES_PASSWORD:-dclh}@db:5432/${POSTGRES_DB:-dclh}
     volumes:
       - ./martin/config.yaml:/config/config.yaml:ro
     depends_on:
       migrate: { condition: service_completed_successfully }
+    logging: *logging
     restart: unless-stopped
 
   web:
@@ -130,6 +153,7 @@ services:
     depends_on:
       api: { condition: service_healthy }
       martin: { condition: service_started }
+    logging: *logging
     restart: unless-stopped
 
 # A fixed subnet, so the web container keeps the address the API trusts (see the api service).
