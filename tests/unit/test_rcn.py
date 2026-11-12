@@ -182,3 +182,57 @@ def test_an_exception_report_is_an_error_not_an_empty_answer() -> None:
     xml = b'<ows:ExceptionReport xmlns:ows="http://www.opengis.net/ows/1.1"><ows:Exception/></ows:ExceptionReport>'
     with pytest.raises(ValueError, match="RCN returned an error"):
         parse_page(xml)
+
+
+def test_control_characters_and_bad_utf8_in_a_text_field_do_not_break_the_page() -> None:
+    # Live 12.11.2026: powiats 1206, 1219, 2209 and 2216 failed with "not well-formed (invalid token)".
+    raw = page(feature("T1", "P1", share="1/1\x0b"), feature("T2", "P2")).replace(b"1/1\x0b", b"1/1\x0b\xff")
+    returned, records = parse_page(raw)
+    assert returned == 2
+    assert sorted(r["tx"] for r in records) == ["T1", "T2"]
+
+
+def serve_by_bbox(
+    features: list[tuple[str, float, float]], seen: list[httpx.Request]
+) -> Callable[..., httpx.Response]:
+    """A server that answers each BBOX (northing first) with the features whose anchor lies inside it."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        seen.append(request)
+        y0, x0, y1, x1 = (float(v) for v in request.url.params["BBOX"].split(",")[:4])
+        inside = [f for f in features if x0 <= f[1] <= x1 and y0 <= f[2] <= y1]
+        count, start = int(request.url.params["COUNT"]), int(request.url.params["STARTINDEX"])
+        chunk = inside[start : start + count]
+        return httpx.Response(200, content=page(*(feature(t, t, x=x, y=y) for t, x, y in chunk)))
+
+    return handler
+
+
+def test_a_box_over_the_page_limit_is_split_into_quadrants(
+    tmp_path: Path, make_client: ClientFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Live 12.11.2026: Warsaw, Kraków, Gdańsk and Wrocław hold more than MAX_PAGES pages in their bbox.
+    monkeypatch.setattr("dclh_pipeline.sources.rcn.MAX_PAGES", 2)
+    corners = [
+        (f"T{i}", 201_000.0 + i, 501_000.0 + i) for i in range(3)
+    ]  # south-west quadrant: fits in 2 pages
+    others = [("TNE", 209_000.0, 509_000.0), ("TEDGE", 205_000.0, 509_000.0)]  # TEDGE sits on the split line
+    seen: list[httpx.Request] = []
+    connector = RcnConnector(SPEC, powiat="0805", bbox=BBOX, page_size=2)
+    snapshot = connector.fetch(make_client(serve_by_bbox(corners + others, seen)), SnapshotStore(tmp_path))
+    table = connector.parse(snapshot)
+    assert sorted(table["tx_id"]) == sorted(t for t, _, _ in corners + others)  # every one, TEDGE once
+    assert len({r.url.params["BBOX"] for r in seen}) == 5  # the whole box, then its four quadrants
+
+
+def test_a_box_that_stays_over_the_limit_after_splitting_is_an_error(
+    tmp_path: Path, make_client: ClientFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("dclh_pipeline.sources.rcn.MAX_PAGES", 1)
+    monkeypatch.setattr("dclh_pipeline.sources.rcn.MAX_SPLIT_DEPTH", 1)
+    pile = [(f"T{i}", 201_000.0, 501_000.0) for i in range(5)]  # one spot: no split can thin it
+    connector = RcnConnector(SPEC, powiat="0805", bbox=BBOX, page_size=2)
+    with pytest.raises(ValueError, match="pages"):
+        connector.fetch(make_client(serve_by_bbox(pile, [])), SnapshotStore(tmp_path))
