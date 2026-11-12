@@ -6,10 +6,22 @@ scores, events, pipeline and user tables listed in brief section 9.2.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -146,3 +158,36 @@ class SessionRow(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class LandTransactionRow(Base):
+    """An RCN land transaction (migration 0020). The point (`geom`, EPSG:2180) is written by SQL.
+
+    No notary, deed number or party is stored (brief 9.6).
+    """
+
+    __tablename__ = "land_transactions"
+
+    tx_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    powiat: Mapped[str] = mapped_column(Text)
+    tx_date: Mapped[date] = mapped_column(Date)
+    price_zl: Mapped[float] = mapped_column(Float)
+    area_ha: Mapped[float] = mapped_column(Float)
+    land_use: Mapped[str] = mapped_column(Text)
+    mpzp: Mapped[str] = mapped_column(Text, default="", server_default="")
+    nier_rodzaj: Mapped[str] = mapped_column(Text)
+    trans_type: Mapped[str] = mapped_column(Text)
+    share: Mapped[str] = mapped_column(Text)
+    parcels: Mapped[int] = mapped_column(Integer)
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SiteAskingPriceRow(Base):
+    """The asking price typed for a site, in zł/m² (migration 0020). Team-wide, not personal data."""
+
+    __tablename__ = "site_asking_prices"
+
+    site_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    zl_m2: Mapped[float] = mapped_column(Float)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))

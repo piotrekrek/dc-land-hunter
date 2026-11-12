@@ -11,5 +11,9 @@
 # Priority powiats come from the list saved in the Powiaty tab (table powiat_priority), not from here.
 0 1 * * * dclh enqueue plan_searches --payload '{"limit": 8, "window_end_hour": 5}'
 
+# Land prices: on the 1st at 10:00 queue one RCN import per powiat of the AOI (outside the 01:00-05:00 search
+# window). Each import is its own job, so a slow or failing powiat does not hold up the others.
+0 10 1 * * dclh enqueue import_rcn --payload '{"all": true}'
+
 # Claude connector: drop expired OAuth requests, codes and tokens, and clients that hold no token.
 30 4 * * * dclh oauth purge

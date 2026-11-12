@@ -209,6 +209,21 @@ distance) and estimated MW and area. The diff lists verdict changes in any profi
 threshold (default 5 points) and sites present in only one file. The five Rzepin RTB sites above are the
 reference set for the Rzepin improvement spec.
 
+## RCN land prices (transactions)
+
+The site card's "Ceny transakcyjne (RCN)" reads the table `land_transactions`, filled from the national RCN WFS.
+Needs migration 0020 and `DCLH_CONTACT_EMAIL`. Import one powiat (about 1 s per 1,000 parcel records, a few
+minutes for a big powiat; safe to repeat, rows are upserted by transaction id):
+
+```bash
+docker compose -f infra/docker-compose.yml run --rm worker dclh import-rcn 0805   # powiat słubicki
+```
+
+Or queue the jobs: `dclh enqueue import_rcn --payload '{"powiat": "0805"}'` for one powiat, `'{"all": true}'` for one job
+per powiat of the AOI. The scheduler does the `all` run on the 1st of each month at 10:00. Check
+"Pokrycie danych" on the Sources page: "Transakcje RCN" per powiat, "słabe dane" under 20. No notary, deed number or
+party is stored. If a powiat returns nothing, check the axis order first (the service wants northing first).
+
 ## Adding a source connector
 
 1. Add or update the entry in `config/sources.yaml` (id, plan, cadence, probes).

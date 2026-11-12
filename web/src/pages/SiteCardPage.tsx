@@ -10,6 +10,7 @@ import { Sheet } from "@/components/check/Sheet";
 import { PlanningPath } from "@/components/site/PlanningPath";
 import { ConnectionCostCalculator } from "@/components/site/ConnectionCostCalculator";
 import { ParcelIds } from "@/components/site/ParcelIds";
+import { PriceComparables } from "@/components/site/PriceComparables";
 import { ProfileCards } from "@/components/site/ProfileCards";
 import { ProjectActions } from "@/components/site/ProjectActions";
 import { Protokol } from "@/components/site/Protokol";
@@ -105,6 +106,8 @@ function SiteCard({ site }: { site: SiteDetail }) {
         sprawdzone, a nie że lokalizacja jest zła.
       </p>
       <Protokol site={site} />
+
+      <PriceComparables key={`prices-${site.site_id}`} siteId={site.site_id} />
 
       <ConnectionCostCalculator key={site.site_id} estimatedMw={site.project_mw} />
     </>
