@@ -62,7 +62,7 @@ test("settings page lists every configured source", async ({ page, isMobile }) =
   await page.goto("/ustawienia");
   await expect(page.getByRole("heading", { name: "Źródła danych" })).toBeVisible();
   if (!isMobile) {
-    await expect(page.getByTestId("source-row")).toHaveCount(28);
+    await expect(page.getByTestId("source-row")).toHaveCount(29);
     await expect(page.getByTestId("source-row").filter({ hasText: "egib" })).toContainText("kluczowe");
   }
   await expectNoSeriousA11yViolations(page);

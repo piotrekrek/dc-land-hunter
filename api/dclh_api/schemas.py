@@ -244,6 +244,9 @@ class PriceGroup(BaseModel):
     p75_zl_m2: float | None
     first_date: date | None
     last_date: date | None
+    # Too few transactions within `radius_km`: this group's figures come from the whole powiat.
+    widened: bool = False
+    confidence: Literal["verified", "estimated", "missing"] = "missing"
 
 
 class PriceComparables(BaseModel):
@@ -251,7 +254,7 @@ class PriceComparables(BaseModel):
 
     agricultural: PriceGroup
     other: PriceGroup
-    widened: bool  # fewer than 5 transactions within `radius_km`: the figures come from the whole powiat
+    widened: bool  # either group was widened to the powiat
     radius_km: float
     months: int
     source_id: str
@@ -263,8 +266,10 @@ class SitePrices(BaseModel):
     comparables: PriceComparables
     asking_zl_m2: float | None
     asking_updated_at: datetime | None
-    # Asking price above 10 times the agricultural median.
+    # Asking price above `outlier_factor` (10) times the agricultural median shown above.
     asking_outlier: bool
+    # The outlier check used the powiat-wide agricultural median (the group was widened).
+    asking_outlier_widened: bool = False
 
 
 class AskingPriceBody(BaseModel):

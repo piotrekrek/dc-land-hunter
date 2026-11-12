@@ -12,8 +12,11 @@
   of each month at 10:00. Apartments are not stored.
 - `comparables.py` (pure, table-driven tests): undeveloped, free market, share 1/1, price and area above zero,
   zł/m² = price / (ha x 10 000), agricultural (`gruntyRolne`) apart from the rest, 10 km and 36 months, median/p25/p75,
-  count, date range. Fewer than 5 comparable transactions in the circle (both groups together) widen to the powiat
-  (`widened`). Confidence: `verified` (n >= 5, not widened), `estimated` (widened or fewer than 5), `missing`.
+  count, date range. Thresholds are the `rcn:` block of `config/scoring.yaml` (agricultural sales under 0,5 ha and
+  other under 0,1 ha are left out; radius, months, min count, outlier factor). Each group widens to the powiat on its
+  own when it has fewer than 5 transactions in the circle (`widened` per group). Confidence per group: `verified`
+  (n >= 5, not widened), `estimated` (widened or fewer than 5), `missing`. The outlier check uses the agricultural
+  median shown (`asking_outlier_widened` says it was the powiat's).
   Transactions dated in the future (the live register has a few) are ignored.
 - API `GET /api/sites/{id}/prices` and `PUT /api/sites/{id}/asking-price` (`{zl_m2: number | null}`); outlier flag when
   asking > 10 x the agricultural median. MCP `get_site` carries a compact `price_comparables`. `coverage` has an `rcn`

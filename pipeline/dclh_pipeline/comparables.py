@@ -1,23 +1,22 @@
 """Land-price comparables from RCN transactions (pure; the API and the MCP tool call it).
 
 Rules (docs/PLAN.md, task 6): undeveloped land, free market, share 1/1, price and area above zero;
-zł/m² = price / (area_ha × 10 000); `agricultural` (`gruntyRolne`) apart from `other`; within 10 km of the
-site over the last 36 months. Fewer than 5 transactions in the circle (both groups together) widen the
-search to the whole powiat, and the result says so. No score depends on this.
+zł/m² = price / (area_ha × 10 000); `agricultural` (`gruntyRolne`, at least `min_area_ha_agricultural`) apart
+from `other` (at least `min_area_ha_other`); within `radius_km` of the site over the last `months`. Each group
+is widened to the whole powiat on its own when the circle holds fewer than `min_count` of its transactions.
+Thresholds come from the `rcn:` block of config/scoring.yaml. No score depends on this.
 """
 
 from __future__ import annotations
 
 import statistics
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import date, datetime
 
+from dclh_pipeline.config import RcnParams
+
 SOURCE_ID = "rcn"
-RADIUS_M = 10_000.0
-MONTHS = 36
-MIN_COUNT = 5
-OUTLIER_FACTOR = 10.0
 UNDEVELOPED = "nieruchomoscGruntowaNiezabudowana"
 FREE_MARKET = "wolnyRynek"
 AGRICULTURAL = "gruntyRolne"
@@ -45,18 +44,20 @@ class GroupStats:
     p75_zl_m2: float | None
     first_date: date | None
     last_date: date | None
+    widened: bool = False  # fewer than min_count in the circle: the figures come from the whole powiat
+    confidence: str = "missing"  # verified (enough in the circle) | estimated (widened or few) | missing
 
 
 @dataclass(frozen=True)
 class Comparables:
     agricultural: GroupStats
     other: GroupStats
-    widened: bool
+    widened: bool  # either group was widened
     radius_m: float
     months: int
     source_id: str
     as_of: datetime | None
-    confidence: str  # verified | estimated | missing
+    confidence: str  # the agricultural group's, or the other group's when there is no agricultural one
 
 
 def months_ago(today: date, months: int) -> date:
@@ -95,9 +96,9 @@ def percentile(values: list[float], q: float) -> float:
     return ordered[low] + (ordered[high] - ordered[low]) * (pos - low)
 
 
-def _stats(items: list[Transaction]) -> GroupStats:
-    if not items:
-        return GroupStats(0, None, None, None, None, None)
+def _stats(items: list[Transaction], *, widened: bool, min_count: int, known: bool) -> GroupStats:
+    if not items or not known:
+        return GroupStats(0, None, None, None, None, None, widened=False, confidence="missing")
     prices = [price_per_m2(t) for t in items]
     dates = [t.tx_date for t in items]
     return GroupStats(
@@ -107,7 +108,30 @@ def _stats(items: list[Transaction]) -> GroupStats:
         p75_zl_m2=percentile(prices, 0.75),
         first_date=min(dates),
         last_date=max(dates),
+        widened=widened,
+        confidence="estimated" if widened or len(items) < min_count else "verified",
     )
+
+
+def _group(
+    usable: list[Transaction],
+    belongs: Callable[[Transaction], bool],
+    *,
+    x: float,
+    y: float,
+    powiat: str | None,
+    cfg: RcnParams,
+    known: bool,
+) -> GroupStats:
+    members = [t for t in usable if belongs(t)]
+    radius_m = cfg.radius_km * 1000
+    near = [t for t in members if (t.x - x) ** 2 + (t.y - y) ** 2 <= radius_m**2]
+    chosen, widened = near, False
+    if len(near) < cfg.min_count and powiat is not None:
+        in_powiat = [t for t in members if t.powiat == powiat]
+        if len(in_powiat) > len(near):
+            chosen, widened = in_powiat, True
+    return _stats(chosen, widened=widened, min_count=cfg.min_count, known=known)
 
 
 def comparables(
@@ -118,46 +142,44 @@ def comparables(
     powiat: str | None,
     today: date,
     as_of: datetime | None,
-    radius_m: float = RADIUS_M,
-    months: int = MONTHS,
-    min_count: int = MIN_COUNT,
+    cfg: RcnParams | None = None,
 ) -> Comparables:
     """Median, p25, p75, count and date range per land-use group around the point (x, y), EPSG:2180.
 
-    `powiat` is the site's powiat code; the fallback uses its transactions. Pass every transaction the
-    query found; filtering is done here.
+    `powiat` is the site's powiat code; a group short of transactions falls back to its transactions.
+    Pass every transaction the query found; filtering is done here. Without `as_of` (nothing was ever
+    imported) both groups are missing.
     """
-    since = months_ago(today, months)
+    cfg = cfg or RcnParams()
+    since = months_ago(today, cfg.months)
     usable = [t for t in transactions if is_comparable(t) and since <= t.tx_date <= today]
-    near = [t for t in usable if (t.x - x) ** 2 + (t.y - y) ** 2 <= radius_m**2]
-    widened = False
-    chosen = near
-    if len(near) < min_count and powiat is not None:
-        in_powiat = [t for t in usable if t.powiat == powiat]
-        if len(in_powiat) > len(near):
-            chosen, widened = in_powiat, True
-    agricultural = [t for t in chosen if t.land_use == AGRICULTURAL]
-    other = [t for t in chosen if t.land_use != AGRICULTURAL]
-    if not chosen or as_of is None:
-        confidence = "missing"
-    elif widened or len(chosen) < min_count:
-        confidence = "estimated"
-    else:
-        confidence = "verified"
+    known = as_of is not None
+
+    def agricultural(t: Transaction) -> bool:
+        return t.land_use == AGRICULTURAL and t.area_ha >= cfg.min_area_ha_agricultural
+
+    def other(t: Transaction) -> bool:
+        return t.land_use != AGRICULTURAL and t.area_ha >= cfg.min_area_ha_other
+
+    agri = _group(usable, agricultural, x=x, y=y, powiat=powiat, cfg=cfg, known=known)
+    rest = _group(usable, other, x=x, y=y, powiat=powiat, cfg=cfg, known=known)
+    headline = agri if agri.count else rest
     return Comparables(
-        agricultural=_stats(agricultural),
-        other=_stats(other),
-        widened=widened,
-        radius_m=radius_m,
-        months=months,
+        agricultural=agri,
+        other=rest,
+        widened=agri.widened or rest.widened,
+        radius_m=cfg.radius_km * 1000,
+        months=cfg.months,
         source_id=SOURCE_ID,
         as_of=as_of,
-        confidence=confidence,
+        confidence=headline.confidence,
     )
 
 
-def asking_price_outlier(asking_zl_m2: float | None, agricultural_median: float | None) -> bool:
-    """True when the asking price is more than 10 times the agricultural median (needs both)."""
+def asking_price_outlier(
+    asking_zl_m2: float | None, agricultural_median: float | None, factor: float = 10.0
+) -> bool:
+    """True when the asking price is more than `factor` times the agricultural median (needs both)."""
     if asking_zl_m2 is None or agricultural_median is None or agricultural_median <= 0:
         return False
-    return asking_zl_m2 > OUTLIER_FACTOR * agricultural_median
+    return asking_zl_m2 > factor * agricultural_median

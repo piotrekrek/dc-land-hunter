@@ -11,6 +11,8 @@ const group = (over: Partial<PriceGroup> = {}): PriceGroup => ({
   p75_zl_m2: 8.5,
   first_date: "2025-03-12",
   last_date: "2026-10-03",
+  widened: false,
+  confidence: "verified",
   ...over,
 });
 

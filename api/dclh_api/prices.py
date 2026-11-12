@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from dclh_api.schemas import PriceComparables, PriceGroup, SitePrices
 from dclh_pipeline import comparables as cmp
+from dclh_pipeline.config import load_scoring
 
 _SITE = text(
     """
@@ -45,6 +46,8 @@ def _group(stats: cmp.GroupStats) -> PriceGroup:
         p75_zl_m2=stats.p75_zl_m2,
         first_date=stats.first_date,
         last_date=stats.last_date,
+        widened=stats.widened,
+        confidence=stats.confidence,
     )
 
 
@@ -54,18 +57,19 @@ def site_prices(session: Session, site_id: str, today: date | None = None) -> Si
     if site is None:
         return None
     today = today or datetime.now(UTC).date()
+    rcn = load_scoring().rcn
     rows = (
         session.execute(
             _TRANSACTIONS,
             {
-                "since": cmp.months_ago(today, cmp.MONTHS),
+                "since": cmp.months_ago(today, rcn.months),
                 "today": today,
                 "nier": cmp.UNDEVELOPED,
                 "trans": cmp.FREE_MARKET,
                 "powiat": site["powiat"],
                 "x": site["x"],
                 "y": site["y"],
-                "radius": cmp.RADIUS_M,
+                "radius": rcn.radius_km * 1000,
             },
         )
         .mappings()
@@ -79,9 +83,11 @@ def site_prices(session: Session, site_id: str, today: date | None = None) -> Si
         powiat=site["powiat"],
         today=today,
         as_of=as_of,
+        cfg=rcn,
     )
     asking = session.execute(_ASKING, {"s": site_id}).mappings().first()
     asking_zl = float(asking["zl_m2"]) if asking else None
+    outlier = cmp.asking_price_outlier(asking_zl, result.agricultural.median_zl_m2, rcn.outlier_factor)
     return SitePrices(
         comparables=PriceComparables(
             agricultural=_group(result.agricultural),
@@ -95,7 +101,8 @@ def site_prices(session: Session, site_id: str, today: date | None = None) -> Si
         ),
         asking_zl_m2=asking_zl,
         asking_updated_at=asking["updated_at"] if asking else None,
-        asking_outlier=cmp.asking_price_outlier(asking_zl, result.agricultural.median_zl_m2),
+        asking_outlier=outlier,
+        asking_outlier_widened=outlier and result.agricultural.widened,
     )
 
 
@@ -124,16 +131,18 @@ def compact(prices: SitePrices) -> dict[str, Any]:
             "median_zl_m2": _round(group.median_zl_m2),
             "p25_zl_m2": _round(group.p25_zl_m2),
             "p75_zl_m2": _round(group.p75_zl_m2),
+            "widened_to_powiat": group.widened,  # too few in the circle: the whole powiat
+            "confidence": group.confidence,
         }
 
     return {
         "agricultural": line(comp.agricultural),
         "other": line(comp.other),
-        "widened_to_powiat": comp.widened,
         "radius_km": comp.radius_km,
         "months": comp.months,
         "asking_zl_m2": prices.asking_zl_m2,
         "asking_outlier": prices.asking_outlier,
+        "asking_outlier_uses_powiat_median": prices.asking_outlier_widened,
         "source_id": comp.source_id,
         "as_of": comp.as_of.date().isoformat() if comp.as_of else None,
         "confidence": comp.confidence,

@@ -214,6 +214,18 @@ class ConnectionCost(_Model):
     conditions_valid_months: int
 
 
+class RcnParams(_Model):
+    """RCN land-price comparables (informational, no score impact). Agricultural sales under half a hectare
+    are mostly building plots tagged `gruntyRolne`, so they are left out of the agricultural group."""
+
+    min_area_ha_agricultural: float = Field(default=0.5, ge=0)
+    min_area_ha_other: float = Field(default=0.1, ge=0)
+    radius_km: float = Field(default=10, gt=0)
+    months: int = Field(default=36, gt=0)
+    min_count: int = Field(default=5, gt=0)
+    outlier_factor: float = Field(default=10, gt=0)
+
+
 class ScoringConfig(_Model):
     target: Target
     hard_filters: dict[str, HardFilter]
@@ -228,6 +240,7 @@ class ScoringConfig(_Model):
     prefilter: Prefilter
     search: SearchParams = SearchParams()
     small: SmallSites = SmallSites()
+    rcn: RcnParams = RcnParams()
     connection_cost: ConnectionCost
 
 

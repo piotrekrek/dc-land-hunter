@@ -3597,6 +3597,21 @@
               }
             ],
             "title": "Last Date"
+          },
+          "widened": {
+            "type": "boolean",
+            "title": "Widened",
+            "default": false
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "estimated",
+              "missing"
+            ],
+            "title": "Confidence",
+            "default": "missing"
           }
         },
         "type": "object",
@@ -3844,6 +3859,50 @@
         "type": "object",
         "title": "Proxies",
         "description": "Settings of the OSM proxies for penalties that have no public source (`sources/osm_infra.py`)."
+      },
+      "RcnParams": {
+        "properties": {
+          "min_area_ha_agricultural": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Min Area Ha Agricultural",
+            "default": 0.5
+          },
+          "min_area_ha_other": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Min Area Ha Other",
+            "default": 0.1
+          },
+          "radius_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Radius Km",
+            "default": 10
+          },
+          "months": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Months",
+            "default": 36
+          },
+          "min_count": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Min Count",
+            "default": 5
+          },
+          "outlier_factor": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Outlier Factor",
+            "default": 10
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RcnParams",
+        "description": "RCN land-price comparables (informational, no score impact). Agricultural sales under half a hectare\nare mostly building plots tagged `gruntyRolne`, so they are left out of the agricultural group."
       },
       "ResolveIn": {
         "properties": {
@@ -4145,6 +4204,17 @@
                 "strong_min_110_lines": 2,
                 "strong_node_km": 3.0
               }
+            }
+          },
+          "rcn": {
+            "$ref": "#/components/schemas/RcnParams",
+            "default": {
+              "min_area_ha_agricultural": 0.5,
+              "min_area_ha_other": 0.1,
+              "radius_km": 10.0,
+              "months": 36,
+              "min_count": 5,
+              "outlier_factor": 10.0
             }
           },
           "connection_cost": {
@@ -4634,6 +4704,11 @@
           "asking_outlier": {
             "type": "boolean",
             "title": "Asking Outlier"
+          },
+          "asking_outlier_widened": {
+            "type": "boolean",
+            "title": "Asking Outlier Widened",
+            "default": false
           }
         },
         "type": "object",

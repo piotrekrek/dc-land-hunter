@@ -23,7 +23,12 @@ function Group({ label, group }: { label: string; group: PriceGroup }) {
   const dates = formatDateRange(group);
   return (
     <div className="rounded-md border p-3" data-testid={`price-group-${label}`}>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dt className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        {label}
+        {group.count > 0 && (
+          <Badge variant={group.confidence === "verified" ? "ok" : "warn"}>{CONFIDENCE_LABEL[group.confidence]}</Badge>
+        )}
+      </dt>
       {group.count === 0 ? (
         <dd className="mt-1 text-sm text-muted-foreground">brak transakcji</dd>
       ) : (
@@ -37,6 +42,11 @@ function Group({ label, group }: { label: string; group: PriceGroup }) {
             {formatTransactions(group.count)}
             {dates ? `, ${dates}` : ""}
           </div>
+          {group.widened && (
+            <div className="mt-1 text-xs font-medium text-warn" data-testid="prices-widened">
+              {WIDENED_NOTE}
+            </div>
+          )}
         </dd>
       )}
     </div>
@@ -102,6 +112,7 @@ function AskingPrice({ siteId, prices }: { siteId: string; prices: SitePrices })
       {prices.asking_outlier && (
         <p role="status" className="mt-2 text-sm font-medium text-warn" data-testid="asking-outlier">
           {OUTLIER_WARNING}
+          {prices.asking_outlier_widened ? " (mediana z całego powiatu)" : ""}
         </p>
       )}
       <p className="mt-1 text-xs text-muted-foreground">Jedna wartość dla całego zespołu.</p>
@@ -146,14 +157,9 @@ export function PriceComparables({ siteId }: { siteId: string }) {
           ) : (
             <>
               <p className="mt-1 text-sm text-muted-foreground">
-                Niezabudowane grunty, wolny rynek, całość nieruchomości, ostatnie {comp.months} miesiące
-                {comp.widened ? "" : `, w promieniu ${formatNumber(comp.radius_km, 0)} km`}.
+                Niezabudowane grunty, wolny rynek, całość nieruchomości, ostatnie {comp.months} miesiące, w promieniu{" "}
+                {formatNumber(comp.radius_km, 0)} km (osobno dla każdej grupy, gdy za mało transakcji: cały powiat).
               </p>
-              {comp.widened && (
-                <p className="mt-2 text-sm font-medium text-warn" data-testid="prices-widened">
-                  {WIDENED_NOTE}
-                </p>
-              )}
               <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Group label="Grunty rolne" group={comp.agricultural} />
                 <Group label="Pozostałe grunty" group={comp.other} />

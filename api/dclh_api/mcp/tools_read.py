@@ -178,8 +178,9 @@ def register(mcp: FastMCP, public_url: str) -> None:
     ) -> dict[str, Any]:
         """One site's card: score breakdown, both profile verdicts with blockers, and every fact with its
         source, date and confidence (verified, estimated or missing), plus `price_comparables` (RCN land
-        transaction prices in zł/m² near the site, the asking price if set; informational). With `site_ids` it returns
-        `{sites: [...cards], not_found: [...]}`; to compare sites side by side use `compare_sites`."""
+        transaction prices in zł/m² near the site, the asking price if set; informational). With `site_ids`
+        it returns `{sites: [...cards], not_found: [...]}`; to compare sites side by side use
+        `compare_sites`."""
         if (site_id is None) == (site_ids is None):
             raise ToolError("Podaj site_id albo site_ids (jedno z dwóch).")
 

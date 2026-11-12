@@ -1349,6 +1349,17 @@ export interface components {
             first_date: string | null;
             /** Last Date */
             last_date: string | null;
+            /**
+             * Widened
+             * @default false
+             */
+            widened: boolean;
+            /**
+             * Confidence
+             * @default missing
+             * @enum {string}
+             */
+            confidence: "verified" | "estimated" | "missing";
         };
         /** PriorityIn */
         PriorityIn: {
@@ -1439,6 +1450,43 @@ export interface components {
              * @default 400
              */
             runway_min_m: number;
+        };
+        /**
+         * RcnParams
+         * @description RCN land-price comparables (informational, no score impact). Agricultural sales under half a hectare
+         *     are mostly building plots tagged `gruntyRolne`, so they are left out of the agricultural group.
+         */
+        RcnParams: {
+            /**
+             * Min Area Ha Agricultural
+             * @default 0.5
+             */
+            min_area_ha_agricultural: number;
+            /**
+             * Min Area Ha Other
+             * @default 0.1
+             */
+            min_area_ha_other: number;
+            /**
+             * Radius Km
+             * @default 10
+             */
+            radius_km: number;
+            /**
+             * Months
+             * @default 36
+             */
+            months: number;
+            /**
+             * Min Count
+             * @default 5
+             */
+            min_count: number;
+            /**
+             * Outlier Factor
+             * @default 10
+             */
+            outlier_factor: number;
         };
         /** ResolveIn */
         ResolveIn: {
@@ -1563,6 +1611,17 @@ export interface components {
              *     }
              */
             small: components["schemas"]["SmallSites"];
+            /**
+             * @default {
+             *       "min_area_ha_agricultural": 0.5,
+             *       "min_area_ha_other": 0.1,
+             *       "radius_km": 10,
+             *       "months": 36,
+             *       "min_count": 5,
+             *       "outlier_factor": 10
+             *     }
+             */
+            rcn: components["schemas"]["RcnParams"];
             connection_cost: components["schemas"]["ConnectionCost"];
         };
         /** SearchParams */
@@ -1709,6 +1768,11 @@ export interface components {
             asking_updated_at: string | null;
             /** Asking Outlier */
             asking_outlier: boolean;
+            /**
+             * Asking Outlier Widened
+             * @default false
+             */
+            asking_outlier_widened: boolean;
         };
         /**
          * SiteSummary

@@ -390,6 +390,8 @@ def _prices() -> SitePrices:
         p75_zl_m2=8.0,
         first_date=datetime(2025, 3, 12, tzinfo=UTC).date(),
         last_date=datetime(2026, 10, 3, tzinfo=UTC).date(),
+        widened=True,
+        confidence="estimated",
     )
     none = PriceGroup(
         count=0, median_zl_m2=None, p25_zl_m2=None, p75_zl_m2=None, first_date=None, last_date=None
@@ -408,6 +410,7 @@ def _prices() -> SitePrices:
         asking_zl_m2=80.0,
         asking_updated_at=None,
         asking_outlier=True,
+        asking_outlier_widened=True,
     )
 
 
@@ -437,10 +440,14 @@ async def test_get_site_drops_the_geometry_the_map_and_the_project_note(
         "median_zl_m2": 6.0,
         "p25_zl_m2": 4.0,
         "p75_zl_m2": 8.0,
+        "widened_to_powiat": True,
+        "confidence": "estimated",
     }
+    assert comparables["other"]["widened_to_powiat"] is False
     assert comparables["asking_zl_m2"] == 80.0 and comparables["asking_outlier"] is True
+    assert comparables["asking_outlier_uses_powiat_median"] is True
     assert comparables["source_id"] == "rcn" and comparables["as_of"] == "2026-11-01"
-    assert comparables["widened_to_powiat"] is False and "first_date" not in comparables["agricultural"]
+    assert "first_date" not in comparables["agricultural"]
     assert result["stage"] == "analysis" and result["url"] == f"{PUBLIC_URL}/lokalizacje/site-1"
     assert result["grid_note"] == context.GRID_NOTE
     assert "TAJNA-NOTATKA-123" not in json.dumps(result)

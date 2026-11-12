@@ -11,8 +11,8 @@ const sp = (s: string | null) => (s ?? "").replace(/\u00a0/g, " ");
 
 const prices = (over: Partial<SitePrices> = {}, comp: Partial<SitePrices["comparables"]> = {}): SitePrices => ({
   comparables: {
-    agricultural: { count: 5, median_zl_m2: 6, p25_zl_m2: 4, p75_zl_m2: 8, first_date: "2025-03-12", last_date: "2026-10-03" },
-    other: { count: 2, median_zl_m2: 138.4, p25_zl_m2: 100, p75_zl_m2: 170, first_date: "2025-09-19", last_date: "2025-10-15" },
+    agricultural: { count: 5, median_zl_m2: 6, p25_zl_m2: 4, p75_zl_m2: 8, first_date: "2025-03-12", last_date: "2026-10-03", widened: false, confidence: "verified" },
+    other: { count: 2, median_zl_m2: 138.4, p25_zl_m2: 100, p75_zl_m2: 170, first_date: "2025-09-19", last_date: "2025-10-15", widened: false, confidence: "estimated" },
     widened: false,
     radius_km: 10,
     months: 36,
@@ -24,6 +24,7 @@ const prices = (over: Partial<SitePrices> = {}, comp: Partial<SitePrices["compar
   asking_zl_m2: null,
   asking_updated_at: null,
   asking_outlier: false,
+  asking_outlier_widened: false,
   ...over,
 });
 
@@ -58,20 +59,40 @@ describe("PriceComparables", () => {
     expect(sp(within(other).getByTestId("price-median").textContent)).toBe("138 zł/m²");
     expect(screen.getByTestId("prices-source")).toHaveTextContent("RCN (GUGiK), import 01.11.2026");
     expect(screen.queryByTestId("prices-widened")).not.toBeInTheDocument();
-    expect(screen.getByText("Zweryfikowane")).toBeInTheDocument();
+    expect(within(agri).getByText("Zweryfikowane")).toBeInTheDocument();
+    expect(within(other).getByText("Szacunek")).toBeInTheDocument();
   });
 
-  it("says when the figures come from the whole powiat", async () => {
-    serve(prices({}, { widened: true, confidence: "estimated" }));
+  it("says which group comes from the whole powiat, and only that one", async () => {
+    const base = prices().comparables;
+    serve(
+      prices(
+        {},
+        {
+          widened: true,
+          confidence: "estimated",
+          agricultural: { ...base.agricultural, widened: true, confidence: "estimated" },
+        },
+      ),
+    );
     renderWithProviders(<PriceComparables siteId="site-a" />);
-    expect(await screen.findByTestId("prices-widened")).toHaveTextContent(
+    const agri = await screen.findByTestId("price-group-Grunty rolne");
+    expect(within(agri).getByTestId("prices-widened")).toHaveTextContent(
       "Za mało transakcji w promieniu 10 km — dane z całego powiatu",
     );
-    expect(screen.getByText("Szacunek")).toBeInTheDocument();
+    expect(within(screen.getByTestId("price-group-Pozostałe grunty")).queryByTestId("prices-widened")).toBeNull();
+  });
+
+  it("names the powiat median when the outlier check used it", async () => {
+    serve(prices({ asking_zl_m2: 80, asking_outlier: true, asking_outlier_widened: true }));
+    renderWithProviders(<PriceComparables siteId="site-a" />);
+    expect(await screen.findByTestId("asking-outlier")).toHaveTextContent(
+      "Cena ofertowa ponad 10× wyższa od mediany dla gruntów rolnych (mediana z całego powiatu)",
+    );
   });
 
   it("explains an empty result instead of showing zeros", async () => {
-    const empty = { count: 0, median_zl_m2: null, p25_zl_m2: null, p75_zl_m2: null, first_date: null, last_date: null };
+    const empty = { count: 0, median_zl_m2: null, p25_zl_m2: null, p75_zl_m2: null, first_date: null, last_date: null, widened: false, confidence: "missing" as const };
     serve(prices({}, { agricultural: empty, other: empty, confidence: "missing", as_of: null }));
     renderWithProviders(<PriceComparables siteId="site-a" />);
     expect(await screen.findByText(/Brak zaimportowanych transakcji/)).toBeInTheDocument();
