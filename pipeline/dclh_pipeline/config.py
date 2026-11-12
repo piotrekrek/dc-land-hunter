@@ -214,6 +214,18 @@ class ConnectionCost(_Model):
     conditions_valid_months: int
 
 
+class Rtb(_Model):
+    """Thresholds of the RTB workstream proposal (`rtb.py`). Distances in km, shares in percent."""
+
+    line110_acceptable_km: float = Field(default=3.0, gt=0)  # power: a 110 kV line this close is acceptable
+    gpz110_acceptable_km: float = Field(default=5.0, gt=0)  # power: so is a GPZ with 110 kV this close
+    node_220_400_km: float = Field(default=25.0, gt=0)  # power: node needed above target.large_campus_mw
+    parcels_yellow_over: int = Field(default=10, ge=1)  # land: more parcels than this is yellow
+    forest_yellow_pct: float = Field(default=10.0, ge=0, le=100)  # environment: forest above this is yellow
+    soil_iii_yellow_pct: float = Field(default=30.0, ge=0, le=100)  # environment: soil class III above this
+    residential_yellow_m: float = Field(default=300.0, ge=0)  # environment: housing closer than this
+
+
 class ScoringConfig(_Model):
     target: Target
     hard_filters: dict[str, HardFilter]
@@ -229,6 +241,7 @@ class ScoringConfig(_Model):
     search: SearchParams = SearchParams()
     small: SmallSites = SmallSites()
     connection_cost: ConnectionCost
+    rtb: Rtb = Rtb()
 
 
 # --------------------------------------------------------------------------- sources.yaml

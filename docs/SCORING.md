@@ -78,6 +78,24 @@ Example for 60 MW: 60 000 PLN application fee, 3.6 mln PLN advance, 1.8 mln PLN 
 Open question: whether "30 PLN/kW up to 100 MW" caps the secured capacity at 100 MW or limits the
 obligation to connections up to 100 MW (to confirm with a lawyer before the calculator ships).
 
+## RTB workstreams (not part of the score)
+
+The RTB annex (`GET /api/sites/{id}/rtb`, page `/lokalizacje/:id/rtb`) proposes green / yellow / red for land, power,
+planning, environment, concept and commercial (`pipeline/dclh_pipeline/rtb.py`). It reads the stored facts and the
+manual `power_evidence` level, and changes no score. Thresholds are in the `rtb:` block of `config/scoring.yaml`.
+
+- Environment: never green with a deposit overlap (the reason names the deposit); red when a hard environmental filter
+  (Natura 2000, flood, mining area, forest, soil I-II, heritage) fired in `exclude` mode; yellow for lesser overlaps or
+  a constraint with no data.
+- Power: never better than yellow below `conditions_issued` (also after the conditions expired); red when neither a
+  110 kV line (`line110_acceptable_km`) nor a GPZ (`gpz110_acceptable_km`) is that close; yellow when the distances are unknown.
+- Planning: green only with an MPZP in force that allows production; red when the zoning excludes production;
+  otherwise yellow (plan ogolny, MPZP or ZPI needed, WZ, procedure, no data).
+- Land: red under `target.ha_min` or over `land.parcels_zero` parcels; yellow for poor compactness or more than
+  `parcels_yellow_over` parcels.
+- Concept and commercial are the team's call: yellow ("do oceny przez zespol"); concept is red only when housing
+  excludes the site or the area is under the minimum.
+
 ## Investor profiles (DC budowane / DC kontenerowe)
 
 A lens on the same features as the score (`pipeline/dclh_pipeline/profiles.py`, values in `config/profiles.yaml`). It does

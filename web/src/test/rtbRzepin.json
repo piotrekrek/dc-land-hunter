@@ -1,0 +1,745 @@
+{
+ "generated_at": "2026-11-12T10:00:00+00:00",
+ "site": {
+  "site_id": "site-4755d239dc1f",
+  "zone_id": null,
+  "area_ha": 102.13707102995053,
+  "estimated_mw": 612.8224261797031,
+  "project_mw": 60.0,
+  "spare_ha": 92.13707102995053,
+  "score": 40.583281465600756,
+  "upside_score": 50.33328146560075,
+  "completeness": 0.8378378378378378,
+  "excluded": false,
+  "grid_badge": "Bliskość sieci",
+  "large_campus": false,
+  "split_suggested": true,
+  "flags": [
+   "Duży teren, do podziału: sugerowana działka 10–30 ha najbliżej sieci."
+  ],
+  "lon": 15.8,
+  "lat": 52.3,
+  "gmina": "Rzepin",
+  "powiat": "słubicki",
+  "voivodeship": "lubuskie",
+  "weakest_label_pl": null,
+  "mw_fact": {
+   "value": 612.8224261797031,
+   "source_id": "egib",
+   "as_of": "2026-11-12T07:54:16+00:00",
+   "confidence": "estimated"
+  }
+ },
+ "parcel_ids": [
+  "a",
+  "b",
+  "c",
+  "d",
+  "e",
+  "f",
+  "g"
+ ],
+ "scored_at": "2026-11-12T07:54:16+00:00",
+ "power_evidence": {
+  "level": "rumour",
+  "recorded": false
+ },
+ "status_note_pl": "Statusy to propozycja wyliczona z zapisanych danych i ręcznie wpisanego dowodu mocy. Decyzję podejmuje zespół.",
+ "workstreams": [
+  {
+   "key": "land",
+   "label_pl": "Grunt",
+   "status": "yellow",
+   "reasons": [
+    {
+     "text_pl": "Powierzchnia 102,1 ha (minimum 10 ha).",
+     "source_id": "egib",
+     "as_of": null
+    },
+    {
+     "text_pl": "Zwartość kształtu 0,24 poniżej 0,35: trudniej zabudować.",
+     "source_id": "egib",
+     "as_of": null
+    },
+    {
+     "text_pl": "7 działek ewidencyjnych.",
+     "source_id": "egib",
+     "as_of": null
+    }
+   ]
+  },
+  {
+   "key": "power",
+   "label_pl": "Moc",
+   "status": "yellow",
+   "reasons": [
+    {
+     "text_pl": "Najbliższa linia 110 kV: 0,5 km (akceptowalnie do 3 km), w granicy akceptowalnej; szacunek z OSM.",
+     "source_id": "osm_power",
+     "as_of": "2026-10-12T07:08:44.740836+00:00"
+    },
+    {
+     "text_pl": "Najbliższy GPZ 110/SN: 2,4 km (akceptowalnie do 5 km), w granicy akceptowalnej; szacunek z OSM.",
+     "source_id": "osm_power",
+     "as_of": "2026-10-12T07:08:44.740836+00:00"
+    },
+    {
+     "text_pl": "Dowód mocy: Plotka.",
+     "source_id": "power_evidence",
+     "as_of": null
+    },
+    {
+     "text_pl": "Bez wydanych warunków przyłączenia moc nie może być lepsza niż żółta.",
+     "source_id": "power_evidence",
+     "as_of": null
+    },
+    {
+     "text_pl": "Odległości do sieci to wskaźnik zastępczy, nie potwierdzona dostępność mocy.",
+     "source_id": "osm_power",
+     "as_of": null
+    }
+   ]
+  },
+  {
+   "key": "planning",
+   "label_pl": "Planowanie",
+   "status": "yellow",
+   "reasons": [
+    {
+     "text_pl": "Przeznaczenie: plan ogólny: strefa gospodarcza.",
+     "source_id": "ru",
+     "as_of": "2026-11-12T06:46:04.977225+00:00"
+    },
+    {
+     "text_pl": "Ścieżka planistyczna: potrzebny MPZP lub ZPI (poza OUZ).",
+     "source_id": "ru",
+     "as_of": "2026-11-12T06:46:04.977225+00:00"
+    },
+    {
+     "text_pl": "Brak obowiązującego MPZP z przeznaczeniem produkcyjnym: potrzebny plan, ZPI albo decyzja WZ.",
+     "source_id": "ru",
+     "as_of": "2026-11-12T06:46:04.977225+00:00"
+    }
+   ]
+  },
+  {
+   "key": "environment",
+   "label_pl": "Środowisko",
+   "status": "yellow",
+   "reasons": [
+    {
+     "text_pl": "Złoże „Rzepin (węgle brunatne)” pod 63% terenu: środowisko nie może być zielone (MIDAS).",
+     "source_id": "midas",
+     "as_of": "2026-11-12T06:41:52.354708+00:00"
+    },
+    {
+     "text_pl": "Las: 27% terenu (próg 10%).",
+     "source_id": "bdot10k",
+     "as_of": "2026-11-12T06:41:57.387370+00:00"
+    },
+    {
+     "text_pl": "Natura 2000 i obszary chronione: brak nakładania.",
+     "source_id": "gdos",
+     "as_of": "2026-10-21T14:14:39.653506+00:00"
+    },
+    {
+     "text_pl": "Strefa zalewowa 10% / 1%: brak nakładania.",
+     "source_id": "isok",
+     "as_of": "2026-11-12T06:41:45.610247+00:00"
+    },
+    {
+     "text_pl": "Obszary górnicze: brak nakładania.",
+     "source_id": "midas",
+     "as_of": "2026-11-12T06:41:52.354708+00:00"
+    },
+    {
+     "text_pl": "Decyzja środowiskowa: brak danych, do sprawdzenia w urzędzie.",
+     "source_id": null,
+     "as_of": null
+    }
+   ]
+  },
+  {
+   "key": "concept",
+   "label_pl": "Koncepcja",
+   "status": "yellow",
+   "reasons": [
+    {
+     "text_pl": "Najbliższa zabudowa mieszkaniowa: 42 m (BDOT10k): ryzyko sprzeciwu mieszkańców.",
+     "source_id": "bdot10k",
+     "as_of": "2026-11-12T06:41:57.387370+00:00"
+    },
+    {
+     "text_pl": "Teren 102,1 ha: rozważ podział na działkę 10–30 ha.",
+     "source_id": "egib",
+     "as_of": null
+    },
+    {
+     "text_pl": "Układ, chłodzenie i odzysk ciepła: do oceny przez zespół.",
+     "source_id": null,
+     "as_of": null
+    }
+   ]
+  },
+  {
+   "key": "commercial",
+   "label_pl": "Handel",
+   "status": "yellow",
+   "reasons": [
+    {
+     "text_pl": "Cena, sprzedający i model transakcji: do oceny przez zespół.",
+     "source_id": null,
+     "as_of": null
+    }
+   ]
+  }
+ ],
+ "red_flags": [
+  {
+   "kind": "penalty",
+   "key": "pen_mineral_deposit",
+   "label_pl": "Złoże kopaliny",
+   "reason_pl": "63% terenu na udokumentowanym złożu kopaliny (MIDAS).",
+   "points": 8.0,
+   "source_id": "midas",
+   "as_of": "2026-11-12T06:41:52.354708+00:00",
+   "confidence": "verified"
+  },
+  {
+   "kind": "penalty",
+   "key": "pen_residential",
+   "label_pl": "Zabudowa mieszkaniowa do 300 m",
+   "reason_pl": "Zabudowa mieszkaniowa w odległości 42 m (poniżej 300 m): ryzyko sprzeciwu mieszkańców.",
+   "points": 10.0,
+   "source_id": "bdot10k",
+   "as_of": "2026-11-12T06:41:57.387370+00:00",
+   "confidence": "verified"
+  }
+ ],
+ "connection_cost": {
+  "mw": 60.0,
+  "lines": [
+   {
+    "key": "application_fee",
+    "label_pl": "Opłata za wniosek (wydana)",
+    "pln": 60000.0,
+    "basis_pl": "1 zł/kW, maks. 100 000 zł",
+    "source_id": "prawo_energetyczne_nowelizacja_2026",
+    "as_of": "2026-04-30",
+    "confidence": "estimated"
+   },
+   {
+    "key": "advance",
+    "label_pl": "Zaliczka na przyłączenie (zamrożona)",
+    "pln": 3600000.0,
+    "basis_pl": "60 zł/kW, maks. 6 000 000 zł",
+    "source_id": "prawo_energetyczne_nowelizacja_2026",
+    "as_of": "2026-04-30",
+    "confidence": "estimated"
+   },
+   {
+    "key": "security",
+    "label_pl": "Zabezpieczenie (zamrożone)",
+    "pln": 1800000.0,
+    "basis_pl": "30 zł/kW do 100 MW",
+    "source_id": "prawo_energetyczne_nowelizacja_2026",
+    "as_of": "2026-04-30",
+    "confidence": "estimated"
+   }
+  ],
+  "frozen_pln": 5400000.0,
+  "total_pln": 5460000.0,
+  "conditions_valid_months": 12,
+  "legal_basis": "Prawo energetyczne, nowelizacja obowiązująca od 30.04.2026",
+  "verified": false,
+  "caveats_pl": [
+   "Kwoty wymagają weryfikacji prawnej: to interpretacja nowelizacji Prawa energetycznego (od 30.04.2026), a stawki można zmienić w konfiguracji aplikacji. To nie jest porada prawna.",
+   "Przeniesienie warunków przyłączenia na kupującego jest prawnie sporne (wyrok sądu apelacyjnego z 2013 r. uznał je za prawa publicznoprawne, których nie można przenieść). Zwykle stosuje się obejście: projekt w spółce celowej (SPV) i sprzedaż jej udziałów.",
+   "Zaliczka i zabezpieczenie to pieniądze zamrożone na czas projektu; opłata za wniosek jest wydana."
+  ]
+ },
+ "price_comparables": null,
+ "facts": [
+  {
+   "key": "project_mw",
+   "label_pl": "Moc projektu (mniejsza z pojemności terenu i celu)",
+   "value": 60.0,
+   "unit": "MW",
+   "source_id": "egib",
+   "as_of": "2026-11-12T07:54:16+00:00",
+   "confidence": "estimated"
+  },
+  {
+   "key": "estimated_mw",
+   "label_pl": "Pojemność terenu (powierzchnia × gęstość z ustawień)",
+   "value": 612.822,
+   "unit": "MW",
+   "source_id": "egib",
+   "as_of": "2026-11-12T07:54:16+00:00",
+   "confidence": "estimated"
+  },
+  {
+   "key": "area_ha",
+   "label_pl": "Powierzchnia",
+   "value": 102.137,
+   "unit": "ha",
+   "source_id": "egib",
+   "as_of": null,
+   "confidence": "verified"
+  },
+  {
+   "key": "parcel_count",
+   "label_pl": "Liczba działek ewidencyjnych",
+   "value": 7,
+   "unit": null,
+   "source_id": "egib",
+   "as_of": null,
+   "confidence": "verified"
+  },
+  {
+   "key": "compactness",
+   "label_pl": "Zwartość kształtu (0–1)",
+   "value": 0.24,
+   "unit": null,
+   "source_id": "egib",
+   "as_of": null,
+   "confidence": "verified"
+  },
+  {
+   "key": "expansion_ha",
+   "label_pl": "Sąsiednie działki na rozbudowę",
+   "value": 296.294,
+   "unit": "ha",
+   "source_id": "egib",
+   "as_of": null,
+   "confidence": "verified"
+  },
+  {
+   "key": "dist_line110_km",
+   "label_pl": "Odległość do linii 110 kV",
+   "value": 0.461,
+   "unit": "km",
+   "source_id": "osm_power",
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "confidence": "estimated"
+  },
+  {
+   "key": "dist_gpz110_km",
+   "label_pl": "Odległość do GPZ 110/SN",
+   "value": 2.437,
+   "unit": "km",
+   "source_id": "osm_power",
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "confidence": "estimated"
+  },
+  {
+   "key": "independent_110_lines_near",
+   "label_pl": "Niezależne linie 110 kV w pobliżu (N-1)",
+   "value": 11,
+   "unit": null,
+   "source_id": "osm_power",
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "confidence": "estimated"
+  },
+  {
+   "key": "dist_node_220_400_km",
+   "label_pl": "Odległość do węzła 220/400 kV",
+   "value": 48.133,
+   "unit": "km",
+   "source_id": "osm_power",
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "confidence": "estimated"
+  },
+  {
+   "key": "dist_other_station_km",
+   "label_pl": "Odległość do stacji wytwórcy lub odbiorcy",
+   "value": 1.573,
+   "unit": "km",
+   "source_id": "osm_power",
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "confidence": "estimated"
+  },
+  {
+   "key": "powered_brownfield",
+   "label_pl": "Teren poprzemysłowy z własną stacją",
+   "value": false,
+   "unit": null,
+   "source_id": "osm_power",
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "confidence": "estimated"
+  },
+  {
+   "key": "dist_pse_planned_station_km",
+   "label_pl": "Odległość do planowanej stacji PSE",
+   "value": 143.877,
+   "unit": "km",
+   "source_id": "pse_avail",
+   "as_of": "2026-09-30T00:00:00+00:00",
+   "confidence": "estimated"
+  },
+  {
+   "key": "dist_pse_odb_km",
+   "label_pl": "Odległość do wpisu ODB PSE",
+   "value": 95.762,
+   "unit": "km",
+   "source_id": "pse_odb",
+   "as_of": "2026-08-31T00:00:00+00:00",
+   "confidence": "estimated"
+  },
+  {
+   "key": "closed_switchyard_nearby",
+   "label_pl": "Zamknięta rozdzielnia PSE w pobliżu",
+   "value": false,
+   "unit": null,
+   "source_id": "pse_closed",
+   "as_of": "2026-02-04T00:00:00+00:00",
+   "confidence": "estimated"
+  },
+  {
+   "key": "published_gpz_headroom_mw",
+   "label_pl": "Opublikowana moc GPZ (OSD)",
+   "value": null,
+   "unit": "MW",
+   "source_id": "dso_portals",
+   "as_of": null,
+   "confidence": "missing"
+  },
+  {
+   "key": "zoning",
+   "label_pl": "Przeznaczenie terenu",
+   "value": "plan_ogolny_SG",
+   "unit": null,
+   "source_id": "ru",
+   "as_of": "2026-11-12T06:46:04.977225+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "planning_path",
+   "label_pl": "Ścieżka planistyczna",
+   "value": "mpzp_or_zpi",
+   "unit": null,
+   "source_id": "ru",
+   "as_of": "2026-11-12T06:46:04.977225+00:00",
+   "confidence": "estimated"
+  },
+  {
+   "key": "in_ouz",
+   "label_pl": "Obszar uzupełnienia zabudowy (OUZ)",
+   "value": "no",
+   "unit": null,
+   "source_id": "ru",
+   "as_of": "2026-11-12T06:46:04.977225+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "plan_ogolny_act",
+   "label_pl": "Uchwała planu ogólnego",
+   "value": "XXXIV/224/2026",
+   "unit": null,
+   "source_id": "ru",
+   "as_of": "2026-11-12T06:46:04.977225+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "plan_ogolny_from",
+   "label_pl": "Plan ogólny obowiązuje od",
+   "value": "2026-09-11",
+   "unit": null,
+   "source_id": "ru",
+   "as_of": "2026-11-12T06:46:04.977225+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "zone_max_height_m",
+   "label_pl": "Maksymalna wysokość zabudowy",
+   "value": 20.0,
+   "unit": "m",
+   "source_id": "ru",
+   "as_of": "2026-11-12T06:46:04.977225+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "zone_max_build_up_pct",
+   "label_pl": "Maksymalna powierzchnia zabudowy",
+   "value": 70.0,
+   "unit": "%",
+   "source_id": "ru",
+   "as_of": "2026-11-12T06:46:04.977225+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "zone_min_pbc_pct",
+   "label_pl": "Minimalny udział powierzchni biologicznie czynnej",
+   "value": 20.0,
+   "unit": "%",
+   "source_id": "ru",
+   "as_of": "2026-11-12T06:46:04.977225+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "protected_nature_pct",
+   "label_pl": "Natura 2000 i obszary chronione",
+   "value": 0.0,
+   "unit": "% terenu",
+   "source_id": "gdos",
+   "as_of": "2026-10-21T14:14:39.653506+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "landscape_park_or_ochk",
+   "label_pl": "Park krajobrazowy lub OChK",
+   "value": false,
+   "unit": null,
+   "source_id": "gdos",
+   "as_of": "2026-10-21T14:14:39.653506+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "flood_10_or_1_pct",
+   "label_pl": "Strefa zalewowa 10% / 1%",
+   "value": 0.0,
+   "unit": "% terenu",
+   "source_id": "isok",
+   "as_of": "2026-11-12T06:41:45.610247+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "flood_0_2_pct",
+   "label_pl": "Strefa zalewowa 0,2%",
+   "value": 0.0,
+   "unit": "% terenu",
+   "source_id": "isok",
+   "as_of": "2026-11-12T06:41:45.610247+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "forest_pct",
+   "label_pl": "Las",
+   "value": 26.549,
+   "unit": "% terenu",
+   "source_id": "bdot10k",
+   "as_of": "2026-11-12T06:41:57.387370+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "deposit_overlap_pct",
+   "label_pl": "Złoże kopaliny",
+   "value": 63.084,
+   "unit": "% terenu",
+   "source_id": "midas",
+   "as_of": "2026-11-12T06:41:52.354708+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "deposit_list",
+   "label_pl": "Złoża pod terenem",
+   "value": "Rzepin",
+   "unit": null,
+   "source_id": "midas",
+   "as_of": "2026-11-12T06:41:52.354708+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "mining_area_pct",
+   "label_pl": "Obszar górniczy",
+   "value": 0.0,
+   "unit": "% terenu",
+   "source_id": "midas",
+   "as_of": "2026-11-12T06:41:52.354708+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "mining_terrain_pct",
+   "label_pl": "Teren górniczy",
+   "value": 0.0,
+   "unit": "% terenu",
+   "source_id": "midas",
+   "as_of": "2026-11-12T06:41:52.354708+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "soil_class_i_ii_pct",
+   "label_pl": "Gleby klas I–II",
+   "value": null,
+   "unit": "% terenu",
+   "source_id": "kiug",
+   "as_of": null,
+   "confidence": "missing"
+  },
+  {
+   "key": "soil_class_iii_pct",
+   "label_pl": "Gleby klasy III",
+   "value": 0.0,
+   "unit": "% terenu",
+   "source_id": "kiug",
+   "as_of": "2026-11-12T07:54:16.584709+00:00",
+   "confidence": "estimated"
+  },
+  {
+   "key": "on_heritage_register",
+   "label_pl": "Rejestr zabytków",
+   "value": null,
+   "unit": null,
+   "source_id": "nid",
+   "as_of": null,
+   "confidence": "missing"
+  },
+  {
+   "key": "residential_min_m",
+   "label_pl": "Odległość do zabudowy mieszkaniowej",
+   "value": 41.673,
+   "unit": "m",
+   "source_id": "bdot10k",
+   "as_of": "2026-11-12T06:41:57.387370+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "dist_public_road_m",
+   "label_pl": "Odległość do drogi publicznej",
+   "value": 8.561,
+   "unit": "m",
+   "source_id": "bdot10k",
+   "as_of": "2026-11-12T06:41:57.387370+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "gas_pipeline_zone",
+   "label_pl": "Strefa gazociągu (szacunek z OSM)",
+   "value": false,
+   "unit": null,
+   "source_id": "osm_power",
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "confidence": "estimated"
+  },
+  {
+   "key": "airport_ols",
+   "label_pl": "Powierzchnie ograniczające lotniska (szacunek z OSM)",
+   "value": false,
+   "unit": null,
+   "source_id": "osm_power",
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "confidence": "estimated"
+  },
+  {
+   "key": "dist_telecom_node_km",
+   "label_pl": "Odległość do węzła telekomunikacyjnego",
+   "value": null,
+   "unit": "km",
+   "source_id": "uke",
+   "as_of": null,
+   "confidence": "missing"
+  },
+  {
+   "key": "dist_big_city_km",
+   "label_pl": "Odległość do dużego miasta",
+   "value": 57.002,
+   "unit": "km",
+   "source_id": "prg",
+   "as_of": "2026-10-12T10:41:29.101137+00:00",
+   "confidence": "verified"
+  },
+  {
+   "key": "dist_heat_network_km",
+   "label_pl": "Odległość do sieci ciepłowniczej",
+   "value": 25.838,
+   "unit": "km",
+   "source_id": "heat",
+   "as_of": "2026-10-21T11:40:39.522814+00:00",
+   "confidence": "estimated"
+  },
+  {
+   "key": "dist_res_cluster_km",
+   "label_pl": "Odległość do skupiska OZE",
+   "value": 0.083,
+   "unit": "km",
+   "source_id": "osm_power",
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "confidence": "estimated"
+  },
+  {
+   "key": "env_decision_found",
+   "label_pl": "Decyzja środowiskowa",
+   "value": null,
+   "unit": null,
+   "source_id": "bazaoos",
+   "as_of": null,
+   "confidence": "missing"
+  },
+  {
+   "key": "public_seller",
+   "label_pl": "Sprzedający jest podmiotem publicznym",
+   "value": null,
+   "unit": null,
+   "source_id": "kowr",
+   "as_of": null,
+   "confidence": "missing"
+  }
+ ],
+ "map": {
+  "origin_2180": [
+   0,
+   0
+  ],
+  "bbox_m": [
+   -3000,
+   -3000,
+   3000,
+   3000
+  ],
+  "parcel": [
+   [
+    [
+     -500,
+     -300
+    ],
+    [
+     500,
+     -300
+    ],
+    [
+     500,
+     300
+    ],
+    [
+     -500,
+     300
+    ]
+   ]
+  ],
+  "layers": [
+   {
+    "key": "lines110",
+    "label_pl": "Linie 110 kV i wyższe",
+    "kind": "line",
+    "paths": [
+     [
+      [
+       -3000,
+       600
+      ],
+      [
+       3000,
+       700
+      ]
+     ]
+    ],
+    "truncated": false
+   },
+   {
+    "key": "gpz",
+    "label_pl": "GPZ 110/SN",
+    "kind": "point",
+    "paths": [
+     [
+      [
+       1500,
+       1200
+      ]
+     ]
+    ],
+    "truncated": false
+   }
+  ]
+ },
+ "map_note_pl": "Mapa pokazuje obrys terenu, linie 110 kV i wyższe oraz stacje z bazy (OSM)."
+}
