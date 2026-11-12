@@ -32,6 +32,13 @@ describe("toCheck", () => {
     expect(unknown?.who).toBe(GENERIC_WHO_TO_ASK);
   });
 
+  it("lists a fired mineral deposit penalty with the points it costs", () => {
+    const list = toCheck([item("pen_mineral_deposit", -8, 0, "verified"), item("pen_gas", 0, 0, "verified")]);
+    expect(list.map((e) => e.key)).toEqual(["pen_mineral_deposit"]);
+    expect(list[0]?.gain).toBe(8);
+    expect(list[0]?.who).toBe(WHO_TO_ASK.pen_mineral_deposit);
+  });
+
   it("is empty when nothing is missing", () => {
     expect(toCheck([item("zoning", 20, 20, "verified")])).toEqual([]);
   });

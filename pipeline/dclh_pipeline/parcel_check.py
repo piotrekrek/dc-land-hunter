@@ -46,7 +46,7 @@ from dclh_pipeline.parcel_input import InputIssue, ParcelInput, ParsedInputs
 from dclh_pipeline.profiles import ProfileVerdict, profile_verdicts
 from dclh_pipeline.scoring.engine import evaluate_hard_filters
 from dclh_pipeline.scoring.run import ScoredSite, score_candidates
-from dclh_pipeline.scoring.types import Fact, SiteScore
+from dclh_pipeline.scoring.types import Fact, SiteFeatures, SiteScore
 from dclh_pipeline.snapshots import SnapshotStore
 from dclh_pipeline.sources.egib import EgibConnector
 from dclh_pipeline.sources.uldk import (
@@ -381,10 +381,20 @@ def unknowns(scored: ScoredSite, cfg: ScoringConfig, failed_steps: Sequence[str]
     return out
 
 
-def next_steps(parcel: ResolvedParcel) -> list[NextStep]:
+def next_steps(parcel: ResolvedParcel, features: SiteFeatures | None = None) -> list[NextStep]:
     """Manual follow-ups no public service can do for us (the app never promises grid capacity)."""
     place = f"działki {parcel.parcel_id} w obrębie {parcel.obreb}, gmina {parcel.commune}"
+    deposit = features.deposit_overlap_pct if features is not None else None
+    on_deposit = [
+        NextStep(
+            "deposit",
+            "Teren leży na złożu kopaliny: opinia geologiczna i traktowanie złoża w planie ogólnym",
+            f"Dzień dobry, proszę o informację, czy {place} leży w granicach udokumentowanego złoża kopaliny "
+            "i jak plan ogólny (lub MPZP) traktuje to złoże. Czy zabudowa terenu wymaga opinii geologicznej?",
+        )
+    ]
     return [
+        *(on_deposit if deposit is not None and deposit.value > 0 else []),
         NextStep(
             "mpzp",
             f"Zapytaj gminę {parcel.commune} o MPZP lub plan ogólny dla działki",
@@ -423,8 +433,16 @@ def _flood_finding(geom: BaseGeometry, result: Any) -> str:
 
 
 def _mining_finding(geom: BaseGeometry, result: Any) -> str:
-    share = max(overlap_pct(geom, layer.index.geoms) for layer in result.values()) if result else 0.0
-    return f"Obszar górniczy: {_pct(share)} działki." if share > 0 else "Poza obszarami górniczymi."
+    mining = [layer for kind, layer in (result or {}).items() if kind != "mineral_deposit"]
+    share = max((overlap_pct(geom, layer.index.geoms) for layer in mining), default=0.0)
+    text = f"Obszar górniczy: {_pct(share)} działki." if share > 0 else "Poza obszarami górniczymi."
+    deposit = (result or {}).get("mineral_deposit")
+    if deposit is None:
+        return text
+    deposit_share = overlap_pct(geom, deposit.index.geoms)
+    if deposit_share > 0:
+        return f"{text} Złoże kopaliny: {_pct(deposit_share)} działki."
+    return f"{text} Brak udokumentowanych złóż."
 
 
 def _bdot_finding(geom: BaseGeometry, result: Any) -> str:
@@ -627,7 +645,7 @@ def check_parcel(
         scored=scored,
         verdict=verdict(score),
         unknowns=unknowns(scored, cfg, failed),
-        next_steps=next_steps(parcel),
+        next_steps=next_steps(parcel, scored.features),
         steps=list(steps.records.values()),
         sheet=sheet,
         layer_ages=ages,
@@ -658,7 +676,13 @@ def _sheet(
     for layer in area.zoning:
         for kind, zone_geom in layer.zones:
             zones.setdefault(kind.value, []).append(zone_geom)
-    mining = [g for layer in (area.mining or {}).values() for g in layer.index.geoms]
+    mining = [
+        g
+        for kind, layer in (area.mining or {}).items()
+        if kind != "mineral_deposit"
+        for g in layer.index.geoms
+    ]
+    deposits = _geoms((area.mining or {}).get("mineral_deposit"))
     layers: list[tuple[str, str, str, Iterable[BaseGeometry]]] = [
         ("neighbours", "Sąsiednie działki", "polygon", neighbours),
         ("flood", "Strefa zalewowa 1%", "polygon", _geoms(area.flood)),
@@ -667,6 +691,7 @@ def _sheet(
         ("housing", "Budynki mieszkalne", "polygon", _geoms(area.housing)),
         ("roads", "Drogi publiczne", "line", _geoms(area.roads)),
         ("mining", "Obszar górniczy", "polygon", mining),
+        ("deposit", "Złoże kopaliny", "polygon", deposits),
         *((f"zoning:{kind}", f"Plan: {kind}", "polygon", geoms) for kind, geoms in sorted(zones.items())),
     ]
     return build_sheet(geom, layers, margin_m=margin)

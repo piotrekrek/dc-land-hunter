@@ -22,6 +22,8 @@ export function site(over: Partial<CheckSiteDetail> = {}): CheckSiteDetail {
     zone_id: null,
     area_ha: 1.2,
     estimated_mw: 7.2,
+    project_mw: 7.2,
+    spare_ha: 0,
     score: 38,
     upside_score: 61,
     completeness: 0.6,

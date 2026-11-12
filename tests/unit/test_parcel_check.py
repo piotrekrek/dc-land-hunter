@@ -52,6 +52,8 @@ def make_score(**over: object) -> SiteScore:
         categories=[CategoryScore("grid", 40, 45, 45)],
         items=[item("line110", 27, 27), item("plan", 5, 25)],
         estimated_mw=75.0,
+        project_mw=60.0,
+        spare_ha=2.5,
         large_campus=False,
         split_suggested=False,
         grid_badge=GridBadge.PROXY,
@@ -192,6 +194,18 @@ def test_next_steps_carry_the_id_the_obreb_and_the_gmina_for_a_letter() -> None:
     copy = steps["mpzp"].copy_text or ""
     assert "306201_1.0002.1573" in copy and "obrębie 0002" in copy and "Konin (miasto)" in copy
     assert steps["kw"].copy_text is None
+
+
+def test_next_steps_add_the_geological_opinion_only_on_a_deposit() -> None:
+    from dclh_pipeline.scoring.types import Fact, SiteFeatures
+
+    on = SiteFeatures(deposit_overlap_pct=Fact(30.0, "midas"))
+    off = SiteFeatures(deposit_overlap_pct=Fact(0.0, "midas"))
+    assert "deposit" in {s.key for s in next_steps(parcel_for_steps(), on)}
+    assert "deposit" not in {s.key for s in next_steps(parcel_for_steps(), off)}
+    assert "deposit" not in {s.key for s in next_steps(parcel_for_steps())}
+    text = next(s for s in next_steps(parcel_for_steps(), on) if s.key == "deposit").copy_text or ""
+    assert "opinii geologicznej" in text and "plan ogólny" in text
 
 
 class FakeClient:

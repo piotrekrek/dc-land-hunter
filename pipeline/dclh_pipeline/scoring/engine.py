@@ -16,10 +16,11 @@ from collections.abc import Callable
 from dataclasses import dataclass, fields, replace
 from datetime import datetime
 
-from dclh_pipeline.config import ScoringConfig
+from dclh_pipeline.config import ScoringConfig, Target
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.sites import EXPANSION_GAP_M
 from dclh_pipeline.scoring.types import (
+    PATH_MPZP_OR_ZPI,
     CategoryScore,
     Exclusion,
     Fact,
@@ -120,9 +121,20 @@ def _scored[T](
 # --------------------------------------------------------------------------- categories
 
 
-def _grid_items(f: SiteFeatures, cfg: ScoringConfig, est_mw: float | None) -> list[_Draft]:
+def project_capacity(area_ha: float, target: Target) -> tuple[float, float, float]:
+    """(land capacity MW, project MW, spare ha). The project is what the investor wants to build, capped by the land."""
+    est_mw = area_ha * target.mw_per_ha
+    return est_mw, min(est_mw, target.target_mw), max(0.0, area_ha - target.target_mw / target.mw_per_ha)
+
+
+def _is_large_campus(target: Target) -> bool:
+    """Only a larger project target needs 220/400 kV; spare land does not make the project bigger."""
+    return target.target_mw > target.large_campus_mw
+
+
+def _grid_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
     g = cfg.grid
-    large = est_mw is not None and est_mw > cfg.target.large_campus_mw
+    large = _is_large_campus(cfg.target)
     items: list[_Draft] = []
 
     line, gpz = f.dist_line110_km, f.dist_gpz110_km
@@ -138,18 +150,34 @@ def _grid_items(f: SiteFeatures, cfg: ScoringConfig, est_mw: float | None) -> li
         )
     else:
         line_s = ramp_down(line.value, g.line110_km_full, g.line110_km_zero) if line else 0.0
-        gpz_s = ramp_down(gpz.value, g.gpz110_km_full, g.gpz110_km_zero) if gpz else 0.0
+        # Only an operator's station is a connection point at full weight; a station of unknown class earns
+        # `unknown_station_weight` of it; generator/customer stations earn nothing (see `other_station` below).
+        op, unk = f.dist_gpz110_operator_km, f.dist_gpz110_unknown_km
+        if op is None and unk is None:
+            op = gpz  # features without station classes (stored before they existed): all count in full
+        op_s = ramp_down(op.value, g.gpz110_km_full, g.gpz110_km_zero) if op else 0.0
+        unk_s = (
+            g.unknown_station_weight * ramp_down(unk.value, g.gpz110_km_full, g.gpz110_km_zero)
+            if unk
+            else 0.0
+        )
+        gpz_s = max(op_s, unk_s)
+        gpz_used = op if op_s >= unk_s else unk
         best = max(line_s, gpz_s)
-        used = line if line_s >= gpz_s and line else (gpz or line)
+        used = line if line_s >= gpz_s and line else (gpz_used or gpz or line)
         assert used is not None
         parts = []
         if line:
             parts.append(
                 f"linia 110 kV: {_n(line.value)} km (pełne punkty do {_n(g.line110_km_full)} km, zero od {_n(g.line110_km_zero)} km)"
             )
-        if gpz:
+        ramp = f"pełne do {_n(g.gpz110_km_full)} km, zero od {_n(g.gpz110_km_zero)} km"
+        if op:
+            parts.append(f"GPZ operatora 110 kV: {_n(op.value)} km ({ramp})")
+        if unk:
             parts.append(
-                f"GPZ 110 kV: {_n(gpz.value)} km (pełne do {_n(g.gpz110_km_full)} km, zero od {_n(g.gpz110_km_zero)} km)"
+                f"stacja 110 kV/SN o nieustalonym właścicielu: {_n(unk.value)} km "
+                f"({ramp}; punkty × {_n(g.unknown_station_weight, 2)}, bo nie wiadomo, czy to stacja OSD)"
             )
         items.append(
             _Draft(
@@ -166,6 +194,37 @@ def _grid_items(f: SiteFeatures, cfg: ScoringConfig, est_mw: float | None) -> li
                 + "; ".join(parts)
                 + ". To przybliżenie, nie gwarancja mocy.",
                 used.value,
+            )
+        )
+
+    other = f.dist_other_station_km
+    if other is not None and other.value <= g.other_station_context_km:
+        kind = f.other_station_class.value if f.other_station_class else "customer"
+        name = f.other_station_name.value if f.other_station_name else ""
+        what = (
+            "Stacja farmy wiatrowej, PV lub elektrowni"
+            if kind == "generator"
+            else "Stacja odbiorcza przemysłowa (nie OSD)"
+        )
+        hint = (
+            "możliwy cable pooling lub PPA"
+            if kind == "generator"
+            else "możliwe wykorzystanie istniejącego przyłącza po uzgodnieniu z właścicielem"
+        )
+        items.append(
+            _Draft(
+                "grid_other_station",
+                "grid",
+                "Stacja 110 kV poza siecią OSD w pobliżu",
+                0.0,
+                0.0,
+                0.0,
+                other.confidence,
+                other.source_id,
+                other.as_of,
+                f"{what}{f' „{name}”' if name else ''} {_n(other.value)} km — {hint}. "
+                "Nie jest punktem przyłączenia OSD, więc bez punktów w ocenie.",
+                other.value,
             )
         )
 
@@ -349,6 +408,13 @@ def _zoning_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
         ]  # fmt: skip
     kind = f.zoning.value
     pts = table[kind]
+    outside_ouz = (
+        kind is ZoningKind.PLAN_OGOLNY_SG
+        and f.planning_path is not None
+        and f.planning_path.value == PATH_MPZP_OR_ZPI
+    )
+    if outside_ouz:
+        pts = z.zone_allows_dc_outside_ouz
     unknown = kind is ZoningKind.UNKNOWN
     conf = Confidence.MISSING if unknown else f.zoning.confidence
     # An unknown zoning has no source: the fact may carry the layer that was looked at (an OSM industrial area, an
@@ -357,12 +423,15 @@ def _zoning_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
     return [
         _Draft(
             "zoning", "zoning", "Przeznaczenie terenu", pts, 100.0, table[ZoningKind.MPZP_PRODUCTION] if conf is Confidence.MISSING else pts,
-            conf, source, as_of, f"{_ZONING_LABEL[kind].capitalize()}: {_n(pts, 0)}% maksymalnej punktacji za przeznaczenie.", kind.value,
+            conf, source, as_of,
+            f"{_ZONING_LABEL[kind].capitalize()}: {_n(pts, 0)}% maksymalnej punktacji za przeznaczenie."
+            + (" Teren poza OUZ i bez MPZP: ścieżka to MPZP lub ZPI (12–24 miesiące), nie decyzja WZ." if outside_ouz else ""),
+            kind.value,
         )
     ]  # fmt: skip
 
 
-def _land_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
+def _land_items(f: SiteFeatures, cfg: ScoringConfig, spare_ha: float = 0.0) -> list[_Draft]:
     lo, hi = cfg.target.ha_ideal
     split = cfg.target.large_site_split_ha
     land = cfg.land
@@ -403,16 +472,29 @@ def _land_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
 
     def expansion(ha: float) -> tuple[float, str]:
         pts = min(LAND_EXPANSION_MAX, ha / 10.0 * land.expansion_ha_bonus_per_10ha)
-        return (
-            pts,
-            f"{_n(ha)} ha sąsiednich działek ewidencyjnych (do {_n(EXPANSION_GAP_M, 0)} m od terenu) jako rezerwa na rozbudowę. Ich przeznaczenie i dostępność do kupienia nie są sprawdzone.",
+        near = ha - spare_ha
+        neighbours = (
+            f"{_n(near)} ha sąsiednich działek ewidencyjnych (do {_n(EXPANSION_GAP_M, 0)} m od terenu)"
         )
+        unchecked = "Przeznaczenie i dostępność do kupienia sąsiednich działek nie są sprawdzone."
+        if spare_ha > 0:
+            own = f"{_n(spare_ha)} ha własnego terenu ponad cel {_n(cfg.target.target_mw, 0)} MW"
+            tail = f" oraz {neighbours}. {unchecked}" if near > 0 else "."
+            return pts, f"{_n(ha)} ha rezerwy na rozbudowę: {own}{tail}"
+        return pts, f"{neighbours} jako rezerwa na rozbudowę. {unchecked}"
+
+    # Reserve = the site's own land beyond the target project plus the neighbouring parcels (a separate area),
+    # so nothing is counted twice. Only the neighbours are unverified, so they set the confidence.
+    exp = f.expansion_ha
+    if spare_ha > 0 and f.area_ha is not None:
+        base = exp or f.area_ha
+        exp = Fact(spare_ha + (exp.value if exp else 0.0), base.source_id, base.as_of, base.confidence)
 
     return [
         _scored("land_size", "land", "Wielkość terenu", f.area_ha, LAND_SIZE_MAX, size, "powierzchnia terenu"),
         _scored("land_compactness", "land", "Kształt (zwartość)", f.compactness, LAND_COMPACT_MAX, compact, "geometria terenu"),
         _scored("land_parcels", "land", "Liczba działek", f.parcel_count, LAND_PARCELS_MAX, parcels, "liczba działek ewidencyjnych"),
-        _scored("land_expansion", "land", "Rezerwa na rozbudowę", f.expansion_ha, LAND_EXPANSION_MAX, expansion, "teren do rozbudowy"),
+        _scored("land_expansion", "land", "Rezerwa na rozbudowę", exp, LAND_EXPANSION_MAX, expansion, "teren do rozbudowy"),
     ]  # fmt: skip
 
 
@@ -438,8 +520,24 @@ def _connectivity_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
     ]  # fmt: skip
 
 
+# Legal basis NOT confirmed: the assumption is that the PSI income-tax exemption does not cover land with a
+# documented mineral deposit (investment in a Polish Investment Zone must not collide with mining rights). The
+# reason says "do weryfikacji" and the rule sits behind `bonus.deposit_cancels_psi`; confirm with KSSSE.
+PSI_DEPOSIT_REASON_PL = (
+    "Obszar złoża kopaliny — zwolnienie CIT w PSI prawdopodobnie wyłączone, do weryfikacji z KSSSE."
+)
+
+
 def _bonus_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
     b = cfg.bonus
+    deposit = f.deposit_overlap_pct
+    deposit_cancels_psi = b.deposit_cancels_psi and deposit is not None and deposit.value > 0
+    psi_fact = f.psi_aid_pts
+    if deposit_cancels_psi and deposit is not None:
+        # The bonus is a known 0 even when the aid map has no entry for the gmina.
+        psi_fact = Fact(
+            psi_fact.value if psi_fact else 0.0, deposit.source_id, deposit.as_of, deposit.confidence
+        )
     return [
         _scored(
             "bonus_heat", "bonus", "Sieć ciepłownicza w pobliżu", f.dist_heat_network_km, b.heat_network_pts,
@@ -451,8 +549,12 @@ def _bonus_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
             "sieci ciepłownicze",
         ),
         _scored(
-            "bonus_psi", "bonus", "Pomoc regionalna (PSI)", f.psi_aid_pts, b.psi_aid_max_pts,
-            lambda pts: (max(0.0, min(pts, b.psi_aid_max_pts)), f"Pomoc regionalna w gminie (mapa 2022–2027, skala do {_n(b.psi_aid_full_pct, 0)} %): {_n(pts)} z {_n(b.psi_aid_max_pts, 0)} pkt."),
+            "bonus_psi", "bonus", "Pomoc regionalna (PSI)", psi_fact, b.psi_aid_max_pts,
+            lambda pts: (
+                (0.0, PSI_DEPOSIT_REASON_PL)
+                if deposit_cancels_psi
+                else (max(0.0, min(pts, b.psi_aid_max_pts)), f"Pomoc regionalna w gminie (mapa 2022–2027, skala do {_n(b.psi_aid_full_pct, 0)} %): {_n(pts)} z {_n(b.psi_aid_max_pts, 0)} pkt.")
+            ),
             "mapa pomocy regionalnej",
         ),
         _scored(
@@ -521,6 +623,7 @@ def _penalty_items(f: SiteFeatures, cfg: ScoringConfig) -> list[_Draft]:
         share("pen_flood_02", "Strefa zalewowa 0,2%", f.flood_0_2_pct, p.flood_0_2pct, 0.0, "{v}% terenu w strefie zagrożenia powodziowego 0,2%.", "Teren poza strefą 0,2%.", "mapy zagrożenia powodziowego"),
         flag("pen_landscape", "Park krajobrazowy / OChK", f.landscape_park_or_ochk, p.landscape_park_or_ochk, "Teren w parku krajobrazowym lub obszarze chronionego krajobrazu.", "Poza parkami krajobrazowymi i OChK.", "formy ochrony przyrody"),
         share("pen_mining_terrain", "Teren górniczy", f.mining_terrain_pct, p.mining_terrain, 0.0, "{v}% terenu w terenie górniczym.", "Poza terenami górniczymi.", "tereny górnicze"),
+        share("pen_mineral_deposit", "Złoże kopaliny", f.deposit_overlap_pct, p.mineral_deposit, 0.0, "{v}% terenu na udokumentowanym złożu kopaliny (MIDAS).", "Brak udokumentowanych złóż kopalin pod terenem.", "złoża kopalin"),
         share("pen_soil_iii", "Gleby klasy III", f.soil_class_iii_pct, p.soil_class_III_pct_over_30, SOIL_III_PENALTY_THRESHOLD_PCT, "{v}% terenu to gleby klasy III (próg 30%).", "Mało gleb klasy III.", "klasy gleb"),
         _scored(
             "pen_residential", "penalty", "Zabudowa mieszkaniowa do 300 m", f.residential_min_m, 0.0,
@@ -616,14 +719,16 @@ def _without_non_finite(f: SiteFeatures) -> SiteFeatures:
 
 def score_site(features: SiteFeatures, cfg: ScoringConfig) -> SiteScore:
     f = _without_non_finite(features)
-    est_mw = f.area_ha.value * cfg.target.mw_per_ha if f.area_ha else None
-    large = est_mw is not None and est_mw > cfg.target.large_campus_mw
+    est_mw, project_mw, spare_ha = (
+        project_capacity(f.area_ha.value, cfg.target) if f.area_ha else (None, None, None)
+    )
+    large = _is_large_campus(cfg.target)
     split = f.area_ha is not None and f.area_ha.value > cfg.target.large_site_split_ha
 
     drafts: dict[str, list[_Draft]] = {
-        "grid": _grid_items(f, cfg, est_mw),
+        "grid": _grid_items(f, cfg),
         "zoning": _zoning_items(f, cfg),
-        "land": _land_items(f, cfg),
+        "land": _land_items(f, cfg, spare_ha or 0.0),
         "connectivity": _connectivity_items(f, cfg),
         "bonus": _bonus_items(f, cfg),
     }
@@ -718,7 +823,7 @@ def score_site(features: SiteFeatures, cfg: ScoringConfig) -> SiteScore:
     flags: list[str] = []
     if large:
         flags.append(
-            f"Duży kampus (szac. {_n(est_mw or 0, 0)} MW > {_n(cfg.target.large_campus_mw, 0)} MW): potrzebny węzeł 220/400 kV."
+            f"Duży kampus (cel {_n(cfg.target.target_mw, 0)} MW > {_n(cfg.target.large_campus_mw, 0)} MW): potrzebny węzeł 220/400 kV."
         )
     if split:
         flags.append("Duży teren, do podziału: sugerowana działka 10–30 ha najbliżej sieci.")
@@ -736,6 +841,8 @@ def score_site(features: SiteFeatures, cfg: ScoringConfig) -> SiteScore:
         categories=categories,
         items=items,
         estimated_mw=est_mw,
+        project_mw=project_mw,
+        spare_ha=spare_ha,
         large_campus=large,
         split_suggested=split,
         grid_badge=badge,

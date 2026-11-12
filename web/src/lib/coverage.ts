@@ -4,7 +4,14 @@ import type { components } from "@/api/schema";
 
 export type CoverageLevel = "wojewodztwo" | "powiat" | "gmina";
 /** "all" is every score item together; the rest are the items the API tracks. */
-export type CoverageItem = "all" | "zoning" | "pen_soil_iii" | "bonus_psi" | "grid_headroom";
+export type CoverageItem =
+  | "all"
+  | "zoning"
+  | "pen_soil_iii"
+  | "bonus_psi"
+  | "grid_headroom"
+  | "pen_mineral_deposit"
+  | "plan_ogolny";
 export type CoverageArea = components["schemas"]["CoverageArea"];
 export type CoverageCollection = Extract<GeoJSONSourceSpecification["data"], { type: "FeatureCollection" }>;
 type CoverageFeature = CoverageCollection["features"][number];
@@ -21,10 +28,20 @@ export const COVERAGE_ITEM_LABELS: Record<CoverageItem, string> = {
   pen_soil_iii: "Gleby klasy III",
   bonus_psi: "Pomoc regionalna (PSI)",
   grid_headroom: "Opublikowana moc GPZ",
+  pen_mineral_deposit: "Złoża kopalin (MIDAS)",
+  plan_ogolny: "Plan ogólny i OUZ (rejestr)",
 };
 
 /** Items in the order the selector and the table show them. */
-export const COVERAGE_ITEMS: CoverageItem[] = ["all", "zoning", "pen_soil_iii", "bonus_psi", "grid_headroom"];
+export const COVERAGE_ITEMS: CoverageItem[] = [
+  "all",
+  "zoning",
+  "pen_soil_iii",
+  "bonus_psi",
+  "grid_headroom",
+  "pen_mineral_deposit",
+  "plan_ogolny",
+];
 
 /** Share bands, lower bound first. The last band runs to 100%. */
 export const COVERAGE_BAND_EDGES = [0, 0.2, 0.4, 0.6, 0.8] as const;

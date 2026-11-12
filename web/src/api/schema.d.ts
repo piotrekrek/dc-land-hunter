@@ -546,6 +546,11 @@ export interface components {
             env_decision_found: number;
             /** Public Seller */
             public_seller: number;
+            /**
+             * Deposit Cancels Psi
+             * @default false
+             */
+            deposit_cancels_psi: boolean;
         };
         /** CategoryOut */
         CategoryOut: {
@@ -636,6 +641,10 @@ export interface components {
             area_ha: number;
             /** Estimated Mw */
             estimated_mw: number;
+            /** Project Mw */
+            project_mw: number;
+            /** Spare Ha */
+            spare_ha: number;
             /** Score */
             score: number;
             /** Upside Score */
@@ -862,6 +871,11 @@ export interface components {
             item: string;
             /** Areas */
             areas: components["schemas"]["CoverageArea"][];
+            /**
+             * Station Classes
+             * @default []
+             */
+            station_classes: components["schemas"]["StationClassShare"][];
         };
         /** CreatedOut */
         CreatedOut: {
@@ -998,6 +1012,16 @@ export interface components {
              * @default 90
              */
             gpz_match_min_score: number;
+            /**
+             * Unknown Station Weight
+             * @default 0.5
+             */
+            unknown_station_weight: number;
+            /**
+             * Other Station Context Km
+             * @default 3
+             */
+            other_station_context_km: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1163,6 +1187,8 @@ export interface components {
             landscape_park_or_ochk: number;
             /** Mining Terrain */
             mining_terrain: number;
+            /** Mineral Deposit */
+            mineral_deposit: number;
             /** Soil Class Iii Pct Over 30 */
             soil_class_III_pct_over_30: number;
             /** Residential 100 300M */
@@ -1484,6 +1510,10 @@ export interface components {
             area_ha: number;
             /** Estimated Mw */
             estimated_mw: number;
+            /** Project Mw */
+            project_mw: number;
+            /** Spare Ha */
+            spare_ha: number;
             /** Score */
             score: number;
             /** Upside Score */
@@ -1581,6 +1611,10 @@ export interface components {
             area_ha: number;
             /** Estimated Mw */
             estimated_mw: number;
+            /** Project Mw */
+            project_mw: number;
+            /** Spare Ha */
+            spare_ha: number;
             /** Score */
             score: number;
             /** Upside Score */
@@ -1711,6 +1745,26 @@ export interface components {
             /** Sources */
             sources: components["schemas"]["SourceOut"][];
         };
+        /**
+         * StationClassShare
+         * @description 110 kV/SN stations of one voivodeship by class; a high `unknown_share` means a guessed GPZ score.
+         */
+        StationClassShare: {
+            /** Teryt */
+            teryt: string;
+            /** Name */
+            name: string;
+            /** Operator Gpz */
+            operator_gpz: number;
+            /** Generator */
+            generator: number;
+            /** Customer */
+            customer: number;
+            /** Unknown */
+            unknown: number;
+            /** Unknown Share */
+            unknown_share: number;
+        };
         /** StepOut */
         StepOut: {
             /** Parcel */
@@ -1735,6 +1789,8 @@ export interface components {
         Target: {
             /** Mw Min */
             mw_min: number;
+            /** Target Mw */
+            target_mw: number;
             /** Mw Per Ha */
             mw_per_ha: number;
             /** Ha Min */
@@ -1826,6 +1882,8 @@ export interface components {
             mpzp_production: number;
             /** Plan Ogolny Sg */
             plan_ogolny_SG: number;
+            /** Zone Allows Dc Outside Ouz */
+            zone_allows_dc_outside_ouz: number;
             /** Procedure In Progress */
             procedure_in_progress: number;
             /** Unknown */
@@ -2247,7 +2305,7 @@ export interface operations {
         parameters: {
             query?: {
                 level?: "wojewodztwo" | "powiat" | "gmina";
-                item?: "all" | "zoning" | "pen_soil_iii" | "bonus_psi" | "grid_headroom";
+                item?: "all" | "zoning" | "pen_soil_iii" | "bonus_psi" | "grid_headroom" | "pen_mineral_deposit" | "plan_ogolny";
                 include_geometry?: boolean;
             };
             header?: never;

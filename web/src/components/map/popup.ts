@@ -36,6 +36,20 @@ const CLASS_LABELS: Record<string, string> = {
   UNKNOWN_VOLTAGE: "Stacja, nieznane napięcie",
 };
 
+const STATION_CLASS_LABELS: Record<string, string> = {
+  operator_gpz: "stacja OSD/PSE",
+  generator: "stacja wytwórcy (farma, elektrownia)",
+  customer: "stacja odbiorcy (nie OSD)",
+  unknown: "właściciel nieustalony",
+};
+
+const CLASS_SOURCE_LABELS: Record<string, string> = {
+  osm_operator_tag: "tag operatora w OSM",
+  osm_substation_tag: "tag substation w OSM",
+  name_pattern: "wzorzec nazwy",
+  operator_list: "lista OSD",
+};
+
 const DSO_LABELS: Record<string, string> = {
   enea: "Enea Operator",
   energa: "Energa-Operator",
@@ -101,6 +115,16 @@ function operatorRow(props: TileProps): PopupRow | null {
   return { label: "Operator", value: parts.join(" · ") };
 }
 
+/** Whose station it is and what decided it; only 110 kV/SN stations carry a class. */
+function stationClassRow(props: TileProps): PopupRow | null {
+  const cls = text(props.station_class);
+  if (!cls || !STATION_CLASS_LABELS[cls] || text(props.cls) !== "GPZ_110_SN") return null;
+  const source = text(props.class_source);
+  const parts = [STATION_CLASS_LABELS[cls]];
+  if (source) parts.push(`źródło: ${CLASS_SOURCE_LABELS[source] ?? source}`);
+  return { label: "Właściciel stacji", value: parts.join(" · ") };
+}
+
 function confidenceRow(props: TileProps): PopupRow {
   const confidence = text(props.confidence) ?? "missing";
   return {
@@ -123,6 +147,8 @@ export function stationPopup(props: TileProps, lng: number, lat: number): PopupM
   if (voltages.length) rows.push({ label: "Napięcia", value: voltages.map(formatKv).join(", ") });
   const operator = operatorRow(props);
   if (operator) rows.push(operator);
+  const stationClass = stationClassRow(props);
+  if (stationClass) rows.push(stationClass);
   rows.push(confidenceRow(props));
   rows.push({
     label: "Położenie",

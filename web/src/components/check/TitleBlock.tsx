@@ -22,7 +22,7 @@ export function TitleBlock({ site }: { site: CheckSiteDetail }) {
     ["Gmina", site.parcel.commune],
     ["Obręb", site.parcel.obreb],
     ["Powierzchnia", formatHa(site.area_ha)],
-    ["Szacowana moc", formatMW(site.estimated_mw)],
+    ["Pojemność terenu", formatMW(site.estimated_mw)],
     ["Sprawdzono", formatDate(site.checked_at)],
     ["Zlecił(a)", site.requested_by],
   ];

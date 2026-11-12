@@ -63,7 +63,7 @@ export function SiteFilterBar({ filters, onChange }: Props) {
         </select>
       </label>
       <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-        Szacowana moc od
+        Pojemność terenu od
         <select className={selectClass} value={filters.minMw} onChange={(e) => onChange({ ...filters, minMw: Number(e.target.value) })}>
           {MW_OPTIONS.map((mw) => (
             <option key={mw} value={mw}>

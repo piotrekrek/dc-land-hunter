@@ -40,6 +40,20 @@ def feature(object_id: int, geometry: dict[str, object], name: str = "Nowa Wieś
     }
 
 
+def deposit_feature(number: int, geometry: dict[str, object], name: str = "Rzepin") -> dict[str, object]:
+    """Layer 0 has NR_ZLOZA, NAZWA_ZL, KOPALINA and AKTUALIZACJA, but no ID_KONTURU or STATUS."""
+    return {
+        "type": "Feature",
+        "geometry": geometry,
+        "properties": {
+            "NR_ZLOZA": number,
+            "NAZWA_ZL": name,
+            "KOPALINA": "WĘGLE BRUNATNE",
+            "AKTUALIZACJA": None,
+        },
+    }
+
+
 def serve(
     layers: dict[int, tuple[int, list[list[dict[str, object]]]]], seen: list[httpx.Request]
 ) -> Callable[[httpx.Request], httpx.Response]:
@@ -50,7 +64,7 @@ def serve(
             return httpx.Response(404)
         seen.append(request)
         layer_id = int(request.url.path.split("/")[-2])
-        count, pages = layers[layer_id]
+        count, pages = layers.get(layer_id, (0, []))  # layer 0 (deposits): empty unless a test serves it
         if request.url.params.get("returnCountOnly") == "true":
             return httpx.Response(200, json={"count": count})
         # Like the server: a window of the features, from resultOffset, at most resultRecordCount long.
@@ -77,7 +91,7 @@ def test_live_count_is_a_plain_json_count() -> None:
     assert json.loads((LIVE_DIR / "midas_tereny_gorny_count.json").read_text()) == {"count": 15}
 
 
-def test_fetch_pages_both_layers_in_epsg_2180(tmp_path: Path, make_client: ClientFactory) -> None:
+def test_fetch_pages_every_layer_in_epsg_2180(tmp_path: Path, make_client: ClientFactory) -> None:
     layers = {
         1: (
             3,
@@ -92,7 +106,7 @@ def test_fetch_pages_both_layers_in_epsg_2180(tmp_path: Path, make_client: Clien
     connector = MidasConnector(SPEC, bbox=BBOX, page_size=2)
     connector.fetch(make_client(serve(layers, seen)), SnapshotStore(tmp_path))
     queries = [r for r in seen if r.url.path.endswith("/query")]
-    assert {r.url.path.split("/")[-2] for r in queries} == {"1", "2"}
+    assert {r.url.path.split("/")[-2] for r in queries} == {"0", "1", "2"}
     first = queries[0].url.params
     assert first["inSR"] == "2180" and first["outSR"] == "2180"
     assert first["geometry"] == "620000.0,470000.0,630000.0,480000.0"
@@ -120,6 +134,31 @@ def test_each_layer_is_asked_only_for_fields_it_has(tmp_path: Path, make_client:
     }
     assert "NAZWA_OG" in fields["1"] and "NAZWA_TG" not in fields["1"]
     assert "NAZWA_TG" in fields["2"] and "NAZWA_OG" not in fields["2"]
+    # Layer 0 (deposits) has neither STATUS nor ID_KONTURU (checked live 11.11.2026).
+    assert fields["0"] == {"KOPALINA", "NR_ZLOZA", "AKTUALIZACJA", "NAZWA_ZL"}
+
+
+def test_live_deposit_sample_has_the_fields_the_parser_reads() -> None:
+    # The real layer 0 answer for the Rzepin lignite deposit (nr 5604), two contours, saved 11.11.2026.
+    path = LIVE_DIR.parent / "source-verification-2026-11-11/midas_zloza_rzepin_2features.geojson"
+    frame = _read_layer("mineral_deposit", path.read_bytes())
+    assert len(frame) == 2
+    assert set(frame["kind"]) == {"mineral_deposit"}
+    assert set(frame["name"]) == {"Rzepin"} and set(frame["mineral"]) == {"WĘGLE BRUNATNE"}
+    assert set(frame["object_id"]) == {5604}
+    assert set(frame["status"]) == {""} and set(frame["source_date"]) == {""}
+
+
+def test_deposit_layer_without_the_deposit_number_is_rejected() -> None:
+    broken = json.dumps(
+        {
+            "features": [
+                {**deposit_feature(1, square(0, 0, 1)), "properties": {"KOPALINA": "x", "NAZWA_ZL": "y"}}
+            ]
+        }
+    )
+    with pytest.raises(ValueError, match="NR_ZLOZA"):
+        _read_layer("mineral_deposit", broken.encode())
 
 
 def test_parse_keeps_name_and_mineral_and_clips_to_the_bbox(
@@ -145,6 +184,7 @@ def test_both_layers_are_stored_with_their_kind(tmp_path: Path, make_client: Cli
     layers = {
         1: (1, [[feature(7, square(621_000, 471_000, 500))]]),
         2: (1, [[feature(8, square(622_000, 472_000, 500))]]),
+        0: (1, [[deposit_feature(5604, square(623_000, 473_000, 500))]]),
     }
     connector = MidasConnector(SPEC, bbox=BBOX)
     snapshot = connector.fetch(make_client(serve(layers, [])), SnapshotStore(tmp_path))

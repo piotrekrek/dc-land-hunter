@@ -2,7 +2,7 @@
 the reasons behind each verdict, the nearest GPZ and how complete the data is, so "top 5" needs no follow-up.
 
 Everything here is read-only. Grid values stay what they are in the database: estimates with a source, a date
-and a confidence. `estimated_mw` is land capacity, never power from the grid.
+and a confidence. `project_mw` is the target project; `estimated_mw` is land capacity, not grid power.
 """
 
 from __future__ import annotations
@@ -20,7 +20,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from dclh_api.mcp.context import site_url
-from dclh_api.routers.sites import _PLACE_COLUMNS, _PLACE_JOINS, _PLACE_SOURCE, _SUMMARY_COLUMNS, SORT_COLUMNS
+from dclh_api.routers.sites import (
+    _PLACE_COLUMNS,
+    _PLACE_JOINS,
+    _PLACE_SOURCE,
+    _SUMMARY_COLUMNS,
+    SORT_COLUMNS,
+    project_capacity_of,
+)
 
 Profile = Literal["built", "container"]
 Verdict = Literal["green", "yellow", "red", "manual"]
@@ -108,15 +115,30 @@ def _ranked_ctes(
 # Rows of `page(site_id, sv)` with everything the list lines and the comparison need. Detail JSON is read only
 # here, for the page, never for the whole filtered set.
 _ROWS_SQL = f"""
-SELECT p.*, {_PLACE_COLUMNS}, gpz.name AS gpz_name FROM (
+SELECT p.*, {_PLACE_COLUMNS},
+       gpz.name AS gpz_name, gpz.station_class AS gpz_class, gpz.class_source AS gpz_class_source,
+       gpz.dist_m AS gpz_dist_m,
+       gpz_unk.name AS gpz_unk_name, gpz_unk.class_source AS gpz_unk_class_source,
+       gpz_unk.dist_m AS gpz_unk_dist_m,
+       oth.name AS other_name, oth.station_class AS other_class, oth.dist_m AS other_dist_m FROM (
     SELECT {_SUMMARY_COLUMNS}, verdict_built, verdict_container, {_PLACE_SOURCE}, geom AS site_geom,{{extra}}
            parcel_ids, profiles, detail -> 'features' AS features,
            detail -> 'score' -> 'categories' AS categories, pg.sv
     FROM sites JOIN page pg USING (site_id)
 ) p {_PLACE_JOINS}
 LEFT JOIN LATERAL (
-    SELECT name FROM substations WHERE cls = 'GPZ_110_SN' ORDER BY geom <-> p.site_geom LIMIT 1
+    SELECT name, station_class, class_source, ST_Distance(geom, p.site_geom) AS dist_m FROM substations
+    WHERE cls = 'GPZ_110_SN' AND station_class = 'operator_gpz' ORDER BY geom <-> p.site_geom LIMIT 1
 ) gpz ON true
+LEFT JOIN LATERAL (
+    SELECT name, class_source, ST_Distance(geom, p.site_geom) AS dist_m FROM substations
+    WHERE cls = 'GPZ_110_SN' AND station_class = 'unknown' ORDER BY geom <-> p.site_geom LIMIT 1
+) gpz_unk ON true
+LEFT JOIN LATERAL (
+    SELECT name, station_class, ST_Distance(geom, p.site_geom) AS dist_m FROM substations
+    WHERE cls = 'GPZ_110_SN' AND station_class IN ('generator', 'customer')
+    ORDER BY geom <-> p.site_geom LIMIT 1
+) oth ON true
 ORDER BY p.sv DESC, p.site_id
 """
 
@@ -150,14 +172,48 @@ def _completeness(features: dict[str, Any]) -> dict[str, int]:
 
 
 def _nearest_gpz(row: dict[str, Any]) -> dict[str, Any]:
+    """The nearest operator GPZ; when the site has none, the nearest station of unknown class, labelled.
+
+    Generator and customer stations are never returned here (see `_nearest_other_station`).
+    """
     fact = (row["features"] or {}).get("dist_gpz110_km")
-    distance = None if fact is None else round(float(fact["value"]), 2)
+    if row["gpz_dist_m"] is not None:
+        prefix, station_class = "gpz", "operator_gpz"
+    elif row["gpz_unk_dist_m"] is not None:
+        prefix, station_class = "gpz_unk", "unknown"
+    else:
+        prefix, station_class = None, None
+    if prefix is not None:
+        name, source = row[f"{prefix}_name"], row[f"{prefix}_class_source"]
+        distance: float | None = round(float(row[f"{prefix}_dist_m"]) / 1000, 2)
+    else:
+        name, source = None, None
+        distance = None if fact is None else round(float(fact["value"]), 2)
     return {
-        "name": row["gpz_name"],
+        "name": name,
         "distance_km": distance,
+        "station_class": station_class,
+        "class_source": source,
+        "class_note": (
+            "stacja 110 kV/SN o nieustalonym właścicielu, obniżona waga"
+            if station_class == "unknown"
+            else None
+        ),
         "confidence": "missing" if fact is None else fact["confidence"],
         "source_id": None if fact is None else fact["source_id"],
         "as_of": None if fact is None or fact["as_of"] is None else fact["as_of"],
+    }
+
+
+def _nearest_other_station(row: dict[str, Any]) -> dict[str, Any] | None:
+    """The nearest generator or customer 110 kV station: context (cable pooling, PPA), no connection point."""
+    if row["other_dist_m"] is None:
+        return None
+    return {
+        "name": row["other_name"],
+        "distance_km": round(float(row["other_dist_m"]) / 1000, 2),
+        "station_class": row["other_class"],
+        "note": "stacja wytwórcy lub odbiorcy, nie OSD: bez punktów",
     }
 
 
@@ -186,6 +242,7 @@ def site_line(
 ) -> dict[str, Any]:
     built, container = row["verdict_built"], row["verdict_container"]
     in_scope = (profile,) if profile else PROFILES
+    project_mw, spare_ha = project_capacity_of(row)
     line: dict[str, Any] = {
         "site_id": row["site_id"],
         "url": site_url(public_url, row["site_id"]),
@@ -193,6 +250,8 @@ def site_line(
         "powiat": row["powiat"],
         "voivodeship": row["voivodeship"],
         "area_ha": round(row["area_ha"], 2),
+        "project_mw": round(project_mw, 1),
+        "spare_ha": round(spare_ha, 2),
         "estimated_mw": round(row["estimated_mw"], 1),
         "score": round(row["score"], 1),
         "verdicts": {"built": built, "container": container} if built and container else None,
@@ -200,6 +259,7 @@ def site_line(
         "flags": row["flags"],
         "why": {p: _why(row, p, full=full) for p in in_scope},
         "nearest_gpz": _nearest_gpz(row),
+        "nearest_other_station": _nearest_other_station(row),
         "parcels": _parcels(row["parcel_ids"], full=full),
         "data": _completeness(row["features"]),
     }

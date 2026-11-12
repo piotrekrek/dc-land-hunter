@@ -1,5 +1,75 @@
 # Status
 
+## Target MW and the large-campus flag (11.11.2026; Rzepin RTB spec 4, task 3; not deployed)
+
+- `target.target_mw` (default 60, must be at least `mw_min`) is the project size sought. `project_mw = min(estimated_mw,
+  target_mw)` is now the headline power; `spare_ha = max(0, area_ha - target_mw / mw_per_ha)` is land left for a second
+  phase. `estimated_mw` stays (area x 6 MW/ha) and is labelled "pojemność terenu" in the UI.
+- The "duży kampus" flag and the 220/400 kV requirement fire only when `target_mw > large_campus_mw`, so a 41 ha site
+  is a 60 MW project with spare land, not a 248 MW campus.
+- Spare land is added to the expansion reserve (`land_expansion`) next to the neighbouring parcels. They are different
+  land, so nothing is counted twice; the explanation names both parts.
+- `project_mw` and `spare_ha` are in `SiteScore` (and so in `sites.detail`), the API summary, `search_sites`,
+  `get_site` and `compare_sites`, and the web card and list. Rows scored before this get them computed from the area.
+  Re-run scoring to refresh the stored flags. `min_mw` still filters on `estimated_mw`.
+- The connection cost calculator on the card now starts from `project_mw`.
+- Not done: Settings still only displays the target block (it is read-only), so `target_mw` is edited in
+  `config/scoring.yaml`.
+
+## Mineral deposits: penalty and PSI cancel (11.11.2026, Rzepin RTB spec 2)
+
+- `sources/midas.py` now also loads MIDAS layer 0 (documented deposits) as kind `mineral_deposit`. Live fields checked
+  11.11.2026: `NR_ZLOZA`, `NAZWA_ZL`, `KOPALINA`, `AKTUALIZACJA`. Layer 0 has **no status field**, so the deposit
+  development status (P/R/E/Z) is not available: `deposit_list[].status` is empty. Needs another source if the owner wants it.
+- Site facts `deposit_overlap_pct` and `deposit_list` (name, mineral, status) carry `midas` / `as_of` / `verified`.
+  A snapshot taken before this change has no layer 0: the facts stay missing (not "no deposit") until `dclh fetch midas`.
+- Penalty `mineral_deposit` (8 pts) for any overlap, no hard filter (status E included for now).
+  `bonus.deposit_cancels_psi: true` sets `bonus_psi` to 0 with a reason "do weryfikacji z KSSSE". The legal basis is unconfirmed.
+- Parcel check: new next step `deposit` (geological opinion, plan ogólny); site card "do sprawdzenia" lists the fired penalty.
+  The sheet draws the deposit outline.
+- `scoring_rules` lists the penalty and the switch; `coverage` accepts `pen_mineral_deposit` (share of sites with the layer, per area).
+- Not run here: web checks (no node/pnpm on this machine) and database tests. Rescore on the VPS after `dclh fetch midas`.
+
+## Substation classification: only DSO/PSE stations are connection points (11.11.2026, Rzepin RTB spec 1)
+
+- `classify_station()` (`model/grid.py`) gives every OSM substation a `station_class`: `operator_gpz`, `generator`,
+  `customer` or `unknown`, with a `class_source` (`osm_substation_tag`, `osm_operator_tag`, `name_pattern`,
+  `operator_list`) and a confidence. `substation=generation|industrial` and names such as "GPO …", farma, FW, PV,
+  elektrownia, stacja odbiorcza mean "not the operator's". A station named in a DSO capacity list is upgraded to
+  `operator_gpz`, `verified` (`upgrade_listed_stations`, used in `layers.py`).
+- `osm_power.parse()` now keeps the `owner` and `substation` tags. Migration 0018 adds `station_class`, `class_source`,
+  `class_confidence` to `substations`; run `dclh load-grid` once to fill them (old rows read `unknown`).
+- Score: GPZ distance points are full for `operator_gpz`, `grid.unknown_station_weight` (0.5) for `unknown`, none for
+  `generator`/`customer`. A generator or customer station within `grid.other_station_context_km` (3 km) is a context
+  line with 0 points ("możliwy cable pooling lub PPA"). Features stored before this change count all GPZs in full
+  until the next rescore.
+- MCP: `nearest_gpz` is the nearest operator GPZ (else the nearest `unknown`, labelled); `nearest_other_station` is new.
+  `coverage` returns `station_classes` (counts and `unknown_share` per voivodeship). The map popup of a station shows
+  the class and its source.
+- **Not done / to check:** `dclh load-grid` classifies from tags only (no DSO-list upgrade), so the map and
+  `nearest_gpz` can show `unknown` for a station the score treats as verified. The class shares are not measured on
+  production yet: after `load-grid`, read `coverage` (`station_classes`); if `unknown_share` is above ~40% in a
+  voivodeship, report it before relying on the 0.5 weight. The web checks were not run (no Node in the build sandbox).
+## OUZ and the planning path from the Rejestr Urbanistyczny (11.11.2026, task 4 of the Rzepin RTB spec; not deployed)
+
+- `sources/ru.py` also reads the OUZ layer, the plan act and the zone limits (`docs/SOURCES.md`). `model/planning.py`
+  turns them into site facts with source `ru`: `in_ouz` (yes / no / partial), `planning_path` (MPZP obowiązuje,
+  potrzebny MPZP lub ZPI, WZ możliwa; `estimated`), `plan_ogolny_act` (resolution number) and `plan_ogolny_from`,
+  and the zone limits `zone_max_height_m`, `zone_max_build_up_pct`, `zone_min_pbc_pct`, `zone_max_intensity`.
+  Checked live on gm. Rzepin: a site in a strefa gospodarcza outside the OUZ gets "potrzebny MPZP lub ZPI", 20 m,
+  70%, 20%.
+- A gmina with no plan ogólny in force in the register gets no facts: it stays "do sprawdzenia", not bad. Where the
+  facts exist, the "OUZ" to-check item is gone. New to-check items: the path (outside OUZ), the plan's validity
+  (journal publication, not annulled, with the resolution number) and, at a height limit of 20 m or less, the
+  chimney and cooling flag (`HEIGHT_FLAG_M` in `profiles.py`).
+- Score: `zoning.zone_allows_dc_outside_ouz: 60` (SG zone, no MPZP, site outside the OUZ or only partly in it);
+  `plan_ogolny_SG` 80 stays for sites inside the OUZ or without OUZ data; an MPZP in force stays 100.
+- Site card has a "Ścieżka planistyczna" block; `get_site` (MCP and API) carry the facts in `features`.
+  The coverage view has a new item `plan_ogolny`: the share of kept sites with a planning path, per area (use
+  `level=gmina` for the share of gminas).
+- Not done: the adoption date from `DokumentFormalny` (the card shows "obowiązuje od"); sites already stored need a
+  new scoring run to get the facts; a WZ possible inside the OUZ is a rule of the reform, not a legal opinion.
+
 ## Profile verdicts: green is reachable, both profiles measured against 60 MW (11.11.2026)
 
 - **Why:** no stored site was green in either profile. Measured on production, two causes: the heritage register has no

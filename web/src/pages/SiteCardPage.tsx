@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { mapsUrl } from "@/components/map/popup";
 import { PageScroll } from "@/components/PageScroll";
 import { Sheet } from "@/components/check/Sheet";
+import { PlanningPath } from "@/components/site/PlanningPath";
 import { ConnectionCostCalculator } from "@/components/site/ConnectionCostCalculator";
 import { ParcelIds } from "@/components/site/ParcelIds";
 import { ProfileCards } from "@/components/site/ProfileCards";
@@ -26,8 +27,16 @@ function SiteCard({ site }: { site: SiteDetail }) {
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold">Lokalizacja: {formatHa(site.area_ha)}</h1>
           {placeLine(site, true) && <p className="mt-1 text-sm text-muted-foreground">{placeLine(site, true)}</p>}
+          <p className="mt-1 text-lg font-medium" data-testid="project-mw">
+            {formatMW(site.project_mw)}
+          </p>
+          {site.spare_ha > 0 && (
+            <p className="text-sm text-muted-foreground" data-testid="spare-ha">
+              rezerwa na drugą fazę: {formatHa(site.spare_ha)}
+            </p>
+          )}
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            Szacowana moc {formatMW(site.estimated_mw)}
+            Pojemność terenu {formatMW(site.estimated_mw)}
             <Badge variant="accent">{CONFIDENCE_LABEL[site.mw_fact.confidence]}</Badge>
             <span className="text-xs">
               powierzchnia × gęstość z ustawień ({formatDate(site.mw_fact.as_of)})
@@ -80,6 +89,8 @@ function SiteCard({ site }: { site: SiteDetail }) {
 
       <ProfileCards profiles={site.profiles} className="mt-6" />
 
+      <PlanningPath features={site.features} />
+
       <dl className="grid grid-cols-3 gap-3">
         <Fact label="Działki" value={`${parcels}`} />
         <Fact label="Kompletność danych" value={formatPercent(site.completeness)} />
@@ -95,7 +106,7 @@ function SiteCard({ site }: { site: SiteDetail }) {
       </p>
       <Protokol site={site} />
 
-      <ConnectionCostCalculator key={site.site_id} estimatedMw={site.estimated_mw} />
+      <ConnectionCostCalculator key={site.site_id} estimatedMw={site.project_mw} />
     </>
   );
 }

@@ -24,6 +24,7 @@ const STYLES: Record<string, LayerStyle> = {
   forest: { fill: "url(#PREFIX-forest)", stroke: "var(--layer-forest)", width: 0.75 },
   housing: { fill: "var(--layer-housing)", stroke: "var(--layer-housing)", width: 0.5, opacity: 0.85 },
   mining: { fill: "url(#PREFIX-mining)", stroke: "var(--ink-2)", width: 0.75 },
+  deposit: { fill: "none", stroke: "var(--ink-2)", width: 1, dash: "2 2" },
   roads: { fill: "none", stroke: "var(--ink-2)", width: 1.4, dash: "9 3 2 3" },
 };
 const ZONING: LayerStyle = { fill: "var(--fill-2)", stroke: "var(--ink-2)", width: 0.75, dash: "5 3", opacity: 0.8 };

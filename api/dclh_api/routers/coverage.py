@@ -17,7 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from dclh_api.deps import db_session
-from dclh_api.schemas import CoverageArea, CoverageOut
+from dclh_api.schemas import CoverageArea, CoverageOut, StationClassShare
 from dclh_api.security import current_user
 
 router = APIRouter(tags=["coverage"], dependencies=[Depends(current_user)])
@@ -25,8 +25,13 @@ router = APIRouter(tags=["coverage"], dependencies=[Depends(current_user)])
 # API level -> `admin_units.level`
 LEVELS: dict[str, str] = {"wojewodztwo": "voivodeship", "powiat": "powiat", "gmina": "gmina"}
 # The score items the view tracks, by their key in score.items[]; the labels live in the web app.
-TRACKED_ITEMS = ("zoning", "pen_soil_iii", "bonus_psi", "grid_headroom")
-ItemKey = Literal["all", "zoning", "pen_soil_iii", "bonus_psi", "grid_headroom"]
+TRACKED_ITEMS = ("zoning", "pen_soil_iii", "bonus_psi", "grid_headroom", "pen_mineral_deposit", "plan_ogolny")
+ItemKey = Literal[
+    "all", "zoning", "pen_soil_iii", "bonus_psi", "grid_headroom", "pen_mineral_deposit", "plan_ogolny"
+]
+# `plan_ogolny` is not a score item: it is the planning path (OUZ, plan act) the Rejestr Urbanistyczny gave
+# a site, so it is counted from the site's features and stays out of "all".
+PLAN_ITEM = "plan_ogolny"
 # Metres in EPSG:2180: invisible at gmina scale, and it keeps the response small.
 SIMPLIFY_M = 20
 
@@ -55,6 +60,33 @@ _ITEM_COUNTS = text(
     """
 )
 
+# One voivodeship per station (a point on a shared border is counted once), as in the pipeline's counts.
+_STATION_CLASSES = text(
+    """
+    SELECT v.teryt, v.name, s.station_class, count(*) AS n
+    FROM substations s
+    JOIN LATERAL (
+        SELECT a.teryt, a.name FROM admin_units a
+        WHERE a.level = 'voivodeship' AND ST_Covers(a.geom, s.geom)
+        ORDER BY a.teryt LIMIT 1
+    ) v ON true
+    WHERE s.cls = 'GPZ_110_SN'
+    GROUP BY v.teryt, v.name, s.station_class
+    """
+)
+
+_PLAN_COUNTS = text(
+    """
+    SELECT a.teryt,
+           count(*) FILTER (
+               WHERE jsonb_typeof(s.detail->'features'->'planning_path') = 'object') AS with_data
+    FROM sites s
+    JOIN admin_units a ON a.level = :level AND ST_Covers(a.geom, ST_PointOnSurface(s.geom))
+    WHERE NOT s.excluded AND s.kind = 'standard'
+    GROUP BY a.teryt
+    """
+)
+
 _GEOMETRY = text(
     """
     SELECT teryt,
@@ -73,11 +105,37 @@ def _share(part: int, whole: int) -> float:
     return part / whole if whole else 0.0
 
 
+def build_station_classes(rows: Sequence[Mapping[str, Any]]) -> list[StationClassShare]:
+    """Pure assembly of the per-class counts into one row per voivodeship."""
+    by_area: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        area = by_area.setdefault(
+            row["teryt"],
+            {
+                "teryt": row["teryt"],
+                "name": row["name"],
+                "operator_gpz": 0,
+                "generator": 0,
+                "customer": 0,
+                "unknown": 0,
+            },
+        )
+        if row["station_class"] in ("operator_gpz", "generator", "customer", "unknown"):
+            area[row["station_class"]] += row["n"]
+    out: list[StationClassShare] = []
+    for teryt in sorted(by_area):
+        area = by_area[teryt]
+        total = area["operator_gpz"] + area["generator"] + area["customer"] + area["unknown"]
+        out.append(StationClassShare(**area, unknown_share=_share(area["unknown"], total)))
+    return out
+
+
 def build_areas(
     site_rows: Sequence[Mapping[str, Any]],
     item_rows: Sequence[Mapping[str, Any]],
     item: str,
     geometries: Mapping[str, dict[str, Any]] | None = None,
+    plan_rows: Sequence[Mapping[str, Any]] = (),
 ) -> list[CoverageArea]:
     """Pure assembly from the two aggregate queries; `item` picks the headline share (see CoverageArea)."""
     known_total: dict[str, int] = defaultdict(int)
@@ -89,6 +147,8 @@ def build_areas(
         known_total[row["teryt"]] += row["known"]
         entry_total[row["teryt"]] += row["entries"]
         with_data[(row["teryt"], row["key"])] = row["with_data"]
+    for row in plan_rows:
+        with_data[(row["teryt"], PLAN_ITEM)] = row["with_data"]
 
     areas: list[CoverageArea] = []
     for row in sorted(site_rows, key=lambda r: r["teryt"]):
@@ -125,6 +185,8 @@ def get_coverage(
     try:
         site_rows = [dict(r) for r in session.execute(_SITE_COUNTS, params).mappings()]
         item_rows = [dict(r) for r in session.execute(_ITEM_COUNTS, params).mappings()]
+        station_rows = [dict(r) for r in session.execute(_STATION_CLASSES).mappings()]
+        plan_rows = [dict(r) for r in session.execute(_PLAN_COUNTS, params).mappings()]
         geometries: dict[str, dict[str, Any]] | None = None
         if include_geometry and site_rows:
             shapes = session.execute(
@@ -137,5 +199,6 @@ def get_coverage(
     return CoverageOut(
         level=level,
         item=item,
-        areas=build_areas(site_rows, item_rows, item, geometries),
+        areas=build_areas(site_rows, item_rows, item, geometries, plan_rows),
+        station_classes=build_station_classes(station_rows),
     )
