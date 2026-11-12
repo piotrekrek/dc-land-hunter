@@ -80,7 +80,10 @@ def test_rtb_export_has_every_part(seeded: None, ann: TestClient) -> None:  # no
     assert {w["status"] for w in rtb["workstreams"]} <= {"green", "yellow", "red"}
     power = next(w for w in rtb["workstreams"] if w["key"] == "power")
     assert power["status"] != "green" and rtb["power_evidence"]["level"] == "rumour"
-    assert rtb["price_comparables"] is None
+    # No RCN transactions imported in the test database: the slot is there, empty and marked missing.
+    prices = rtb["price_comparables"]
+    assert prices["comparables"]["confidence"] == "missing"
+    assert prices["comparables"]["agricultural"]["count"] == 0 and prices["asking_zl_m2"] is None
     assert rtb["map"]["layers"] and rtb["map"]["parcel"]
     cost = rtb["connection_cost"]
     assert cost["mw"] == rtb["site"]["project_mw"]
