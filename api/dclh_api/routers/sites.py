@@ -260,7 +260,12 @@ def _summary(row: Mapping[str, Any]) -> SiteSummary:
 
 
 def _fact_map(features: dict[str, Any]) -> dict[str, FactOut]:
-    return {k: FactOut(**v) for k, v in features.items() if v is not None}
+    """Scalar facts only; list-valued ones (deposit_list) are read from the detail by the RTB annex."""
+    return {
+        k: FactOut(**v)
+        for k, v in features.items()
+        if v is not None and not isinstance(v.get("value"), list | dict)
+    }
 
 
 @router.get("/sites/{site_id}", response_model=SiteDetail)
