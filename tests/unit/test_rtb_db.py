@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -13,9 +15,14 @@ pytestmark = [pytest.mark.db, pytest.mark.usefixtures("migrated_db")]
 
 
 @pytest.fixture(autouse=True)
-def _no_evidence() -> None:
+def _no_evidence() -> Iterator[None]:
     with session_scope() as session:
         session.execute(text("DELETE FROM power_evidence"))
+    yield
+    # Leave no sites behind: the next DB module's guard refuses a database whose sites table has rows.
+    with session_scope() as session:
+        session.execute(text("DELETE FROM power_evidence"))
+        session.execute(text("DELETE FROM sites"))
 
 
 WORKSTREAMS = ["land", "power", "planning", "environment", "concept", "commercial"]
