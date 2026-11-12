@@ -124,6 +124,17 @@ def migrated_db() -> Iterator[None]:
 
 
 @pytest.fixture
+def enough_disk(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Report 100 GB free, so a test of the search does not depend on the free space of the machine it runs on.
+
+    `make_room` stops a search with under 10 GB free; on a nearly full VPS that failed tests that never test it.
+    """
+    monkeypatch.setattr(
+        shutil, "disk_usage", lambda _path: shutil._ntuple_diskusage(100 * 1024**3, 0, 100 * 1024**3)
+    )
+
+
+@pytest.fixture
 def fake_clock() -> FakeClock:
     return FakeClock()
 

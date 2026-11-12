@@ -97,7 +97,10 @@ function RecentJobs({ jobs }: { jobs: JobItem[] }) {
           </thead>
           <tbody>
             {jobs.map((j) => {
-              const s = STATUS[j.status] ?? { label: j.status, variant: "neutral" as const };
+              const s =
+                j.status === "done" && j.skipped
+                  ? { label: "Pominięte", variant: "neutral" as const } // took the job after the night window: did nothing
+                  : (STATUS[j.status] ?? { label: j.status, variant: "neutral" as const });
               return (
                 <tr key={j.id} className="border-b align-top last:border-0" data-testid="job-row">
                   <td className="px-3 py-2.5">

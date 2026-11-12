@@ -38,6 +38,7 @@ def clean_tables() -> Iterator[None]:
     def wipe() -> None:
         with session_scope() as session:
             session.execute(text("DELETE FROM jobs"))
+            session.execute(text("DELETE FROM runs"))
             session.execute(text("DELETE FROM admin_units"))
 
     wipe()
@@ -127,3 +128,25 @@ def test_recent_jobs_are_newest_first_with_powiat_name_and_a_cut_error(admin: Te
     assert [j["kind"] for j in recent] == ["discover", "search"]
     assert recent[1]["powiat"] == "0201" and recent[1]["powiat_name"] == "powiat bolesławiecki"
     assert len(recent[1]["error"]) == 300
+
+
+def test_a_search_skipped_after_the_night_window_is_marked_skipped_not_just_done(admin: TestClient) -> None:
+    with session_scope() as session:
+        run_id = session.execute(
+            text(
+                "INSERT INTO runs (kind, status, summary) "
+                "VALUES ('search', 'ok', CAST(:s AS jsonb)) RETURNING id"
+            ),
+            {"s": json.dumps({"powiat": "0201", "skipped": "after the night window closed"})},
+        ).scalar_one()
+        session.execute(
+            text(
+                "INSERT INTO jobs (kind, status, payload, run_id, finished_at) "
+                "VALUES ('search', 'done', CAST(:p AS jsonb), :run, now())"
+            ),
+            {"p": json.dumps({"powiat": "0201"}), "run": run_id},
+        )
+    add_job("search", "done", powiat="0202")  # a real search: no run summary, so not skipped
+    by_powiat = {j["powiat"]: j for j in get(admin)["recent"]}
+    assert by_powiat["0201"]["skipped"] is True
+    assert by_powiat["0202"]["skipped"] is False

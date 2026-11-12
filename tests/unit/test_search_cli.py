@@ -11,6 +11,7 @@ from dclh_pipeline import cli
 from dclh_pipeline.settings import Settings
 
 
+@pytest.mark.usefixtures("enough_disk")
 def test_search_needs_saved_prg_and_osm_snapshots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     settings = Settings(data_dir=tmp_path, contact_email="test@example.org")
     monkeypatch.setattr(cli, "get_settings", lambda: settings)

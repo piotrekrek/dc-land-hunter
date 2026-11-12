@@ -43,6 +43,25 @@ def item(s: SiteScore, key: str):  # type: ignore[no-untyped-def]
     return next(i for i in s.items if i.key == key)
 
 
+@pytest.mark.parametrize(
+    ("parcels", "expected"),
+    [(1, "1 działka ewidencyjna"), (2, "2 działki ewidencyjne"), (5, "5 działek ewidencyjnych"),
+     (12, "12 działek ewidencyjnych"), (22, "22 działki ewidencyjne"), (30, "30 działek ewidencyjnych")],
+)  # fmt: skip
+def test_the_parcel_count_is_worded_in_the_right_polish_form(parcels: int, expected: str) -> None:
+    text = item(score_site(full_features(parcel_count=F(parcels)), CFG), "land_parcels").explanation_pl
+    assert text.startswith(expected + " (")
+
+
+@pytest.mark.parametrize(
+    ("lines", "expected"),
+    [(2, "2 niezależne linie"), (5, "5 niezależnych linii"), (65, "65 niezależnych linii")],
+)
+def test_the_line_count_is_worded_in_the_right_polish_form(lines: int, expected: str) -> None:
+    text = item(score_site(full_features(independent_110_lines_near=F(lines)), CFG), "grid_n1").explanation_pl
+    assert text.startswith(expected + " 110 kV")
+
+
 # --------------------------------------------------------------------------- shape and bounds
 
 

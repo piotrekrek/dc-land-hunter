@@ -51,12 +51,22 @@ export function useStartCheck() {
   });
 }
 
+/**
+ * How long to wait before asking again: not at all once the check is done or failed, or once the API said it
+ * does not exist (a 4xx does not change by asking again; without this a bad link polled the API every 2 s).
+ */
+export function checkPollInterval(state: { data?: { status: string }; error: unknown }): number | false {
+  if (state.data && TERMINAL.has(state.data.status)) return false;
+  if (state.error instanceof ApiError && state.error.status >= 400 && state.error.status < 500) return false;
+  return POLL_MS;
+}
+
 /** One check, polled every 2 s until it is done or failed. */
 export function useCheck(id: string) {
   return useQuery({
     queryKey: ["check", id],
     queryFn: () => unwrap(api.GET("/api/checks/{check_id}", { params: { path: { check_id: id } } })),
-    refetchInterval: (query) => (query.state.data && TERMINAL.has(query.state.data.status) ? false : POLL_MS),
+    refetchInterval: (query) => checkPollInterval(query.state),
     retry: (count, error) => !(error instanceof ApiError && error.status === 404) && count < 3,
   });
 }

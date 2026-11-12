@@ -70,6 +70,18 @@
 - Not done: the adoption date from `DokumentFormalny` (the card shows "obowiązuje od"); sites already stored need a
   new scoring run to get the facts; a WZ possible inside the OUZ is a rule of the reform, not a legal opinion.
 
+## Bug-hunt fixes (11.11.2026)
+
+- **Tests no longer depend on free disk:** three search tests failed on a VPS with under 10 GB free because
+  `make_room` read the real disk. They now use the `enough_disk` fixture (`tests/conftest.py`).
+- **Check page:** a missing check (`/sprawdz-dzialke/<bad id>`) polled the API every 2 s without end; a 4xx now stops it.
+- **Zadania:** a search the worker took after the night window is shown as "Pominięte", not "Zakończone".
+- **Score texts:** Polish plurals ("1 działka ewidencyjna", "5 niezależnych linii"); the "built" profile no longer lists the
+  container-only plan check. Stored sites show the new texts after their powiat is searched again.
+- **Not fixed (found in the same pass):** the same powiats head the nightly queue without being checked (cause not found),
+  the "independent 110 kV lines" count (branch `claude/n1-physical-lines`), powiat 0210 failing since 20.10, free disk
+  under the 10 GB a search needs, missing HSTS/CSP headers.
+
 ## Profile verdicts: green is reachable, both profiles measured against 60 MW (11.11.2026)
 
 - **Why:** no stored site was green in either profile. Measured on production, two causes: the heritage register has no

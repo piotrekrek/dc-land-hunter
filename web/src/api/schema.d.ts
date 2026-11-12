@@ -1115,6 +1115,11 @@ export interface components {
             finished_at: string | null;
             /** Error */
             error: string | null;
+            /**
+             * Skipped
+             * @default false
+             */
+            skipped: boolean;
         };
         /** JobOut */
         JobOut: {

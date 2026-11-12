@@ -2901,6 +2901,11 @@
               }
             ],
             "title": "Error"
+          },
+          "skipped": {
+            "type": "boolean",
+            "title": "Skipped",
+            "default": false
           }
         },
         "type": "object",
