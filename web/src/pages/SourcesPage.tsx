@@ -149,7 +149,9 @@ export function SourcesSection() {
 }
 
 /** The items the table shows as columns: every tracked item, not the combined "all" (that is the first column). */
-const TABLE_ITEMS = COVERAGE_ITEMS.filter((item): item is Exclude<CoverageItem, "all"> => item !== "all");
+const TABLE_ITEMS = COVERAGE_ITEMS.filter(
+  (item): item is Exclude<CoverageItem, "all" | "rcn"> => item !== "all" && item !== "rcn",
+);
 
 /** Share of kept candidates with data, per powiat: where a gap is a gap in the data, not a bad site. */
 function CoverageTable() {
@@ -184,6 +186,7 @@ function CoverageTable() {
                     {COVERAGE_ITEM_LABELS[item]}
                   </th>
                 ))}
+                <th scope="col" className="px-3 py-2 text-right font-medium">Transakcje RCN</th>
               </tr>
             </thead>
             <tbody>
@@ -200,6 +203,10 @@ function CoverageTable() {
                       {formatPercent(area.by_item[item])}
                     </td>
                   ))}
+                  <td className="px-3 py-2.5 text-right tabular-nums" data-testid="rcn-cell">
+                    {formatNumber(area.rcn_count, 0)}
+                    {area.rcn_weak && <div className="text-xs text-warn">słabe dane</div>}
+                  </td>
                 </tr>
               ))}
             </tbody>

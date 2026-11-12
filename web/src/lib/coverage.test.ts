@@ -12,6 +12,8 @@ const area = (over: Partial<CoverageArea>): CoverageArea => ({
   share: 0.75,
   by_item: { zoning: 0.5, pen_soil_iii: 0, bonus_psi: 1, grid_headroom: 0.25 },
   geometry: null,
+  rcn_count: 0,
+  rcn_weak: true,
   ...over,
 });
 

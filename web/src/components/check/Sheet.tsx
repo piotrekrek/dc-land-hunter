@@ -15,6 +15,8 @@ interface LayerStyle {
   width: number; // px, constant on screen
   dash?: string;
   opacity?: number;
+  /** Round caps turn a zero-length path into a dot: the substations are point layers. */
+  cap?: "round";
 }
 
 const STYLES: Record<string, LayerStyle> = {
@@ -25,6 +27,9 @@ const STYLES: Record<string, LayerStyle> = {
   housing: { fill: "var(--layer-housing)", stroke: "var(--layer-housing)", width: 0.5, opacity: 0.85 },
   mining: { fill: "url(#PREFIX-mining)", stroke: "var(--ink-2)", width: 0.75 },
   deposit: { fill: "none", stroke: "var(--ink-2)", width: 1, dash: "2 2" },
+  lines110: { fill: "none", stroke: "var(--ink)", width: 1.6, dash: "10 4" },
+  gpz: { fill: "none", stroke: "var(--ink)", width: 9, cap: "round" },
+  node: { fill: "none", stroke: "var(--ink-2)", width: 13, cap: "round", opacity: 0.7 },
   roads: { fill: "none", stroke: "var(--ink-2)", width: 1.4, dash: "9 3 2 3" },
 };
 const ZONING: LayerStyle = { fill: "var(--fill-2)", stroke: "var(--ink-2)", width: 0.75, dash: "5 3", opacity: 0.8 };
@@ -137,6 +142,7 @@ export function Sheet({ sheet, photoUrl, className }: { sheet: SheetData; photoU
                 stroke={style.stroke}
                 strokeWidth={style.width}
                 strokeDasharray={style.dash}
+                strokeLinecap={style.cap}
                 opacity={style.opacity}
                 vectorEffect="non-scaling-stroke"
               />

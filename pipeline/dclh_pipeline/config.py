@@ -214,6 +214,30 @@ class ConnectionCost(_Model):
     conditions_valid_months: int
 
 
+class RcnParams(_Model):
+    """RCN land-price comparables (informational, no score impact). Agricultural sales under half a hectare
+    are mostly building plots tagged `gruntyRolne`, so they are left out of the agricultural group."""
+
+    min_area_ha_agricultural: float = Field(default=0.5, ge=0)
+    min_area_ha_other: float = Field(default=0.1, ge=0)
+    radius_km: float = Field(default=10, gt=0)
+    months: int = Field(default=36, gt=0)
+    min_count: int = Field(default=5, gt=0)
+    outlier_factor: float = Field(default=10, gt=0)
+
+
+class Rtb(_Model):
+    """Thresholds of the RTB workstream proposal (`rtb.py`). Distances in km, shares in percent."""
+
+    line110_acceptable_km: float = Field(default=3.0, gt=0)  # power: a 110 kV line this close is acceptable
+    gpz110_acceptable_km: float = Field(default=5.0, gt=0)  # power: so is a GPZ with 110 kV this close
+    node_220_400_km: float = Field(default=25.0, gt=0)  # power: node needed above target.large_campus_mw
+    parcels_yellow_over: int = Field(default=10, ge=1)  # land: more parcels than this is yellow
+    forest_yellow_pct: float = Field(default=10.0, ge=0, le=100)  # environment: forest above this is yellow
+    soil_iii_yellow_pct: float = Field(default=30.0, ge=0, le=100)  # environment: soil class III above this
+    residential_yellow_m: float = Field(default=300.0, ge=0)  # environment: housing closer than this
+
+
 class ScoringConfig(_Model):
     target: Target
     hard_filters: dict[str, HardFilter]
@@ -228,7 +252,9 @@ class ScoringConfig(_Model):
     prefilter: Prefilter
     search: SearchParams = SearchParams()
     small: SmallSites = SmallSites()
+    rcn: RcnParams = RcnParams()
     connection_cost: ConnectionCost
+    rtb: Rtb = Rtb()
 
 
 # --------------------------------------------------------------------------- sources.yaml

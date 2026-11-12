@@ -112,6 +112,18 @@ small:
   grid60: {strong_gpz110_km: 1.0, strong_min_110_lines: 2, strong_node_km: 3.0, possible_gpz110_km: 2.0,
            possible_line110_km: 0.5}
 
+# RCN land-price comparables on the site card (no score impact). Per group (agricultural, other): transactions
+# within radius_km over the last `months`; fewer than min_count widens that group to the whole powiat. Agricultural
+# sales under min_area_ha_agricultural are mostly building plots tagged gruntyRolne, so they are left out.
+# The asking price is flagged when above outlier_factor x the agricultural median shown.
+rcn:
+  min_area_ha_agricultural: 0.5
+  min_area_ha_other: 0.1
+  radius_km: 10
+  months: 36
+  min_count: 5
+  outlier_factor: 10
+
 # Connection-cost calculator (brief section 3, Prawo energetyczne amendment of 30.04.2026).
 # NEEDS LEGAL VERIFICATION. Shown in the UI with the label "wymaga weryfikacji prawnej".
 connection_cost:
@@ -124,3 +136,13 @@ connection_cost:
   security_pln_per_kw: 30
   security_applies_up_to_mw: 100
   conditions_valid_months: 12
+
+# RTB evidence export (rtb.py): thresholds of the proposed workstream status (green / yellow / red). Not scoring.
+rtb:
+  line110_acceptable_km: 3      # power: red when no 110 kV line is this close and no GPZ is within gpz110_acceptable_km
+  gpz110_acceptable_km: 5
+  node_220_400_km: 25           # power: above target.large_campus_mw a 220/400 kV node this close is needed for green
+  parcels_yellow_over: 10       # land: more parcels than this means many owners (yellow)
+  forest_yellow_pct: 10         # environment: more forest than this is yellow (the hard filter excludes above 30%)
+  soil_iii_yellow_pct: 30
+  residential_yellow_m: 300

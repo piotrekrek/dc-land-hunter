@@ -34,6 +34,7 @@ from dclh_pipeline.powiat_search import (
     search_powiat,
     window_closed,
 )
+from dclh_pipeline.rcn_import import import_powiat
 from dclh_pipeline.scoring.run import write_sites
 from dclh_pipeline.settings import get_settings
 from dclh_pipeline.snapshots import SnapshotStore
@@ -164,11 +165,38 @@ def _job_plan_searches(session: Session, payload: dict[str, Any]) -> dict[str, A
     return {"queued": chosen, "not_after": deadline.isoformat(), "already_queued": sorted(busy)}
 
 
+def _job_import_rcn(session: Session, payload: dict[str, Any]) -> dict[str, Any]:
+    """Import the RCN transactions of one powiat (`{"powiat": "0805"}`), or queue one import per powiat of the
+    AOI (`{"all": true}`, what the monthly crontab entry sends), so one slow powiat never blocks the rest."""
+    if payload.get("powiat"):
+        return import_powiat(session, str(payload["powiat"]))
+    if not payload.get("all"):
+        raise ValueError("import_rcn needs a 'powiat' or 'all': true")
+    outside = powiats_outside_aoi(session)
+    busy = {
+        str(p.get("powiat"))
+        for p in session.scalars(
+            select(JobRow.payload).where(
+                JobRow.kind == "import_rcn", JobRow.status.in_(("pending", "running"))
+            )
+        )
+    }
+    teryts = [
+        str(t)
+        for t in session.scalars(text("SELECT teryt FROM admin_units WHERE level = 'powiat' ORDER BY teryt"))
+    ]
+    chosen = [t for t in teryts if t not in outside and t not in busy]
+    for teryt in chosen:
+        enqueue(session, "import_rcn", {"powiat": teryt}, requested_by="scheduler")
+    return {"queued": len(chosen), "already_queued": sorted(busy)}
+
+
 HANDLERS: dict[str, JobHandler] = {
     "check_parcel": run_check_job,
     "discover": _job_discover,
     "search": _job_search,
     "plan_searches": _job_plan_searches,
+    "import_rcn": _job_import_rcn,
 }
 
 

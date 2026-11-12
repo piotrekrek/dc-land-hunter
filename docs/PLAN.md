@@ -1132,6 +1132,38 @@ Deferred. A least-cost path over a cost raster plus the parcels it crosses is a 
 Split: the manual `power_evidence` field (S, worth doing early) and the PDF/JSON annex with RAG rules (M, after
 tasks 1–5 so the annex has the new facts).
 
+### Wave 3 detail: tasks 6 and 9 (owner's go, 12.11.2026)
+
+Integration branch `spec/rzepin-wave3`. Two parallel branches, then one PR to `main`.
+
+**6. RCN price comparables (branch `rtb/t6-rcn`).** Source checked from the VPS on 12.11.2026: the national RCN WFS
+`https://mapy.geoportal.gov.pl/wss/service/rcn` (WFS 2.0.0, open, no key), feature type `ms:dzialki` (parcel
+transactions, polygon, EPSG:2180). Fields used: `TERYT` (powiat), `TRAN_LOKALNY_ID_IIP`, `TRAN_RODZAJ_TRANS`,
+`DOK_DATA`, `NIER_RODZAJ`, `NIER_UDZIAL`, `DZI_ID_DZIALKI`, `DZI_POW_EWID`, `DZI_SPOSOB_UZYT`, `DZI_PRZEZN_WMPZP`,
+`DZI_CENA_BRUTTO`/`NIER_CENA_BRUTTO`, `NIER_POW_GRUNTU`. **Never stored:** `DOK_TWORCA` (the notary's name),
+`DOK_OZNACZENIE` (deed number), buyer/seller fields (personal-data rule, brief 9.6).
+- [ ] Connector `sources/rcn.py` (paged GetFeature per powiat bbox, filtered to the powiat's TERYT), table
+  `land_transactions` (migration), job/CLI `dclh import-rcn <powiat>` plus a monthly scheduler entry for powiats in scope.
+- [ ] Comparable rules: undeveloped land only (`nieruchomoscGruntowaNiezabudowana`), free market, share 1/1, price and
+  area > 0; zł/m² = price / (area_ha × 10 000); split `agricultural` (`DZI_SPOSOB_UZYT` = grunty rolne) vs `other`;
+  within 10 km of the site over 36 months; median, p25, p75, count, date range. Fewer than 5 → widen to the powiat
+  and say so. Each figure carries `source_id = rcn`, `as_of` = import date, confidence `verified` (n ≥ 5) or `estimated`.
+- [ ] API `GET /api/sites/{id}/prices`; asking price `PUT /api/sites/{id}/asking-price` (zł/m², team-wide, not
+  personal data); outlier flag when asking > 10 × the agricultural median. Card section "Ceny transakcyjne (RCN)".
+  `coverage` item `rcn` (transactions per powiat, "słabe dane" below 20). MCP `get_site` gains the comparables. No score impact.
+
+**9. RTB evidence (branch `rtb/t9-evidence`).**
+- [ ] `power_evidence` per site, manual only: level `rumour` | `informal_opinion` | `application_filed` |
+  `conditions_issued` | `agreement_signed`, document date, conditions expiry (for `conditions_issued`), attachment
+  link, updated by/at. Missing row = `rumour`. Table + migration, `PUT/DELETE /api/sites/{id}/power-evidence`, card editor.
+- [ ] RAG proposal, a pure function (`pipeline/dclh_pipeline/rtb.py`, table-driven tests): six workstreams
+  (land, power, planning, environment, concept, commercial), each green/yellow/red with reasons in Polish. Rules include:
+  environment never green with a deposit overlap; power never better than yellow below `conditions_issued`.
+- [ ] Export: `GET /api/sites/{id}/rtb` (JSON: every value with source, date, confidence) and a print page
+  `/lokalizacje/:id/rtb` (map sheet, red flags, RAG, RCN comparables, connection cost, facts table with
+  verified/estimated/missing); "Pobierz PDF" uses the browser's print to PDF, no server PDF library.
+- Not in this wave: parcel sets (task 5, so exports are per site), the timing note (task 7), the cable route (task 8).
+
 ### Execution order
 
 Wave 1, in parallel (separate worktrees, Sonnet): tasks 0, 1, 2, 3, 4. Tasks 1–3 all touch

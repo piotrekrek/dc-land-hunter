@@ -16,10 +16,18 @@ from mcp.server.auth.provider import AccessToken
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 
-from dclh_api.mcp import areas, context, search
+from dclh_api.mcp import areas, context, search, tools_read
 from dclh_api.mcp.server import build_mcp
 from dclh_api.routers import sites
-from dclh_api.schemas import FactOut, SiteDetail, SiteMapOut, SiteSummary
+from dclh_api.schemas import (
+    FactOut,
+    PriceComparables,
+    PriceGroup,
+    SiteDetail,
+    SiteMapOut,
+    SitePrices,
+    SiteSummary,
+)
 from dclh_pipeline.db.models import UserRow
 
 pytestmark = pytest.mark.anyio
@@ -318,6 +326,7 @@ async def test_bulk_get_site_lists_unknown_ids_instead_of_failing(
         return detail
 
     monkeypatch.setattr(sites, "get_site", fake)
+    monkeypatch.setattr(tools_read, "site_prices", lambda *_a, **_kw: None)
     result = await call(mcp, "get_site", site_ids=["site-1", "gone", "site-1"])
     assert [s["site_id"] for s in result["sites"]] == ["site-1"] and result["not_found"] == ["gone"]
     assert {"geometry", "map", "project_note"}.isdisjoint(result["sites"][0])
@@ -373,6 +382,38 @@ async def test_a_call_without_a_token_user_is_refused(monkeypatch: pytest.Monkey
         await context.run_db(lambda _session, user: user)
 
 
+def _prices() -> SitePrices:
+    group = PriceGroup(
+        count=5,
+        median_zl_m2=6.0,
+        p25_zl_m2=4.0,
+        p75_zl_m2=8.0,
+        first_date=datetime(2025, 3, 12, tzinfo=UTC).date(),
+        last_date=datetime(2026, 10, 3, tzinfo=UTC).date(),
+        widened=True,
+        confidence="estimated",
+    )
+    none = PriceGroup(
+        count=0, median_zl_m2=None, p25_zl_m2=None, p75_zl_m2=None, first_date=None, last_date=None
+    )
+    return SitePrices(
+        comparables=PriceComparables(
+            agricultural=group,
+            other=none,
+            widened=False,
+            radius_km=10,
+            months=36,
+            source_id="rcn",
+            as_of=datetime(2026, 11, 1, 8, tzinfo=UTC),
+            confidence="verified",
+        ),
+        asking_zl_m2=80.0,
+        asking_updated_at=None,
+        asking_outlier=True,
+        asking_outlier_widened=True,
+    )
+
+
 async def test_get_site_drops_the_geometry_the_map_and_the_project_note(
     mcp: FastMCP, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -390,8 +431,23 @@ async def test_get_site_drops_the_geometry_the_map_and_the_project_note(
         project_note="TAJNA-NOTATKA-123",
     )
     monkeypatch.setattr(sites, "get_site", lambda *_a, **_kw: detail)
+    monkeypatch.setattr(tools_read, "site_prices", lambda *_a, **_kw: _prices())
     result = await call(mcp, "get_site", site_id="site-1")
     assert {"geometry", "map", "project_note"}.isdisjoint(result)
+    comparables = result["price_comparables"]
+    assert comparables["agricultural"] == {
+        "count": 5,
+        "median_zl_m2": 6.0,
+        "p25_zl_m2": 4.0,
+        "p75_zl_m2": 8.0,
+        "widened_to_powiat": True,
+        "confidence": "estimated",
+    }
+    assert comparables["other"]["widened_to_powiat"] is False
+    assert comparables["asking_zl_m2"] == 80.0 and comparables["asking_outlier"] is True
+    assert comparables["asking_outlier_uses_powiat_median"] is True
+    assert comparables["source_id"] == "rcn" and comparables["as_of"] == "2026-11-01"
+    assert "first_date" not in comparables["agricultural"]
     assert result["stage"] == "analysis" and result["url"] == f"{PUBLIC_URL}/lokalizacje/site-1"
     assert result["grid_note"] == context.GRID_NOTE
     assert "TAJNA-NOTATKA-123" not in json.dumps(result)

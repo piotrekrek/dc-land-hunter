@@ -11,7 +11,8 @@ export type CoverageItem =
   | "bonus_psi"
   | "grid_headroom"
   | "pen_mineral_deposit"
-  | "plan_ogolny";
+  | "plan_ogolny"
+  | "rcn";
 export type CoverageArea = components["schemas"]["CoverageArea"];
 export type CoverageCollection = Extract<GeoJSONSourceSpecification["data"], { type: "FeatureCollection" }>;
 type CoverageFeature = CoverageCollection["features"][number];
@@ -30,6 +31,7 @@ export const COVERAGE_ITEM_LABELS: Record<CoverageItem, string> = {
   grid_headroom: "Opublikowana moc GPZ",
   pen_mineral_deposit: "Złoża kopalin (MIDAS)",
   plan_ogolny: "Plan ogólny i OUZ (rejestr)",
+  rcn: "Ceny transakcyjne (RCN, min. 20 transakcji)",
 };
 
 /** Items in the order the selector and the table show them. */
@@ -41,6 +43,7 @@ export const COVERAGE_ITEMS: CoverageItem[] = [
   "grid_headroom",
   "pen_mineral_deposit",
   "plan_ogolny",
+  "rcn",
 ];
 
 /** Share bands, lower bound first. The last band runs to 100%. */

@@ -21,6 +21,7 @@ const KIND: Record<string, string> = {
   discover: "Weryfikacja źródeł",
   plan_searches: "Plan nocny",
   check_parcel: "Sprawdzenie działki",
+  import_rcn: "Import cen (RCN)",
 };
 
 function Counts({ counts }: { counts: OpsJobs["counts"] }) {

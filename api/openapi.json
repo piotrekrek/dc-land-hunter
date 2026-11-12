@@ -664,6 +664,189 @@
         }
       }
     },
+    "/api/sites/{site_id}/prices": {
+      "get": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "Get Site Prices",
+        "description": "RCN land-price comparables around the site (10 km, 36 months; the powiat when too few) and the asking\nprice with an outlier flag. Informational only: no score uses it.",
+        "operationId": "get_site_prices_api_sites__site_id__prices_get",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SitePrices"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites/{site_id}/asking-price": {
+      "put": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "Put Asking Price",
+        "description": "Sets (or, with null, clears) the asking price in zł/m². One value for the whole team.",
+        "operationId": "put_asking_price_api_sites__site_id__asking_price_put",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskingPriceBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SitePrices"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites/{site_id}/power-evidence": {
+      "put": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "Put Power Evidence",
+        "description": "Records how firmly the power is documented (RTB export). Manual, team-wide, idempotent.",
+        "operationId": "put_power_evidence_api_sites__site_id__power_evidence_put",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PowerEvidenceBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PowerEvidenceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "Delete Power Evidence",
+        "description": "Back to the default (`rumour`). Idempotent, and allowed for a site that has since left the list.",
+        "operationId": "delete_power_evidence_api_sites__site_id__power_evidence_delete",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sites/{site_id}/orthophoto": {
       "get": {
         "tags": [
@@ -688,6 +871,48 @@
             "description": "Successful Response",
             "content": {
               "image/jpeg": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites/{site_id}/rtb": {
+      "get": {
+        "tags": [
+          "rtb"
+        ],
+        "summary": "Get Rtb",
+        "operationId": "get_rtb_api_sites__site_id__rtb_get",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RtbExport"
+                }
+              }
             }
           },
           "422": {
@@ -738,7 +963,8 @@
                 "bonus_psi",
                 "grid_headroom",
                 "pen_mineral_deposit",
-                "plan_ogolny"
+                "plan_ogolny",
+                "rcn"
               ],
               "type": "string",
               "default": "all",
@@ -1365,6 +1591,28 @@
         ],
         "title": "AccessIn"
       },
+      "AskingPriceBody": {
+        "properties": {
+          "zl_m2": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 10000000.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zl M2"
+          }
+        },
+        "type": "object",
+        "required": [
+          "zl_m2"
+        ],
+        "title": "AskingPriceBody"
+      },
       "BonusParams": {
         "properties": {
           "heat_network_km": {
@@ -1915,6 +2163,13 @@
             ],
             "title": "Project Note"
           },
+          "power_evidence": {
+            "$ref": "#/components/schemas/PowerEvidenceOut",
+            "default": {
+              "level": "rumour",
+              "recorded": false
+            }
+          },
           "n": {
             "type": "integer",
             "title": "N"
@@ -2308,6 +2563,16 @@
               }
             ],
             "title": "Geometry"
+          },
+          "rcn_count": {
+            "type": "integer",
+            "title": "Rcn Count",
+            "default": 0
+          },
+          "rcn_weak": {
+            "type": "boolean",
+            "title": "Rcn Weak",
+            "default": true
           }
         },
         "type": "object",
@@ -3176,6 +3441,133 @@
         ],
         "title": "PointIn"
       },
+      "PowerEvidenceBody": {
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "rumour",
+              "informal_opinion",
+              "application_filed",
+              "conditions_issued",
+              "agreement_signed"
+            ],
+            "title": "Level"
+          },
+          "document_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Date"
+          },
+          "conditions_expiry": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conditions Expiry"
+          },
+          "attachment_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attachment Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "level"
+        ],
+        "title": "PowerEvidenceBody"
+      },
+      "PowerEvidenceOut": {
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "rumour",
+              "informal_opinion",
+              "application_filed",
+              "conditions_issued",
+              "agreement_signed"
+            ],
+            "title": "Level",
+            "default": "rumour"
+          },
+          "document_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Date"
+          },
+          "conditions_expiry": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conditions Expiry"
+          },
+          "attachment_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attachment Url"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "recorded": {
+            "type": "boolean",
+            "title": "Recorded",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "PowerEvidenceOut",
+        "description": "How firmly the power is documented. Typed in by the team, never derived; `recorded` false = default."
+      },
       "PowiatItem": {
         "properties": {
           "teryt": {
@@ -3345,6 +3737,157 @@
           "node_220_400_km"
         ],
         "title": "Prefilter"
+      },
+      "PriceComparables": {
+        "properties": {
+          "agricultural": {
+            "$ref": "#/components/schemas/PriceGroup"
+          },
+          "other": {
+            "$ref": "#/components/schemas/PriceGroup"
+          },
+          "widened": {
+            "type": "boolean",
+            "title": "Widened"
+          },
+          "radius_km": {
+            "type": "number",
+            "title": "Radius Km"
+          },
+          "months": {
+            "type": "integer",
+            "title": "Months"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "estimated",
+              "missing"
+            ],
+            "title": "Confidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "agricultural",
+          "other",
+          "widened",
+          "radius_km",
+          "months",
+          "source_id",
+          "as_of",
+          "confidence"
+        ],
+        "title": "PriceComparables",
+        "description": "RCN transactions near a site: agricultural land apart from the rest, with provenance."
+      },
+      "PriceGroup": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "median_zl_m2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Zl M2"
+          },
+          "p25_zl_m2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P25 Zl M2"
+          },
+          "p75_zl_m2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P75 Zl M2"
+          },
+          "first_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Date"
+          },
+          "last_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Date"
+          },
+          "widened": {
+            "type": "boolean",
+            "title": "Widened",
+            "default": false
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "estimated",
+              "missing"
+            ],
+            "title": "Confidence",
+            "default": "missing"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count",
+          "median_zl_m2",
+          "p25_zl_m2",
+          "p75_zl_m2",
+          "first_date",
+          "last_date"
+        ],
+        "title": "PriceGroup",
+        "description": "Land price statistics of one group of RCN transactions, in zł/m²."
       },
       "PriorityIn": {
         "properties": {
@@ -3580,6 +4123,50 @@
         "title": "Proxies",
         "description": "Settings of the OSM proxies for penalties that have no public source (`sources/osm_infra.py`)."
       },
+      "RcnParams": {
+        "properties": {
+          "min_area_ha_agricultural": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Min Area Ha Agricultural",
+            "default": 0.5
+          },
+          "min_area_ha_other": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Min Area Ha Other",
+            "default": 0.1
+          },
+          "radius_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Radius Km",
+            "default": 10
+          },
+          "months": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Months",
+            "default": 36
+          },
+          "min_count": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Min Count",
+            "default": 5
+          },
+          "outlier_factor": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Outlier Factor",
+            "default": 10
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RcnParams",
+        "description": "RCN land-price comparables (informational, no score impact). Agricultural sales under half a hectare\nare mostly building plots tagged `gruntyRolne`, so they are left out of the agricultural group."
+      },
       "ResolveIn": {
         "properties": {
           "text": {
@@ -3703,6 +4290,484 @@
           "outline"
         ],
         "title": "ResolvedParcelOut"
+      },
+      "Rtb": {
+        "properties": {
+          "line110_acceptable_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Line110 Acceptable Km",
+            "default": 3.0
+          },
+          "gpz110_acceptable_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Gpz110 Acceptable Km",
+            "default": 5.0
+          },
+          "node_220_400_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Node 220 400 Km",
+            "default": 25.0
+          },
+          "parcels_yellow_over": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Parcels Yellow Over",
+            "default": 10
+          },
+          "forest_yellow_pct": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Forest Yellow Pct",
+            "default": 10.0
+          },
+          "soil_iii_yellow_pct": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Soil Iii Yellow Pct",
+            "default": 30.0
+          },
+          "residential_yellow_m": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Residential Yellow M",
+            "default": 300.0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Rtb",
+        "description": "Thresholds of the RTB workstream proposal (`rtb.py`). Distances in km, shares in percent."
+      },
+      "RtbConnectionCost": {
+        "properties": {
+          "mw": {
+            "type": "number",
+            "title": "Mw"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/RtbCostLine"
+            },
+            "type": "array",
+            "title": "Lines"
+          },
+          "frozen_pln": {
+            "type": "number",
+            "title": "Frozen Pln"
+          },
+          "total_pln": {
+            "type": "number",
+            "title": "Total Pln"
+          },
+          "conditions_valid_months": {
+            "type": "integer",
+            "title": "Conditions Valid Months"
+          },
+          "legal_basis": {
+            "type": "string",
+            "title": "Legal Basis"
+          },
+          "verified": {
+            "type": "boolean",
+            "title": "Verified"
+          },
+          "caveats_pl": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Caveats Pl"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mw",
+          "lines",
+          "frozen_pln",
+          "total_pln",
+          "conditions_valid_months",
+          "legal_basis",
+          "verified",
+          "caveats_pl"
+        ],
+        "title": "RtbConnectionCost"
+      },
+      "RtbCostLine": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "application_fee",
+              "advance",
+              "security"
+            ],
+            "title": "Key"
+          },
+          "label_pl": {
+            "type": "string",
+            "title": "Label Pl"
+          },
+          "pln": {
+            "type": "number",
+            "title": "Pln"
+          },
+          "basis_pl": {
+            "type": "string",
+            "title": "Basis Pl"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "as_of": {
+            "type": "string",
+            "title": "As Of"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "estimated",
+              "missing"
+            ],
+            "title": "Confidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label_pl",
+          "pln",
+          "basis_pl",
+          "source_id",
+          "as_of",
+          "confidence"
+        ],
+        "title": "RtbCostLine"
+      },
+      "RtbExport": {
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "site": {
+            "$ref": "#/components/schemas/SiteSummary"
+          },
+          "parcel_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Parcel Ids"
+          },
+          "scored_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Scored At"
+          },
+          "power_evidence": {
+            "$ref": "#/components/schemas/PowerEvidenceOut"
+          },
+          "status_note_pl": {
+            "type": "string",
+            "title": "Status Note Pl"
+          },
+          "workstreams": {
+            "items": {
+              "$ref": "#/components/schemas/RtbWorkstream"
+            },
+            "type": "array",
+            "title": "Workstreams"
+          },
+          "red_flags": {
+            "items": {
+              "$ref": "#/components/schemas/RtbRedFlag"
+            },
+            "type": "array",
+            "title": "Red Flags"
+          },
+          "connection_cost": {
+            "$ref": "#/components/schemas/RtbConnectionCost"
+          },
+          "price_comparables": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SitePrices"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/RtbFact"
+            },
+            "type": "array",
+            "title": "Facts"
+          },
+          "map": {
+            "$ref": "#/components/schemas/SheetOut"
+          },
+          "map_note_pl": {
+            "type": "string",
+            "title": "Map Note Pl"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "site",
+          "parcel_ids",
+          "scored_at",
+          "power_evidence",
+          "status_note_pl",
+          "workstreams",
+          "red_flags",
+          "connection_cost",
+          "facts",
+          "map",
+          "map_note_pl"
+        ],
+        "title": "RtbExport"
+      },
+      "RtbFact": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label_pl": {
+            "type": "string",
+            "title": "Label Pl"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "estimated",
+              "missing"
+            ],
+            "title": "Confidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label_pl",
+          "value",
+          "unit",
+          "source_id",
+          "as_of",
+          "confidence"
+        ],
+        "title": "RtbFact"
+      },
+      "RtbReason": {
+        "properties": {
+          "text_pl": {
+            "type": "string",
+            "title": "Text Pl"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text_pl",
+          "source_id",
+          "as_of"
+        ],
+        "title": "RtbReason"
+      },
+      "RtbRedFlag": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "exclusion",
+              "penalty"
+            ],
+            "title": "Kind"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label_pl": {
+            "type": "string",
+            "title": "Label Pl"
+          },
+          "reason_pl": {
+            "type": "string",
+            "title": "Reason Pl"
+          },
+          "points": {
+            "type": "number",
+            "title": "Points"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "key",
+          "label_pl",
+          "reason_pl",
+          "points",
+          "source_id",
+          "as_of",
+          "confidence"
+        ],
+        "title": "RtbRedFlag"
+      },
+      "RtbWorkstream": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label_pl": {
+            "type": "string",
+            "title": "Label Pl"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "green",
+              "yellow",
+              "red"
+            ],
+            "title": "Status"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/RtbReason"
+            },
+            "type": "array",
+            "title": "Reasons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label_pl",
+          "status",
+          "reasons"
+        ],
+        "title": "RtbWorkstream"
       },
       "ScopeOut": {
         "properties": {
@@ -3882,8 +4947,31 @@
               }
             }
           },
+          "rcn": {
+            "$ref": "#/components/schemas/RcnParams",
+            "default": {
+              "min_area_ha_agricultural": 0.5,
+              "min_area_ha_other": 0.1,
+              "radius_km": 10.0,
+              "months": 36,
+              "min_count": 5,
+              "outlier_factor": 10.0
+            }
+          },
           "connection_cost": {
             "$ref": "#/components/schemas/ConnectionCost"
+          },
+          "rtb": {
+            "$ref": "#/components/schemas/Rtb",
+            "default": {
+              "line110_acceptable_km": 3.0,
+              "gpz110_acceptable_km": 5.0,
+              "node_220_400_km": 25.0,
+              "parcels_yellow_over": 10,
+              "forest_yellow_pct": 10.0,
+              "soil_iii_yellow_pct": 30.0,
+              "residential_yellow_m": 300.0
+            }
           }
         },
         "additionalProperties": false,
@@ -4263,6 +5351,13 @@
               }
             ],
             "title": "Project Note"
+          },
+          "power_evidence": {
+            "$ref": "#/components/schemas/PowerEvidenceOut",
+            "default": {
+              "level": "rumour",
+              "recorded": false
+            }
           }
         },
         "type": "object",
@@ -4337,6 +5432,53 @@
         ],
         "title": "SiteMapOut",
         "description": "The site outline in metres (EPSG:2180, north up) around `origin_2180`, framed like a check sheet."
+      },
+      "SitePrices": {
+        "properties": {
+          "comparables": {
+            "$ref": "#/components/schemas/PriceComparables"
+          },
+          "asking_zl_m2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asking Zl M2"
+          },
+          "asking_updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asking Updated At"
+          },
+          "asking_outlier": {
+            "type": "boolean",
+            "title": "Asking Outlier"
+          },
+          "asking_outlier_widened": {
+            "type": "boolean",
+            "title": "Asking Outlier Widened",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "comparables",
+          "asking_zl_m2",
+          "asking_updated_at",
+          "asking_outlier"
+        ],
+        "title": "SitePrices"
       },
       "SiteSummary": {
         "properties": {

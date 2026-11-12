@@ -51,7 +51,22 @@ def test_share_for_one_item_counts_sites() -> None:
         "grid_headroom": 0.0,
         "pen_mineral_deposit": 0.0,
         "plan_ogolny": 0.0,
+        "rcn": 0.0,
     }
+
+
+def test_rcn_counts_transactions_and_marks_under_twenty_as_weak() -> None:
+    sites = [
+        site_row("0805", "powiat słubicki", 4),
+        site_row("0807", "powiat X", 2),
+        site_row("0808", "Y", 1),
+    ]
+    rcn = [{"teryt": "0805", "n": 20}, {"teryt": "0807", "n": 19}]
+    slubice, weak, none = build_areas(sites, [], "rcn", rcn_rows=rcn)
+    assert (slubice.rcn_count, slubice.rcn_weak, slubice.with_data, slubice.share) == (20, False, 4, 1.0)
+    assert (weak.rcn_count, weak.rcn_weak, weak.with_data) == (19, True, 0)
+    assert (none.rcn_count, none.rcn_weak) == (0, True)  # nothing imported: weak, not an error
+    assert slubice.by_item["rcn"] == 1.0 and weak.by_item["rcn"] == 0.0
 
 
 def test_plan_ogolny_share_counts_sites_with_a_planning_path() -> None:
@@ -224,6 +239,7 @@ def test_powiat_coverage_counts_kept_sites_only(db_client: TestClient) -> None:
         "grid_headroom": 0.5,
         "pen_mineral_deposit": 0.0,
         "plan_ogolny": 0.0,
+        "rcn": 0.0,
     }
     # Overall: 2 sites x 4 items = 8 entries, 4 with data.
     assert (powiat["with_data"], powiat["total"], powiat["share"]) == (4, 8, 0.5)

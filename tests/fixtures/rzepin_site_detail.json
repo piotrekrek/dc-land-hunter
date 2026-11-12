@@ -1,0 +1,713 @@
+{
+ "score": {
+  "items": [
+   {
+    "key": "grid_proximity",
+    "as_of": "2026-10-12T07:08:44.740836+00:00",
+    "value": 0.4614743506166841,
+    "points": 27.0,
+    "category": "grid",
+    "label_pl": "Bliskość sieci 110 kV",
+    "source_id": "osm_power",
+    "confidence": "estimated",
+    "max_points": 27.0,
+    "upside_points": 27.0,
+    "explanation_pl": "Liczy się lepszy z dwóch wskaźników: linia 110 kV: 0,5 km (pełne punkty do 1,0 km, zero od 3,0 km); GPZ operatora 110 kV: 17,7 km (pełne do 2,0 km, zero od 8,0 km); stacja 110 kV/SN o nieustalonym właścicielu: 2,4 km (pełne do 2,0 km, zero od 8,0 km; punkty × 0,50, bo nie wiadomo, czy to stacja OSD). To przybliżenie, nie gwarancja mocy."
+   },
+   {
+    "key": "grid_other_station",
+    "as_of": "2026-10-12T07:08:44.740836+00:00",
+    "value": 1.572655322201664,
+    "points": 0.0,
+    "category": "grid",
+    "label_pl": "Stacja 110 kV poza siecią OSD w pobliżu",
+    "source_id": "osm_power",
+    "confidence": "estimated",
+    "max_points": 0.0,
+    "upside_points": 0.0,
+    "explanation_pl": "Stacja farmy wiatrowej, PV lub elektrowni „Stacja elektroenergetyczna 110/20 kV GPO Lubiechnia Wielka” 1,6 km — możliwy cable pooling lub PPA. Nie jest punktem przyłączenia OSD, więc bez punktów w ocenie."
+   },
+   {
+    "key": "grid_n1",
+    "as_of": "2026-10-12T07:08:44.740836+00:00",
+    "value": 11,
+    "points": 4.5,
+    "category": "grid",
+    "label_pl": "Dwa niezależne zasilania 110 kV",
+    "source_id": "osm_power",
+    "confidence": "estimated",
+    "max_points": 4.5,
+    "upside_points": 4.5,
+    "explanation_pl": "11 niezależne linie 110 kV w promieniu 3 km (rezerwowanie N-1)."
+   },
+   {
+    "key": "grid_node",
+    "as_of": "2026-10-12T07:08:44.740836+00:00",
+    "value": 48.13289961276587,
+    "points": 0.0,
+    "category": "grid",
+    "label_pl": "Węzeł 220/400 kV PSE w pobliżu",
+    "source_id": "osm_power",
+    "confidence": "estimated",
+    "max_points": 4.5,
+    "upside_points": 0.0,
+    "explanation_pl": "Najbliższy węzeł 220/400 kV: 48,1 km (> 25 km)."
+   },
+   {
+    "key": "grid_planned_station",
+    "as_of": "2026-09-30T00:00:00+00:00",
+    "value": 143.87713822922396,
+    "points": 0.0,
+    "category": "grid",
+    "label_pl": "Planowana stacja odbiorcza PSE",
+    "source_id": "pse_avail",
+    "confidence": "estimated",
+    "max_points": 2.25,
+    "upside_points": 0.0,
+    "explanation_pl": "Najbliższa planowana stacja PSE: 143,9 km (> 25 km)."
+   },
+   {
+    "key": "grid_headroom",
+    "as_of": null,
+    "value": null,
+    "points": 0.0,
+    "category": "grid",
+    "label_pl": "Opublikowana moc w pobliskim GPZ",
+    "source_id": null,
+    "confidence": "missing",
+    "max_points": 2.25,
+    "upside_points": 2.25,
+    "explanation_pl": "Brak danych: opublikowana moc OSD dla pobliskiego GPZ. Liczone jako 0 pkt."
+   },
+   {
+    "key": "grid_odb",
+    "as_of": "2026-08-31T00:00:00+00:00",
+    "value": 95.76192696930303,
+    "points": 0.0,
+    "category": "grid",
+    "label_pl": "Wpisy ODB PSE w pobliżu (popyt)",
+    "source_id": "pse_odb",
+    "confidence": "estimated",
+    "max_points": 1.35,
+    "upside_points": 0.0,
+    "explanation_pl": "Brak wpisów ODB w promieniu 15 km (najbliższy: 95,8 km)."
+   },
+   {
+    "key": "grid_brownfield",
+    "as_of": "2026-10-12T07:08:44.740836+00:00",
+    "value": false,
+    "points": 0.0,
+    "category": "grid",
+    "label_pl": "Teren poprzemysłowy z własną stacją",
+    "source_id": "osm_power",
+    "confidence": "estimated",
+    "max_points": 6.75,
+    "upside_points": 0.0,
+    "explanation_pl": "Nie wykryto własnej stacji na terenie."
+   },
+   {
+    "key": "grid_closed",
+    "as_of": "2026-02-04T00:00:00+00:00",
+    "value": false,
+    "points": 0.0,
+    "category": "grid",
+    "label_pl": "Zamknięta rozdzielnia PSE w pobliżu",
+    "source_id": "pse_closed",
+    "confidence": "estimated",
+    "max_points": 0.0,
+    "upside_points": 0.0,
+    "explanation_pl": "Brak zamkniętych rozdzielni PSE w pobliżu."
+   },
+   {
+    "key": "zoning",
+    "as_of": "2026-11-12T06:46:04.977225+00:00",
+    "value": "plan_ogolny_SG",
+    "points": 15.0,
+    "category": "zoning",
+    "label_pl": "Przeznaczenie terenu",
+    "source_id": "ru",
+    "confidence": "verified",
+    "max_points": 25.0,
+    "upside_points": 15.0,
+    "explanation_pl": "Plan ogólny: strefa gospodarcza (sp): 60% maksymalnej punktacji za przeznaczenie. Teren poza OUZ i bez MPZP: ścieżka to MPZP lub ZPI (12–24 miesiące), nie decyzja WZ."
+   },
+   {
+    "key": "land_size",
+    "as_of": null,
+    "value": 102.13707102995053,
+    "points": 3.0,
+    "category": "land",
+    "label_pl": "Wielkość terenu",
+    "source_id": "egib",
+    "confidence": "verified",
+    "max_points": 5.25,
+    "upside_points": 3.0,
+    "explanation_pl": "102,1 ha to duży teren (> 80 ha): do podziału, sugerowana działka 10–30 ha przy sieci."
+   },
+   {
+    "key": "land_compactness",
+    "as_of": null,
+    "value": 0.2399308878212952,
+    "points": 0.0,
+    "category": "land",
+    "label_pl": "Kształt (zwartość)",
+    "source_id": "egib",
+    "confidence": "verified",
+    "max_points": 3.75,
+    "upside_points": 0.0,
+    "explanation_pl": "Zwartość kształtu 0,24 (minimum 0,35); im bliżej 1, tym łatwiej zabudować."
+   },
+   {
+    "key": "land_parcels",
+    "as_of": null,
+    "value": 7,
+    "points": 3.8333333333333335,
+    "category": "land",
+    "label_pl": "Liczba działek",
+    "source_id": "egib",
+    "confidence": "verified",
+    "max_points": 4.5,
+    "upside_points": 3.8333333333333335,
+    "explanation_pl": "7 działek ewidencyjnych (pełne punkty do 3, zero od 30); mniej działek to zwykle mniej właścicieli."
+   },
+   {
+    "key": "land_expansion",
+    "as_of": null,
+    "value": 388.4305922131009,
+    "points": 1.5,
+    "category": "land",
+    "label_pl": "Rezerwa na rozbudowę",
+    "source_id": "egib",
+    "confidence": "verified",
+    "max_points": 1.5,
+    "upside_points": 1.5,
+    "explanation_pl": "388,4 ha rezerwy na rozbudowę: 92,1 ha własnego terenu ponad cel 60 MW oraz 296,3 ha sąsiednich działek ewidencyjnych (do 20 m od terenu). Przeznaczenie i dostępność do kupienia sąsiednich działek nie są sprawdzone."
+   },
+   {
+    "key": "conn_telecom",
+    "as_of": null,
+    "value": null,
+    "points": 0.0,
+    "category": "connectivity",
+    "label_pl": "Węzeł telekomunikacyjny w pobliżu",
+    "source_id": null,
+    "confidence": "missing",
+    "max_points": 2.5,
+    "upside_points": 2.5,
+    "explanation_pl": "Brak danych: węzły telekomunikacyjne (UKE). Liczone jako 0 pkt."
+   },
+   {
+    "key": "conn_city",
+    "as_of": "2026-10-12T10:41:29.101137+00:00",
+    "value": 57.00186723837296,
+    "points": 1.749948132267418,
+    "category": "connectivity",
+    "label_pl": "Odległość do dużego miasta",
+    "source_id": "prg",
+    "confidence": "verified",
+    "max_points": 2.5,
+    "upside_points": 1.749948132267418,
+    "explanation_pl": "Najbliższe duże miasto: 57 km (pełne punkty do 30 km, zero od 120 km)."
+   },
+   {
+    "key": "bonus_heat",
+    "as_of": "2026-10-21T11:40:39.522814+00:00",
+    "value": 25.837803882010398,
+    "points": 0.0,
+    "category": "bonus",
+    "label_pl": "Sieć ciepłownicza w pobliżu",
+    "source_id": "heat",
+    "confidence": "estimated",
+    "max_points": 3.0,
+    "upside_points": 0.0,
+    "explanation_pl": "Najbliższa sieć ciepłownicza: 25,8 km (> 5 km)."
+   },
+   {
+    "key": "bonus_psi",
+    "as_of": "2026-11-12T06:41:52.354708+00:00",
+    "value": 2.4,
+    "points": 0.0,
+    "category": "bonus",
+    "label_pl": "Pomoc regionalna (PSI)",
+    "source_id": "midas",
+    "confidence": "verified",
+    "max_points": 3.0,
+    "upside_points": 0.0,
+    "explanation_pl": "Obszar złoża kopaliny — zwolnienie CIT w PSI prawdopodobnie wyłączone, do weryfikacji z KSSSE."
+   },
+   {
+    "key": "bonus_res",
+    "as_of": "2026-10-12T07:08:44.740836+00:00",
+    "value": 0.0827733949751995,
+    "points": 2.0,
+    "category": "bonus",
+    "label_pl": "Źródła OZE w pobliżu",
+    "source_id": "osm_power",
+    "confidence": "estimated",
+    "max_points": 2.0,
+    "upside_points": 2.0,
+    "explanation_pl": "Skupisko OZE w odległości 0,1 km."
+   },
+   {
+    "key": "bonus_env",
+    "as_of": null,
+    "value": null,
+    "points": 0.0,
+    "category": "bonus",
+    "label_pl": "Decyzja środowiskowa",
+    "source_id": null,
+    "confidence": "missing",
+    "max_points": 3.0,
+    "upside_points": 3.0,
+    "explanation_pl": "Brak danych: decyzje środowiskowe. Liczone jako 0 pkt."
+   },
+   {
+    "key": "bonus_seller",
+    "as_of": null,
+    "value": null,
+    "points": 0.0,
+    "category": "bonus",
+    "label_pl": "Sprzedający publiczny",
+    "source_id": null,
+    "confidence": "missing",
+    "max_points": 2.0,
+    "upside_points": 2.0,
+    "explanation_pl": "Brak danych: informacja o sprzedającym. Liczone jako 0 pkt."
+   },
+   {
+    "key": "pen_flood_02",
+    "as_of": "2026-11-12T06:41:45.610247+00:00",
+    "value": 0.0,
+    "points": 0.0,
+    "category": "penalty",
+    "label_pl": "Strefa zalewowa 0,2%",
+    "source_id": "isok",
+    "confidence": "verified",
+    "max_points": 0.0,
+    "upside_points": 0.0,
+    "explanation_pl": "Teren poza strefą 0,2%."
+   },
+   {
+    "key": "pen_landscape",
+    "as_of": "2026-10-21T14:14:39.653506+00:00",
+    "value": false,
+    "points": 0.0,
+    "category": "penalty",
+    "label_pl": "Park krajobrazowy / OChK",
+    "source_id": "gdos",
+    "confidence": "verified",
+    "max_points": 0.0,
+    "upside_points": 0.0,
+    "explanation_pl": "Poza parkami krajobrazowymi i OChK."
+   },
+   {
+    "key": "pen_mining_terrain",
+    "as_of": "2026-11-12T06:41:52.354708+00:00",
+    "value": 0.0,
+    "points": 0.0,
+    "category": "penalty",
+    "label_pl": "Teren górniczy",
+    "source_id": "midas",
+    "confidence": "verified",
+    "max_points": 0.0,
+    "upside_points": 0.0,
+    "explanation_pl": "Poza terenami górniczymi."
+   },
+   {
+    "key": "pen_mineral_deposit",
+    "as_of": "2026-11-12T06:41:52.354708+00:00",
+    "value": 63.08374984192309,
+    "points": -8.0,
+    "category": "penalty",
+    "label_pl": "Złoże kopaliny",
+    "source_id": "midas",
+    "confidence": "verified",
+    "max_points": 0.0,
+    "upside_points": -8.0,
+    "explanation_pl": "63% terenu na udokumentowanym złożu kopaliny (MIDAS)."
+   },
+   {
+    "key": "pen_soil_iii",
+    "as_of": "2026-11-12T07:54:16.584709+00:00",
+    "value": 0.0,
+    "points": 0.0,
+    "category": "penalty",
+    "label_pl": "Gleby klasy III",
+    "source_id": "kiug",
+    "confidence": "estimated",
+    "max_points": 0.0,
+    "upside_points": 0.0,
+    "explanation_pl": "Mało gleb klasy III."
+   },
+   {
+    "key": "pen_residential",
+    "as_of": "2026-11-12T06:41:57.387370+00:00",
+    "value": 41.67312559715562,
+    "points": -10.0,
+    "category": "penalty",
+    "label_pl": "Zabudowa mieszkaniowa do 300 m",
+    "source_id": "bdot10k",
+    "confidence": "verified",
+    "max_points": 0.0,
+    "upside_points": -10.0,
+    "explanation_pl": "Zabudowa mieszkaniowa w odległości 42 m (poniżej 300 m): ryzyko sprzeciwu mieszkańców."
+   },
+   {
+    "key": "pen_gas",
+    "as_of": "2026-10-12T07:08:44.740836+00:00",
+    "value": false,
+    "points": 0.0,
+    "category": "penalty",
+    "label_pl": "Strefa gazociągu",
+    "source_id": "osm_power",
+    "confidence": "estimated",
+    "max_points": 0.0,
+    "upside_points": 0.0,
+    "explanation_pl": "Brak gazociągu w danych OSM (dane niepełne, do sprawdzenia u operatora)."
+   },
+   {
+    "key": "pen_airport",
+    "as_of": "2026-10-12T07:08:44.740836+00:00",
+    "value": false,
+    "points": 0.0,
+    "category": "penalty",
+    "label_pl": "Obszar ograniczeń lotniska (OLS)",
+    "source_id": "osm_power",
+    "confidence": "estimated",
+    "max_points": 0.0,
+    "upside_points": 0.0,
+    "explanation_pl": "Brak pasa startowego w OSM w promieniu powierzchni ograniczających."
+   }
+  ],
+  "score": 40.583281465600756,
+  "excluded": false,
+  "flags_pl": [
+   "Duży teren, do podziału: sugerowana działka 10–30 ha najbliżej sieci."
+  ],
+  "spare_ha": 92.13707102995053,
+  "categories": [
+   {
+    "points": 31.5,
+    "category": "grid",
+    "max_points": 45.0,
+    "upside_points": 33.75
+   },
+   {
+    "points": 15.0,
+    "category": "zoning",
+    "max_points": 25.0,
+    "upside_points": 15.0
+   },
+   {
+    "points": 8.333333333333334,
+    "category": "land",
+    "max_points": 15.0,
+    "upside_points": 8.333333333333334
+   },
+   {
+    "points": 1.749948132267418,
+    "category": "connectivity",
+    "max_points": 5.0,
+    "upside_points": 4.249948132267418
+   },
+   {
+    "points": 2.0,
+    "category": "bonus",
+    "max_points": 10.0,
+    "upside_points": 7.0
+   }
+  ],
+  "exclusions": [],
+  "grid_badge": "Bliskość sieci",
+  "project_mw": 60.0,
+  "completeness": 0.8378378378378378,
+  "estimated_mw": 612.8224261797031,
+  "large_campus": false,
+  "upside_score": 50.33328146560075,
+  "split_suggested": true
+ },
+ "features": {
+  "in_ouz": {
+   "as_of": "2026-11-12T06:46:04.977225+00:00",
+   "value": "no",
+   "source_id": "ru",
+   "confidence": "verified"
+  },
+  "zoning": {
+   "as_of": "2026-11-12T06:46:04.977225+00:00",
+   "value": "plan_ogolny_SG",
+   "source_id": "ru",
+   "confidence": "verified"
+  },
+  "area_ha": {
+   "as_of": null,
+   "value": 102.13707102995053,
+   "source_id": "egib",
+   "confidence": "verified"
+  },
+  "forest_pct": {
+   "as_of": "2026-11-12T06:41:57.387370+00:00",
+   "value": 26.54924259831671,
+   "source_id": "bdot10k",
+   "confidence": "verified"
+  },
+  "airport_ols": {
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "value": false,
+   "source_id": "osm_power",
+   "confidence": "estimated"
+  },
+  "compactness": {
+   "as_of": null,
+   "value": 0.2399308878212952,
+   "source_id": "egib",
+   "confidence": "verified"
+  },
+  "psi_aid_pts": {
+   "as_of": "2026-10-21T11:40:37.785284+00:00",
+   "value": 2.4,
+   "source_id": "psi",
+   "confidence": "estimated"
+  },
+  "deposit_list": {
+   "as_of": "2026-11-12T06:41:52.354708+00:00",
+   "value": [
+    {
+     "name": "Rzepin",
+     "status": "",
+     "mineral": "WĘGLE BRUNATNE"
+    }
+   ],
+   "source_id": "midas",
+   "confidence": "verified"
+  },
+  "expansion_ha": {
+   "as_of": null,
+   "value": 296.2935211831504,
+   "source_id": "egib",
+   "confidence": "verified"
+  },
+  "parcel_count": {
+   "as_of": null,
+   "value": 7,
+   "source_id": "egib",
+   "confidence": "verified"
+  },
+  "flood_0_2_pct": {
+   "as_of": "2026-11-12T06:41:45.610247+00:00",
+   "value": 0.0,
+   "source_id": "isok",
+   "confidence": "verified"
+  },
+  "planning_path": {
+   "as_of": "2026-11-12T06:46:04.977225+00:00",
+   "value": "mpzp_or_zpi",
+   "source_id": "ru",
+   "confidence": "estimated"
+  },
+  "public_seller": null,
+  "dist_gpz110_km": {
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "value": 2.4371561411792966,
+   "source_id": "osm_power",
+   "confidence": "estimated"
+  },
+  "dist_line110_km": {
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "value": 0.4614743506166841,
+   "source_id": "osm_power",
+   "confidence": "estimated"
+  },
+  "dist_pse_odb_km": {
+   "as_of": "2026-08-31T00:00:00+00:00",
+   "value": 95.76192696930303,
+   "source_id": "pse_odb",
+   "confidence": "estimated"
+  },
+  "mining_area_pct": {
+   "as_of": "2026-11-12T06:41:52.354708+00:00",
+   "value": 0.0,
+   "source_id": "midas",
+   "confidence": "verified"
+  },
+  "plan_ogolny_act": {
+   "as_of": "2026-11-12T06:46:04.977225+00:00",
+   "value": "XXXIV/224/2026",
+   "source_id": "ru",
+   "confidence": "verified"
+  },
+  "dist_big_city_km": {
+   "as_of": "2026-10-12T10:41:29.101137+00:00",
+   "value": 57.00186723837296,
+   "source_id": "prg",
+   "confidence": "verified"
+  },
+  "plan_ogolny_from": {
+   "as_of": "2026-11-12T06:46:04.977225+00:00",
+   "value": "2026-09-11",
+   "source_id": "ru",
+   "confidence": "verified"
+  },
+  "zone_min_pbc_pct": {
+   "as_of": "2026-11-12T06:46:04.977225+00:00",
+   "value": 20.0,
+   "source_id": "ru",
+   "confidence": "verified"
+  },
+  "flood_10_or_1_pct": {
+   "as_of": "2026-11-12T06:41:45.610247+00:00",
+   "value": 0.0,
+   "source_id": "isok",
+   "confidence": "verified"
+  },
+  "gas_pipeline_zone": {
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "value": false,
+   "source_id": "osm_power",
+   "confidence": "estimated"
+  },
+  "residential_min_m": {
+   "as_of": "2026-11-12T06:41:57.387370+00:00",
+   "value": 41.67312559715562,
+   "source_id": "bdot10k",
+   "confidence": "verified"
+  },
+  "zone_max_height_m": {
+   "as_of": "2026-11-12T06:46:04.977225+00:00",
+   "value": 20.0,
+   "source_id": "ru",
+   "confidence": "verified"
+  },
+  "dist_public_road_m": {
+   "as_of": "2026-11-12T06:41:57.387370+00:00",
+   "value": 8.560929411541405,
+   "source_id": "bdot10k",
+   "confidence": "verified"
+  },
+  "env_decision_found": null,
+  "mining_terrain_pct": {
+   "as_of": "2026-11-12T06:41:52.354708+00:00",
+   "value": 0.0,
+   "source_id": "midas",
+   "confidence": "verified"
+  },
+  "other_station_name": {
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "value": "Stacja elektroenergetyczna 110/20 kV GPO Lubiechnia Wielka",
+   "source_id": "osm_power",
+   "confidence": "estimated"
+  },
+  "powered_brownfield": {
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "value": false,
+   "source_id": "osm_power",
+   "confidence": "estimated"
+  },
+  "soil_class_iii_pct": {
+   "as_of": "2026-11-12T07:54:16.584709+00:00",
+   "value": 0.0,
+   "source_id": "kiug",
+   "confidence": "estimated"
+  },
+  "zone_max_intensity": {
+   "as_of": "2026-11-12T06:46:04.977225+00:00",
+   "value": 2.1,
+   "source_id": "ru",
+   "confidence": "verified"
+  },
+  "deposit_overlap_pct": {
+   "as_of": "2026-11-12T06:41:52.354708+00:00",
+   "value": 63.08374984192309,
+   "source_id": "midas",
+   "confidence": "verified"
+  },
+  "dist_res_cluster_km": {
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "value": 0.0827733949751995,
+   "source_id": "osm_power",
+   "confidence": "estimated"
+  },
+  "other_station_class": {
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "value": "generator",
+   "source_id": "osm_power",
+   "confidence": "estimated"
+  },
+  "soil_class_i_ii_pct": null,
+  "dist_heat_network_km": {
+   "as_of": "2026-10-21T11:40:39.522814+00:00",
+   "value": 25.837803882010398,
+   "source_id": "heat",
+   "confidence": "estimated"
+  },
+  "dist_node_220_400_km": {
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "value": 48.13289961276587,
+   "source_id": "osm_power",
+   "confidence": "estimated"
+  },
+  "dist_telecom_node_km": null,
+  "on_heritage_register": null,
+  "protected_nature_pct": {
+   "as_of": "2026-10-21T14:14:39.653506+00:00",
+   "value": 0.0,
+   "source_id": "gdos",
+   "confidence": "verified"
+  },
+  "residential_clear_ha": {
+   "as_of": "2026-11-12T06:41:57.387370+00:00",
+   "value": 51.229910039295824,
+   "source_id": "bdot10k",
+   "confidence": "verified"
+  },
+  "dist_other_station_km": {
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "value": 1.572655322201664,
+   "source_id": "osm_power",
+   "confidence": "estimated"
+  },
+  "zone_max_build_up_pct": {
+   "as_of": "2026-11-12T06:46:04.977225+00:00",
+   "value": 70.0,
+   "source_id": "ru",
+   "confidence": "verified"
+  },
+  "dist_gpz110_unknown_km": {
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "value": 2.4371561411792966,
+   "source_id": "osm_power",
+   "confidence": "estimated"
+  },
+  "landscape_park_or_ochk": {
+   "as_of": "2026-10-21T14:14:39.653506+00:00",
+   "value": false,
+   "source_id": "gdos",
+   "confidence": "verified"
+  },
+  "dist_gpz110_operator_km": {
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "value": 17.653346402613504,
+   "source_id": "osm_power",
+   "confidence": "estimated"
+  },
+  "closed_switchyard_nearby": {
+   "as_of": "2026-02-04T00:00:00+00:00",
+   "value": false,
+   "source_id": "pse_closed",
+   "confidence": "estimated"
+  },
+  "published_gpz_headroom_mw": null,
+  "independent_110_lines_near": {
+   "as_of": "2026-10-12T07:08:44.740836+00:00",
+   "value": 11,
+   "source_id": "osm_power",
+   "confidence": "estimated"
+  },
+  "dist_pse_planned_station_km": {
+   "as_of": "2026-09-30T00:00:00+00:00",
+   "value": 143.87713822922396,
+   "source_id": "pse_avail",
+   "confidence": "estimated"
+  }
+ }
+}
