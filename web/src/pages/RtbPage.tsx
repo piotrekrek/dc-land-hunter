@@ -6,6 +6,7 @@ import { Link, useParams } from "react-router";
 import { api, shouldRetry, unwrap } from "@/api/client";
 import { Sheet } from "@/components/check/Sheet";
 import { Mark, MarkLegend } from "@/components/site/Mark";
+import { PriceSummary } from "@/components/site/PriceComparables";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatDateTime, formatHa, formatMW, formatNumber, formatPln } from "@/lib/format";
@@ -275,9 +276,7 @@ function RtbDocument({ rtb }: { rtb: RtbExport }) {
 
       <Section id="rtb-rcn" title="Ceny transakcyjne (RCN)">
         {rtb.price_comparables ? (
-          <p className="text-sm" data-testid="rcn-present">
-            Porównywalne transakcje RCN są w pliku JSON (pole price_comparables).
-          </p>
+          <PriceSummary prices={rtb.price_comparables} />
         ) : (
           <p className="text-sm" data-testid="rcn-empty">
             Brak danych RCN

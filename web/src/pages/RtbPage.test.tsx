@@ -75,6 +75,42 @@ describe("RtbPage", () => {
     expect(await screen.findByTestId("rcn-empty")).toHaveTextContent("Brak danych RCN");
   });
 
+  it("shows the RCN medians and flags an asking price above ten times the agricultural median", async () => {
+    const group = (median: number, count: number) => ({
+      count,
+      median_zl_m2: median,
+      p25_zl_m2: median / 2,
+      p75_zl_m2: median * 2,
+      first_date: "2025-04-04",
+      last_date: "2025-10-31",
+      widened: true,
+      confidence: "estimated" as const,
+    });
+    const price_comparables = {
+      comparables: {
+        agricultural: group(6, 5),
+        other: group(51.5, 3),
+        widened: true,
+        radius_km: 10,
+        months: 36,
+        source_id: "rcn",
+        as_of: "2026-11-12T10:00:00Z",
+        confidence: "estimated" as const,
+      },
+      asking_zl_m2: 110,
+      asking_updated_at: "2026-11-12T10:00:00Z",
+      asking_outlier: true,
+      asking_outlier_widened: true,
+    };
+    mockFetch({ [PATH]: { ...rtb, price_comparables } });
+    renderRtb();
+    const rcn = within(await screen.findByTestId("rcn-present"));
+    expect(rcn.getAllByTestId("price-median")[0]).toHaveTextContent("6");
+    expect(rcn.getByTestId("rcn-asking")).toHaveTextContent("ponad 10×");
+    expect(rcn.getByTestId("rcn-asking")).toHaveTextContent("mediana z całego powiatu");
+    expect(rcn.getByText(/import 12\.11\.2026/)).toBeInTheDocument();
+  });
+
   it("marks each fact as verified, estimated or missing, each with a source", async () => {
     mockFetch({ [PATH]: rtb });
     renderRtb();

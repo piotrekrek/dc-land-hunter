@@ -49,6 +49,17 @@ file or calling the endpoint, as described here.
   balance), so the app keeps name, mineral and the update note only. It feeds the 8-point penalty
   `mineral_deposit` and cancels the PSI bonus (`bonus.deposit_cancels_psi`). Live sample:
   `tests/fixtures/live/source-verification-2026-11-11/` (Rzepin lignite, deposit no. 5604). `dclh search` loads it per powiat (`sources/midas.py`).
+- **`rcn` ✓ land transactions (12.11.2026, queried live from this machine).** National WFS 2.0.0
+  `https://mapy.geoportal.gov.pl/wss/service/rcn` (open, no key), feature type `ms:dzialki`: one polygon per parcel of a
+  transaction (EPSG:2180). `GetFeature` with `TYPENAMES=ms:dzialki&COUNT=1000&STARTINDEX=n&BBOX=...` answers in about
+  0.6 s per 1,000 features; `numberMatched="unknown"`, so paging runs until a short page. **The service uses the EPSG
+  axis order for `urn:ogc:def:crs:EPSG::2180`: northing first, in the BBOX and in every `posList`.** A bbox sent as
+  `minx,miny,...` silently returns another region. A bbox also returns neighbouring powiats, so features are filtered by
+  `TERYT` (4 digits, the powiat). Fields used: `TERYT`, `TRAN_LOKALNY_ID_IIP`, `TRAN_RODZAJ_TRANS`, `DOK_DATA`,
+  `NIER_RODZAJ`, `NIER_UDZIAL`, `NIER_POW_GRUNTU`, `NIER_CENA_BRUTTO`, `DZI_ID_DZIALKI`, `DZI_POW_EWID`,
+  `DZI_SPOSOB_UZYT`, `DZI_PRZEZN_WMPZP`, `DZI_CENA_BRUTTO`. Never stored: `DOK_TWORCA` (notary), `DOK_OZNACZENIE`,
+  `TRAN_OZNACZENIE_TRANS`, `TRAN_SPRZEDAJACY`, `TRAN_KUPUJACY`. Loaded with `dclh import-rcn <powiat>`
+  (`sources/rcn.py`); comparables in `comparables.py`.
 - **`isok` 0.2% zones (21.10.2026).** The same WFS now also returns `loo_ql_probabilityofoccurrence = 0.002` in one request
   with the 1% zones (`fes:Or`). `flood_0_2` is the 10-point penalty; the 1% zones stay the hard filter.
 - **`gdos` landscape parks and OChK (21.10.2026).** The same WFS has `GDOS:ParkiKrajobrazowe` (213 features, 25 MB)

@@ -664,6 +664,102 @@
         }
       }
     },
+    "/api/sites/{site_id}/prices": {
+      "get": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "Get Site Prices",
+        "description": "RCN land-price comparables around the site (10 km, 36 months; the powiat when too few) and the asking\nprice with an outlier flag. Informational only: no score uses it.",
+        "operationId": "get_site_prices_api_sites__site_id__prices_get",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SitePrices"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sites/{site_id}/asking-price": {
+      "put": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "Put Asking Price",
+        "description": "Sets (or, with null, clears) the asking price in zł/m². One value for the whole team.",
+        "operationId": "put_asking_price_api_sites__site_id__asking_price_put",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskingPriceBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SitePrices"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sites/{site_id}/power-evidence": {
       "put": {
         "tags": [
@@ -867,7 +963,8 @@
                 "bonus_psi",
                 "grid_headroom",
                 "pen_mineral_deposit",
-                "plan_ogolny"
+                "plan_ogolny",
+                "rcn"
               ],
               "type": "string",
               "default": "all",
@@ -1493,6 +1590,28 @@
           "on"
         ],
         "title": "AccessIn"
+      },
+      "AskingPriceBody": {
+        "properties": {
+          "zl_m2": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 10000000.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zl M2"
+          }
+        },
+        "type": "object",
+        "required": [
+          "zl_m2"
+        ],
+        "title": "AskingPriceBody"
       },
       "BonusParams": {
         "properties": {
@@ -2444,6 +2563,16 @@
               }
             ],
             "title": "Geometry"
+          },
+          "rcn_count": {
+            "type": "integer",
+            "title": "Rcn Count",
+            "default": 0
+          },
+          "rcn_weak": {
+            "type": "boolean",
+            "title": "Rcn Weak",
+            "default": true
           }
         },
         "type": "object",
@@ -3609,6 +3738,157 @@
         ],
         "title": "Prefilter"
       },
+      "PriceComparables": {
+        "properties": {
+          "agricultural": {
+            "$ref": "#/components/schemas/PriceGroup"
+          },
+          "other": {
+            "$ref": "#/components/schemas/PriceGroup"
+          },
+          "widened": {
+            "type": "boolean",
+            "title": "Widened"
+          },
+          "radius_km": {
+            "type": "number",
+            "title": "Radius Km"
+          },
+          "months": {
+            "type": "integer",
+            "title": "Months"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "estimated",
+              "missing"
+            ],
+            "title": "Confidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "agricultural",
+          "other",
+          "widened",
+          "radius_km",
+          "months",
+          "source_id",
+          "as_of",
+          "confidence"
+        ],
+        "title": "PriceComparables",
+        "description": "RCN transactions near a site: agricultural land apart from the rest, with provenance."
+      },
+      "PriceGroup": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "median_zl_m2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Zl M2"
+          },
+          "p25_zl_m2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P25 Zl M2"
+          },
+          "p75_zl_m2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P75 Zl M2"
+          },
+          "first_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Date"
+          },
+          "last_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Date"
+          },
+          "widened": {
+            "type": "boolean",
+            "title": "Widened",
+            "default": false
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "estimated",
+              "missing"
+            ],
+            "title": "Confidence",
+            "default": "missing"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count",
+          "median_zl_m2",
+          "p25_zl_m2",
+          "p75_zl_m2",
+          "first_date",
+          "last_date"
+        ],
+        "title": "PriceGroup",
+        "description": "Land price statistics of one group of RCN transactions, in zł/m²."
+      },
       "PriorityIn": {
         "properties": {
           "teryts": {
@@ -3842,6 +4122,50 @@
         "type": "object",
         "title": "Proxies",
         "description": "Settings of the OSM proxies for penalties that have no public source (`sources/osm_infra.py`)."
+      },
+      "RcnParams": {
+        "properties": {
+          "min_area_ha_agricultural": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Min Area Ha Agricultural",
+            "default": 0.5
+          },
+          "min_area_ha_other": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Min Area Ha Other",
+            "default": 0.1
+          },
+          "radius_km": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Radius Km",
+            "default": 10
+          },
+          "months": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Months",
+            "default": 36
+          },
+          "min_count": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Min Count",
+            "default": 5
+          },
+          "outlier_factor": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Outlier Factor",
+            "default": 10
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RcnParams",
+        "description": "RCN land-price comparables (informational, no score impact). Agricultural sales under half a hectare\nare mostly building plots tagged `gruntyRolne`, so they are left out of the agricultural group."
       },
       "ResolveIn": {
         "properties": {
@@ -4175,14 +4499,12 @@
           "price_comparables": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/SitePrices"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Price Comparables"
+            ]
           },
           "facts": {
             "items": {
@@ -4623,6 +4945,17 @@
                 "strong_min_110_lines": 2,
                 "strong_node_km": 3.0
               }
+            }
+          },
+          "rcn": {
+            "$ref": "#/components/schemas/RcnParams",
+            "default": {
+              "min_area_ha_agricultural": 0.5,
+              "min_area_ha_other": 0.1,
+              "radius_km": 10.0,
+              "months": 36,
+              "min_count": 5,
+              "outlier_factor": 10.0
             }
           },
           "connection_cost": {
@@ -5099,6 +5432,53 @@
         ],
         "title": "SiteMapOut",
         "description": "The site outline in metres (EPSG:2180, north up) around `origin_2180`, framed like a check sheet."
+      },
+      "SitePrices": {
+        "properties": {
+          "comparables": {
+            "$ref": "#/components/schemas/PriceComparables"
+          },
+          "asking_zl_m2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asking Zl M2"
+          },
+          "asking_updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asking Updated At"
+          },
+          "asking_outlier": {
+            "type": "boolean",
+            "title": "Asking Outlier"
+          },
+          "asking_outlier_widened": {
+            "type": "boolean",
+            "title": "Asking Outlier Widened",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "comparables",
+          "asking_zl_m2",
+          "asking_updated_at",
+          "asking_outlier"
+        ],
+        "title": "SitePrices"
       },
       "SiteSummary": {
         "properties": {

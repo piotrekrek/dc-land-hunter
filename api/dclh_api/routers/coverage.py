@@ -25,10 +25,22 @@ router = APIRouter(tags=["coverage"], dependencies=[Depends(current_user)])
 # API level -> `admin_units.level`
 LEVELS: dict[str, str] = {"wojewodztwo": "voivodeship", "powiat": "powiat", "gmina": "gmina"}
 # The score items the view tracks, by their key in score.items[]; the labels live in the web app.
-TRACKED_ITEMS = ("zoning", "pen_soil_iii", "bonus_psi", "grid_headroom", "pen_mineral_deposit", "plan_ogolny")
+TRACKED_ITEMS = (
+    "zoning",
+    "pen_soil_iii",
+    "bonus_psi",
+    "grid_headroom",
+    "pen_mineral_deposit",
+    "plan_ogolny",
+    "rcn",
+)
 ItemKey = Literal[
-    "all", "zoning", "pen_soil_iii", "bonus_psi", "grid_headroom", "pen_mineral_deposit", "plan_ogolny"
+    "all", "zoning", "pen_soil_iii", "bonus_psi", "grid_headroom", "pen_mineral_deposit", "plan_ogolny", "rcn"
 ]
+# `rcn` is not a score item either: it is the count of imported RCN land transactions inside the area. An
+# area counts as covered (all its sites) from this many; fewer is "słabe dane" (weak data).
+RCN_ITEM = "rcn"
+RCN_MIN_TRANSACTIONS = 20
 # `plan_ogolny` is not a score item: it is the planning path (OUZ, plan act) the Rejestr Urbanistyczny gave
 # a site, so it is counted from the site's features and stays out of "all".
 PLAN_ITEM = "plan_ogolny"
@@ -87,6 +99,15 @@ _PLAN_COUNTS = text(
     """
 )
 
+_RCN_COUNTS = text(
+    """
+    SELECT a.teryt, count(*) AS n
+    FROM land_transactions t
+    JOIN admin_units a ON a.level = :level AND ST_Covers(a.geom, t.geom)
+    GROUP BY a.teryt
+    """
+)
+
 _GEOMETRY = text(
     """
     SELECT teryt,
@@ -136,6 +157,7 @@ def build_areas(
     item: str,
     geometries: Mapping[str, dict[str, Any]] | None = None,
     plan_rows: Sequence[Mapping[str, Any]] = (),
+    rcn_rows: Sequence[Mapping[str, Any]] = (),
 ) -> list[CoverageArea]:
     """Pure assembly from the two aggregate queries; `item` picks the headline share (see CoverageArea)."""
     known_total: dict[str, int] = defaultdict(int)
@@ -149,10 +171,12 @@ def build_areas(
         with_data[(row["teryt"], row["key"])] = row["with_data"]
     for row in plan_rows:
         with_data[(row["teryt"], PLAN_ITEM)] = row["with_data"]
+    rcn_count = {row["teryt"]: row["n"] for row in rcn_rows}
 
     areas: list[CoverageArea] = []
     for row in sorted(site_rows, key=lambda r: r["teryt"]):
         teryt, sites = row["teryt"], row["sites"]
+        with_data[(teryt, RCN_ITEM)] = sites if rcn_count.get(teryt, 0) >= RCN_MIN_TRANSACTIONS else 0
         by_item = {key: _share(with_data.get((teryt, key), 0), sites) for key in TRACKED_ITEMS}
         if item == "all":
             done, total = known_total[teryt], entry_total[teryt]
@@ -168,6 +192,8 @@ def build_areas(
                 share=_share(done, total),
                 by_item=by_item,
                 geometry=(geometries or {}).get(teryt),
+                rcn_count=rcn_count.get(teryt, 0),
+                rcn_weak=rcn_count.get(teryt, 0) < RCN_MIN_TRANSACTIONS,
             )
         )
     return areas
@@ -187,6 +213,7 @@ def get_coverage(
         item_rows = [dict(r) for r in session.execute(_ITEM_COUNTS, params).mappings()]
         station_rows = [dict(r) for r in session.execute(_STATION_CLASSES).mappings()]
         plan_rows = [dict(r) for r in session.execute(_PLAN_COUNTS, params).mappings()]
+        rcn_rows = [dict(r) for r in session.execute(_RCN_COUNTS, params).mappings()]
         geometries: dict[str, dict[str, Any]] | None = None
         if include_geometry and site_rows:
             shapes = session.execute(
@@ -199,6 +226,6 @@ def get_coverage(
     return CoverageOut(
         level=level,
         item=item,
-        areas=build_areas(site_rows, item_rows, item, geometries, plan_rows),
+        areas=build_areas(site_rows, item_rows, item, geometries, plan_rows, rcn_rows),
         station_classes=build_station_classes(station_rows),
     )

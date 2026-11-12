@@ -5,7 +5,7 @@ there is no foreign key to `sites`: the nightly search rewrites that table by po
 There is no free-text column on purpose (personal-data rule, brief 9.6): the document is a date and a link.
 
 Revision ID: 0021
-Revises: 0019
+Revises: 0020
 Create Date: 2026-11-12
 """
 
@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "0021"
-down_revision: str | None = "0019"
+down_revision: str | None = "0020"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

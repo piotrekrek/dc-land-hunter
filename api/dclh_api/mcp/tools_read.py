@@ -18,6 +18,7 @@ from sqlalchemy import text
 from dclh_api.mcp import areas, search
 from dclh_api.mcp.context import GRID_NOTE, run_db, site_url
 from dclh_api.mcp.search import Verdict
+from dclh_api.prices import compact, site_prices
 from dclh_api.routers import checks, config, powiats, sites
 from dclh_api.routers import coverage as coverage_router
 
@@ -177,9 +178,11 @@ def register(mcp: FastMCP, public_url: str) -> None:
         ] = None,
     ) -> dict[str, Any]:
         """One site's card: score breakdown, both profile verdicts with blockers, and every fact with its
-        source, date and confidence (verified, estimated or missing), and `power_evidence.level`: how
-        firmly the power is documented (rumour, informal_opinion, application_filed, conditions_issued,
-        agreement_signed; typed in by the team, read only). With `site_ids` it returns
+        source, date and confidence (verified, estimated or missing), `price_comparables` (RCN land
+        transaction prices in zł/m² near the site, the asking price if set; informational) and
+        `power_evidence.level`: how firmly the power is documented (rumour, informal_opinion,
+        application_filed, conditions_issued, agreement_signed; typed in by the team, read only). With
+        `site_ids` it returns
         `{sites: [...cards], not_found: [...]}`; to compare sites side by side use `compare_sites`."""
         if (site_id is None) == (site_ids is None):
             raise ToolError("Podaj site_id albo site_ids (jedno z dwóch).")
@@ -187,6 +190,8 @@ def register(mcp: FastMCP, public_url: str) -> None:
         def card(session: Any, user: Any, one: str) -> dict[str, Any]:
             detail = sites.get_site(one, session, user)
             out = detail.model_dump(mode="json", exclude=SITE_DETAIL_DROPPED)
+            prices = site_prices(session, one)  # RCN land-price comparables; informational, no score impact
+            out["price_comparables"] = compact(prices) if prices else None
             # Read only, and without the document link: it may point at a private file.
             evidence = out["power_evidence"]
             out["power_evidence"] = {k: evidence[k] for k in POWER_EVIDENCE_SHARED}

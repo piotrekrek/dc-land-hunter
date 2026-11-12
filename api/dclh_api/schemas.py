@@ -251,6 +251,9 @@ class CoverageArea(BaseModel):
     share: float = Field(ge=0, le=1)
     by_item: dict[str, float]  # share of the area's kept sites with data, per tracked item
     geometry: dict[str, Any] | None = None  # GeoJSON, WGS84, simplified for display; only when asked for
+    # RCN land transactions imported inside the area (comparable or not); fewer than 20 is "słabe dane".
+    rcn_count: int = 0
+    rcn_weak: bool = True
 
 
 class StationClassShare(BaseModel):
@@ -271,3 +274,44 @@ class CoverageOut(BaseModel):
     areas: list[CoverageArea]
     # Always per voivodeship, whatever `level` is; empty when no grid is loaded.
     station_classes: list[StationClassShare] = []
+
+
+class PriceGroup(BaseModel):
+    """Land price statistics of one group of RCN transactions, in zł/m²."""
+
+    count: int
+    median_zl_m2: float | None
+    p25_zl_m2: float | None
+    p75_zl_m2: float | None
+    first_date: date | None
+    last_date: date | None
+    # Too few transactions within `radius_km`: this group's figures come from the whole powiat.
+    widened: bool = False
+    confidence: Literal["verified", "estimated", "missing"] = "missing"
+
+
+class PriceComparables(BaseModel):
+    """RCN transactions near a site: agricultural land apart from the rest, with provenance."""
+
+    agricultural: PriceGroup
+    other: PriceGroup
+    widened: bool  # either group was widened to the powiat
+    radius_km: float
+    months: int
+    source_id: str
+    as_of: datetime | None  # when the transactions were last imported
+    confidence: Literal["verified", "estimated", "missing"]
+
+
+class SitePrices(BaseModel):
+    comparables: PriceComparables
+    asking_zl_m2: float | None
+    asking_updated_at: datetime | None
+    # Asking price above `outlier_factor` (10) times the agricultural median shown above.
+    asking_outlier: bool
+    # The outlier check used the powiat-wide agricultural median (the group was widened).
+    asking_outlier_widened: bool = False
+
+
+class AskingPriceBody(BaseModel):
+    zl_m2: float | None = Field(gt=0, le=10_000_000)  # null clears the asking price

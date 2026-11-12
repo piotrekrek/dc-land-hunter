@@ -695,6 +695,19 @@ def aoi_build_cmd() -> None:
     console.print(table)
 
 
+@app.command("import-rcn")
+def import_rcn_cmd(
+    powiat: Annotated[str, typer.Argument(help="Powiat TERYT, e.g. 0805")],
+) -> None:
+    """Download the RCN land transactions of one powiat and upsert them into `land_transactions`."""
+    from dclh_pipeline.db import session_scope
+    from dclh_pipeline.rcn_import import import_powiat
+
+    with session_scope() as session:
+        summary = import_powiat(session, powiat)
+    console.print(f"imported {summary['land_rows']} land transactions of powiat {summary['powiat']}")
+
+
 @app.command("enqueue")
 def enqueue_cmd(
     kind: str,

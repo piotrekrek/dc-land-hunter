@@ -211,6 +211,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sites/{site_id}/prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Site Prices
+         * @description RCN land-price comparables around the site (10 km, 36 months; the powiat when too few) and the asking
+         *     price with an outlier flag. Informational only: no score uses it.
+         */
+        get: operations["get_site_prices_api_sites__site_id__prices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/{site_id}/asking-price": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Asking Price
+         * @description Sets (or, with null, clears) the asking price in zł/m². One value for the whole team.
+         */
+        put: operations["put_asking_price_api_sites__site_id__asking_price_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sites/{site_id}/power-evidence": {
         parameters: {
             query?: never;
@@ -569,6 +610,11 @@ export interface components {
             /** On */
             on: boolean;
         };
+        /** AskingPriceBody */
+        AskingPriceBody: {
+            /** Zl M2 */
+            zl_m2: number | null;
+        };
         /** BonusParams */
         BonusParams: {
             /** Heat Network Km */
@@ -907,6 +953,16 @@ export interface components {
             geometry?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Rcn Count
+             * @default 0
+             */
+            rcn_count: number;
+            /**
+             * Rcn Weak
+             * @default true
+             */
+            rcn_weak: boolean;
         };
         /** CoverageOut */
         CoverageOut: {
@@ -1340,6 +1396,58 @@ export interface components {
             /** Node 220 400 Km */
             node_220_400_km: number;
         };
+        /**
+         * PriceComparables
+         * @description RCN transactions near a site: agricultural land apart from the rest, with provenance.
+         */
+        PriceComparables: {
+            agricultural: components["schemas"]["PriceGroup"];
+            other: components["schemas"]["PriceGroup"];
+            /** Widened */
+            widened: boolean;
+            /** Radius Km */
+            radius_km: number;
+            /** Months */
+            months: number;
+            /** Source Id */
+            source_id: string;
+            /** As Of */
+            as_of: string | null;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "verified" | "estimated" | "missing";
+        };
+        /**
+         * PriceGroup
+         * @description Land price statistics of one group of RCN transactions, in zł/m².
+         */
+        PriceGroup: {
+            /** Count */
+            count: number;
+            /** Median Zl M2 */
+            median_zl_m2: number | null;
+            /** P25 Zl M2 */
+            p25_zl_m2: number | null;
+            /** P75 Zl M2 */
+            p75_zl_m2: number | null;
+            /** First Date */
+            first_date: string | null;
+            /** Last Date */
+            last_date: string | null;
+            /**
+             * Widened
+             * @default false
+             */
+            widened: boolean;
+            /**
+             * Confidence
+             * @default missing
+             * @enum {string}
+             */
+            confidence: "verified" | "estimated" | "missing";
+        };
         /** PriorityIn */
         PriorityIn: {
             /** Teryts */
@@ -1429,6 +1537,43 @@ export interface components {
              * @default 400
              */
             runway_min_m: number;
+        };
+        /**
+         * RcnParams
+         * @description RCN land-price comparables (informational, no score impact). Agricultural sales under half a hectare
+         *     are mostly building plots tagged `gruntyRolne`, so they are left out of the agricultural group.
+         */
+        RcnParams: {
+            /**
+             * Min Area Ha Agricultural
+             * @default 0.5
+             */
+            min_area_ha_agricultural: number;
+            /**
+             * Min Area Ha Other
+             * @default 0.1
+             */
+            min_area_ha_other: number;
+            /**
+             * Radius Km
+             * @default 10
+             */
+            radius_km: number;
+            /**
+             * Months
+             * @default 36
+             */
+            months: number;
+            /**
+             * Min Count
+             * @default 5
+             */
+            min_count: number;
+            /**
+             * Outlier Factor
+             * @default 10
+             */
+            outlier_factor: number;
         };
         /** ResolveIn */
         ResolveIn: {
@@ -1581,10 +1726,7 @@ export interface components {
             /** Red Flags */
             red_flags: components["schemas"]["RtbRedFlag"][];
             connection_cost: components["schemas"]["RtbConnectionCost"];
-            /** Price Comparables */
-            price_comparables?: {
-                [key: string]: unknown;
-            } | null;
+            price_comparables?: components["schemas"]["SitePrices"] | null;
             /** Facts */
             facts: components["schemas"]["RtbFact"][];
             map: components["schemas"]["SheetOut"];
@@ -1734,6 +1876,17 @@ export interface components {
              *     }
              */
             small: components["schemas"]["SmallSites"];
+            /**
+             * @default {
+             *       "min_area_ha_agricultural": 0.5,
+             *       "min_area_ha_other": 0.1,
+             *       "radius_km": 10,
+             *       "months": 36,
+             *       "min_count": 5,
+             *       "outlier_factor": 10
+             *     }
+             */
+            rcn: components["schemas"]["RcnParams"];
             connection_cost: components["schemas"]["ConnectionCost"];
             /**
              * @default {
@@ -1889,6 +2042,21 @@ export interface components {
             bbox_m: number[];
             /** Parcel */
             parcel: number[][][];
+        };
+        /** SitePrices */
+        SitePrices: {
+            comparables: components["schemas"]["PriceComparables"];
+            /** Asking Zl M2 */
+            asking_zl_m2: number | null;
+            /** Asking Updated At */
+            asking_updated_at: string | null;
+            /** Asking Outlier */
+            asking_outlier: boolean;
+            /**
+             * Asking Outlier Widened
+             * @default false
+             */
+            asking_outlier_widened: boolean;
         };
         /**
          * SiteSummary
@@ -2562,6 +2730,72 @@ export interface operations {
             };
         };
     };
+    get_site_prices_api_sites__site_id__prices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitePrices"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_asking_price_api_sites__site_id__asking_price_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskingPriceBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitePrices"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     put_power_evidence_api_sites__site_id__power_evidence_put: {
         parameters: {
             query?: never;
@@ -2692,7 +2926,7 @@ export interface operations {
         parameters: {
             query?: {
                 level?: "wojewodztwo" | "powiat" | "gmina";
-                item?: "all" | "zoning" | "pen_soil_iii" | "bonus_psi" | "grid_headroom" | "pen_mineral_deposit" | "plan_ogolny";
+                item?: "all" | "zoning" | "pen_soil_iii" | "bonus_psi" | "grid_headroom" | "pen_mineral_deposit" | "plan_ogolny" | "rcn";
                 include_geometry?: boolean;
             };
             header?: never;

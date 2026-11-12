@@ -15,7 +15,9 @@ from sqlalchemy.orm import Session
 
 from dclh_api.deps import db_session
 from dclh_api.pagination import CursorError, decode_cursor, encode_cursor
+from dclh_api.prices import site_prices
 from dclh_api.schemas import (
+    AskingPriceBody,
     FactOut,
     GridBadgeLabel,
     PowerEvidenceBody,
@@ -24,6 +26,7 @@ from dclh_api.schemas import (
     ProjectState,
     SiteDetail,
     SiteMapOut,
+    SitePrices,
     SitesPage,
     SiteSummary,
     WatchState,
@@ -386,6 +389,49 @@ def delete_project(site_id: str, session: Annotated[Session, Depends(db_session)
     except SQLAlchemyError as exc:
         raise _unavailable() from exc
     return Response(status_code=204)
+
+
+@router.get("/sites/{site_id}/prices", response_model=SitePrices)
+def get_site_prices(site_id: str, session: Annotated[Session, Depends(db_session)]) -> SitePrices:
+    """RCN land-price comparables around the site (10 km, 36 months; the powiat when too few) and the asking
+    price with an outlier flag. Informational only: no score uses it."""
+    try:
+        prices = site_prices(session, site_id)
+    except SQLAlchemyError as exc:
+        raise _unavailable() from exc
+    if prices is None:
+        raise HTTPException(404, "Nie ma takiej lokalizacji.")
+    return prices
+
+
+@router.put("/sites/{site_id}/asking-price", response_model=SitePrices)
+def put_asking_price(
+    site_id: str,
+    body: AskingPriceBody,
+    session: Annotated[Session, Depends(db_session)],
+    user: Annotated[UserRow, Depends(current_user)],
+) -> SitePrices:
+    """Sets (or, with null, clears) the asking price in zł/m². One value for the whole team."""
+    _require_site(session, site_id)
+    try:
+        if body.zl_m2 is None:
+            session.execute(text("DELETE FROM site_asking_prices WHERE site_id = :s"), {"s": site_id})
+        else:
+            session.execute(
+                text(
+                    "INSERT INTO site_asking_prices (site_id, zl_m2, updated_by) VALUES (:s, :z, :u) "
+                    "ON CONFLICT (site_id) DO UPDATE SET zl_m2 = EXCLUDED.zl_m2, updated_at = now(), "
+                    "updated_by = EXCLUDED.updated_by"
+                ),
+                {"s": site_id, "z": body.zl_m2, "u": user.id},
+            )
+        session.commit()
+        prices = site_prices(session, site_id)
+    except SQLAlchemyError as exc:
+        raise _unavailable() from exc
+    if prices is None:
+        raise HTTPException(404, "Nie ma takiej lokalizacji.")
+    return prices
 
 
 def load_power_evidence(session: Session, site_id: str) -> PowerEvidenceOut:

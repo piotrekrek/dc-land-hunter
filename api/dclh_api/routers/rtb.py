@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from datetime import UTC, datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -23,9 +23,10 @@ from dclh_api.mcp.tools_costs import AS_OF as COST_AS_OF
 from dclh_api.mcp.tools_costs import CAVEATS as COST_CAVEATS
 from dclh_api.mcp.tools_costs import SOURCE_ID as COST_SOURCE_ID
 from dclh_api.mcp.tools_costs import compute as compute_connection_cost
+from dclh_api.prices import site_prices
 from dclh_api.routers.checks import SheetOut
 from dclh_api.routers.sites import _site_detail, _site_row, _unavailable, load_power_evidence
-from dclh_api.schemas import Confidence, PowerEvidenceOut, SiteSummary
+from dclh_api.schemas import Confidence, PowerEvidenceOut, SitePrices, SiteSummary
 from dclh_api.security import current_user
 from dclh_pipeline.check_sheet import build_sheet, sheet_bounds
 from dclh_pipeline.config import ConnectionCost, load_scoring
@@ -112,8 +113,7 @@ class RtbExport(BaseModel):
     workstreams: list[RtbWorkstream]
     red_flags: list[RtbRedFlag]
     connection_cost: RtbConnectionCost
-    # TODO(integrator, task 6): fill from the RCN comparables (`GET /api/sites/{id}/prices`) when that lands.
-    price_comparables: dict[str, Any] | None = None
+    price_comparables: SitePrices | None = None  # RCN land prices near the site (informational)
     facts: list[RtbFact]
     map: SheetOut
     map_note_pl: str
@@ -210,6 +210,7 @@ def get_rtb(site_id: str, session: Annotated[Session, Depends(db_session)]) -> R
         evidence_out = load_power_evidence(session, site_id)
         parcel = wkb.loads(row["geom"], hex=True)
         layers = _grid_layers(session, parcel)
+        prices = site_prices(session, site_id)
     except SQLAlchemyError as exc:
         raise _unavailable() from exc
     evidence = PowerEvidence(
@@ -229,6 +230,7 @@ def get_rtb(site_id: str, session: Annotated[Session, Depends(db_session)]) -> R
         workstreams=[RtbWorkstream(**asdict(w)) for w in propose_rag(detail, evidence, cfg)],
         red_flags=[RtbRedFlag(**asdict(f)) for f in red_flags(detail)],
         connection_cost=_cost(cfg.connection_cost, site.project_mw),
+        price_comparables=prices,
         facts=[RtbFact(**asdict(f)) for f in facts_table(detail, scored_at=scored_at)],
         map=SheetOut(**build_sheet(parcel, layers, margin_m=RTB_MAP_MARGIN_M)),
         map_note_pl=MAP_NOTE_PL,

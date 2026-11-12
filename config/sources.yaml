@@ -146,6 +146,17 @@ sources:
     probes:
       - {kind: arcgis, url: "https://cbdgmapa.pgi.gov.pl/arcgis/rest/services"}
 
+  - id: rcn
+    name: RCN – rejestr cen nieruchomości (transakcje gruntów)
+    used_for: Ceny transakcyjne gruntów w okolicy lokalizacji (porównanie z ceną ofertową)
+    plan: mvp
+    cadence: monthly
+    core: false
+    licence_expected: "Dane publiczne GUGiK (PZGiK)"
+    notes: "WFS ms:dzialki. Oś północ-wschód w BBOX i posList (EPSG::2180). Notariusz, numer aktu i strony nigdy nie są zapisywane."
+    probes:
+      - {kind: ogc, service: WFS, url: "https://mapy.geoportal.gov.pl/wss/service/rcn"}
+
   - id: nid
     name: NID – rejestr zabytków i stanowiska archeologiczne
     used_for: Rejestr zabytków (wykluczenie), stanowiska archeologiczne

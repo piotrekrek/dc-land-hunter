@@ -127,6 +127,8 @@ describe("SourcesSection coverage table", () => {
       share: 0.78,
       by_item: { zoning: 0.25, pen_soil_iii: 0, bonus_psi: 1, grid_headroom: 0.5, pen_mineral_deposit: 0.9, plan_ogolny: 0.75 },
       geometry: null,
+      rcn_count: 12,
+      rcn_weak: true,
     },
   ];
 
@@ -142,7 +144,9 @@ describe("SourcesSection coverage table", () => {
     expect(cells[0]).toHaveTextContent("powiat wrocławski");
     expect(cells[0]).toHaveTextContent("0215");
     expect(cells[1]).toHaveTextContent(formatNumber(384, 0));
-    expect(cells.slice(2).map((c) => c.textContent)).toEqual(["78%", "25%", "0%", "100%", "50%", "90%", "75%"]);
+    expect(cells.slice(2, 9).map((c) => c.textContent)).toEqual(["78%", "25%", "0%", "100%", "50%", "90%", "75%"]);
+    // Transaction count of the powiat, flagged weak below 20.
+    expect(within(row).getByTestId("rcn-cell")).toHaveTextContent("12słabe dane");
     expect(screen.getByRole("columnheader", { name: "Gleby klasy III" })).toBeInTheDocument();
   });
 

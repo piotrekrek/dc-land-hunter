@@ -10,6 +10,7 @@ import { Sheet } from "@/components/check/Sheet";
 import { PlanningPath } from "@/components/site/PlanningPath";
 import { ConnectionCostCalculator } from "@/components/site/ConnectionCostCalculator";
 import { ParcelIds } from "@/components/site/ParcelIds";
+import { PriceComparables } from "@/components/site/PriceComparables";
 import { PowerEvidenceEditor } from "@/components/site/PowerEvidenceEditor";
 import { ProfileCards } from "@/components/site/ProfileCards";
 import { ProjectActions } from "@/components/site/ProjectActions";
@@ -116,6 +117,7 @@ function SiteCard({ site }: { site: SiteDetail }) {
       </p>
       <Protokol site={site} />
 
+      <PriceComparables key={`prices-${site.site_id}`} siteId={site.site_id} />
       <PowerEvidenceEditor key={site.site_id} siteId={site.site_id} evidence={site.power_evidence} />
 
       <ConnectionCostCalculator key={site.site_id} estimatedMw={site.project_mw} />

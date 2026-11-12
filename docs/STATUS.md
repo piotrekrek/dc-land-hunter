@@ -1,5 +1,31 @@
 # Status
 
+## RCN land-price comparables (12.11.2026; Rzepin RTB spec 6; branch `rtb/t6-rcn`; not deployed)
+
+- New source `rcn` (`sources/rcn.py`): the national RCN WFS (`ms:dzialki`), checked live 12.11.2026. **The service uses
+  northing-first axis order** (BBOX and `posList`); the connector swaps both and rejects points outside Poland. Features
+  are filtered by powiat `TERYT`; a transaction on several parcels becomes one row (area-weighted point). The notary
+  (`DOK_TWORCA`), deed numbers and the parties are never read, not even into the raw snapshot (tests check this).
+- Table `land_transactions` (migration 0020) holds a point per transaction, not the polygon; `site_asking_prices`
+  holds the team-wide asking price per site. `dclh import-rcn <powiat>` upserts by transaction id; job kind `import_rcn`
+  (`{"powiat": ...}` or `{"all": true}`, which queues one job per AOI powiat); crontab queues the `all` job on the 1st
+  of each month at 10:00. Apartments are not stored.
+- `comparables.py` (pure, table-driven tests): undeveloped, free market, share 1/1, price and area above zero,
+  zł/m² = price / (ha x 10 000), agricultural (`gruntyRolne`) apart from the rest, 10 km and 36 months, median/p25/p75,
+  count, date range. Thresholds are the `rcn:` block of `config/scoring.yaml` (agricultural sales under 0,5 ha and
+  other under 0,1 ha are left out; radius, months, min count, outlier factor). Each group widens to the powiat on its
+  own when it has fewer than 5 transactions in the circle (`widened` per group). Confidence per group: `verified`
+  (n >= 5, not widened), `estimated` (widened or fewer than 5), `missing`. The outlier check uses the agricultural
+  median shown (`asking_outlier_widened` says it was the powiat's).
+  Transactions dated in the future (the live register has a few) are ignored.
+- API `GET /api/sites/{id}/prices` and `PUT /api/sites/{id}/asking-price` (`{zl_m2: number | null}`); outlier flag when
+  asking > 10 x the agricultural median. MCP `get_site` carries a compact `price_comparables`. `coverage` has an `rcn`
+  item (an area counts as covered from 20 transactions) and `rcn_count` / `rcn_weak` per area; the Sources page table
+  shows "Transakcje RCN" with "słabe dane" under 20. Site card section "Ceny transakcyjne (RCN)".
+- No score impact. Not done: nothing is imported yet (run `dclh import-rcn` per powiat on the VPS after deploy; until
+  then cards say "Brak zaimportowanych transakcji"); the DB tests (`tests/unit/test_prices_db.py`) were not run locally
+  (no PostGIS here, CI runs them). Small plots (a few hundred m2) are included in the medians as the register has them.
+
 ## RTB evidence: power evidence ladder and annex export (12.11.2026, Rzepin RTB spec 9; not deployed)
 
 - Table `power_evidence` (migration `0021`, no free text): level `rumour` | `informal_opinion` | `application_filed` |
