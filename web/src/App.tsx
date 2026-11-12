@@ -16,6 +16,7 @@ import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { PolaczClaudePage } from "@/pages/PolaczClaudePage";
 import { PowiatyPage } from "@/pages/PowiatyPage";
+import { RtbPage } from "@/pages/RtbPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { SprawdzDzialkePage } from "@/pages/SprawdzDzialkePage";
 import { SiteCardPage } from "@/pages/SiteCardPage";
@@ -37,6 +38,8 @@ export function AppRoutes() {
       <Route path="logowanie" element={<LoginPage />} />
       <Route element={<RequireAuth />}>
       <Route path="polacz-claude" element={<PolaczClaudePage />} />
+      {/* Outside the app shell: the annex is printed, so it carries no navigation. */}
+      <Route path="lokalizacje/:siteId/rtb" element={<RtbPage />} />
       <Route element={<AppShell />}>
         <Route index element={<HomePage />} />
         <Route

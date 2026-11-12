@@ -189,3 +189,21 @@
   cursor: pointer;
   font: inherit;
 }
+
+/* The RTB annex is printed to PDF on A4: no scroll heights, paper colours, no browser headers' margins. */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  html,
+  body,
+  #root {
+    height: auto;
+    background: #fff;
+  }
+  .rtb-page {
+    color: #000;
+    background: #fff;
+  }
+}

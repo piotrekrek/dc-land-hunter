@@ -79,6 +79,7 @@ const detail: SiteDetail = {
   geometry: { type: "Polygon", coordinates: [] },
   map: { origin_2180: [640000, 490000], bbox_m: [-100, -100, 100, 100], parcel: [[[-50, -40], [50, -40], [50, 40], [-50, 40]]] },
   watched: false,
+  power_evidence: { level: "rumour", recorded: false },
 };
 
 afterEach(() => vi.restoreAllMocks());
@@ -126,6 +127,14 @@ describe("SiteCardPage", () => {
     renderCard("/lokalizacje/site-a");
     const link = await screen.findByRole("link", { name: "Sprawdź te działki z aktualnymi danymi" });
     expect(link).toHaveAttribute("href", `/sprawdz-dzialke?q=${encodeURIComponent("1\n2")}`);
+  });
+
+  it("links to the RTB annex and carries the power evidence editor", async () => {
+    mockFetch({ "/api/sites/site-a": detail });
+    renderCard("/lokalizacje/site-a");
+    const link = await screen.findByRole("link", { name: "Aneks RTB" });
+    expect(link).toHaveAttribute("href", "/lokalizacje/site-a/rtb");
+    expect(screen.getByTestId("power-evidence")).toHaveTextContent("Plotka (nic nie wpisano)");
   });
 
   it("offers the check for a single parcel in the singular", async () => {

@@ -27,6 +27,7 @@ READ_ONLY = ToolAnnotations(
 
 MAX_SITES = 50  # the routers' own cap is 200; a page that big would fill Claude's context
 SITE_DETAIL_DROPPED = {"geometry", "map", "project_note"}
+POWER_EVIDENCE_SHARED = ("level", "document_date", "conditions_expiry", "recorded")
 MAX_CARDS = 10  # a full card is several KB
 MAX_COMPARE = 8
 HTTP_NOT_FOUND = 404
@@ -176,7 +177,9 @@ def register(mcp: FastMCP, public_url: str) -> None:
         ] = None,
     ) -> dict[str, Any]:
         """One site's card: score breakdown, both profile verdicts with blockers, and every fact with its
-        source, date and confidence (verified, estimated or missing). With `site_ids` it returns
+        source, date and confidence (verified, estimated or missing), and `power_evidence.level`: how
+        firmly the power is documented (rumour, informal_opinion, application_filed, conditions_issued,
+        agreement_signed; typed in by the team, read only). With `site_ids` it returns
         `{sites: [...cards], not_found: [...]}`; to compare sites side by side use `compare_sites`."""
         if (site_id is None) == (site_ids is None):
             raise ToolError("Podaj site_id albo site_ids (jedno z dwóch).")
@@ -184,6 +187,9 @@ def register(mcp: FastMCP, public_url: str) -> None:
         def card(session: Any, user: Any, one: str) -> dict[str, Any]:
             detail = sites.get_site(one, session, user)
             out = detail.model_dump(mode="json", exclude=SITE_DETAIL_DROPPED)
+            # Read only, and without the document link: it may point at a private file.
+            evidence = out["power_evidence"]
+            out["power_evidence"] = {k: evidence[k] for k in POWER_EVIDENCE_SHARED}
             return {**out, "url": site_url(public_url, one)}
 
         if site_id is not None:
