@@ -12,8 +12,9 @@ its layer unloaded, so its facts stay missing in the scores, never zero.
 
 from __future__ import annotations
 
+import csv
 import logging
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from dclh_pipeline.model.capacity import build_gpz_capacity_layer, build_point_l
 from dclh_pipeline.model.features import GpzCapacityLayer, PointLayer, Substation
 from dclh_pipeline.model.gpz_match import MatchResult, gpz_candidates, node_candidates, station_points
 from dclh_pipeline.model.grid import OPERATOR_LIST_MATCH, ClassSource, StationClass, SubstationClass
+from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.settings import REPO_ROOT
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
 from dclh_pipeline.sources.energa import EnergaConnector
@@ -33,6 +35,7 @@ from dclh_pipeline.sources.tauron import TauronConnector
 log = logging.getLogger(__name__)
 
 GPZ_MAPPING = REPO_ROOT / "data" / "manual" / "gpz_mapping.csv"
+STATION_CLASS_OVERRIDES = REPO_ROOT / "data" / "manual" / "station_class.csv"
 DSO_SOURCES = ("enea", "energa", "tauron")
 
 
@@ -74,6 +77,42 @@ def upgrade_listed_stations(
             class_confidence=OPERATOR_LIST_MATCH.confidence,
         )
         if s.osm_id in listed and s.cls is SubstationClass.GPZ_110_SN
+        else s
+        for s in substations
+    ]
+
+
+def load_station_class_overrides(path: Path = STATION_CLASS_OVERRIDES) -> dict[int, StationClass]:
+    """OSM id -> station class from the owner's hand-kept file (`#` lines are comments). No file: none.
+
+    For a station no tag or list settles, e.g. Enea's GPZ Rzepin: Enea publishes no list that names it.
+    """
+    if not path.is_file():
+        return {}
+    lines = [
+        ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip() and not ln.startswith("#")
+    ]
+    return {int(row["osm_id"]): StationClass(row["station_class"].strip()) for row in csv.DictReader(lines)}
+
+
+def apply_station_class_overrides(
+    substations: Sequence[Substation], overrides: Mapping[int, StationClass]
+) -> list[Substation]:
+    """The owner's word wins over tags and lists: class from the file, source `manual`, verified.
+
+    An id that is not among the stations is logged, not raised: a test grid or a trimmed extract lacks it.
+    """
+    missing = set(overrides) - {s.osm_id for s in substations}
+    if missing:
+        log.warning("station_class.csv: OSM ids %s are not among the loaded substations", sorted(missing))
+    return [
+        replace(
+            s,
+            station_class=overrides[s.osm_id],
+            class_source=ClassSource.MANUAL,
+            class_confidence=Confidence.VERIFIED,
+        )
+        if s.osm_id in overrides
         else s
         for s in substations
     ]

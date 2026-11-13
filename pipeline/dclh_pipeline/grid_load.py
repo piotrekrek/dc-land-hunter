@@ -19,6 +19,7 @@ from shapely import wkb
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from dclh_pipeline.grid_capacity import apply_station_class_overrides, load_station_class_overrides
 from dclh_pipeline.model.features import Line, Substation
 from dclh_pipeline.model.grid import V_110, SubstationClass, derive_operator, is_foreign_operator
 from dclh_pipeline.model.provenance import Confidence
@@ -100,6 +101,8 @@ def load_grid(session: Session, table: gpd.GeoDataFrame, *, as_of: datetime | No
     A failure part-way leaves the previous rows in place once the caller rolls back.
     """
     substations, lines = to_grid(table)
+    # The owner's hand-kept classes, so the map popup and MCP agree with the scores (layers.py).
+    substations = apply_station_class_overrides(substations, load_station_class_overrides())
     kept_subs = [s for s in substations if s.cls in LOADED_CLASSES]
     kept_lines = [
         ln

@@ -48,6 +48,7 @@ const CLASS_SOURCE_LABELS: Record<string, string> = {
   osm_substation_tag: "tag substation w OSM",
   name_pattern: "wzorzec nazwy",
   operator_list: "lista OSD",
+  manual: "ręcznie (decyzja właściciela)",
 };
 
 const DSO_LABELS: Record<string, string> = {

@@ -26,7 +26,13 @@ from shapely import box
 from shapely.geometry.base import BaseGeometry
 
 from dclh_pipeline.config import ScoringConfig, SourcesConfig
-from dclh_pipeline.grid_capacity import GridCapacity, load_grid_capacity, upgrade_listed_stations
+from dclh_pipeline.grid_capacity import (
+    GridCapacity,
+    apply_station_class_overrides,
+    load_grid_capacity,
+    load_station_class_overrides,
+    upgrade_listed_stations,
+)
 from dclh_pipeline.http import PoliteClient
 from dclh_pipeline.model.features import (
     POWERED_BROWNFIELD_NEAR_M,
@@ -147,6 +153,8 @@ def load_static_layers(
     # They come before the grid index: a station a DSO list names is an operator GPZ (verified).
     grid_capacity = load_grid_capacity(store, config, substations, cfg)
     substations = upgrade_listed_stations(substations, grid_capacity.results)
+    # The owner's hand-kept classes come last: they beat tags and lists.
+    substations = apply_station_class_overrides(substations, load_station_class_overrides())
     grid = build_grid_index(substations, lines, as_of=osm_snapshot.fetched_at, source_id="osm_power")
     # Gas pipelines and runways from the same extract: estimated proxies, no public source exists.
     infra = read_infra(osm_snapshot.path)
