@@ -66,6 +66,8 @@ def serve(members: list[str], *, matched: int | None = None, seen: list[dict[str
         params = dict(request.url.params)
         if seen is not None:
             seen.append(params)
+        if params.get("resultType") == "hits":
+            return httpx.Response(200, content=page([], total))
         start, count = int(params["startIndex"]), int(params["count"])
         return httpx.Response(200, content=page(members[start : start + count], total))
 
@@ -75,7 +77,7 @@ def serve(members: list[str], *, matched: int | None = None, seen: list[dict[str
 # --------------------------------------------------------------------------- the connector
 
 
-def test_the_register_is_paged_nationwide_and_kept_without_geometry(
+def test_the_register_is_asked_in_tiles_and_kept_without_geometry(
     tmp_path: Path, make_client: ClientFactory
 ) -> None:
     members = [act(f"{i:06d}") for i in range(1, 24)] + [act("300101", "elaboration")]
@@ -83,8 +85,11 @@ def test_the_register_is_paged_nationwide_and_kept_without_geometry(
     connector = RuActRegisterConnector(SPEC)
     snapshot = connector.fetch(make_client(serve(members, seen=seen)), SnapshotStore(tmp_path))
 
-    assert [p["startIndex"] for p in seen] == ["0", "10", "20"]
-    assert all("bbox" not in p for p in seen)  # the whole country, not a search area
+    pages = [p for p in seen if "resultType" not in p]
+    # Deep offsets time out on the live service, so every page is asked inside a tile; an act that comes back
+    # from several tiles is kept once.
+    assert all("bbox" in p and int(p["startIndex"]) <= 20 for p in pages)
+    assert len({p["bbox"] for p in pages}) == 56 and len(seen) == len(pages) + 1
     assert b"posList" not in snapshot.path.read_bytes()
     table = connector.parse(snapshot)
     assert len(table) == 24
@@ -114,8 +119,8 @@ def test_a_short_answer_fails_instead_of_calling_the_missing_gminas_planless(
     tmp_path: Path, make_client: ClientFactory
 ) -> None:
     members = [act(f"{i:06d}") for i in range(1, 6)]
-    with pytest.raises(ValueError, match="5 of 9"):
-        RuActRegisterConnector(SPEC).fetch(make_client(serve(members, matched=9)), SnapshotStore(tmp_path))
+    with pytest.raises(ValueError, match="5 of 15"):
+        RuActRegisterConnector(SPEC).fetch(make_client(serve(members, matched=15)), SnapshotStore(tmp_path))
 
 
 def test_an_act_without_a_gmina_code_fails(tmp_path: Path, make_client: ClientFactory) -> None:
@@ -237,6 +242,8 @@ def refusing(members: list[str], broken: set[int]):  # type: ignore[no-untyped-d
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/robots.txt":
             return httpx.Response(404)
+        if "resultType" in request.url.params:
+            return inner(request)
         start, count = int(request.url.params["startIndex"]), int(request.url.params["count"])
         if broken & set(range(start, start + count)):
             return httpx.Response(400, content=b"Invalid request")
@@ -266,7 +273,7 @@ def test_a_refused_act_on_the_last_page_does_not_count_the_indexes_past_the_end(
 
 def test_too_many_refused_acts_fail_the_fetch(tmp_path: Path, make_client: ClientFactory) -> None:
     members = [act(f"{i:06d}") for i in range(1, 26)]
-    with pytest.raises(ValueError, match="refused"):
+    with pytest.raises(ValueError, match="19 of 25"):
         RuActRegisterConnector(SPEC).fetch(
             make_client(refusing(members, {10, 11, 12, 13, 14, 15})), SnapshotStore(tmp_path)
         )

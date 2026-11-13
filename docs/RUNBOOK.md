@@ -196,7 +196,7 @@ register's nationwide act list, which nothing refreshes on a schedule yet. Refre
 reprofile:
 
 ```bash
-uv run dclh fetch ru_acts    # about 80 requests and 35 minutes; keeps a small JSON, not the plan extents
+uv run dclh fetch ru_acts    # about 10 minutes (56 tiles); keeps a small JSON, not the plan extents
 uv run dclh reprofile
 ```
 

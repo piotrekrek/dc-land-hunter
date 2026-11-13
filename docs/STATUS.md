@@ -6,8 +6,9 @@
   31.08.2026 deadline a gmina with no plan ogólny issues no WZ decision and adopts no new or changed MPZP, so a plot
   there with no MPZP is frozen until the gmina adopts its plan. That is a different case from "the plan was not read".
 - **New source `ru_acts`:** the register's nationwide list of plan ogólny acts (`RuActRegisterConnector` in
-  `sources/ru.py`; 786 acts on 13.11.2026, `docs/SOURCES.md`). `dclh fetch ru_acts` takes about 35 minutes and keeps
-  a small JSON (gmina, status, title, date), not the extents.
+  `sources/ru.py`, `docs/SOURCES.md`). On 13.11.2026: 789 acts, **504 in force** (245 in preparation, 39 at adoption).
+  `dclh fetch ru_acts` asks the country in 100 km tiles (deep paging times out), takes about 10 minutes and keeps a
+  small JSON (gmina, status, title, date), not the extents.
 - **New fact `gmina_plan_ogolny`** (`in_force` verified | `none` estimated), by the six TERYT digits of the site's
   first parcel. A search stores it with the site; `dclh reprofile` reads the latest list for every stored site (into
   the verdict only, the stored features are not rewritten: that would cost about 1 GB of disk).
@@ -15,6 +16,9 @@
   blocking "to check" item of a site with no plan found now says either that the gmina has no plan ogólny (no WZ, no
   new or changed MPZP; ask the gmina about an MPZP and the plan's date) or that the gmina has a plan and only the
   zone was not read. With no act list fetched the old text stays.
+- **Measured on production (13.11.2026, kept 10 ha+ sites):** of the 13,757 "do weryfikacji" built sites, 13,288 lie
+  in 401 gminas with no plan ogólny in force (frozen unless an MPZP exists) and 469 in gminas that have one (the zone
+  was not read, mostly because the plan is newer than the search: search those powiats again).
 - **Not done:** no scheduled refresh of the list (by hand, RUNBOOK); no list filter or map layer for frozen gminas;
   the site card's "Ścieżka planistyczna" block does not show the fact; a site spanning two gminas takes the gmina of
   its first parcel; a draft plan's stage (elaboration, adoption) is in the snapshot but not used. After 30.11.2026 the

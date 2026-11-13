@@ -23,13 +23,15 @@ file or calling the endpoint, as described here.
 ### Hard filters and zoning
 
 - **`ru_acts` nationwide plan ogólny act list ✓ (13.11.2026, live from the VPS).** `app-pog/wfs`,
-  `app-pog:AktPlanowaniaPrzestrzennego` with no bbox: `resultType=hits` answered `numberMatched="786"`, close to the
-  783 to 877 gminas with a plan that the press reported after the 31.08.2026 deadline. The gmina is in the act's
-  `przestrzenNazw` (`PL.ZIPPZP.10434/080504-POG`: the first six TERYT digits). Ten acts per request like the other
-  RU layers; `propertyName` is refused ("Requested property … is not available"), so every act comes with its extent
-  (up to 0.5 MB each, about 25 s per page): a full fetch is about 80 requests and 35 minutes, and the snapshot keeps
-  only `teryt`, `status`, `tytul` and `obowiazujeOd` as JSON. The page at `startIndex=570` answers 400 "Bad Request"
-  (one broken act), so the connector asks that page one act at a time and skips what still fails (at most 5).
+  `app-pog:AktPlanowaniaPrzestrzennego`. `resultType=hits` with no bbox answers the nationwide count (789). The gmina
+  is in the act's `przestrzenNazw` (`PL.ZIPPZP.10434/080504-POG`: the first six TERYT digits). **The list cannot be
+  paged as one:** past about `startIndex=570` the service times out (504, or 400 "Invalid request" after 40 s), so
+  the connector asks the country in 100 km tiles (56 tiles, at most about 50 acts each, ten per request), tells acts
+  apart by `gml:id` and checks the total against the nationwide count. `propertyName` is refused, so every act
+  comes with its extent (up to 2 MB); the snapshot keeps only `teryt`, `status`, `tytul` and `obowiazujeOd` as JSON
+  (95 KB). First full run: 9 minutes, 788 of 789 acts (one refused), **504 in force, 245 in `elaboration`, 39 in
+  `adoption`**, 782 distinct gminas. So about 500 of 2,479 gminas have a plan ogólny in force in the register, fewer
+  than the 783 to 877 the press counted after the 31.08.2026 deadline (those counts include drafts).
 
 - **`ru` OUZ, plan act and zone parameters ✓ (11.11.2026, live from Poland, gm. Rzepin 080504).** `app-pog/wfs`
   GetCapabilities lists six layers: `app-pog:AktPlanowaniaPrzestrzennego`, `DokumentFormalny`,

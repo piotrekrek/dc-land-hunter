@@ -322,7 +322,11 @@ class RuMpzpConnector(_RuWfs):
     }
 
 
-MAX_ACTS_SKIPPED = 5  # acts the server refuses before the fetch fails; each one hides a gmina's plan
+MAX_ACTS_SKIPPED = 5  # acts missing against the nationwide count before the fetch fails
+# Poland in EPSG:2180 (easting, northing), with a margin, and the side of the tiles the act list is asked in.
+POLAND_BBOX: BBox = (140_000.0, 100_000.0, 900_000.0, 800_000.0)
+ACT_TILE_M = 100_000.0
+_ACT_ID = re.compile(r'gml:id="([^"]+)"')
 _POS_LIST = re.compile(rb"<gml:posList[^>]*>[^<]*</gml:posList>")
 _ACT_GMINA = re.compile(r"<app-pog:przestrzenNazw>[^<]*/(\d{6})-POG</")
 _ACT_STATUS = re.compile(r'<app-pog:status\s[^>]*xlink:href="[^"]*/([^"/]+)"')
@@ -333,11 +337,14 @@ _ACT_FROM = re.compile(r"<app-pog:obowiazujeOd>([^<]*)</")
 class RuActRegisterConnector(Source):
     """Every plan ogólny act in the register, nationwide: which gminas have a plan and its status.
 
-    Checked live 13.11.2026: 786 acts, ten per request, no bbox needed. The service cannot leave the extent
-    out (`propertyName` is refused) and an act weighs up to 0.5 MB, so the snapshot keeps only the attributes
+    Checked live 13.11.2026: 786 acts. One list over the whole country cannot be paged: past about
+    `startIndex=570` the service times out (504, or 400 "Invalid request" after 40 s). So the country is asked
+    in 100 km tiles, acts are told apart by `gml:id`, and the total is checked
+    against the service's own nationwide count (`resultType=hits`). The service cannot leave the extent out
+    (`propertyName` is refused) and an act weighs up to 2 MB, so the snapshot keeps only the attributes
     (`teryt` = the six digits in `przestrzenNazw`, e.g. `PL.ZIPPZP.10434/080504-POG`; `status`; `tytul`;
-    `obowiazujeOd`) as JSON. A short answer fails the fetch: a gmina missing from the list would read as
-    "no plan". A few acts the server refuses are skipped with a warning (`MAX_ACTS_SKIPPED`).
+    `obowiazujeOd`) as JSON. A gmina missing from the list would read as "no plan", so the fetch fails when
+    more than `MAX_ACTS_SKIPPED` acts are missing.
     """
 
     id: ClassVar[str] = "ru_acts"
@@ -346,57 +353,57 @@ class RuActRegisterConnector(Source):
     columns: ClassVar[tuple[str, ...]] = ("teryt", "status", "title", "in_force_from")
 
     def fetch(self, client: PoliteClient, store: SnapshotStore) -> Snapshot:
-        acts: list[dict[str, str]] = []
-        start, matched, skipped = 0, None, 0
-        for _ in range(MAX_PAGES):
-            body = self._page(client, start, PAGE_SIZE)
-            if body is not None:
-                matched, returned = _counts(body)
-                acts += _act_rows(body)
-                start += returned
-                if returned == 0 or start >= matched:
+        acts: dict[str, dict[str, str]] = {}  # by gml:id: an act on a tile edge comes back from both tiles
+        for tile in tiles(POLAND_BBOX, ACT_TILE_M):
+            start, matched = 0, None
+            for _ in range(MAX_PAGES):
+                body = self._get(client, getfeature_params(self.layer, tile, start=start, count=PAGE_SIZE))
+                if body is not None:
+                    matched, returned = _counts(body)
+                    acts.update(_act_rows(body))
+                    start += returned
+                    if returned == 0 or start >= matched:
+                        break
+                    continue
+                # A refused page: ask for it one act at a time and keep what answers.
+                for i in range(start, start + PAGE_SIZE):
+                    if matched is not None and i >= matched:
+                        break
+                    one = self._get(client, getfeature_params(self.layer, tile, start=i, count=1))
+                    if one is not None:
+                        matched = _counts(one)[0]
+                        acts.update(_act_rows(one))
+                start += PAGE_SIZE
+                if matched is None:
+                    raise ValueError(f"RU: no answer for plan acts in tile {tile}; the list is incomplete")
+                if start >= matched:
                     break
-                continue
-            # The server refuses a whole page when one act on it is broken (13.11.2026: the page at 570).
-            # Ask for that page one act at a time and skip only the acts that still fail.
-            for i in range(start, start + PAGE_SIZE):
-                if matched is not None and i >= matched:
-                    break  # past the end of the list
-                one = self._page(client, i, 1)
-                if one is None:
-                    skipped += 1
-                else:
-                    matched = _counts(one)[0]
-                    acts += _act_rows(one)
-            start += PAGE_SIZE
-            if matched is None or skipped > MAX_ACTS_SKIPPED:
-                raise ValueError(f"RU: the server refused {skipped} plan acts; the list is incomplete")
-            if start >= matched:
-                break
-        if matched is None or len(acts) + skipped != matched:
-            raise ValueError(f"RU: got {len(acts)} of {matched} plan acts; the list is incomplete")
-        if skipped:
-            log.warning("RU: %d of %d plan acts refused; their gminas read as planless", skipped, matched)
-        content = json.dumps(acts, ensure_ascii=False, indent=0).encode()
+        hits = self._get(
+            client,
+            {"service": "WFS", "version": "2.0.0", "request": "GetFeature", "typeNames": self.layer,
+             "resultType": "hits"},
+        )  # fmt: skip
+        if hits is None:
+            raise ValueError("RU: no nationwide count of plan acts; cannot check the list is complete")
+        total = _counts(hits)[0]
+        if total - len(acts) > MAX_ACTS_SKIPPED:
+            raise ValueError(f"RU: got {len(acts)} of {total} plan acts; the list is incomplete")
+        if len(acts) < total:
+            log.warning(
+                "RU: got %d of %d plan acts; the gminas of the rest read as planless", len(acts), total
+            )
+        content = json.dumps([acts[k] for k in sorted(acts)], ensure_ascii=False, indent=0).encode()
         return store.save(self.id, content, suffix=".json", url=self.url, content_type="application/json")
 
-    def _page(self, client: PoliteClient, start: int, count: int) -> bytes | None:
+    def _get(self, client: PoliteClient, params: dict[str, str | int]) -> bytes | None:
         """One answer, or None when the server refuses it (400) or keeps failing on it (5xx, timeouts)."""
-        params: dict[str, str | int] = {
-            "service": "WFS",
-            "version": "2.0.0",
-            "request": "GetFeature",
-            "typeNames": self.layer,
-            "count": count,
-            "startIndex": start,
-        }
         try:
             resp = client.get(self.url, params=params)
         except httpx.TransportError as exc:
-            log.warning("RU acts: %s at startIndex %d, count %d", type(exc).__name__, start, count)
+            log.warning("RU acts: %s for %s", type(exc).__name__, params)
             return None
         if resp.status_code == 400 or resp.status_code >= 500:
-            log.warning("RU acts: HTTP %d at startIndex %d, count %d", resp.status_code, start, count)
+            log.warning("RU acts: HTTP %d for %s", resp.status_code, params)
             return None
         resp.raise_for_status()
         if b"ExceptionReport" in resp.content[:2000]:
@@ -418,13 +425,19 @@ def load_plan_register(store: SnapshotStore, spec: SourceSpec) -> PlanRegister |
     return build_plan_register(RuActRegisterConnector(spec).parse(snapshot), snapshot.fetched_at)
 
 
-def _act_rows(body: bytes) -> list[dict[str, str]]:
-    return [_act_row(member) for member in body.split(b"<wfs:member>")[1:]]
+def _act_rows(body: bytes) -> dict[str, dict[str, str]]:
+    """gml:id → attributes for every act in one answer; the extent (most of the bytes) is dropped first."""
+    rows: dict[str, dict[str, str]] = {}
+    for member in body.split(b"<wfs:member>")[1:]:
+        text = _POS_LIST.sub(b"", member).decode()
+        gml_id = _ACT_ID.search(text)
+        if gml_id is None:
+            raise ValueError(f"RU: a plan act has no gml:id: {text[:300]!r}")
+        rows[gml_id.group(1)] = _act_row(text)
+    return rows
 
 
-def _act_row(member: bytes) -> dict[str, str]:
-    """The attributes of one act; the extent (most of the bytes) is dropped first."""
-    text = _POS_LIST.sub(b"", member).decode()
+def _act_row(text: str) -> dict[str, str]:
     gmina, status = _ACT_GMINA.search(text), _ACT_STATUS.search(text)
     if gmina is None or status is None:
         raise ValueError(f"RU: a plan act has no gmina code or status: {text[:300]!r}")

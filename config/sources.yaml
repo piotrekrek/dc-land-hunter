@@ -82,7 +82,7 @@ sources:
     plan: mvp
     cadence: weekly
     licence_expected: "Do ustalenia (dane publiczne, APP)"
-    notes: "Cała Polska, ok. 790 aktów; `dclh fetch ru_acts`, potem `dclh reprofile`. Brak gminy na liście = 'brak planu' (szacowane)."
+    notes: "Cała Polska kaflami 100 km, ok. 790 aktów (ok. 500 obowiązujących); `dclh fetch ru_acts`, potem `dclh reprofile`. Brak gminy na liście = 'brak planu' (szacowane)."
     probes:
       - {kind: ogc, service: WFS, url: "https://rejestr-urbanistyczny.gov.pl/uslugi-sieciowe/app-pog/wfs"}
 
