@@ -12,7 +12,7 @@ browser for the sources whose data sits behind a form or in a file. Raw samples:
 
 | Status | Count | Sources |
 |---|---|---|
-| ✓ | 19 | `prg`, `osm_power`, `osm_land`, `bdot10k`, `ru`, `kimpzp`, `egib`, `uldk`, `kiug`, `gdos`, `isok`, `midas`, `pse_closed`, `pse_odb`, `pse_avail`, `energa`, `tauron`, `psi`, `heat` |
+| ✓ | 20 | `prg`, `osm_power`, `osm_land`, `bdot10k`, `ru`, `ru_acts`, `kimpzp`, `egib`, `uldk`, `kiug`, `gdos`, `isok`, `midas`, `pse_closed`, `pse_odb`, `pse_avail`, `energa`, `tauron`, `psi`, `heat` |
 | ⚠ | 2 | `uke` (lead only); `nid` (endpoint reachable, but no geometry to filter on, see Hard filters below: not loaded) |
 | – | 2 | `invest_offers`: manual CSV import by design; `enea`: manual CSV only (owner decision 19.10.2026) |
 
@@ -21,6 +21,17 @@ browser for the sources whose data sits behind a form or in a file. Raw samples:
 file or calling the endpoint, as described here.
 
 ### Hard filters and zoning
+
+- **`ru_acts` nationwide plan ogólny act list ✓ (13.11.2026, live from the VPS).** `app-pog/wfs`,
+  `app-pog:AktPlanowaniaPrzestrzennego`. `resultType=hits` with no bbox answers the nationwide count (789). The gmina
+  is in the act's `przestrzenNazw` (`PL.ZIPPZP.10434/080504-POG`: the first six TERYT digits). **The list cannot be
+  paged as one:** past about `startIndex=570` the service times out (504, or 400 "Invalid request" after 40 s), so
+  the connector asks the country in 100 km tiles (56 tiles, at most about 50 acts each, ten per request), tells acts
+  apart by `gml:id` and checks the total against the nationwide count. `propertyName` is refused, so every act
+  comes with its extent (up to 2 MB); the snapshot keeps only `teryt`, `status`, `tytul` and `obowiazujeOd` as JSON
+  (95 KB). First full run: 9 minutes, 788 of 789 acts (one refused), **504 in force, 245 in `elaboration`, 39 in
+  `adoption`**, 782 distinct gminas. So about 500 of 2,479 gminas have a plan ogólny in force in the register, fewer
+  than the 783 to 877 the press counted after the 31.08.2026 deadline (those counts include drafts).
 
 - **`ru` OUZ, plan act and zone parameters ✓ (11.11.2026, live from Poland, gm. Rzepin 080504).** `app-pog/wfs`
   GetCapabilities lists six layers: `app-pog:AktPlanowaniaPrzestrzennego`, `DokumentFormalny`,

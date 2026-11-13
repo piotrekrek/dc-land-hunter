@@ -76,6 +76,16 @@ sources:
       - {kind: ogc, service: WFS, url: "https://rejestr-urbanistyczny.gov.pl/uslugi-sieciowe/app-pog/wfs"}
       - {kind: ogc, service: WFS, url: "https://rejestr-urbanistyczny.gov.pl/uslugi-sieciowe/app-mpzp/wfs"}
 
+  - id: ru_acts
+    name: Rejestr Urbanistyczny – lista planów ogólnych
+    used_for: Czy gmina ma obowiązujący plan ogólny (bez niego brak WZ i nowych MPZP)
+    plan: mvp
+    cadence: weekly
+    licence_expected: "Do ustalenia (dane publiczne, APP)"
+    notes: "Cała Polska kaflami 100 km, ok. 790 aktów (ok. 500 obowiązujących); `dclh fetch ru_acts`, potem `dclh reprofile`. Brak gminy na liście = 'brak planu' (szacowane)."
+    probes:
+      - {kind: ogc, service: WFS, url: "https://rejestr-urbanistyczny.gov.pl/uslugi-sieciowe/app-pog/wfs"}
+
   - id: kimpzp
     name: KIMPZP – Krajowa Integracja MPZP
     used_for: Przeznaczenie terenu (fallback, często raster)

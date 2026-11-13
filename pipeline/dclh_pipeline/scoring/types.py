@@ -23,6 +23,8 @@ PATH_MPZP_IN_FORCE = "mpzp_in_force"  # MPZP obowiązuje
 PATH_MPZP_OR_ZPI = "mpzp_or_zpi"  # potrzebny MPZP lub ZPI (outside the OUZ, no MPZP)
 PATH_WZ_POSSIBLE = "wz_possible"  # WZ możliwa (inside the OUZ, no MPZP)
 IN_OUZ_YES, IN_OUZ_NO, IN_OUZ_PARTIAL = "yes", "no", "partial"
+# `SiteFeatures.gmina_plan_ogolny`: does the site's gmina have a plan ogólny in force (the RU act list).
+GMINA_PLAN_IN_FORCE, GMINA_PLAN_NONE = "in_force", "none"
 
 
 class GridBadge(StrEnum):
@@ -76,6 +78,8 @@ class SiteFeatures:
     planning_path: Fact[str] | None = None  # mpzp_in_force | mpzp_or_zpi | wz_possible
     plan_ogolny_act: Fact[str] | None = None  # resolution number, e.g. "XXXIV/224/2026"
     plan_ogolny_from: Fact[str] | None = None  # ISO date the plan takes effect
+    # in_force | none, from the nationwide act list (`ru_acts`); missing = the list was never fetched.
+    gmina_plan_ogolny: Fact[str] | None = None
     zone_max_height_m: Fact[float] | None = None
     zone_max_build_up_pct: Fact[float] | None = None
     zone_min_pbc_pct: Fact[float] | None = None

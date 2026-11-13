@@ -24,7 +24,7 @@ from dclh_pipeline.model.grid import (
     SubstationClass,
     is_foreign_operator,
 )
-from dclh_pipeline.model.planning import PlanOgolnyLayer, planning_facts
+from dclh_pipeline.model.planning import PlanOgolnyLayer, PlanRegister, gmina_plan_fact, planning_facts
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.psi import PsiLayer, psi_points_fact
 from dclh_pipeline.model.sites import Site
@@ -601,6 +601,7 @@ class SiteLayers:
     grid: GridIndex | None = None
     zoning: tuple[ZoningLayer, ...] = ()  # in order of precedence, see `zoning_fact`
     plan_ogolny: PlanOgolnyLayer | None = None  # OUZ, plan acts and zone parameters (RU)
+    plan_register: PlanRegister | None = None  # gminas with a plan ogólny in force (RU act list)
     industrial: Layer | None = None  # OSM / BDOT10k industrial and brownfield areas
     residential: Layer | None = None  # residential buildings
     roads: Layer | None = None  # public roads (BDOT10k lines)
@@ -653,6 +654,8 @@ def build_site_features(
             mpzp_from_kimpzp=features["zoning"] is not None and features["zoning"].source_id == "kimpzp",
         )
     )
+    if site.parcel_ids:
+        features["gmina_plan_ogolny"] = gmina_plan_fact(site.parcel_ids[0], layers.plan_register)
     features["residential_min_m"] = residential_fact(site.geom, layers.residential)
     features["dist_public_road_m"] = public_road_fact(site.geom, layers.roads)
     features["residential_clear_ha"] = residential_clear_fact(

@@ -119,6 +119,12 @@ or a low soft score) or **manual** (a missing answer decides it, mostly the zoni
   `droga wewnętrzna`). Up to 25 m it is a plus; up to 300 m it is listed with the distance and the easement question;
   beyond that it caps the result at yellow. It never rejects a plot (the legal right to use a road is a land-register
   question), and with no road measured the old manual wording stays.
+- **Plan ogólny of the gmina** (`gmina_plan_ogolny`: `in_force` | `none`, source `ru_acts`, the register's nationwide
+  act list): when no plan was found for a site, the "to check" text says which case it is. `none`: the gmina has no plan
+  ogólny, so without an MPZP in force there is no WZ decision and no new or changed MPZP until the gmina adopts one
+  (the plot is frozen). `in_force`: the gmina has a plan, only the site's zone was not read. Both stay "do
+  weryfikacji": an old MPZP may be missing from the register (incomplete until 30.11.2026), so "none" is `estimated`
+  and never a blocker. The gmina is taken from the site's first parcel id (six TERYT digits).
 - **To check** is always shown: closed areas (MON), MPZP text (container and temporary-structure bans,
   minimum intensity and height), land register. A plan ogólny zone caps the result at yellow until OUZ is confirmed.
 - Not covered yet because no data feeds it: the raw MPZP symbol, MPZP text parsing, OUZ, closed areas,

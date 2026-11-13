@@ -16,6 +16,7 @@ from dclh_pipeline.config import ProfilesConfig, ProfileSpec
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.scoring.engine import ramp_down
 from dclh_pipeline.scoring.types import (
+    GMINA_PLAN_IN_FORCE,
     IN_OUZ_PARTIAL,
     PATH_MPZP_OR_ZPI,
     Fact,
@@ -205,10 +206,7 @@ def profile_verdict(f: SiteFeatures, name: str, cfg: ProfilesConfig) -> ProfileV
                 )
             )
     else:  # unknown, plan in procedure, or no zoning fact at all
-        where = "MPZP i plan ogólny" if f.in_ouz is not None else "MPZP, plan ogólny i OUZ"
-        to_check.append(
-            ToCheck("zoning", f"Brak planu miejscowego w rejestrze: sprawdź {where} w gminie", True)
-        )
+        to_check.append(ToCheck("zoning", _no_plan_text(f), True))
 
     # --- planning path after the plan ogólny reform (facts exist only where the register has the plan)
     if f.planning_path is not None and f.planning_path.value == PATH_MPZP_OR_ZPI:
@@ -285,6 +283,27 @@ def profile_verdict(f: SiteFeatures, name: str, cfg: ProfilesConfig) -> ProfileV
     else:
         category = Category.RED
     return ProfileVerdict(name, category, round(score, 1), blockers, to_check, positives[:3])
+
+
+def _no_plan_text(f: SiteFeatures) -> str:
+    """What to check when no plan was found for the site. The gmina's plan ogólny decides how bad that is:
+    without one the plot is frozen (no WZ, no new or changed MPZP) until the gmina adopts it. It stays "to
+    check" and never blocks: an old MPZP may be missing from the register (incomplete until 30.11.2026)."""
+    gmina = f.gmina_plan_ogolny
+    if gmina is None:
+        where = "MPZP i plan ogólny" if f.in_ouz is not None else "MPZP, plan ogólny i OUZ"
+        return f"Brak planu miejscowego w rejestrze: sprawdź {where} w gminie"
+    as_of = f" (rejestr, stan na {gmina.as_of:%d.%m.%Y})" if gmina.as_of else ""
+    if gmina.value == GMINA_PLAN_IN_FORCE:
+        return (
+            f"Gmina ma plan ogólny{as_of}, ale strefy działki nie odczytano: "
+            "sprawdź strefę planu ogólnego, OUZ i MPZP w gminie"
+        )
+    return (
+        f"Brak planu miejscowego w rejestrze, a gmina nie ma planu ogólnego{as_of}: bez obowiązującego MPZP "
+        "nie uzyska się dziś decyzji WZ ani nowego lub zmienionego MPZP. Sprawdź w gminie, czy działka ma "
+        "MPZP i kiedy plan ogólny zostanie uchwalony"
+    )
 
 
 def features_from_detail(stored: dict[str, Any]) -> SiteFeatures:
