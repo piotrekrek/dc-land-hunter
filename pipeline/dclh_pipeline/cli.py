@@ -514,6 +514,25 @@ def compact_egib_cmd() -> None:
     console.print(f"spakowano {files} stron EGiB: {gb_before} GB → {gb_after} GB")
 
 
+@app.command("compact-rcn")
+def compact_rcn_cmd() -> None:
+    """Gzip the RCN snapshots stored before they were kept gzipped; not during an RCN import."""
+    from sqlalchemy import text
+
+    from dclh_pipeline.db import session_scope
+
+    with session_scope() as session:
+        busy = session.execute(
+            text("SELECT count(*) FROM jobs WHERE kind = 'import_rcn' AND status IN ('pending', 'running')")
+        ).scalar_one()
+    if busy:
+        console.print("[red]trwa import RCN; uruchom po jego zakończeniu[/red]")
+        raise typer.Exit(1)
+    files, before, after = SnapshotStore(get_settings().raw_dir).compact_objects("rcn", ".json")
+    gb_before, gb_after = (f"{b / 1024**3:.1f}".replace(".", ",") for b in (before, after))
+    console.print(f"spakowano {files} migawek RCN: {gb_before} GB → {gb_after} GB")
+
+
 @app.command("kw-probe")
 def kw_probe_cmd(
     sites: Annotated[int, typer.Option(help="Top sites by score (not excluded) to take parcels from")] = 50,
