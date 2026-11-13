@@ -23,6 +23,7 @@ its centroid.
 
 from __future__ import annotations
 
+import gzip
 import json
 import re
 from datetime import date
@@ -104,6 +105,7 @@ class RcnConnector(Source):
             self.id,
             json.dumps(body, ensure_ascii=False, sort_keys=True).encode(),
             suffix=".json",
+            compress=True,  # about 10x smaller; 267 powiats took 3,3 GB plain (13.11.2026)
             url=WFS_URL,
             content_type="application/json",
         )
@@ -134,7 +136,8 @@ class RcnConnector(Source):
         return None
 
     def parse(self, snapshot: Snapshot) -> gpd.GeoDataFrame:
-        body = json.loads(snapshot.path.read_bytes())
+        raw = snapshot.path.read_bytes()
+        body = json.loads(gzip.decompress(raw) if snapshot.path.suffix == ".gz" else raw)
         return transactions_frame(body["records"])
 
 

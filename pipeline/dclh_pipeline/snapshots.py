@@ -57,7 +57,7 @@ class Snapshot:
             **{
                 **data,
                 "fetched_at": datetime.fromisoformat(data["fetched_at"]),
-                "path": resolve_path(data["path"], root, data["source_id"]),
+                "path": _existing_form(resolve_path(data["path"], root, data["source_id"])),
             }
         )
 
@@ -75,6 +75,12 @@ def resolve_path(stored: str, root: Path, source_id: str) -> Path:
     if source_id in parts:
         return root.joinpath(*parts[len(parts) - 1 - parts[::-1].index(source_id) :])
     return path
+
+
+def _existing_form(path: Path) -> Path:
+    """A manifest names the plain object; after `compact_objects` only `<path>.gz` is on disk."""
+    packed = path.with_name(path.name + ".gz")
+    return packed if not path.exists() and packed.exists() else path
 
 
 def object_path(objects_dir: Path, sha: str, suffix: str) -> Path:
@@ -116,7 +122,13 @@ class SnapshotStore:
         url: str | None = None,
         content_type: str | None = None,
         fetched_at: datetime | None = None,
+        compress: bool = False,
     ) -> Snapshot:
+        """With `compress`, the object is kept as `<sha256><suffix>.gz`; the sha256 is of `content`."""
+        if compress:
+            sha = self.put_object(source_id, content, suffix=suffix, compress=True)
+            target = stored_object(self._source_dir(source_id) / "objects", sha, suffix)
+            return self._record(source_id, sha, target, url, content_type, fetched_at)
         tmp_dir = self._source_dir(source_id) / "tmp"
         tmp_dir.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(dir=tmp_dir, delete=False) as fh:
@@ -138,6 +150,18 @@ class SnapshotStore:
     ) -> Snapshot:
         """Move `file` into the store (large downloads are written to disk first, then saved)."""
         sha, target = self._put_object(source_id, file, suffix)
+        return self._record(source_id, sha, target, url, content_type, fetched_at)
+
+    def _record(
+        self,
+        source_id: str,
+        sha: str,
+        target: Path,
+        url: str | None,
+        content_type: str | None,
+        fetched_at: datetime | None,
+    ) -> Snapshot:
+        """Append the manifest line for an object already in the store."""
         previous = self.latest(source_id)
         snap = Snapshot(
             source_id=source_id,

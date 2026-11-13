@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import json
 from collections.abc import Callable
 from pathlib import Path
@@ -116,7 +117,8 @@ def test_parsed_frame_and_snapshot_hold_no_personal_data(tmp_path: Path, make_cl
     table = connector.parse(snapshot)
     assert FORBIDDEN_COLUMNS.isdisjoint(table.columns)
     assert not set(KEPT_FIELDS.values()) & FORBIDDEN_COLUMNS
-    raw = snapshot.path.read_text()
+    assert snapshot.path.name.endswith(".json.gz")  # kept gzipped (disk, 13.11.2026)
+    raw = gzip.decompress(snapshot.path.read_bytes()).decode()
     for secret in ("NOTARIUSZ", "PRZYKLADOWY", "Rep. A", "2917/2025", "osobaFizyczna"):
         assert secret not in raw
     assert set(json.loads(raw)["records"][0]) <= {*KEPT_FIELDS, "powiat", "tx_date", "version", "x", "y"}
@@ -236,3 +238,10 @@ def test_a_box_that_stays_over_the_limit_after_splitting_is_an_error(
     connector = RcnConnector(SPEC, powiat="0805", bbox=BBOX, page_size=2)
     with pytest.raises(ValueError, match="pages"):
         connector.fetch(make_client(serve_by_bbox(pile, [])), SnapshotStore(tmp_path))
+
+
+def test_a_plain_snapshot_from_before_gzip_still_parses(tmp_path: Path, make_client: ClientFactory) -> None:
+    connector = RcnConnector(SPEC, powiat="0805", bbox=BBOX)
+    packed = connector.fetch(make_client(serve([page(feature("T1", "P1"))], [])), SnapshotStore(tmp_path))
+    plain = SnapshotStore(tmp_path).save("rcn", gzip.decompress(packed.path.read_bytes()), suffix=".json")
+    assert list(connector.parse(plain)["tx_id"]) == ["T1"]

@@ -339,6 +339,9 @@ answer it downloads (`/data/http-cache` in the `dclh-data` volume), and nothing 
 - New EGiB pages are stored gzipped (`<sha256>.gml.gz`, about 14 times smaller). Pages stored before that stay plain
   until you compact them once, when no search is running (it refuses otherwise; it frees about 13 GB):
   `docker compose -f infra/docker-compose.yml exec worker dclh compact-egib`
+- RCN snapshots (one JSON per powiat) are stored gzipped since 13.11.2026 (`<sha256>.json.gz`). Older ones stay
+  plain until compacted once, when no RCN import is pending or running (it refuses otherwise):
+  `docker compose -f infra/docker-compose.yml exec worker dclh compact-rcn`
 - Each search first deletes expired cache answers (40 days) and then the oldest ones until the cache is at most 4 GB.
 - A search that starts with less than 10 GB free (data folder or temp folder) stops at once with
   `No space left on device` in the job error. It is not counted as an attempt, so the planner retries the powiat.

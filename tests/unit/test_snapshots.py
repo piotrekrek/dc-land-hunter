@@ -86,3 +86,25 @@ def test_compacting_leaves_other_suffixes_and_an_empty_store_alone(store: Snapsh
     store.save("egib", b"{}", suffix=".json")
     assert store.compact_objects("egib", ".gml") == (0, 0, 0)
     assert len(list((store.root / "egib" / "objects").rglob("*.json"))) == 1
+
+
+def test_a_compressed_save_keeps_the_plain_hash_and_reads_back(store: SnapshotStore) -> None:
+    body = b'{"records": []}' * 100
+    snap = store.save("rcn", body, suffix=".json", compress=True)
+    assert snap.sha256 == hashlib.sha256(body).hexdigest()
+    assert snap.path.name == f"{snap.sha256}.json.gz"
+    assert gzip.decompress(snap.path.read_bytes()) == body
+    assert store.latest("rcn") == snap
+    again = store.save("rcn", body, suffix=".json", compress=True)
+    assert not again.new_content and again.path == snap.path
+
+
+def test_a_manifest_snapshot_still_resolves_after_compaction(store: SnapshotStore) -> None:
+    body = b'{"records": [1, 2, 3]}'
+    snap = store.save("rcn", body, suffix=".json")
+    store.mark_good(snap)
+    files, _, _ = store.compact_objects("rcn", ".json")
+    assert files == 1 and not snap.path.exists()
+    latest = store.latest_good("rcn")
+    assert latest is not None and latest.path.name.endswith(".json.gz")
+    assert gzip.decompress(latest.path.read_bytes()) == body
