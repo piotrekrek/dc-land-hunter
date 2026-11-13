@@ -171,6 +171,7 @@ class ClassSource(StrEnum):
     OSM_SUBSTATION_TAG = "osm_substation_tag"
     NAME_PATTERN = "name_pattern"
     OPERATOR_LIST = "operator_list"  # matched to a DSO capacity list (model/gpz_match.py)
+    MANUAL = "manual"  # the owner's hand-kept file (data/manual/station_class.csv)
 
 
 @dataclass(frozen=True)

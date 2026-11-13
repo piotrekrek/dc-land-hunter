@@ -1,0 +1,4 @@
+# Owner's hand-kept station classes (OSM id -> operator_gpz | generator | customer | unknown).
+# Wins over OSM tags and DSO lists (source "manual", verified). An id missing from the OSM extract is logged as a warning.
+osm_id,station_class,note
+1000294015824,operator_gpz,"Enea GPZ 110/15 kV Rzepin; no operator tag in OSM and no Enea list names it (owner decision 13.11.2026)"

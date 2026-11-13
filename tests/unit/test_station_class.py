@@ -8,7 +8,12 @@ from shapely.geometry import LineString, Point
 
 from dclh_api.routers.coverage import build_station_classes
 from dclh_pipeline.config import load_scoring
-from dclh_pipeline.grid_capacity import upgrade_listed_stations
+from dclh_pipeline.grid_capacity import (
+    STATION_CLASS_OVERRIDES,
+    apply_station_class_overrides,
+    load_station_class_overrides,
+    upgrade_listed_stations,
+)
 from dclh_pipeline.model.features import Line, Substation, build_grid_index, grid_facts
 from dclh_pipeline.model.gpz_match import MatchResult
 from dclh_pipeline.model.grid import (
@@ -153,6 +158,35 @@ def test_a_list_match_on_a_220_400_node_is_not_a_gpz_upgrade() -> None:
     node = Substation(9, SubstationClass.NODE_220_400, (400_000,), Point(0, 0))
     (out,) = upgrade_listed_stations([node], [MatchResult("pse_closed", "X", 9, 100.0, "fuzzy", "")])
     assert out.station_class is UNK
+
+
+def test_a_manual_override_beats_the_tags_and_the_lists(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    path = tmp_path / "station_class.csv"
+    path.write_text("# comment\nosm_id,station_class,note\n1,operator_gpz,Enea GPZ Rzepin\n2,customer,x\n")
+    subs = [_gpz(1, 0, UNK, "Rzepin"), _gpz(2, 10, OP, "Fabryka"), _gpz(3, 20, UNK, "Inna")]
+    out = apply_station_class_overrides(subs, load_station_class_overrides(path))
+    assert [(s.station_class, s.class_source, s.class_confidence) for s in out] == [
+        (OP, ClassSource.MANUAL, Confidence.VERIFIED),
+        (CUST, ClassSource.MANUAL, Confidence.VERIFIED),
+        (UNK, None, Confidence.MISSING),
+    ]
+
+
+def test_an_override_for_a_station_that_is_not_there_is_logged(caplog: pytest.LogCaptureFixture) -> None:
+    out = apply_station_class_overrides([_gpz(1, 0, UNK, "Rzepin")], {99: OP})
+    assert out[0].station_class is UNK
+    assert "station_class.csv" in caplog.text and "99" in caplog.text
+
+
+def test_a_bad_class_in_the_override_file_fails(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    path = tmp_path / "station_class.csv"
+    path.write_text("osm_id,station_class,note\n1,gpz,typo\n")
+    with pytest.raises(ValueError):
+        load_station_class_overrides(path)
+
+
+def test_the_shipped_file_marks_the_rzepin_gpz_as_the_operators() -> None:
+    assert load_station_class_overrides(STATION_CLASS_OVERRIDES)[1000294015824] is OP
 
 
 # --- facts and scoring --------------------------------------------------------------------------------------------

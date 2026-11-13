@@ -1047,7 +1047,9 @@ rescore on the VPS shows the expected Rzepin diff.
 - Deposit status E (exploited): penalty, not exclusion, until the owner decides.
 - PSI: "deposit cancels the PSI bonus" is behind `bonus.deposit_cancels_psi: true` and the reason text says
   "do weryfikacji". The legal basis is not confirmed in this repo; the bonus is only 3 points.
-- Parcel 208's obręb: unknown. `check_set` acceptance uses 4/36 + its real neighbour once the owner gives the id.
+- Parcel 208 (resolved 13.11.2026 via ULDK): `080504_5.0007.208`, obręb Lubiechnia Wielka, 6,25 ha, sharing a 392 m
+  border with 4/36 (`080504_5.0008.4/36`, Drzeńsko). The other three parcels 208 in gmina Rzepin are 0,75–5 km away.
+  `check_set` acceptance uses this pair.
 
 ### Task 0 (critical, S): Rzepin regression snapshot
 
