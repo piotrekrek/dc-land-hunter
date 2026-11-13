@@ -39,8 +39,10 @@ COPY api api
 COPY config config
 COPY infra/crontab infra/crontab
 COPY data/discovery data/discovery
-# The hand-kept GPZ mapping (grid_capacity.py reads it from the repo path).
+# Hand-kept files the code reads from the repo path (grid_capacity.py, sources/pse.py); tests/unit/test_image_manual_files.py
 COPY data/manual/gpz_mapping.csv data/manual/gpz_mapping.csv
+COPY data/manual/station_class.csv data/manual/station_class.csv
+COPY data/manual/pse_planned_station_coords.csv data/manual/pse_planned_station_coords.csv
 RUN uv sync --frozen --no-dev
 
 RUN useradd --create-home --uid 1000 dclh && mkdir -p /data && chown dclh:dclh /data
