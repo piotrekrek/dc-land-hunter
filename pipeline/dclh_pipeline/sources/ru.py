@@ -38,6 +38,7 @@ from pyogrio import read_dataframe
 
 from dclh_pipeline.config import SourceSpec
 from dclh_pipeline.http import PoliteClient
+from dclh_pipeline.model.planning import PlanRegister, build_plan_register
 from dclh_pipeline.snapshots import Snapshot, SnapshotStore
 from dclh_pipeline.sources.base import Source
 from dclh_pipeline.sources.bbox_check import features_near_bbox
@@ -318,6 +319,121 @@ class RuMpzpConnector(_RuWfs):
         "plan_id": "przestrzenNazw",
         "local_id": "lokalnyId",
         "status_href": "status_href",
+    }
+
+
+MAX_ACTS_SKIPPED = 5  # acts the server refuses before the fetch fails; each one hides a gmina's plan
+_POS_LIST = re.compile(rb"<gml:posList[^>]*>[^<]*</gml:posList>")
+_ACT_GMINA = re.compile(r"<app-pog:przestrzenNazw>[^<]*/(\d{6})-POG</")
+_ACT_STATUS = re.compile(r'<app-pog:status\s[^>]*xlink:href="[^"]*/([^"/]+)"')
+_ACT_TITLE = re.compile(r"<app-pog:tytul>([^<]*)</")
+_ACT_FROM = re.compile(r"<app-pog:obowiazujeOd>([^<]*)</")
+
+
+class RuActRegisterConnector(Source):
+    """Every plan ogólny act in the register, nationwide: which gminas have a plan and its status.
+
+    Checked live 13.11.2026: 786 acts, ten per request, no bbox needed. The service cannot leave the extent
+    out (`propertyName` is refused) and an act weighs up to 0.5 MB, so the snapshot keeps only the attributes
+    (`teryt` = the six digits in `przestrzenNazw`, e.g. `PL.ZIPPZP.10434/080504-POG`; `status`; `tytul`;
+    `obowiazujeOd`) as JSON. A short answer fails the fetch: a gmina missing from the list would read as
+    "no plan". A few acts the server refuses are skipped with a warning (`MAX_ACTS_SKIPPED`).
+    """
+
+    id: ClassVar[str] = "ru_acts"
+    url: ClassVar[str] = f"{BASE_URL}/app-pog/wfs"
+    layer: ClassVar[str] = "app-pog:AktPlanowaniaPrzestrzennego"
+    columns: ClassVar[tuple[str, ...]] = ("teryt", "status", "title", "in_force_from")
+
+    def fetch(self, client: PoliteClient, store: SnapshotStore) -> Snapshot:
+        acts: list[dict[str, str]] = []
+        start, matched, skipped = 0, None, 0
+        for _ in range(MAX_PAGES):
+            body = self._page(client, start, PAGE_SIZE)
+            if body is not None:
+                matched, returned = _counts(body)
+                acts += _act_rows(body)
+                start += returned
+                if returned == 0 or start >= matched:
+                    break
+                continue
+            # The server refuses a whole page when one act on it is broken (13.11.2026: the page at 570).
+            # Ask for that page one act at a time and skip only the acts that still fail.
+            for i in range(start, start + PAGE_SIZE):
+                if matched is not None and i >= matched:
+                    break  # past the end of the list
+                one = self._page(client, i, 1)
+                if one is None:
+                    skipped += 1
+                else:
+                    matched = _counts(one)[0]
+                    acts += _act_rows(one)
+            start += PAGE_SIZE
+            if matched is None or skipped > MAX_ACTS_SKIPPED:
+                raise ValueError(f"RU: the server refused {skipped} plan acts; the list is incomplete")
+            if start >= matched:
+                break
+        if matched is None or len(acts) + skipped != matched:
+            raise ValueError(f"RU: got {len(acts)} of {matched} plan acts; the list is incomplete")
+        if skipped:
+            log.warning("RU: %d of %d plan acts refused; their gminas read as planless", skipped, matched)
+        content = json.dumps(acts, ensure_ascii=False, indent=0).encode()
+        return store.save(self.id, content, suffix=".json", url=self.url, content_type="application/json")
+
+    def _page(self, client: PoliteClient, start: int, count: int) -> bytes | None:
+        """One answer, or None when the server refuses it (400) or keeps failing on it (5xx, timeouts)."""
+        params: dict[str, str | int] = {
+            "service": "WFS",
+            "version": "2.0.0",
+            "request": "GetFeature",
+            "typeNames": self.layer,
+            "count": count,
+            "startIndex": start,
+        }
+        try:
+            resp = client.get(self.url, params=params)
+        except httpx.TransportError as exc:
+            log.warning("RU acts: %s at startIndex %d, count %d", type(exc).__name__, start, count)
+            return None
+        if resp.status_code == 400 or resp.status_code >= 500:
+            log.warning("RU acts: HTTP %d at startIndex %d, count %d", resp.status_code, start, count)
+            return None
+        resp.raise_for_status()
+        if b"ExceptionReport" in resp.content[:2000]:
+            raise ValueError(f"RU WFS returned an exception: {resp.content[:500]!r}")
+        return resp.content
+
+    def parse(self, snapshot: Snapshot) -> pd.DataFrame:
+        acts = json.loads(snapshot.path.read_bytes())
+        if not acts:
+            raise ValueError("RU: the act list holds no plan; the register cannot be empty")
+        return pd.DataFrame(acts, columns=list(self.columns))
+
+
+def load_plan_register(store: SnapshotStore, spec: SourceSpec) -> PlanRegister | None:
+    """The gminas with a plan ogólny in force, or None when `dclh fetch ru_acts` has never run."""
+    snapshot = store.latest_good(RuActRegisterConnector.id)
+    if snapshot is None:
+        return None
+    return build_plan_register(RuActRegisterConnector(spec).parse(snapshot), snapshot.fetched_at)
+
+
+def _act_rows(body: bytes) -> list[dict[str, str]]:
+    return [_act_row(member) for member in body.split(b"<wfs:member>")[1:]]
+
+
+def _act_row(member: bytes) -> dict[str, str]:
+    """The attributes of one act; the extent (most of the bytes) is dropped first."""
+    text = _POS_LIST.sub(b"", member).decode()
+    gmina, status = _ACT_GMINA.search(text), _ACT_STATUS.search(text)
+    if gmina is None or status is None:
+        raise ValueError(f"RU: a plan act has no gmina code or status: {text[:300]!r}")
+    title, since = _ACT_TITLE.search(text), _ACT_FROM.search(text)
+    return {
+        "teryt": gmina.group(1),
+        "status": status.group(1),
+        "title": title.group(1) if title else "",
+        "in_force_from": since.group(1) if since else "",
     }
 
 

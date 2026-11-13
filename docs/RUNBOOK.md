@@ -191,6 +191,17 @@ uv run dclh reprofile        # recomputes every stored site from detail.features
 
 Run it again after editing `config/profiles.yaml`. Until then a profile filter does not hide those rows (no verdict is not red).
 
+The "to check" text of a site with no plan found says whether its gmina has a plan ogólny in force. That comes from the
+register's nationwide act list, which nothing refreshes on a schedule yet. Refresh it by hand (weekly is enough), then
+reprofile:
+
+```bash
+uv run dclh fetch ru_acts    # about 80 requests and 35 minutes; keeps a small JSON, not the plan extents
+uv run dclh reprofile
+```
+
+On the VPS run both inside the API container (`docker exec dclh-api-1 dclh …`), outside the nightly search window.
+
 ## Site snapshots (regression check around scoring changes)
 
 Two read-only commands; they never write to the database. Snapshot before and after a rescore, then diff:

@@ -43,7 +43,7 @@ from dclh_pipeline.model.features import (
     ZoningLayer,
     build_grid_index,
 )
-from dclh_pipeline.model.planning import PlanOgolnyLayer, build_plan_layer
+from dclh_pipeline.model.planning import PlanOgolnyLayer, PlanRegister, build_plan_layer
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.psi import PsiLayer
 from dclh_pipeline.model.sites import Site
@@ -76,6 +76,7 @@ from dclh_pipeline.sources.ru import (
     RuOuzConnector,
     RuPlanActConnector,
     RuPlanOgolnyConnector,
+    load_plan_register,
 )
 
 # Area steps, in the order they run. Keys are what a reporter and the check page see.
@@ -114,6 +115,7 @@ class StaticLayers:
     heat: Layer | None
     psi: PsiLayer | None
     big_cities: Layer
+    plan_register: PlanRegister | None = None  # `dclh fetch ru_acts`
 
 
 @dataclass(frozen=True)
@@ -137,7 +139,8 @@ def load_static_layers(
     is optional.
 
     DSO capacity and the PSE lists are used when a good snapshot exists (`grid_capacity.py`); heat
-    and PSI when `dclh fetch heat|psi` has run. A source never fetched stays missing in the scores.
+    and PSI when `dclh fetch heat|psi` has run, the plan ogólny act list when `dclh fetch ru_acts` has. A
+    source never fetched stays missing in the scores.
     """
     prg_snapshot, osm_snapshot = store.latest("prg"), store.latest("osm_power")
     gdos_snapshot = store.latest("gdos")
@@ -191,6 +194,7 @@ def load_static_layers(
         heat=heat_town_layer(store, config.get("heat"), gminas),
         psi=load_psi_layer(store, config.get("psi"), gminas),
         big_cities=big_city_layer(gminas, cfg.connectivity.cities, prg_snapshot.fetched_at),
+        plan_register=load_plan_register(store, config.get("ru_acts")),
     )
 
 
@@ -422,6 +426,7 @@ def build_site_layers(static: StaticLayers, area: AreaLayers, industrial: Layer 
         grid=static.grid,
         zoning=area.zoning,
         plan_ogolny=area.plan_ogolny,
+        plan_register=static.plan_register,
         residential=area.housing,
         roads=area.roads,
         industrial=industrial,

@@ -31,6 +31,7 @@ from dclh_pipeline.sources.manual import MANUAL_CAPACITY, MANUAL_POINTS
 from dclh_pipeline.sources.osm_power import OsmPowerConnector, summarize_grid
 from dclh_pipeline.sources.prg import PrgConnector
 from dclh_pipeline.sources.psi import PsiConnector
+from dclh_pipeline.sources.ru import RuActRegisterConnector
 from dclh_pipeline.sources.tauron import TauronConnector
 
 app = typer.Typer(help="DC Land Hunter pipeline", no_args_is_help=True)
@@ -46,6 +47,7 @@ CONNECTORS: dict[str, type[Source]] = {
     "energa": EnergaConnector,
     "heat": HeatConnector,
     "psi": PsiConnector,
+    "ru_acts": RuActRegisterConnector,
 }
 
 
@@ -440,29 +442,41 @@ def diff_snapshots_cmd(
 
 @app.command("reprofile")
 def reprofile_cmd() -> None:
-    """Recompute the profile verdicts of every stored site from its stored features (no new search)."""
+    """Recompute the profile verdicts of every stored site from its stored features (no new search).
+
+    The gmina's plan ogólny status is read again from the latest act list (`dclh fetch ru_acts`), so a plan
+    adopted since the site was scored shows up without a new search. It goes into the verdict only: the
+    stored features keep what the search saw.
+    """
     import json
+    from dataclasses import replace
 
     from sqlalchemy import text
 
     from dclh_pipeline.db import session_scope
+    from dclh_pipeline.model.planning import gmina_plan_fact
     from dclh_pipeline.profiles import features_from_detail, profile_verdicts
     from dclh_pipeline.scoring.run import to_jsonable
+    from dclh_pipeline.sources.ru import load_plan_register
 
     cfg = load_profiles()
+    register = load_plan_register(SnapshotStore(get_settings().raw_dir), load_sources().get("ru_acts"))
     done, last = 0, ""
     # In pages by site_id: all 100k+ sites' features at once do not fit in a worker's memory.
     while True:
         with session_scope() as session:
             rows = session.execute(
                 text(
-                    "SELECT site_id, detail -> 'features' FROM sites WHERE site_id > :last "
+                    "SELECT site_id, detail -> 'features', parcel_ids[1] FROM sites WHERE site_id > :last "
                     "ORDER BY site_id LIMIT :n"
                 ),
                 {"last": last, "n": REPROFILE_PAGE},
             ).all()
-            for site_id, features in rows:
-                verdicts = profile_verdicts(features_from_detail(features), cfg)
+            for site_id, stored, parcel_id in rows:
+                features = features_from_detail(stored)
+                if register is not None:
+                    features = replace(features, gmina_plan_ogolny=gmina_plan_fact(parcel_id or "", register))
+                verdicts = profile_verdicts(features, cfg)
                 session.execute(
                     text(
                         "UPDATE sites SET profiles = CAST(:p AS jsonb), verdict_built = :b, "

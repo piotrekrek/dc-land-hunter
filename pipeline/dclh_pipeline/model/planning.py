@@ -21,11 +21,14 @@ from datetime import datetime
 from typing import Any
 
 import geopandas as gpd
+import pandas as pd
 from shapely import STRtree, unary_union
 from shapely.geometry.base import BaseGeometry
 
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.scoring.types import (
+    GMINA_PLAN_IN_FORCE,
+    GMINA_PLAN_NONE,
     IN_OUZ_NO,
     IN_OUZ_PARTIAL,
     IN_OUZ_YES,
@@ -36,6 +39,7 @@ from dclh_pipeline.scoring.types import (
 )
 
 SOURCE_ID = "ru"
+REGISTER_SOURCE_ID = "ru_acts"
 # Share of the site area inside the OUZ above which the site counts as inside, and below which as outside.
 OUZ_INSIDE_SHARE = 0.99
 OUZ_OUTSIDE_SHARE = 0.01
@@ -207,3 +211,38 @@ def planning_facts(
             if key in layer.zones[zone_i].params:
                 facts[name] = fact(layer.zones[zone_i].params[key])
     return facts
+
+
+# --------------------------------------------------------------------------- the nationwide act list
+
+_GMINA = re.compile(r"\d{6}")
+
+
+@dataclass(frozen=True)
+class PlanRegister:
+    """Gminas with a plan ogólny in force, by the first six digits of their TERYT (the type digit dropped:
+    the town and the country part of one gmina share the plan)."""
+
+    as_of: datetime | None
+    in_force: frozenset[str]
+
+
+def build_plan_register(acts: pd.DataFrame, as_of: datetime | None) -> PlanRegister:
+    """The register from the parsed act list (`RuActRegisterConnector`): only acts in force count."""
+    in_force = acts.loc[acts["status"] == _IN_FORCE, "teryt"]
+    return PlanRegister(as_of, frozenset(in_force.astype(str)))
+
+
+def gmina_plan_fact(parcel_id: str, register: PlanRegister | None) -> Fact[str] | None:
+    """Whether the gmina of an EGiB parcel (`080504_5.0010.85/8`) has a plan ogólny in force.
+
+    Without one, a plot with no MPZP is frozen: no WZ decision, and no new or changed MPZP until the gmina
+    adopts its plan. "none" is `estimated`, because the register can lag behind a fresh resolution. None when
+    the act list was never fetched or the id carries no gmina code.
+    """
+    m = _GMINA.match(parcel_id)
+    if register is None or m is None:
+        return None
+    if m.group(0) in register.in_force:
+        return Fact(GMINA_PLAN_IN_FORCE, REGISTER_SOURCE_ID, register.as_of, Confidence.VERIFIED)
+    return Fact(GMINA_PLAN_NONE, REGISTER_SOURCE_ID, register.as_of, Confidence.ESTIMATED)

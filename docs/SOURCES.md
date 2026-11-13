@@ -12,7 +12,7 @@ browser for the sources whose data sits behind a form or in a file. Raw samples:
 
 | Status | Count | Sources |
 |---|---|---|
-| ✓ | 19 | `prg`, `osm_power`, `osm_land`, `bdot10k`, `ru`, `kimpzp`, `egib`, `uldk`, `kiug`, `gdos`, `isok`, `midas`, `pse_closed`, `pse_odb`, `pse_avail`, `energa`, `tauron`, `psi`, `heat` |
+| ✓ | 20 | `prg`, `osm_power`, `osm_land`, `bdot10k`, `ru`, `ru_acts`, `kimpzp`, `egib`, `uldk`, `kiug`, `gdos`, `isok`, `midas`, `pse_closed`, `pse_odb`, `pse_avail`, `energa`, `tauron`, `psi`, `heat` |
 | ⚠ | 2 | `uke` (lead only); `nid` (endpoint reachable, but no geometry to filter on, see Hard filters below: not loaded) |
 | – | 2 | `invest_offers`: manual CSV import by design; `enea`: manual CSV only (owner decision 19.10.2026) |
 
@@ -21,6 +21,15 @@ browser for the sources whose data sits behind a form or in a file. Raw samples:
 file or calling the endpoint, as described here.
 
 ### Hard filters and zoning
+
+- **`ru_acts` nationwide plan ogólny act list ✓ (13.11.2026, live from the VPS).** `app-pog/wfs`,
+  `app-pog:AktPlanowaniaPrzestrzennego` with no bbox: `resultType=hits` answered `numberMatched="786"`, close to the
+  783 to 877 gminas with a plan that the press reported after the 31.08.2026 deadline. The gmina is in the act's
+  `przestrzenNazw` (`PL.ZIPPZP.10434/080504-POG`: the first six TERYT digits). Ten acts per request like the other
+  RU layers; `propertyName` is refused ("Requested property … is not available"), so every act comes with its extent
+  (up to 0.5 MB each, about 25 s per page): a full fetch is about 80 requests and 35 minutes, and the snapshot keeps
+  only `teryt`, `status`, `tytul` and `obowiazujeOd` as JSON. The page at `startIndex=570` answers 400 "Bad Request"
+  (one broken act), so the connector asks that page one act at a time and skips what still fails (at most 5).
 
 - **`ru` OUZ, plan act and zone parameters ✓ (11.11.2026, live from Poland, gm. Rzepin 080504).** `app-pog/wfs`
   GetCapabilities lists six layers: `app-pog:AktPlanowaniaPrzestrzennego`, `DokumentFormalny`,

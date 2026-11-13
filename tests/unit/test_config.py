@@ -13,6 +13,7 @@ BRIEF_MVP = {
     "prg", "osm_power", "osm_land", "bdot10k", "ru", "kimpzp", "egib", "uldk", "kiug", "gdos", "isok",
     "midas", "nid", "pse_closed", "pse_odb", "pse_avail", "energa", "tauron", "uke", "psi",
     "invest_offers", "heat", "rcn",
+    "ru_acts",  # 13.11.2026: the register's nationwide act list (which gminas have a plan ogólny)
 }  # fmt: skip
 BRIEF_V2 = {"dso_portals", "bip"}
 BRIEF_MANUAL = {"bazaoos", "ekw", "kowr", "enea"}  # kowr 12.10.2026, enea 19.10.2026: owner decisions

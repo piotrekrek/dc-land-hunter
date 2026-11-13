@@ -148,6 +148,7 @@ def static_stub() -> StaticLayers:
         grid="grid",
         heat=None,
         psi=None,
+        plan_register=None,
         big_cities=layer,
         res_clusters=layer,
         capacity=SimpleNamespace(capacity="cap", pse_closed=None, pse_odb=None, pse_planned=None),
