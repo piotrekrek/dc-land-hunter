@@ -2543,6 +2543,8 @@ export interface operations {
                 large_campus?: boolean;
                 /** @description Only sites that should be split */
                 split_suggested?: boolean;
+                /** @description Only sites with no MPZP found in a gmina without a plan ogólny */
+                frozen_gmina?: boolean;
                 limit?: number;
                 offset?: number;
                 cursor?: string | null;

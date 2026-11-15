@@ -36,7 +36,6 @@ from dclh_pipeline.sources.tauron import TauronConnector
 
 app = typer.Typer(help="DC Land Hunter pipeline", no_args_is_help=True)
 console = Console()
-REPROFILE_PAGE = 2000  # sites per page in `dclh reprofile`
 
 # Connectors that `dclh fetch` can run without the database.
 CONNECTORS: dict[str, type[Source]] = {
@@ -448,50 +447,9 @@ def reprofile_cmd() -> None:
     adopted since the site was scored shows up without a new search. It goes into the verdict only: the
     stored features keep what the search saw.
     """
-    import json
-    from dataclasses import replace
+    from dclh_pipeline.plan_refresh import reprofile_sites
 
-    from sqlalchemy import text
-
-    from dclh_pipeline.db import session_scope
-    from dclh_pipeline.model.planning import gmina_plan_fact
-    from dclh_pipeline.profiles import features_from_detail, profile_verdicts
-    from dclh_pipeline.scoring.run import to_jsonable
-    from dclh_pipeline.sources.ru import load_plan_register
-
-    cfg = load_profiles()
-    register = load_plan_register(SnapshotStore(get_settings().raw_dir), load_sources().get("ru_acts"))
-    done, last = 0, ""
-    # In pages by site_id: all 100k+ sites' features at once do not fit in a worker's memory.
-    while True:
-        with session_scope() as session:
-            rows = session.execute(
-                text(
-                    "SELECT site_id, detail -> 'features', parcel_ids[1] FROM sites WHERE site_id > :last "
-                    "ORDER BY site_id LIMIT :n"
-                ),
-                {"last": last, "n": REPROFILE_PAGE},
-            ).all()
-            for site_id, stored, parcel_id in rows:
-                features = features_from_detail(stored)
-                if register is not None:
-                    features = replace(features, gmina_plan_ogolny=gmina_plan_fact(parcel_id or "", register))
-                verdicts = profile_verdicts(features, cfg)
-                session.execute(
-                    text(
-                        "UPDATE sites SET profiles = CAST(:p AS jsonb), verdict_built = :b, "
-                        "verdict_container = :c WHERE site_id = :id"
-                    ),
-                    {
-                        "p": json.dumps(to_jsonable(verdicts), ensure_ascii=False),
-                        "b": verdicts["built"].category.value,
-                        "c": verdicts["container"].category.value,
-                        "id": site_id,
-                    },
-                )
-        if not rows:
-            break
-        done, last = done + len(rows), rows[-1][0]
+    done = reprofile_sites()
     console.print(f"profile przeliczone dla {done} lokalizacji")
 
 

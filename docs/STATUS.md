@@ -19,9 +19,12 @@
 - **Measured on production (13.11.2026, kept 10 ha+ sites):** of the 13,757 "do weryfikacji" built sites, 13,288 lie
   in 401 gminas with no plan ogólny in force (frozen unless an MPZP exists) and 469 in gminas that have one (the zone
   was not read, mostly because the plan is newer than the search: search those powiats again).
-- **Not done:** no scheduled refresh of the list (by hand, RUNBOOK); no list filter or map layer for frozen gminas;
-  the site card's "Ścieżka planistyczna" block does not show the fact; a site spanning two gminas takes the gmina of
-  its first parcel; a draft plan's stage (elaboration, adoption) is in the snapshot but not used. After 30.11.2026 the
+- **Follow-up (15.11.2026):** the job `refresh_plan_register` (crontab, Sundays 10:00) refetches the list and redoes the
+  verdicts; the site list has a filter "Gmina bez planu ogólnego" (`frozen_gmina`, URL `zamrozone=1`), which matches the
+  new to-check key `zoning_frozen`. The profile card already shows the gmina text, so the "Ścieżka planistyczna" block
+  stays as it was (the stored features do not hold this fact). No map layer.
+- **Not done:** a site spanning two gminas takes the gmina of its first parcel; a draft plan's stage (elaboration,
+  adoption) is in the snapshot but not used. After 30.11.2026 the
   owner can decide whether "no MPZP and no plan ogólny" should become red.
 
 ## RCN land-price comparables (12.11.2026; Rzepin RTB spec 6; PRs #180, #182, #184; deployed 12.11.2026)

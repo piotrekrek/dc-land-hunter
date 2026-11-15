@@ -58,6 +58,14 @@ describe("site filters in the URL", () => {
     expect(describeFilters(filters)).toContain("duży kampus");
   });
 
+  it("keeps the frozen-gmina filter in the URL and says so in the summary", () => {
+    const filters = { ...DEFAULT_FILTERS, frozenGmina: true };
+    const params = toParams(filters);
+    expect(params.get("zamrozone")).toBe("1");
+    expect(parseFilters(params)).toEqual(filters);
+    expect(describeFilters(filters)).toContain("gmina bez planu ogólnego");
+  });
+
   it("keeps the place filter in the URL, so a filtered list can be shared", () => {
     const filters = { ...DEFAULT_FILTERS, voivodeship: "14", powiat: "1421" };
     const params = toParams(filters);

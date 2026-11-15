@@ -12,7 +12,7 @@ import pytest
 from sqlalchemy import text
 from typer.testing import CliRunner
 
-from dclh_pipeline import cli
+from dclh_pipeline import cli, plan_refresh
 from dclh_pipeline.db import session_scope
 from dclh_pipeline.scoring.run import score_candidates, write_sites
 from dclh_pipeline.snapshots import SnapshotStore
@@ -36,7 +36,7 @@ def zoning_checks() -> dict[str, str]:
         rows = session.execute(
             text("SELECT parcel_ids[1], profiles -> 'built' -> 'to_check' FROM sites")
         ).all()
-    return {pid: next(c["text_pl"] for c in checks if c["key"] == "zoning") for pid, checks in rows}
+    return {pid: next(c["text_pl"] for c in checks if c["key"].startswith("zoning")) for pid, checks in rows}
 
 
 def test_reprofile_reads_the_gmina_plan_from_the_latest_act_list(
@@ -57,7 +57,7 @@ def test_reprofile_reads_the_gmina_plan_from_the_latest_act_list(
                 "WHEN 'c1' THEN '142105_2.0007.33' ELSE parcel_ids[1] END]"
             )
         )
-    monkeypatch.setattr(cli, "get_settings", lambda: SimpleNamespace(raw_dir=tmp_path))
+    monkeypatch.setattr(plan_refresh, "get_settings", lambda: SimpleNamespace(raw_dir=tmp_path))
 
     assert CliRunner().invoke(cli.app, ["reprofile"]).exit_code == 0
     assert all(t.startswith("Brak planu miejscowego w rejestrze: sprawdź") for t in zoning_checks().values())

@@ -180,7 +180,7 @@ def test_no_register_or_no_gmina_code_gives_no_fact(parcel: str) -> None:
 
 def zoning_item(name: str, **overrides: object):  # type: ignore[no-untyped-def]
     v = profile_verdict(full_features(**overrides), name, PROFILES)
-    return v, next(c for c in v.to_check if c.key == "zoning")
+    return v, next(c for c in v.to_check if c.key.startswith("zoning"))
 
 
 @pytest.mark.parametrize("name", ["built", "container"])
@@ -192,12 +192,14 @@ def test_no_plan_found_in_a_gmina_without_a_plan_ogolny_says_the_gmina_is_frozen
     assert v.category is Category.MANUAL and item.blocking  # unknown, not bad: the register may lag
     assert "nie ma planu ogólnego" in item.text_pl
     assert "WZ" in item.text_pl and "MPZP" in item.text_pl
+    assert item.key == "zoning_frozen"  # the list filter keys on it
 
 
 def test_no_plan_found_in_a_gmina_with_a_plan_ogolny_asks_for_the_zone() -> None:
     v, item = zoning_item("built", zoning=F(ZoningKind.UNKNOWN), gmina_plan_ogolny=F(GMINA_PLAN_IN_FORCE))
     assert v.category is Category.MANUAL and item.blocking
     assert "Gmina ma plan ogólny" in item.text_pl and "stref" in item.text_pl
+    assert item.key == "zoning"  # only a gmina without a plan is "frozen"
 
 
 def test_without_the_register_the_old_wording_stays() -> None:
@@ -277,3 +279,20 @@ def test_too_many_refused_acts_fail_the_fetch(tmp_path: Path, make_client: Clien
         RuActRegisterConnector(SPEC).fetch(
             make_client(refusing(members, {10, 11, 12, 13, 14, 15})), SnapshotStore(tmp_path)
         )
+
+
+# --------------------------------------------------------------------------- the weekly refresh
+
+
+def test_the_weekly_refresh_is_a_job_and_is_scheduled_outside_the_search_window() -> None:
+    from dclh_pipeline.jobs import HANDLERS
+    from dclh_pipeline.settings import REPO_ROOT
+
+    assert "refresh_plan_register" in HANDLERS
+    line = next(
+        row
+        for row in (REPO_ROOT / "infra" / "crontab").read_text().splitlines()
+        if row.endswith("enqueue refresh_plan_register")
+    )
+    minute, hour, _, _, weekday = line.split()[:5]
+    assert int(hour) not in range(1, 5) and weekday == "0" and minute == "0"

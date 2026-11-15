@@ -17,6 +17,7 @@ from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.scoring.engine import ramp_down
 from dclh_pipeline.scoring.types import (
     GMINA_PLAN_IN_FORCE,
+    GMINA_PLAN_NONE,
     IN_OUZ_PARTIAL,
     PATH_MPZP_OR_ZPI,
     Fact,
@@ -28,6 +29,7 @@ NEUTRAL = 50.0  # soft score of an input we have no data for
 ROAD_ADJOINING_M = 25.0  # a public road this close runs along the plot
 ROAD_FAR_M = 300.0  # beyond this a public road is no longer "near": access needs a road or an easement
 HEIGHT_FLAG_M = 20.0  # a zone height limit at or below this may clash with generator stacks and cooling
+ZONING_FROZEN = "zoning_frozen"  # to-check key: no MPZP found and the gmina has no plan ogólny
 ROAD_UNKNOWN = "Dostęp do drogi publicznej (EGiB, księga wieczysta)"
 
 
@@ -206,7 +208,9 @@ def profile_verdict(f: SiteFeatures, name: str, cfg: ProfilesConfig) -> ProfileV
                 )
             )
     else:  # unknown, plan in procedure, or no zoning fact at all
-        to_check.append(ToCheck("zoning", _no_plan_text(f), True))
+        gmina = f.gmina_plan_ogolny
+        frozen = gmina is not None and gmina.value == GMINA_PLAN_NONE  # its own key: the list filters on it
+        to_check.append(ToCheck(ZONING_FROZEN if frozen else "zoning", _no_plan_text(f), True))
 
     # --- planning path after the plan ogólny reform (facts exist only where the register has the plan)
     if f.planning_path is not None and f.planning_path.value == PATH_MPZP_OR_ZPI:

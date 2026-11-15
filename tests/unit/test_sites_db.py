@@ -443,6 +443,27 @@ def test_badge_campus_and_split_filters_narrow_the_total(seeded: None, client: T
     assert client.get("/api/sites", params={"grid_badge": "nonsense"}).status_code == 422
 
 
+def test_frozen_gmina_filter_keeps_only_sites_with_the_frozen_zoning_check(
+    seeded: None, client: TestClient
+) -> None:
+    params = {"include_excluded": "true"}
+    assert client.get("/api/sites", params=params | {"frozen_gmina": "true"}).json()["total"] == 0
+    everything = client.get("/api/sites", params=params).json()
+    marked = everything["items"][0]["site_id"]
+    check = '[{"key": "zoning_frozen", "text_pl": "x", "blocking": true}]'
+    with session_scope() as session:
+        session.execute(
+            text(
+                "UPDATE sites SET profiles = jsonb_build_object('built', jsonb_build_object('to_check', "
+                "CAST(:c AS jsonb))) WHERE site_id = :id"
+            ),
+            {"c": check, "id": marked},
+        )
+    got = client.get("/api/sites", params=params | {"frozen_gmina": "true"}).json()
+    assert [i["site_id"] for i in got["items"]] == [marked]
+    assert got["total"] == 1
+
+
 def test_filters_and_bbox_keep_the_keyset_cursor_consistent(seeded: None, client: TestClient) -> None:
     params = {"include_excluded": "true", "limit": 1, "bbox": "10,48,25,56"}
     seen: list[str] = []

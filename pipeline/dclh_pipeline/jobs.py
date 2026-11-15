@@ -22,6 +22,7 @@ from dclh_pipeline.db import session_scope
 from dclh_pipeline.db.models import JobRow, PowiatPriorityRow, RunRow, SearchRunRow, SourceRow
 from dclh_pipeline.discovery import discover, save_report
 from dclh_pipeline.http import PoliteClient
+from dclh_pipeline.plan_refresh import refresh_plan_register
 from dclh_pipeline.powiat_search import (
     PowiatSearch,
     merge_priority,
@@ -191,12 +192,18 @@ def _job_import_rcn(session: Session, payload: dict[str, Any]) -> dict[str, Any]
     return {"queued": len(chosen), "already_queued": sorted(busy)}
 
 
+def _job_refresh_plan_register(session: Session, payload: dict[str, Any]) -> dict[str, Any]:
+    """Weekly: refetch the register's plan acts and redo the verdicts (a gmina may have adopted a plan)."""
+    return refresh_plan_register()
+
+
 HANDLERS: dict[str, JobHandler] = {
     "check_parcel": run_check_job,
     "discover": _job_discover,
     "search": _job_search,
     "plan_searches": _job_plan_searches,
     "import_rcn": _job_import_rcn,
+    "refresh_plan_register": _job_refresh_plan_register,
 }
 
 

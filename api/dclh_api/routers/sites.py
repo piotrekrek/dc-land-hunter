@@ -113,6 +113,9 @@ def list_sites(
     grid_badge: GridBadgeLabel | None = None,
     large_campus: Annotated[bool, Query(description="Only sites flagged 'duży kampus'")] = False,
     split_suggested: Annotated[bool, Query(description="Only sites that should be split")] = False,
+    frozen_gmina: Annotated[
+        bool, Query(description="Only sites with no MPZP found in a gmina without a plan ogólny")
+    ] = False,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     cursor: Annotated[str | None, Query(max_length=512)] = None,
@@ -151,6 +154,9 @@ def list_sites(
         where += " AND large_campus"
     if split_suggested:
         where += " AND split_suggested"
+    if frozen_gmina:
+        # Both profiles carry the same zoning check; `built` is always stored.
+        where += """ AND profiles -> 'built' -> 'to_check' @> '[{"key": "zoning_frozen"}]'"""
     column = SORT_COLUMNS[sort]
     direction = "ASC" if order == "asc" else "DESC"
     # Keyset: the rows strictly after the cursor's row in this order; site_id (always ascending) breaks ties.
