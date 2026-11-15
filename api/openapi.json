@@ -387,6 +387,18 @@
             "description": "Only sites that should be split"
           },
           {
+            "name": "frozen_gmina",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only sites with no MPZP found in a gmina without a plan ogólny",
+              "default": false,
+              "title": "Frozen Gmina"
+            },
+            "description": "Only sites with no MPZP found in a gmina without a plan ogólny"
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,

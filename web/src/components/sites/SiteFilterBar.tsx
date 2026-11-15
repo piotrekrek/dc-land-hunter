@@ -122,6 +122,10 @@ export function SiteFilterBar({ filters, onChange }: Props) {
         <input type="checkbox" checked={filters.splitSuggested} onChange={(e) => onChange({ ...filters, splitSuggested: e.target.checked })} />
         Do podziału
       </label>
+      <label className="flex h-9 items-center gap-2 text-sm" title="Brak MPZP w rejestrze, a gmina nie ma planu ogólnego">
+        <input type="checkbox" checked={filters.frozenGmina} onChange={(e) => onChange({ ...filters, frozenGmina: e.target.checked })} />
+        Gmina bez planu ogólnego
+      </label>
       <label className="flex h-9 items-center gap-2 text-sm">
         <input type="checkbox" checked={filters.includeExcluded} onChange={(e) => onChange({ ...filters, includeExcluded: e.target.checked })} />
         Pokaż wykluczone

@@ -52,6 +52,7 @@ export interface SiteFilters {
   /** Only sites flagged "Duży kampus" / "Do podziału". */
   largeCampus: boolean;
   splitSuggested: boolean;
+  frozenGmina: boolean;
 }
 
 export const DEFAULT_FILTERS: SiteFilters = {
@@ -66,6 +67,7 @@ export const DEFAULT_FILTERS: SiteFilters = {
   gridBadge: "",
   largeCampus: false,
   splitSuggested: false,
+  frozenGmina: false,
 };
 
 /** A TERYT code from the URL, kept only when it has the right shape: anything else would only earn a 422. */
@@ -96,6 +98,7 @@ export function parseFilters(params: URLSearchParams): SiteFilters {
     gridBadge: GRID_BADGE_OPTIONS.find((b) => b === params.get("siec")) ?? "",
     largeCampus: params.get("kampus") === "1",
     splitSuggested: params.get("podzial") === "1",
+    frozenGmina: params.get("zamrozone") === "1",
   };
 }
 
@@ -113,6 +116,7 @@ export function toParams(filters: SiteFilters): URLSearchParams {
   if (filters.gridBadge) params.set("siec", filters.gridBadge);
   if (filters.largeCampus) params.set("kampus", "1");
   if (filters.splitSuggested) params.set("podzial", "1");
+  if (filters.frozenGmina) params.set("zamrozone", "1");
   return params;
 }
 
@@ -126,7 +130,7 @@ export const isDefaultFilters = (filters: SiteFilters): boolean =>
  */
 export function describeFilters(filters: SiteFilters): string {
   const filtersAtDefault =
-    filters.minMw === DEFAULT_FILTERS.minMw && filters.minHa === DEFAULT_FILTERS.minHa && !filters.includeExcluded && !filters.voivodeship && !filters.profile && !filters.gridBadge && !filters.largeCampus && !filters.splitSuggested;
+    filters.minMw === DEFAULT_FILTERS.minMw && filters.minHa === DEFAULT_FILTERS.minHa && !filters.includeExcluded && !filters.voivodeship && !filters.profile && !filters.gridBadge && !filters.largeCampus && !filters.splitSuggested && !filters.frozenGmina;
   if (filtersAtDefault) return `Filtry domyślne: od ${DEFAULT_FILTERS.minMw} MW`;
   const parts = [filters.minMw > 0 ? `od ${filters.minMw} MW` : "moc dowolna"];
   if (filters.minHa > 0) parts.push(`powierzchnia od ${filters.minHa} ha`);
@@ -138,6 +142,7 @@ export function describeFilters(filters: SiteFilters): string {
   if (filters.gridBadge) parts.push(`sieć: ${filters.gridBadge.toLowerCase()}`);
   if (filters.largeCampus) parts.push("duży kampus");
   if (filters.splitSuggested) parts.push("do podziału");
+  if (filters.frozenGmina) parts.push("gmina bez planu ogólnego");
   return `Filtry: ${parts.join(", ")}`;
 }
 

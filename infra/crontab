@@ -17,3 +17,7 @@
 
 # Claude connector: drop expired OAuth requests, codes and tokens, and clients that hold no token.
 30 4 * * * dclh oauth purge
+
+# Plan ogólny of each gmina: Sundays at 10:00 (outside the search window) refetch the register's act list
+# (about 10 minutes) and redo the verdicts, so a plan adopted since the last search shows up.
+0 10 * * 0 dclh enqueue refresh_plan_register

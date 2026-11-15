@@ -192,8 +192,8 @@ uv run dclh reprofile        # recomputes every stored site from detail.features
 Run it again after editing `config/profiles.yaml`. Until then a profile filter does not hide those rows (no verdict is not red).
 
 The "to check" text of a site with no plan found says whether its gmina has a plan ogólny in force. That comes from the
-register's nationwide act list, which nothing refreshes on a schedule yet. Refresh it by hand (weekly is enough), then
-reprofile:
+register's nationwide act list. The scheduler queues `refresh_plan_register` on Sundays at 10:00 (fetch, then
+reprofile). To refresh by hand:
 
 ```bash
 uv run dclh fetch ru_acts    # about 10 minutes (56 tiles); keeps a small JSON, not the plan extents
