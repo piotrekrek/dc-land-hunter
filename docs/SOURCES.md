@@ -12,8 +12,8 @@ browser for the sources whose data sits behind a form or in a file. Raw samples:
 
 | Status | Count | Sources |
 |---|---|---|
-| ✓ | 20 | `prg`, `osm_power`, `osm_land`, `bdot10k`, `ru`, `ru_acts`, `kimpzp`, `egib`, `uldk`, `kiug`, `gdos`, `isok`, `midas`, `pse_closed`, `pse_odb`, `pse_avail`, `energa`, `tauron`, `psi`, `heat` |
-| ⚠ | 2 | `uke` (lead only); `nid` (endpoint reachable, but no geometry to filter on, see Hard filters below: not loaded) |
+| ✓ | 21 | `prg`, `osm_power`, `osm_land`, `bdot10k`, `ru`, `ru_acts`, `kimpzp`, `egib`, `uldk`, `kiug`, `gdos`, `isok`, `midas`, `pse_closed`, `pse_odb`, `pse_avail`, `energa`, `tauron`, `psi`, `heat`, `uke` (SIIS archive, data as of 2021) |
+| ⚠ | 1 | `nid` (endpoint reachable, but no geometry to filter on, see Hard filters below: not loaded) |
 | – | 2 | `invest_offers`: manual CSV import by design; `enea`: manual CSV only (owner decision 19.10.2026) |
 
 `kowr` (12.10.2026) and `enea` (19.10.2026) are manual-only by owner decision. The generated table below still shows ⚠ for `pse_odb`, `pse_avail`,
@@ -262,10 +262,30 @@ file or calling the endpoint, as described here.
   Katowice 2469011, Warszawa 1465011, Łódź 1061011, Gdańsk 2261011, Bydgoszcz 0461011, Opole 1661011, Wrocław 0264011, Poznań
   3064011, Zielona Góra 0862011, Szczecin 3262011). The distance runs to the city boundary (0 inside). It is `verified` with
   `source_id` `prg`; a name with no urban gmina is logged and left out.
-- **`uke` ⚠ lead only, not obtainable as data (checked 21.10.2026).** `pitmap.uke.gov.pl` is a map SPA. Its GeoServer
-  (`/pit2/PitMapa/backend/geoserver/wms` and `/ows`) answers `404 Użytkownik niezalogowany` (login required), and the WMTS
-  is the same. The map's search API (`/search/api/getLayerInPolygon`) answers anonymously but is not documented and its terms
-  are unknown. No connector until the owner decides (see docs/STATUS.md).
+- **`uke` ✓ SIIS archive, fibre nodes as of 31.12.2021 (checked 20.11.2026 from the VPS).** The live services are
+  closed; the data comes from the last archive of the switched-off SIIS.
+  - 21.10.2026: the PIT map's GeoServer (`/pit2/PitMapa/backend/geoserver/wms` and `/ows`) answered
+    `404 Użytkownik niezalogowany`; the WMTS too. The map's search API (`/search/api/getLayerInPolygon`) answers
+    anonymously but is undocumented and its terms are unknown: **not used**.
+  - 20.11.2026: the paths on UKE's page "PIT resources at dane.gov.pl" (13.08.2020) are gone. `GET
+    https://pitmap.uke.gov.pl/api/v1/geoserver/pit/wms?SERVICE=WMS&REQUEST=GetCapabilities` → **404** (nginx behind
+    Imperva); the same for `/api/v1/geoserver/wms`, `/api/v1/geoserver/ows?service=WFS`, `/pit/wfs`,
+    `/gwc/service/wmts` and even `/api/v1/stawki`. No WFS, so no `GetFeatureInfo` either. The SIIS API host
+    `siis-api.itl.waw.pl` (193.227.131.35) **times out** on 80 and 443.
+  - dane.gov.pl data set 588 ("System Informacyjny o Infrastrukturze Szerokopasmowej – API", **CC0 1.0**,
+    `api.dane.gov.pl/1.4/datasets/588`) says SIIS was switched off and the set will not be updated (PIT replaces it).
+    It keeps yearly offline archives; the newest is resource 42009, `2021.rar` (`data_date` 31.12.2021, RAR5,
+    781,589,909 bytes, about 7 minutes from the VPS). Inside: `infrastructure_node_view.csv` (373,064 nodes;
+    operator, address TERYT codes, WGS84 `latitude`/`longitude` for 293,309), `infrastructure_nodeinterface_view.csv`
+    (753,912 interfaces; `transmission_medium` radiowe 360,779 / miedziane parowe 198,562 / **światłowodowe 149,056**
+    / współosiowe 45,515), plus radio ranges, end points (9 GB) and operators.
+  - The connector keeps nodes with at least one fibre interface and coordinates: **97,534** (130,428 fibre nodes,
+    32,894 without coordinates). All coordinates lie inside Poland. Distance from 84,973 kept sites (point on the
+    surface): all nodes give 83.5% within 2 km (no signal), fibre nodes 42.4% within 2 km, median 2.3 km, 99%
+    within 7.9 km.
+  - Caveats: the data is from 2021 (newer nodes are missing, so distances are if anything too long); SIIS shows
+    links between nodes, not cable routes; every value is `estimated`. The site's `as_of` is 31.12.2021, not the
+    download date. Operator names are kept only for firms with a legal form (sole traders' names are personal data).
 
 Unverified endpoints are not used by any connector until they are confirmed in this file.
 

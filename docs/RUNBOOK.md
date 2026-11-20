@@ -202,6 +202,19 @@ uv run dclh reprofile
 
 On the VPS run both inside the API container (`docker exec dclh-api-1 dclh …`), outside the nightly search window.
 
+## UKE fibre nodes (`conn_telecom`)
+
+The SIIS archive is static (data as of 31.12.2021), so it is fetched once, not on a schedule. On the VPS, outside
+the nightly search window, inside the API container:
+
+```bash
+docker exec dclh-api-1 dclh fetch uke            # downloads 780 MB to data/raw/uke/tmp, keeps a 1 MB CSV
+docker exec dclh-api-1 dclh rescore-telecom      # fills the node distance on every stored site (back up first)
+```
+
+`rescore-telecom` moves each score by the telecom item only; the other items keep what their search saw. New
+searches and parcel checks read the layer on their own.
+
 ## Site snapshots (regression check around scoring changes)
 
 Two read-only commands; they never write to the database. Snapshot before and after a rescore, then diff:

@@ -147,6 +147,7 @@ def static_stub() -> StaticLayers:
         ols=layer,
         grid="grid",
         heat=None,
+        telecom=None,
         psi=None,
         plan_register=None,
         big_cities=layer,

@@ -193,9 +193,9 @@ export function markForConfidence(confidence: Confidence): MarkKind {
 }
 
 /**
- * Score criteria that no data feeds in this version (docs/SOURCES.md): the UKE telecom nodes cannot be downloaded, the
- * environmental decisions and public sellers are manual-only, the PSE planned load stations are not loaded yet. They
+ * Score criteria that no data feeds in this version (docs/SOURCES.md): the environmental decisions and public sellers
+ * are manual-only. They
  * always count as 0 points, so the Protokół folds them into one line. Same keys as `NO_DATA_YET` in parcel_check.py.
  */
-export const NOT_YET_KEYS: ReadonlySet<string> = new Set(["conn_telecom", "bonus_env", "bonus_seller"]);
+export const NOT_YET_KEYS: ReadonlySet<string> = new Set(["bonus_env", "bonus_seller"]);
 

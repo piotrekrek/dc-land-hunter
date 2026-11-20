@@ -1,0 +1,12 @@
+id,name,users_entity_id,users_entity_id_name,node_id,node_id_name,transmission_medium,technology_optic_fiber,technology_coaxial_copper,technology_twisted_pair_copper,technology_radio
+65736965,Lipowa19KL1,4595,CONNECTA Sp. z o.o.,25131919,Lipowa19,światłowodowe,100 Mb/s Fast Ethernet,,,
+65736966,Lipowa19KL2,4595,CONNECTA Sp. z o.o.,25131919,Lipowa19,światłowodowe,100 Mb/s Fast Ethernet,,,
+67493017,42640_HSPA,1004,T-MOBILE POLSKA S.A.,25793734,42640,radiowe,,,,HSPA
+67493018,42640_LTE,1004,T-MOBILE POLSKA S.A.,25793734,42640,radiowe,,,,LTE
+76491726,NMS_KATYB022/Ethernet/NAC31/100MbE.68535,1006,NETIA S.A.,29166818,KATYB022,światłowodowe,100 Mb/s Fast Ethernet,,,
+76508805,NMS_KATYB003/Ethernet/NAC31/100MbE.68533,1006,NETIA S.A.,29166817,KATYB003,światłowodowe,100 Mb/s Fast Ethernet,,,
+75353867,93275,1001,Orange Polska S.A.,28510256,1290377507,światłowodowe,1 Gigabit Ethernet,,,
+76447693,NIS_KATYR442/CuN.205684146.21366,1006,NETIA S.A.,29163445,KATYR442,kablowe parowe miedziane,,,ADSL2,
+67488476,44968_HSPA,1004,T-MOBILE POLSKA S.A.,25794769,44968,radiowe,,,,HSPA
+67488477,44968_LTE,1004,T-MOBILE POLSKA S.A.,25794769,44968,radiowe,,,,LTE
+76504850,NMS_KATYR442/Ethernet/NM31/100MbE.68575,1006,NETIA S.A.,29163445,KATYR442,światłowodowe,100 Mb/s Fast Ethernet,,,

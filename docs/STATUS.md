@@ -1,5 +1,42 @@
 # Status
 
+## Fibre nodes for `conn_telecom` (UKE SIIS archive, 20.11.2026)
+
+- **Why:** partner request (19.11.2026): say whether fibre is near a site. `conn_telecom` (2.5 of the 5 connectivity
+  points, full at 2 km, zero at 15 km) had no data, so every site scored 0 there.
+- **Source:** UKE's live services are closed (PIT GeoServer 404 on every documented path, SIIS API host times out;
+  details and HTTP answers in `docs/SOURCES.md`, `uke`). The data is the last SIIS archive on dane.gov.pl (CC0, data
+  as of 31.12.2021). `dclh fetch uke` downloads the 780 MB RAR, reads two CSV views with `bsdtar` (added to the
+  Python image) and keeps **97,534 nodes with a fibre interface** and coordinates as a 1 MB CSV. Radio-only and
+  copper-only nodes are dropped: with them 83.5% of sites would sit within 2 km of a node.
+- **Fact:** `dist_telecom_node_km` (`telecom_node_km_fact`, source `uke`, confidence `estimated`, `as_of` 31.12.2021:
+  the data date, not the download date). Missing when the layer is not loaded.
+- **No-data handling off:** `conn_telecom` left `NO_DATA_YET`, `NOT_YET_KEYS` and `_NOT_WEAKEST_KEYS`; a missing node
+  distance is now a real gap (listed under "Nie wiemy", a row in the Protokół). The "to check" line points to the
+  fibre operators and says the distance is an estimate from 2021.
+- **Backfill:** `dclh rescore-telecom` fills the distance on every stored site and moves its score by the telecom
+  item only (`rescore.py`). The stored scores were computed by older rules: on a 1% sample, 1,827 of 2,273 sites
+  differ from today's rules, mostly `grid_node` (446 sites, −4.5 points each). A full rescore would have slipped
+  that in; it is left for the next search of each powiat, or an owner decision. No `site_history` rows.
+- **Dry run (2,000 sampled sites, polygon distance):** score +0 to +2.5 (median +2.5), no verdict changes. Distance
+  quantiles 10/25/50/75/90%: 0.25 / 0.8 / 1.84 / 3.16 / 4.47 km. So about half the sites get the full 2.5 points
+  and almost none reach the 15 km zero. **Threshold proposal (not applied):** full at 1 km, zero at 8 km, which
+  would spread the points over the range the data actually covers.
+- **Not done:** SIIS lines are not in the archive as geometry (only node-to-node links in other views), so no
+  `dist_siis_line_km`. The 2021 data will not be refreshed by UKE; PIT replaces SIIS but needs a login.
+
+Demo:
+
+```bash
+docker exec dclh-api-1 dclh fetch uke --reuse     # parsed 97534 rows
+docker compose -f infra/docker-compose.yml exec -T db psql -U dclh -d dclh -Atc \
+  "select detail->'features'->'dist_telecom_node_km' from sites where site_id = 'site-95bad491aa77'"
+# → {"value": 0.1…, "source_id": "uke", "as_of": "2021-12-31T00:00:00+00:00", "confidence": "estimated"}
+```
+
+In the app: open the Kąty Wrocławskie card (`site-95bad491aa77`). "Węzeł telekomunikacyjny w pobliżu" is a row
+of the Protokół with source UKE and "szacunek", not under "Kryteria bez danych w tej wersji".
+
 ## Plan ogólny of the gmina: a frozen gmina is named on the site (13.11.2026)
 
 - **Why:** unknown zoning holds about 13,400 kept 10 ha+ sites at "do weryfikacji", all with the same text. Since the

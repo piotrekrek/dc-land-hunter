@@ -161,7 +161,7 @@ def test_weakest_label_picks_the_lowest_share_and_skips_bonuses_and_unfed_items(
         _item("grid_node", 5, 10),
         _item("land_area", 9, 10, category="land"),
         _item("bonus_x", 0, 5, category="bonus"),
-        _item("conn_telecom", 0, 5, category="connectivity", confidence="missing"),
+        _item("bonus_env", 0, 5, category="land", confidence="missing"),
     ]
     assert weakest_label(items) == "Etykieta grid_node"
     # A tie in share goes to the item worth more points; a missing item says so.

@@ -21,7 +21,7 @@ export const WHO_TO_ASK: Readonly<Record<string, string>> = {
   land_parcels: "Starostwo powiatowe: sprawdź w ewidencji gruntów, ile działek i ilu właścicieli obejmuje teren.",
   land_expansion: "Gmina: zapytaj o plan dla terenów sąsiednich (MPZP) i możliwość rozbudowy.",
   conn_telecom:
-    "UKE (Hurtowa Platforma Informacyjna) i operatorzy światłowodowi: sprawdź trasy światłowodów przy działce.",
+    "Operatorzy światłowodowi i UKE: odległość do węzła to szacunek z inwentaryzacji SIIS (stan na 2021 r.). Zapytaj najbliższych operatorów o trasę i wolne włókna przy działce.",
   conn_city: "Sprawdź odległość do miasta na mapie; dojazd potwierdź w zarządzie dróg.",
   bonus_heat: "Gmina i lokalny zakład ciepłowniczy: zapytaj o sieć ciepłowniczą w pobliżu (odzysk ciepła, EED art. 26).",
   bonus_psi: "Gmina (wydział rozwoju): sprawdź, czy teren leży w strefie ekonomicznej lub parku przemysłowym.",

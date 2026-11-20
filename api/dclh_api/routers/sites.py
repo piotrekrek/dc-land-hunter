@@ -211,7 +211,7 @@ def _mw_fact(row: Mapping[str, Any]) -> FactOut:
 
 # Score items no data feeds yet (they always score 0), and categories that only add or subtract: neither is a
 # "weak point" of the site. Same keys as `NOT_YET_KEYS` in web/src/lib/sites.ts.
-_NOT_WEAKEST_KEYS = frozenset({"conn_telecom", "bonus_env", "bonus_seller"})
+_NOT_WEAKEST_KEYS = frozenset({"bonus_env", "bonus_seller"})
 _NOT_WEAKEST_CATEGORIES = frozenset({"bonus", "penalty"})
 
 

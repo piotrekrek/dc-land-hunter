@@ -11,9 +11,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN pip install --no-cache-dir uv==0.11.32
 
 # pyosmium (OSM power connector) links against libexpat, which the slim image does not ship. osmium-tool cuts
-# the extract to the power objects before parsing (see sources/osm_power.py).
+# the extract to the power objects before parsing (see sources/osm_power.py). bsdtar (libarchive-tools) reads the
+# RAR5 archive of the UKE SIIS inventory (see sources/uke.py).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libexpat1 osmium-tool \
+    && apt-get install -y --no-install-recommends libexpat1 osmium-tool libarchive-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # supercronic runs the scheduler's crontab. Checksum-pinned; for arm64 build with

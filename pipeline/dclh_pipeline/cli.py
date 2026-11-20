@@ -33,6 +33,7 @@ from dclh_pipeline.sources.prg import PrgConnector
 from dclh_pipeline.sources.psi import PsiConnector
 from dclh_pipeline.sources.ru import RuActRegisterConnector
 from dclh_pipeline.sources.tauron import TauronConnector
+from dclh_pipeline.sources.uke import UkeConnector
 
 app = typer.Typer(help="DC Land Hunter pipeline", no_args_is_help=True)
 console = Console()
@@ -47,6 +48,7 @@ CONNECTORS: dict[str, type[Source]] = {
     "heat": HeatConnector,
     "psi": PsiConnector,
     "ru_acts": RuActRegisterConnector,
+    "uke": UkeConnector,
 }
 
 
@@ -451,6 +453,18 @@ def reprofile_cmd() -> None:
 
     done = reprofile_sites()
     console.print(f"profile przeliczone dla {done} lokalizacji")
+
+
+@app.command("rescore-telecom")
+def rescore_telecom_cmd() -> None:
+    """Fill the UKE fibre node distance on every stored site and move its score by that alone (no new search).
+
+    Needs `dclh fetch uke` first. Other facts and scores keep what their search saw; see `rescore.py`.
+    """
+    from dclh_pipeline.rescore import rescore_telecom
+
+    done = rescore_telecom()
+    console.print(f"odległość do węzła światłowodowego uzupełniona dla {done} lokalizacji")
 
 
 @app.command("compact-egib")

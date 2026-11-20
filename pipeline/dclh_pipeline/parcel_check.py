@@ -94,12 +94,13 @@ FILTER_STEP = {
     "residential_within_m": "bdot10k",
 }
 
-# Criteria no data feeds in this version (docs/SOURCES.md): UKE cannot be downloaded, environmental
-# decisions and public sellers are manual-only. (The PSE planned load stations are loaded since 25.10.2026;
+# Criteria no data feeds in this version (docs/SOURCES.md): environmental decisions and public sellers are
+# manual-only. (The UKE fibre nodes are loaded since 20.11.2026 from the SIIS archive; without that snapshot
+# `conn_telecom` is "Nie wiemy".) (The PSE planned load stations are loaded since 25.10.2026;
 # without that snapshot the criterion is "Nie wiemy" again.)
 # They always count as 0 points, so "Nie wiemy" leaves them out: nobody can resolve them by asking. The web
 # groups them the same way (`NOT_YET_KEYS` in lib/sites.ts).
-NO_DATA_YET = frozenset({"conn_telecom", "bonus_env", "bonus_seller"})
+NO_DATA_YET = frozenset({"bonus_env", "bonus_seller"})
 
 # Step keys and their Polish labels, in the order the loader shows them.
 STEP_LABELS_PL = {
