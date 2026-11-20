@@ -30,6 +30,11 @@
   · 10 łódzkie 2.01 / 50% · 12 małopolskie 1.52 / 76% · 14 mazowieckie 0.95 / 82% · 22 pomorskie 1.74 / 55% ·
   30 wielkopolskie 2.56 / 39%. `site-95bad491aa77` (Kąty Wrocławskie): a fibre node lies on the site, 0,0 km,
   2.5 of 2.5 points, `uke`, `estimated`, as of 31.12.2021.
+- **Thresholds 1 / 8 km (owner decision 20.11.2026, PR #193, deployed ea9008a):** `config/scoring.yaml` now gives
+  full points up to 1 km and zero from 8 km. `dclh rescore-telecom --was-full 2 --was-zero 15` moved each stored score
+  by the telecom difference only (225,248 sites in 5 min 32 s, backup `dclh-nightly-20261120-1123.dump`, vacuumed).
+  Telecom points now: full 30.1% of sites, partial 69.2%, zero 0.7% (was about half on full); average 2.02 of 2.5.
+  Average site score 42.33 → 42.00. Kąty Wrocławskie unchanged (0 km, 2.5 points, score 84.46).
 - **Not done:** SIIS lines are not in the archive as geometry (only node-to-node links in other views), so no
   `dist_siis_line_km`. The 2021 data will not be refreshed by UKE; PIT replaces SIIS but needs a login.
 
