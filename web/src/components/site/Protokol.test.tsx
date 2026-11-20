@@ -75,6 +75,7 @@ describe("Protokol: criteria that no data feeds yet", () => {
     ...site,
     items: [
       ...site.items,
+      { key: "bonus_seller", category: "bonus", label_pl: "Sprzedający publiczny", points: 0, max_points: 2.5, upside_points: 2.5, confidence: "missing" as const, source_id: null, as_of: null, explanation_pl: "Brak danych: sprzedający. Liczone jako 0 pkt.", value: null },
       { key: "conn_telecom", category: "connectivity", label_pl: "Węzeł telekomunikacyjny w pobliżu", points: 0, max_points: 2.5, upside_points: 2.5, confidence: "missing" as const, source_id: null, as_of: null, explanation_pl: "Brak danych: węzły telekomunikacyjne (UKE). Liczone jako 0 pkt.", value: null },
       { key: "bonus_env", category: "bonus", label_pl: "Decyzja środowiskowa", points: 0, max_points: 3, upside_points: 3, confidence: "missing" as const, source_id: null, as_of: null, explanation_pl: "Brak danych: decyzje środowiskowe. Liczone jako 0 pkt.", value: null },
     ],
@@ -86,10 +87,13 @@ describe("Protokol: criteria that no data feeds yet", () => {
     expect(folded).toHaveTextContent("Kryteria bez danych w tej wersji (2)");
     expect(folded).toHaveTextContent("do 5,5 pkt, liczone jako 0");
     expect(folded).not.toHaveAttribute("open"); // collapsed, but the rows are one click away
-    expect(within(folded).getByText("Węzeł telekomunikacyjny w pobliżu")).toBeInTheDocument();
+    expect(within(folded).getByText("Sprzedający publiczny")).toBeInTheDocument();
     const rows = screen.getAllByTestId("breakdown-group").map((g) => g.textContent);
-    expect(rows.join(" ")).not.toContain("Węzeł telekomunikacyjny"); // and no longer a row of the table
+    expect(rows.join(" ")).not.toContain("Sprzedający publiczny"); // and no longer a row of the table
     expect(rows.join(" ")).not.toContain("Decyzja środowiskowa");
+    // The UKE fibre nodes are fed now: a missing node distance is a real gap, so it stays a row.
+    expect(within(folded).queryByText("Węzeł telekomunikacyjny w pobliżu")).not.toBeInTheDocument();
+    expect(rows.join(" ")).toContain("Węzeł telekomunikacyjny w pobliżu");
   });
 
   it("keeps a criterion that has data, even if it is on the list", () => {

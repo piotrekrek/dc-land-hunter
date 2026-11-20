@@ -486,6 +486,21 @@ def heat_network_km_fact(site: BaseGeometry, heat: Layer | None) -> Fact[float] 
     )
 
 
+def telecom_node_km_fact(site: BaseGeometry, telecom: Layer | None) -> Fact[float] | None:
+    """Distance in km to the nearest SIIS node with a fibre interface (UKE archive), 0 for a node on the site.
+
+    Missing when the node layer is not loaded. An estimate of fibre access, not of capacity.
+    """
+    if telecom is None:
+        return None
+    distance = telecom.index.nearest_distance_m(site)
+    return (
+        None
+        if distance is None
+        else _fact(distance / M_PER_KM, telecom.source_id, telecom.as_of, telecom.confidence)
+    )
+
+
 def big_city_km_fact(site: BaseGeometry, cities: Layer | None) -> Fact[float] | None:
     """Distance in km to the nearest big city (its PRG urban gmina), 0 inside it.
 
@@ -611,6 +626,7 @@ class SiteLayers:
     pse_odb: PointLayer | None = None  # PSE connection conditions issued (demand signal)
     pse_planned: PointLayer | None = None  # PSE planned load stations
     heat: Layer | None = None  # towns with a heat concession (URE), placed by their urban gmina
+    telecom: Layer | None = None  # SIIS nodes with a fibre interface (UKE archive, data as of 31.12.2021)
     psi: PsiLayer | None = None  # regional aid rates by gmina (PSI map, regulation 2021 poz. 2422)
     big_cities: Layer | None = None  # `connectivity.cities`, placed by their PRG urban gmina
     res_clusters: Layer | None = None  # wind and solar clusters from OSM (`sources/osm_res.py`)
@@ -643,6 +659,7 @@ def build_site_features(
     features["dist_pse_odb_km"] = nearest_point_km_fact(site.geom, layers.pse_odb)
     features["dist_pse_planned_station_km"] = nearest_point_km_fact(site.geom, layers.pse_planned)
     features["dist_heat_network_km"] = heat_network_km_fact(site.geom, layers.heat)
+    features["dist_telecom_node_km"] = telecom_node_km_fact(site.geom, layers.telecom)
     features["psi_aid_pts"] = psi_points_fact(site.geom, layers.psi, cfg)
     features["dist_big_city_km"] = big_city_km_fact(site.geom, layers.big_cities)
     features["dist_res_cluster_km"] = res_cluster_km_fact(site.geom, layers.res_clusters)

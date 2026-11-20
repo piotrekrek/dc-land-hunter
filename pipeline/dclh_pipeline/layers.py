@@ -78,6 +78,7 @@ from dclh_pipeline.sources.ru import (
     RuPlanOgolnyConnector,
     load_plan_register,
 )
+from dclh_pipeline.sources.uke import telecom_node_layer
 
 # Area steps, in the order they run. Keys are what a reporter and the check page see.
 ROAD_MARGIN_M = 3_000.0  # how far beyond a check's window a road still counts as "the nearest one"
@@ -116,6 +117,7 @@ class StaticLayers:
     psi: PsiLayer | None
     big_cities: Layer
     plan_register: PlanRegister | None = None  # `dclh fetch ru_acts`
+    telecom: Layer | None = None  # `dclh fetch uke`: SIIS fibre nodes
 
 
 @dataclass(frozen=True)
@@ -138,9 +140,9 @@ def load_static_layers(
     """Build the static layers from saved snapshots. Needs `prg`, `osm_power` and `gdos`; the rest
     is optional.
 
-    DSO capacity and the PSE lists are used when a good snapshot exists (`grid_capacity.py`); heat
-    and PSI when `dclh fetch heat|psi` has run, the plan ogólny act list when `dclh fetch ru_acts` has. A
-    source never fetched stays missing in the scores.
+    DSO capacity and the PSE lists are used when a good snapshot exists (`grid_capacity.py`); heat,
+    PSI and the UKE fibre nodes when `dclh fetch heat|psi|uke` has run, the plan ogólny act list when
+    `dclh fetch ru_acts` has. A source never fetched stays missing in the scores.
     """
     prg_snapshot, osm_snapshot = store.latest("prg"), store.latest("osm_power")
     gdos_snapshot = store.latest("gdos")
@@ -195,6 +197,7 @@ def load_static_layers(
         psi=load_psi_layer(store, config.get("psi"), gminas),
         big_cities=big_city_layer(gminas, cfg.connectivity.cities, prg_snapshot.fetched_at),
         plan_register=load_plan_register(store, config.get("ru_acts")),
+        telecom=telecom_node_layer(store, config.get("uke")),
     )
 
 
@@ -436,6 +439,7 @@ def build_site_layers(static: StaticLayers, area: AreaLayers, industrial: Layer 
         pse_odb=static.capacity.pse_odb,
         pse_planned=static.capacity.pse_planned,
         heat=static.heat,
+        telecom=static.telecom,
         psi=static.psi,
         big_cities=static.big_cities,
         res_clusters=static.res_clusters,

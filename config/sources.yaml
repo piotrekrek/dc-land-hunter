@@ -253,12 +253,12 @@ sources:
     name: UKE – infrastruktura telekomunikacyjna
     used_for: Bliskość węzłów światłowodowych (proxy)
     plan: mvp
-    cadence: monthly
+    cadence: static
     core: false
-    licence_expected: "Do ustalenia"
-    notes: "Brak danych: usługi GeoServer PIT wymagają logowania (21.10.2026). Decyzja właściciela; patrz docs/SOURCES.md."
+    licence_expected: "CC0 1.0 (dane.gov.pl, zbiór 588)"
+    notes: "Archiwum SIIS na dane.gov.pl (stan na 31.12.2021): węzły z interfejsem światłowodowym. SIIS wyłączony, zbiór nie jest aktualizowany; PIT GeoServer i API SIIS nie odpowiadają (20.11.2026). Patrz docs/SOURCES.md."
     probes:
-      - {kind: page, url: "https://www.uke.gov.pl/", keywords: ["inwentaryzacja", "infrastruktur", "mapa", "węzł"]}
+      - {kind: http, method: HEAD, url: "https://api.dane.gov.pl/media/resources/20221018/2021.rar"}
 
   - id: psi
     name: Polska Strefa Inwestycji – mapa pomocy regionalnej

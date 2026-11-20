@@ -1,0 +1,8 @@
+id,name,users_entity_id,users_entity_id_name,owner_type,voivodeship_code_value,voivodeship_name,county_code_value,county_name,municipality_code_value,municipality_name,city_code_value,city_name,street_code_value,street_name,house_no,postal_code,latitude,longitude
+28510256,1290377507,1001,Orange Polska S.A.,Węzeł własny,02,dolnośląskie,0223,wrocławski,0223052,Kobierzyce,0875336,Biskupice Podgórne,,,,55-040,51.025900,16.883700
+29163445,KATYR442,1006,NETIA S.A.,Węzeł własny,02,dolnośląskie,0223,wrocławski,0223045,Kąty Wrocławskie,0875081,Nowa Wieś Wrocławska,41359,ul. Ryszarda Chomicza,3,55-080,51.036596,16.898020
+29166817,KATYB003,1006,NETIA S.A.,Węzeł własny,02,dolnośląskie,0223,wrocławski,0223045,Kąty Wrocławskie,0875081,Nowa Wieś Wrocławska,14330,ul. Nowa,21,55-080,51.041450,16.914746
+29166818,KATYB022,1006,NETIA S.A.,Węzeł własny,02,dolnośląskie,0223,wrocławski,0223045,Kąty Wrocławskie,0875081,Nowa Wieś Wrocławska,41359,ul. Ryszarda Chomicza,13A,55-080,51.040999,16.929037
+25793734,42640,1004,T-MOBILE POLSKA S.A.,Węzeł współdzielony z innym podmiotem,02,dolnośląskie,0223,wrocławski,0223052,Kobierzyce,0875336,Biskupice Podgórne,51094,ul. LG,1,,51.025900,16.883700
+25794769,44968,1004,T-MOBILE POLSKA S.A.,Węzeł własny,02,dolnośląskie,0223,wrocławski,0223045,Kąty Wrocławskie,0875081,Nowa Wieś Wrocławska,99998,ul. Niezana,48/7,,51.044000,16.927500
+25131919,Lipowa19,4595,CONNECTA Sp. z o.o.,Węzeł własny,02,dolnośląskie,0223,wrocławski,0223052,Kobierzyce,0875655,Wysoka,11139,ul. Lipowa,19,,,

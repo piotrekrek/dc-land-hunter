@@ -131,11 +131,9 @@ class TestUnknowns:
 
     def test_criteria_that_no_data_feeds_in_this_version_are_not_listed_as_things_to_find_out(self) -> None:
         labels = [u.label_pl for u in unknowns(self.scored(), CFG, failed_steps=[])]
-        assert not {
-            "Węzeł telekomunikacyjny w pobliżu",
-            "Decyzja środowiskowa",
-            "Sprzedający publiczny",
-        } & set(labels)
+        assert not {"Decyzja środowiskowa", "Sprzedający publiczny"} & set(labels)
+        # The UKE fibre nodes are loaded now: with that layer missing, the gap is real and is listed.
+        assert "Węzeł telekomunikacyjny w pobliżu" in labels
         # The PSE stations are loaded now: with that layer missing, the gap is real and is listed.
         assert "Planowana stacja odbiorcza PSE" in labels
         assert "Przeznaczenie terenu" in labels  # zoning can be found out: ask the gmina
