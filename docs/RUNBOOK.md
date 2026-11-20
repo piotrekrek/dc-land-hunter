@@ -215,6 +215,15 @@ docker exec dclh-api-1 dclh rescore-telecom      # fills the node distance on ev
 `rescore-telecom` moves each score by the telecom item only; the other items keep what their search saw. New
 searches and parcel checks read the layer on their own.
 
+After a change of `connectivity.telecom_node_km_full` / `_zero` in `config/scoring.yaml`, deploy, back up, and pass
+the old thresholds so the stored scores move by the difference (20.11.2026: 2 / 15 km became 1 / 8 km):
+
+```bash
+docker exec dclh-api-1 dclh rescore-telecom --was-full 2 --was-zero 15
+```
+
+Running it twice is safe: a site whose telecom item already has the new points is left alone.
+
 ## Site snapshots (regression check around scoring changes)
 
 Two read-only commands; they never write to the database. Snapshot before and after a rescore, then diff:

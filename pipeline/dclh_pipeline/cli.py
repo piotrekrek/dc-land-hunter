@@ -456,14 +456,22 @@ def reprofile_cmd() -> None:
 
 
 @app.command("rescore-telecom")
-def rescore_telecom_cmd() -> None:
+def rescore_telecom_cmd(
+    was_full: Annotated[float | None, typer.Option(help="Old telecom full-points distance (km)")] = None,
+    was_zero: Annotated[float | None, typer.Option(help="Old telecom zero-points distance (km)")] = None,
+) -> None:
     """Fill the UKE fibre node distance on every stored site and move its score by that alone (no new search).
 
     Needs `dclh fetch uke` first. Other facts and scores keep what their search saw; see `rescore.py`.
+    After a change of the telecom thresholds, pass the old ones (`--was-full 2 --was-zero 15`).
     """
     from dclh_pipeline.rescore import rescore_telecom
 
-    done = rescore_telecom()
+    if (was_full is None) != (was_zero is None):
+        console.print("[red]podaj oba progi: --was-full i --was-zero[/red]")
+        raise typer.Exit(1)
+    previous = (was_full, was_zero) if was_full is not None and was_zero is not None else None
+    done = rescore_telecom(previous)
     console.print(f"odległość do węzła światłowodowego uzupełniona dla {done} lokalizacji")
 
 
