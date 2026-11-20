@@ -22,6 +22,14 @@
   quantiles 10/25/50/75/90%: 0.25 / 0.8 / 1.84 / 3.16 / 4.47 km. So about half the sites get the full 2.5 points
   and almost none reach the 15 km zero. **Threshold proposal (not applied):** full at 1 km, zero at 8 km, which
   would spread the points over the range the data actually covers.
+- **Production (20.11.2026, deployed 9f3c4db):** `dclh fetch uke` 97,534 nodes (32,894 fibre nodes without
+  coordinates left out), snapshot 974 KB. `dclh rescore-telecom` 225,248 sites in 5 min 40 s; `sites` grew from
+  2.3 to 3.0 GB (vacuumed; `VACUUM` needs `parallel 0`, the db container's /dev/shm is too small for parallel
+  workers). Kept sites by voivodeship (TERYT prefix): coverage **100% everywhere**; median km / share within 2 km:
+  02 dolnośląskie 1.97 / 51% · 04 kujawsko-pomorskie 1.99 / 50% · 06 lubelskie 2.72 / 32% · 08 lubuskie 2.02 / 50%
+  · 10 łódzkie 2.01 / 50% · 12 małopolskie 1.52 / 76% · 14 mazowieckie 0.95 / 82% · 22 pomorskie 1.74 / 55% ·
+  30 wielkopolskie 2.56 / 39%. `site-95bad491aa77` (Kąty Wrocławskie): a fibre node lies on the site, 0,0 km,
+  2.5 of 2.5 points, `uke`, `estimated`, as of 31.12.2021.
 - **Not done:** SIIS lines are not in the archive as geometry (only node-to-node links in other views), so no
   `dist_siis_line_km`. The 2021 data will not be refreshed by UKE; PIT replaces SIIS but needs a login.
 
