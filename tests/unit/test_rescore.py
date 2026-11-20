@@ -12,7 +12,7 @@ from dclh_pipeline.config import ScoringConfig, load_profiles, load_scoring
 from dclh_pipeline.model.features import GeomIndex, Layer, SiteLayers, build_site_features
 from dclh_pipeline.model.provenance import Confidence
 from dclh_pipeline.model.sites import Site
-from dclh_pipeline.rescore import patch_site
+from dclh_pipeline.rescore import patch_site, with_telecom_thresholds
 from dclh_pipeline.scoring.engine import score_site
 from dclh_pipeline.scoring.run import to_jsonable
 from dclh_pipeline.sources.uke import DATA_AS_OF
@@ -63,3 +63,52 @@ def test_running_it_again_changes_nothing() -> None:
     a, b = json.loads(once["score_json"]), json.loads(twice["score_json"])
     assert a["items"] == b["items"] and a["categories"] == b["categories"]
     assert twice["features_json"] == once["features_json"]
+
+
+NODE_5_KM = Layer("uke", GeomIndex([Point(5400, 100)]), DATA_AS_OF, Confidence.ESTIMATED)
+
+
+def _points(patched: dict[str, Any]) -> float:
+    return next(i["points"] for i in json.loads(patched["score_json"])["items"] if i["key"] == "conn_telecom")
+
+
+def test_a_threshold_change_moves_the_score_by_the_telecom_difference_only() -> None:
+    old_cfg = with_telecom_thresholds(CFG, 2, 15)
+    features, score = _stored()
+    on_old = patch_site(
+        features, score, GEOM, NODE_5_KM, old_cfg, PROFILES
+    )  # backfilled by the old thresholds
+    stored_features, stored_score = json.loads(on_old["features_json"]), json.loads(on_old["score_json"])
+    moved = patch_site(stored_features, stored_score, GEOM, NODE_5_KM, CFG, PROFILES, previous=old_cfg)
+    assert _points(moved) < _points(on_old)  # 5 km: fewer points under 1 / 8 km than under 2 / 15 km
+    assert moved["score"] == pytest.approx(on_old["score"] + _points(moved) - _points(on_old))
+    assert (
+        json.loads(moved["score_json"])["items"][0] == stored_score["items"][0]
+    )  # older grid_node points kept
+    # A second run with the same `previous` finds the new points already stored and changes nothing.
+    again = patch_site(
+        json.loads(moved["features_json"]),
+        json.loads(moved["score_json"]),
+        GEOM,
+        NODE_5_KM,
+        CFG,
+        PROFILES,
+        previous=old_cfg,
+    )
+    assert again["score"] == pytest.approx(moved["score"])
+    a, b = json.loads(again["score_json"]), json.loads(moved["score_json"])
+    assert a["items"] == b["items"]
+    for x, y in zip(a["categories"], b["categories"], strict=True):
+        assert x["points"] == pytest.approx(y["points"])
+        assert x["upside_points"] == pytest.approx(y["upside_points"])
+
+
+def test_without_previous_a_threshold_change_is_not_applied() -> None:
+    """Without `previous` the stored telecom points stay in the score; the guard is the explicit flag."""
+    old_cfg = with_telecom_thresholds(CFG, 2, 15)
+    features, score = _stored()
+    on_old = patch_site(features, score, GEOM, NODE_5_KM, old_cfg, PROFILES)
+    plain = patch_site(
+        json.loads(on_old["features_json"]), json.loads(on_old["score_json"]), GEOM, NODE_5_KM, CFG, PROFILES
+    )
+    assert plain["score"] == pytest.approx(on_old["score"])

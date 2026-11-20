@@ -10,6 +10,10 @@ without the new distance, and the difference is added to the stored score, upsid
 `detail.score` only the `conn_telecom` item and the connectivity category change. Running it again changes
 nothing unless the node layer changed. The next search of the powiat rescores everything as usual.
 
+When the telecom thresholds change, `previous` names the old ones: the site is then scored by the old and the
+new thresholds (both with the distance), and the difference is added. A site whose stored telecom item already
+has the new points is left as it is, so a second run with the same `previous` changes nothing.
+
 Nothing goes to `site_history`: the site did not change, a data source was added, and 225k score changes would
 bury the weekly "what changed" feed.
 """
@@ -58,11 +62,20 @@ def patch_site(
     layer: Layer,
     cfg: ScoringConfig,
     profiles: ProfilesConfig,
+    previous: ScoringConfig | None = None,
 ) -> dict[str, Any]:
-    """The new stored values of one site: features with the node distance, the score moved by its effect."""
+    """The new stored values of one site: features with the node distance, the score moved by its effect.
+
+    `previous`: the rules the stored telecom item was scored by, when only its thresholds changed since.
+    """
     base = features_from_detail(stored_features)
     features = replace(base, dist_telecom_node_km=telecom_node_km_fact(geom, layer))
-    before, after = score_site(base, cfg), score_site(features, cfg)
+    after = score_site(features, cfg)
+    new_item = next(to_jsonable(i) for i in after.items if i.key == KEY)
+    old_item = next((i for i in stored_score["items"] if i["key"] == KEY), None)
+    if previous is not None and old_item is not None and _same_points(old_item, new_item):
+        previous = None  # already on the new thresholds: compare like with like, so the delta is zero
+    before = score_site(base, previous) if previous is not None else score_site(base, cfg)
     score = dict(stored_score)
     for name in ("score", "upside_score"):
         score[name] = _clip(stored_score[name] + getattr(after, name) - getattr(before, name), 0.0, 100.0)
@@ -70,7 +83,6 @@ def patch_site(
     score["completeness"] = _clip(
         stored_score["completeness"] + after.completeness - before.completeness, 0.0, 1.0
     )
-    new_item = next(to_jsonable(i) for i in after.items if i.key == KEY)
     items = [i for i in stored_score["items"] if i["key"] != KEY]
     at = next((n for n, i in enumerate(stored_score["items"]) if i["key"] == KEY), len(items))
     score["items"] = [*items[:at], new_item, *items[at:]]
@@ -99,13 +111,26 @@ def _moved(category: dict[str, Any], before: SiteScore, after: SiteScore) -> dic
     }
 
 
+def _same_points(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    return all(abs(a[k] - b[k]) < 1e-9 for k in ("points", "upside_points"))
+
+
+def with_telecom_thresholds(cfg: ScoringConfig, full_km: float, zero_km: float) -> ScoringConfig:
+    """`cfg` with other telecom thresholds: the rules a site was scored by before they changed."""
+    conn = cfg.connectivity.model_copy(
+        update={"telecom_node_km_full": full_km, "telecom_node_km_zero": zero_km}
+    )
+    return cfg.model_copy(update={"connectivity": conn})
+
+
 def _clip(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
 
 
-def rescore_telecom() -> int:
+def rescore_telecom(previous: tuple[float, float] | None = None) -> int:
     """Backfill the fibre node distance on every stored site. Returns the number of sites.
 
+    `previous`: the old (full, zero) telecom thresholds in km, after a threshold change.
     Raises when no good `uke` snapshot exists, so a missing layer never wipes a distance a search stored.
     """
     layer = telecom_node_layer(SnapshotStore(get_settings().raw_dir), load_sources().get("uke"))
@@ -113,6 +138,9 @@ def rescore_telecom() -> int:
         raise ValueError("no good uke snapshot; run `dclh fetch uke` first")
     cfg, profiles = load_scoring(), load_profiles()
     small_cfg = small_site_config(cfg)
+    old = old_small = None
+    if previous is not None:
+        old, old_small = (with_telecom_thresholds(c, *previous) for c in (cfg, small_cfg))
     done, last = 0, ""
     while True:
         with session_scope() as session:
@@ -132,6 +160,7 @@ def rescore_telecom() -> int:
                     layer,
                     small_cfg if kind == "small" else cfg,
                     profiles,
+                    old_small if kind == "small" else old,
                 )
                 for site_id, kind, features, score, geom in rows
             ]

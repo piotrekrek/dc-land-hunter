@@ -53,8 +53,8 @@ zoning: {mpzp_production: 100, plan_ogolny_SG: 80, zone_allows_dc_outside_ouz: 6
 land: {compactness_min: 0.35, parcels_full: 3, parcels_zero: 30, expansion_ha_bonus_per_10ha: 3}
 
 connectivity:
-  telecom_node_km_full: 2
-  telecom_node_km_zero: 15
+  telecom_node_km_full: 1                  # SIIS fibre nodes: median site 1-2.7 km, none past 15 km;
+  telecom_node_km_zero: 8                  # owner decision 20.11.2026 (was 2 / 15)
   city_km_full: 30
   city_km_zero: 120
   cities: [Poznań, Wrocław, Szczecin, Gdańsk, Katowice, Łódź, Kraków, Warszawa, Bydgoszcz, Opole, Zielona Góra]
